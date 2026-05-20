@@ -4,21 +4,14 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { BrandMark } from "./brand-mark";
-
-const PRIMARY_LINKS = [
-  { href: "/aircraft", label: "Aircraft" },
-  { href: "/memberships", label: "Memberships" },
-  { href: "/empty-legs", label: "Empty legs" },
-  { href: "/how-it-works", label: "How it works" },
-  { href: "/about", label: "About" },
-] as const;
+import { PRIMARY_NAV, SITE } from "@/lib/constants";
 
 export function SiteNav() {
   const pathname = usePathname();
   const [scrolled, setScrolled] = useState(false);
 
   useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 12);
+    const onScroll = () => setScrolled(window.scrollY > 60);
     onScroll();
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
@@ -37,8 +30,10 @@ export function SiteNav() {
         <BrandMark />
 
         <nav className="hidden lg:flex gap-8" aria-label="Primary">
-          {PRIMARY_LINKS.map(({ href, label }) => {
-            const active = pathname === href || pathname.startsWith(href + "/");
+          {PRIMARY_NAV.map(({ href, label }) => {
+            const active =
+              pathname === href ||
+              (href !== "/" && pathname.startsWith(href + "/"));
             return (
               <Link
                 key={href}
@@ -56,13 +51,13 @@ export function SiteNav() {
 
         <div className="flex items-center gap-4">
           <a
-            href="tel:+18889999999"
+            href={`tel:${SITE.dispatchPhoneE164}`}
             className="hidden lg:inline-block font-mono text-[12px] text-bone-2 transition-colors hover:text-bone"
           >
-            +1 888 999 9999
+            {SITE.dispatchPhone}
           </a>
           <Link href="/quote" className="btn btn-primary btn-sm">
-            Request a quote <span className="arrow">→</span>
+            Request quote <span className="arrow">→</span>
           </Link>
         </div>
       </div>

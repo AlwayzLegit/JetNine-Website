@@ -207,6 +207,13 @@
   .field-jn:focus-within label { color: var(--clearance); }
   .field-jn.error { border-color: var(--error); }
 
+  /* Animations */
+  @keyframes scrollPulse {
+    0%   { transform: scaleY(0.4); transform-origin: top; opacity: 0.4; }
+    50%  { transform: scaleY(1); opacity: 1; }
+    100% { transform: scaleY(0.4); transform-origin: bottom; opacity: 0.4; }
+  }
+
   /* Reveal-on-scroll */
   .reveal {
     opacity: 0;

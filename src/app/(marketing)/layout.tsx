@@ -5,7 +5,9 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
   return (
     <>
       <SiteNav />
-      <main className="min-h-screen pt-20">{children}</main>
+      {/* No top padding here — pages with full-bleed heroes overlay the nav.
+          Other pages should add their own pt-20 spacing. */}
+      <main className="min-h-screen">{children}</main>
       <SiteFooter />
     </>
   );

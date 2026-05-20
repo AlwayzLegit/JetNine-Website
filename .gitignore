@@ -42,3 +42,6 @@ next-env.d.ts
 
 # tool result binaries
 _design_package.tar
+
+# Claude Code local state
+.claude/settings.local.json

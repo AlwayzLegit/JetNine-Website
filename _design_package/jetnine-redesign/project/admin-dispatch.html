@@ -1,0 +1,919 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>JetNine — Dispatch · Inbox</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,500;9..144,600&family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="shared.css" />
+<style>
+  body { background: var(--ink); overflow: hidden; height: 100vh; }
+
+  /* === Top admin bar === */
+  .adm-top {
+    height: 56px; border-bottom: 1px solid var(--ink-3);
+    display: grid; grid-template-columns: 240px 1fr auto; align-items: center;
+    background: var(--ink); position: relative; z-index: 50;
+  }
+  .adm-top .brand-cell {
+    display: flex; align-items: center; gap: 12px;
+    height: 100%; padding: 0 20px;
+    border-right: 1px solid var(--ink-3);
+  }
+  .adm-top .brand { font-family: var(--serif); font-weight: 400; font-size: 20px; letter-spacing: -0.005em; text-decoration: none; color: var(--bone); }
+  .adm-top .brand .nine { font-family: var(--mono); font-size: 9px; color: var(--clearance); letter-spacing: 0.1em; vertical-align: super; margin-left: 2px; }
+  .adm-top .env { font-family: var(--mono); font-size: 9px; padding: 3px 6px; background: var(--ink-3); color: var(--clearance); border-radius: 2px; letter-spacing: 0.14em; }
+  .adm-top .crumbs { padding: 0 24px; display: flex; gap: 14px; font-family: var(--mono); font-size: 10px; letter-spacing: 0.12em; color: var(--steel); text-transform: uppercase; }
+  .adm-top .crumbs .here { color: var(--bone); }
+  .adm-top .crumbs .sep { color: var(--ink-4); }
+  .adm-top .right { display: flex; align-items: center; gap: 16px; padding: 0 20px; height: 100%; border-left: 1px solid var(--ink-3); }
+  .adm-top .clk { font-family: var(--mono); font-size: 11px; color: var(--bone); letter-spacing: 0.06em; }
+  .adm-top .clk .z { color: var(--steel); margin-right: 4px; }
+  .adm-top .clk + .clk { padding-left: 14px; border-left: 1px solid var(--ink-3); }
+  .adm-top .me {
+    display: flex; align-items: center; gap: 10px; padding: 4px 10px 4px 4px;
+    background: var(--ink-3); border-radius: 999px; font-family: var(--mono); font-size: 10px;
+    letter-spacing: 0.04em; color: var(--bone-2);
+  }
+  .adm-top .me .av { width: 24px; height: 24px; border-radius: 50%; background: var(--ink-4); display: flex; align-items: center; justify-content: center; color: var(--clearance); font-size: 10px; }
+  .adm-top .me .stat { width: 6px; height: 6px; border-radius: 50%; background: var(--success); }
+
+  /* === Layout: 3 panes === */
+  .adm-shell {
+    display: grid; grid-template-columns: 240px 1fr 360px;
+    height: calc(100vh - 56px);
+  }
+  @media (max-width: 1280px) { .adm-shell { grid-template-columns: 200px 1fr 320px; } }
+  @media (max-width: 1024px) { .adm-shell { grid-template-columns: 200px 1fr; } .ctx-rail { display: none; } }
+
+  /* === Left rail === */
+  .adm-rail {
+    border-right: 1px solid var(--ink-3); background: var(--ink);
+    overflow-y: auto; padding: 20px 0;
+    display: flex; flex-direction: column;
+  }
+  .rail-grp { padding: 0 16px 20px; }
+  .rail-grp .h { font-family: var(--mono); font-size: 9px; letter-spacing: 0.16em; color: var(--steel); text-transform: uppercase; margin: 4px 8px 8px; }
+  .rail-grp a {
+    display: grid; grid-template-columns: 14px 1fr auto; gap: 10px; align-items: center;
+    padding: 8px 10px; border-radius: 2px;
+    color: var(--bone-2); text-decoration: none; font-size: 13px; letter-spacing: -0.005em;
+    transition: background 160ms, color 160ms;
+  }
+  .rail-grp a:hover { background: var(--ink-2); color: var(--bone); }
+  .rail-grp a.active { background: var(--ink-2); color: var(--clearance); }
+  .rail-grp a.active::before { content: ""; position: absolute; }
+  .rail-grp a .gly { font-family: var(--mono); font-size: 10px; color: var(--steel); }
+  .rail-grp a.active .gly { color: var(--clearance); }
+  .rail-grp a .badge {
+    font-family: var(--mono); font-size: 9px; padding: 1px 6px; border-radius: 2px;
+    background: var(--ink-3); color: var(--bone-2); letter-spacing: 0.04em;
+  }
+  .rail-grp a .badge.hot { background: var(--clearance); color: var(--ink); }
+  .rail-grp a .badge.warn { background: rgba(184,137,60,0.18); color: var(--warn); }
+  .rail-grp a .badge.err { background: rgba(164,69,58,0.18); color: var(--error); }
+
+  .rail-foot {
+    margin-top: auto; padding: 16px;
+    border-top: 1px solid var(--ink-3);
+    display: flex; flex-direction: column; gap: 4px;
+  }
+  .rail-foot .who { font-family: var(--serif); font-size: 16px; color: var(--bone); }
+  .rail-foot .wm { font-family: var(--mono); font-size: 9px; letter-spacing: 0.08em; color: var(--steel); }
+  .rail-foot .row { display: flex; gap: 6px; margin-top: 8px; }
+  .rail-foot .row a {
+    flex: 1; text-align: center; padding: 5px;
+    background: var(--ink-2); border: 1px solid var(--ink-3); border-radius: 2px;
+    font-family: var(--mono); font-size: 9px; letter-spacing: 0.1em;
+    color: var(--bone-2); text-decoration: none; text-transform: uppercase;
+    transition: border-color 180ms, color 180ms;
+  }
+  .rail-foot .row a:hover { border-color: var(--clearance); color: var(--clearance); }
+
+  /* === Center pane === */
+  .adm-main { overflow-y: auto; padding: 0 32px 48px; }
+  @media (max-width: 700px) { .adm-main { padding: 0 16px 32px; } }
+
+  /* Page header */
+  .page-h {
+    padding: 28px 0 20px;
+    display: flex; align-items: end; justify-content: space-between;
+    gap: 24px; flex-wrap: wrap;
+    border-bottom: 1px solid var(--ink-3); margin-bottom: 24px;
+  }
+  .page-h .ttl { font-family: var(--serif); font-weight: 300; font-size: 40px; letter-spacing: -0.015em; line-height: 1; }
+  .page-h .strap { font-family: var(--mono); font-size: 11px; color: var(--bone-2); letter-spacing: 0.04em; margin-top: 6px; }
+  .page-h .actions { display: flex; gap: 8px; flex-wrap: wrap; }
+  .btn-mini {
+    font-family: var(--mono); font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase;
+    padding: 8px 12px; border-radius: 2px; text-decoration: none;
+    background: var(--ink-2); border: 1px solid var(--ink-3); color: var(--bone);
+    transition: border-color 180ms, color 180ms; cursor: pointer;
+  }
+  .btn-mini:hover { border-color: var(--clearance); color: var(--clearance); }
+  .btn-mini.primary { background: var(--clearance); color: var(--ink); border-color: var(--clearance); }
+  .btn-mini.primary:hover { background: #fff; }
+
+  /* === KPI strip === */
+  .kpi-strip {
+    display: grid; grid-template-columns: repeat(5, 1fr); gap: 0;
+    background: var(--ink-2); border: 1px solid var(--ink-3); border-radius: 4px;
+    margin-bottom: 24px;
+  }
+  @media (max-width: 1100px) { .kpi-strip { grid-template-columns: repeat(3, 1fr); } }
+  @media (max-width: 600px) { .kpi-strip { grid-template-columns: repeat(2, 1fr); } }
+  .kpi { padding: 18px 20px; border-right: 1px solid var(--ink-3); }
+  .kpi:last-child { border-right: none; }
+  .kpi .l { font-family: var(--mono); font-size: 9px; letter-spacing: 0.14em; color: var(--steel); text-transform: uppercase; }
+  .kpi .v { font-family: var(--serif); font-weight: 300; font-size: 32px; line-height: 1; color: var(--bone); letter-spacing: -0.005em; margin-top: 8px; }
+  .kpi .v .u { font-family: var(--mono); font-size: 11px; color: var(--steel); margin-left: 4px; letter-spacing: 0.04em; }
+  .kpi .d { font-family: var(--mono); font-size: 10px; color: var(--bone-2); letter-spacing: 0.04em; margin-top: 6px; }
+  .kpi .d.up { color: var(--success); }
+  .kpi .d.dn { color: var(--error); }
+  .kpi .d.warn { color: var(--warn); }
+
+  /* === Section heading === */
+  .sec {
+    display: grid; grid-template-columns: auto 1fr auto; gap: 14px; align-items: baseline;
+    padding-bottom: 10px; margin-bottom: 12px; border-bottom: 1px solid var(--ink-3);
+  }
+  .sec .num { font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em; color: var(--clearance); }
+  .sec h2 { font-family: var(--serif); font-weight: 400; font-size: 20px; letter-spacing: -0.005em; }
+  .sec .meta { font-family: var(--mono); font-size: 10px; color: var(--steel); letter-spacing: 0.06em; text-transform: uppercase; justify-self: end; }
+
+  /* === Open quotes table === */
+  .qlist { background: var(--ink-2); border: 1px solid var(--ink-3); border-radius: 4px; overflow: hidden; margin-bottom: 32px; }
+  .qhead, .qrow {
+    display: grid;
+    grid-template-columns: 90px 110px 1.4fr 1.2fr 100px 130px 110px;
+    gap: 14px; align-items: center; padding: 12px 18px;
+    border-bottom: 1px solid var(--ink-3);
+  }
+  .qhead { background: var(--ink); font-family: var(--mono); font-size: 9px; letter-spacing: 0.14em; color: var(--steel); text-transform: uppercase; padding: 11px 18px; }
+  .qrow { color: var(--bone); cursor: pointer; transition: background 160ms; }
+  .qrow:hover { background: rgba(232,226,210,0.03); }
+  .qrow:last-child { border-bottom: none; }
+  @media (max-width: 1100px) {
+    .qhead { display: none; }
+    .qrow { grid-template-columns: 1fr 1fr; padding: 12px 14px; gap: 6px; }
+    .qrow .lane, .qrow .pri, .qrow .acted { display: none; }
+  }
+  .qrow .id { font-family: var(--mono); font-size: 11px; color: var(--clearance); letter-spacing: 0.04em; }
+  .qrow .mem { display: flex; flex-direction: column; gap: 1px; }
+  .qrow .mem .n { font-family: var(--serif); font-size: 14px; color: var(--bone); line-height: 1.3; }
+  .qrow .mem .t { font-family: var(--mono); font-size: 9px; color: var(--steel); letter-spacing: 0.08em; }
+  .qrow .lane { display: flex; flex-direction: column; gap: 1px; }
+  .qrow .lane .r { font-family: var(--mono); font-size: 11px; color: var(--bone); letter-spacing: 0.06em; }
+  .qrow .lane .c { font-family: var(--sans); font-size: 11px; color: var(--bone-2); }
+  .qrow .lane .arr { color: var(--steel); margin: 0 4px; }
+  .qrow .ac { font-family: var(--sans); font-size: 12px; color: var(--bone-2); }
+  .qrow .ac .cat { color: var(--clearance); display: block; font-family: var(--mono); font-size: 9px; letter-spacing: 0.1em; text-transform: uppercase; }
+  .qrow .pri { font-family: var(--mono); font-size: 11px; color: var(--bone); letter-spacing: 0.04em; text-align: right; }
+  .qrow .acted { font-family: var(--mono); font-size: 10px; color: var(--bone-2); letter-spacing: 0.04em; }
+
+  /* SLA chip */
+  .sla {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-family: var(--mono); font-size: 10px; letter-spacing: 0.06em;
+    padding: 4px 8px; border-radius: 2px; white-space: nowrap;
+  }
+  .sla .dot { width: 5px; height: 5px; border-radius: 50%; }
+  .sla.ok { background: rgba(91,140,90,0.14); color: var(--success); }
+  .sla.ok .dot { background: var(--success); }
+  .sla.warn { background: rgba(184,137,60,0.16); color: var(--warn); }
+  .sla.warn .dot { background: var(--warn); animation: blink 1.6s infinite; }
+  .sla.crit { background: rgba(164,69,58,0.18); color: var(--error); }
+  .sla.crit .dot { background: var(--error); animation: blink 0.9s infinite; }
+  .sla.lock { background: var(--ink-3); color: var(--steel); }
+  .sla.lock .dot { background: var(--steel); }
+  @keyframes blink { 0%, 60% { opacity: 1; } 70%, 100% { opacity: 0.35; } }
+
+  /* === In-flight === */
+  .iflist { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-bottom: 32px; }
+  @media (max-width: 1100px) { .iflist { grid-template-columns: 1fr; } }
+  .if {
+    background: var(--ink-2); border: 1px solid var(--ink-3); border-radius: 4px;
+    padding: 16px 18px;
+    display: grid; grid-template-columns: 1fr auto; gap: 10px 18px;
+    cursor: pointer; transition: border-color 160ms, background 160ms;
+  }
+  .if:hover { border-color: var(--bone-2); }
+  .if.alert { border-color: rgba(184,137,60,0.4); background: rgba(184,137,60,0.04); }
+  .if .id { font-family: var(--mono); font-size: 11px; color: var(--clearance); letter-spacing: 0.04em; grid-column: 1 / 2; }
+  .if .stat-chip {
+    font-family: var(--mono); font-size: 9px; letter-spacing: 0.12em; text-transform: uppercase;
+    padding: 3px 8px; border-radius: 2px; align-self: start;
+    display: inline-flex; align-items: center; gap: 6px;
+  }
+  .if .stat-chip .pulse { width: 6px; height: 6px; border-radius: 50%; }
+  .if .stat-chip.flying { background: rgba(91,140,90,0.14); color: var(--success); }
+  .if .stat-chip.flying .pulse { background: var(--success); animation: pulse 1.6s infinite; }
+  .if .stat-chip.delayed { background: rgba(184,137,60,0.16); color: var(--warn); }
+  .if .stat-chip.delayed .pulse { background: var(--warn); }
+  .if .stat-chip.boarding { background: rgba(232,226,210,0.1); color: var(--clearance); }
+  .if .stat-chip.boarding .pulse { background: var(--clearance); }
+  @keyframes pulse {
+    0% { box-shadow: 0 0 0 0 currentColor; opacity: 1; }
+    70% { box-shadow: 0 0 0 6px transparent; opacity: 0.7; }
+    100% { box-shadow: 0 0 0 0 transparent; opacity: 1; }
+  }
+
+  .if .pax { font-family: var(--serif); font-size: 19px; color: var(--bone); line-height: 1.2; grid-column: 1 / 3; letter-spacing: -0.005em; }
+  .if .lane-wide { grid-column: 1 / 3; display: grid; grid-template-columns: 1fr 32px 1fr; align-items: center; gap: 12px; padding: 8px 0; }
+  .if .end { display: flex; flex-direction: column; gap: 2px; }
+  .if .end.r { text-align: right; }
+  .if .end .icao { font-family: var(--mono); font-size: 14px; color: var(--bone); letter-spacing: 0.06em; }
+  .if .end .city { font-family: var(--sans); font-size: 11px; color: var(--bone-2); }
+  .if .end .t { font-family: var(--mono); font-size: 10px; color: var(--steel); letter-spacing: 0.04em; margin-top: 2px; }
+  .if .arc { position: relative; height: 28px; }
+  .if .arc svg { width: 100%; height: 100%; overflow: visible; }
+  .if .meta-row { grid-column: 1 / 3; display: flex; gap: 16px; padding-top: 10px; border-top: 1px solid var(--ink-3); flex-wrap: wrap; }
+  .if .meta-row span { font-family: var(--mono); font-size: 10px; color: var(--bone-2); letter-spacing: 0.04em; }
+  .if .meta-row span .l { color: var(--steel); }
+  .if .alert-line {
+    grid-column: 1 / 3; padding: 8px 12px; background: rgba(184,137,60,0.08);
+    border-left: 2px solid var(--warn); border-radius: 0 2px 2px 0;
+    font-family: var(--mono); font-size: 10px; color: var(--warn); letter-spacing: 0.02em;
+  }
+
+  /* === IRR ops & messages two-up === */
+  .twoup { display: grid; grid-template-columns: 1.1fr 1fr; gap: 24px; margin-bottom: 32px; }
+  @media (max-width: 1100px) { .twoup { grid-template-columns: 1fr; } }
+
+  /* IRR */
+  .irr-list { background: var(--ink-2); border: 1px solid var(--ink-3); border-radius: 4px; }
+  .irr {
+    display: grid; grid-template-columns: 8px 1fr auto; gap: 14px; align-items: stretch;
+    padding: 14px 18px 14px 12px; border-bottom: 1px solid var(--ink-3); cursor: pointer;
+    transition: background 160ms;
+  }
+  .irr:hover { background: rgba(232,226,210,0.03); }
+  .irr:last-child { border-bottom: none; }
+  .irr .stripe { background: var(--warn); border-radius: 1px; }
+  .irr.crit .stripe { background: var(--error); }
+  .irr.info .stripe { background: var(--clearance); }
+  .irr .body { display: flex; flex-direction: column; gap: 4px; }
+  .irr .body .h { display: flex; gap: 10px; align-items: baseline; }
+  .irr .body .id { font-family: var(--mono); font-size: 10px; color: var(--clearance); letter-spacing: 0.04em; }
+  .irr .body .kind {
+    font-family: var(--mono); font-size: 9px; letter-spacing: 0.12em;
+    padding: 2px 6px; border-radius: 2px; text-transform: uppercase;
+    background: rgba(184,137,60,0.18); color: var(--warn);
+  }
+  .irr.crit .body .kind { background: rgba(164,69,58,0.18); color: var(--error); }
+  .irr.info .body .kind { background: rgba(232,226,210,0.1); color: var(--clearance); }
+  .irr .body .t { font-family: var(--serif); font-size: 15px; color: var(--bone); line-height: 1.35; }
+  .irr .body .d { font-family: var(--mono); font-size: 10px; color: var(--bone-2); letter-spacing: 0.04em; }
+  .irr .age { font-family: var(--mono); font-size: 10px; color: var(--steel); letter-spacing: 0.06em; align-self: center; white-space: nowrap; }
+
+  /* Messages */
+  .msg-list { background: var(--ink-2); border: 1px solid var(--ink-3); border-radius: 4px; }
+  .msg {
+    display: grid; grid-template-columns: 28px 1fr auto; gap: 12px; padding: 12px 16px;
+    border-bottom: 1px solid var(--ink-3); align-items: start; cursor: pointer; transition: background 160ms;
+  }
+  .msg:hover { background: rgba(232,226,210,0.03); }
+  .msg:last-child { border-bottom: none; }
+  .msg.unread { background: rgba(232,226,210,0.025); }
+  .msg.unread::before {} /* spacing */
+  .msg .ch {
+    width: 28px; height: 28px; border-radius: 4px;
+    background: var(--ink-3); display: flex; align-items: center; justify-content: center;
+    font-family: var(--mono); font-size: 11px; color: var(--clearance);
+  }
+  .msg .ch.sms { background: rgba(91,140,90,0.14); color: var(--success); }
+  .msg .ch.call { background: rgba(232,226,210,0.1); color: var(--clearance); }
+  .msg .ch.eml { background: var(--ink-3); color: var(--bone-2); }
+  .msg .body { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+  .msg .body .top { display: flex; gap: 10px; align-items: baseline; }
+  .msg .body .who { font-family: var(--serif); font-size: 14px; color: var(--bone); }
+  .msg .body .tag { font-family: var(--mono); font-size: 9px; color: var(--steel); letter-spacing: 0.08em; text-transform: uppercase; }
+  .msg .body .prev { font-family: var(--sans); font-size: 12px; color: var(--bone-2); line-height: 1.4; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .msg.unread .body .prev { color: var(--bone); }
+  .msg .age { font-family: var(--mono); font-size: 10px; color: var(--steel); letter-spacing: 0.06em; white-space: nowrap; }
+
+  /* === Right context rail === */
+  .ctx-rail {
+    border-left: 1px solid var(--ink-3); background: var(--ink); overflow-y: auto;
+    display: flex; flex-direction: column;
+  }
+
+  .ctx-blk { padding: 18px 20px; border-bottom: 1px solid var(--ink-3); }
+  .ctx-blk .h {
+    font-family: var(--mono); font-size: 9px; letter-spacing: 0.16em;
+    color: var(--steel); text-transform: uppercase; margin-bottom: 12px;
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .ctx-blk .h .right { color: var(--clearance); cursor: pointer; }
+
+  /* Active call card */
+  .call-card {
+    background: linear-gradient(180deg, rgba(232,226,210,0.06), var(--ink-2));
+    border: 1px solid var(--clearance); border-radius: 4px; padding: 16px;
+    display: flex; flex-direction: column; gap: 8px;
+  }
+  .call-card .top { display: flex; align-items: center; gap: 10px; }
+  .call-card .ring {
+    width: 32px; height: 32px; border-radius: 50%; background: var(--ink-3);
+    display: flex; align-items: center; justify-content: center; color: var(--clearance);
+    font-family: var(--mono); font-size: 11px; position: relative;
+  }
+  .call-card .ring::after {
+    content: ""; position: absolute; inset: -4px; border-radius: 50%;
+    border: 1px solid var(--clearance); animation: ringPulse 1.4s infinite;
+  }
+  @keyframes ringPulse { 0% { transform: scale(0.85); opacity: 1; } 100% { transform: scale(1.4); opacity: 0; } }
+  .call-card .who { font-family: var(--serif); font-size: 17px; color: var(--bone); line-height: 1.2; }
+  .call-card .tier { font-family: var(--mono); font-size: 9px; color: var(--clearance); letter-spacing: 0.12em; text-transform: uppercase; }
+  .call-card .meta { font-family: var(--mono); font-size: 10px; color: var(--bone-2); letter-spacing: 0.04em; line-height: 1.5; }
+  .call-card .acts { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 4px; }
+  .call-card .acts a {
+    text-align: center; padding: 7px; border-radius: 2px;
+    font-family: var(--mono); font-size: 10px; letter-spacing: 0.1em;
+    text-decoration: none; text-transform: uppercase;
+    transition: all 160ms;
+  }
+  .call-card .acts a.ans { background: var(--clearance); color: var(--ink); }
+  .call-card .acts a.ans:hover { background: #fff; }
+  .call-card .acts a.snd { background: var(--ink); color: var(--bone-2); border: 1px solid var(--ink-3); }
+  .call-card .acts a.snd:hover { border-color: var(--clearance); color: var(--clearance); }
+
+  /* Today timeline */
+  .tl { display: flex; flex-direction: column; gap: 0; }
+  .tl-row { display: grid; grid-template-columns: 56px 1fr; gap: 10px; align-items: start; padding: 8px 0; border-left: 1px solid var(--ink-3); padding-left: 14px; margin-left: 8px; position: relative; }
+  .tl-row::before { content: ""; position: absolute; left: -3px; top: 14px; width: 5px; height: 5px; border-radius: 50%; background: var(--ink-3); }
+  .tl-row.now::before { background: var(--clearance); box-shadow: 0 0 0 3px rgba(232,226,210,0.18); }
+  .tl-row.done::before { background: var(--success); }
+  .tl-row .t { font-family: var(--mono); font-size: 11px; color: var(--bone); letter-spacing: 0.04em; }
+  .tl-row.done .t { color: var(--steel); text-decoration: line-through; }
+  .tl-row .ev { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+  .tl-row .ev .id { font-family: var(--mono); font-size: 9px; color: var(--clearance); letter-spacing: 0.06em; }
+  .tl-row .ev .d { font-family: var(--sans); font-size: 12px; color: var(--bone); line-height: 1.4; }
+  .tl-row.done .ev .d { color: var(--bone-2); }
+  .tl-row .ev .x { font-family: var(--mono); font-size: 10px; color: var(--steel); letter-spacing: 0.04em; }
+
+  /* Weather row */
+  .wx { display: flex; flex-direction: column; gap: 8px; }
+  .wx-row {
+    display: grid; grid-template-columns: 50px 1fr auto; gap: 10px; align-items: center;
+    padding: 8px 10px; background: var(--ink-2); border: 1px solid var(--ink-3); border-radius: 2px;
+  }
+  .wx-row .icao { font-family: var(--mono); font-size: 11px; color: var(--bone); letter-spacing: 0.06em; }
+  .wx-row .desc { font-family: var(--mono); font-size: 10px; color: var(--bone-2); letter-spacing: 0.04em; }
+  .wx-row .flag {
+    font-family: var(--mono); font-size: 9px; padding: 2px 6px; border-radius: 2px;
+    letter-spacing: 0.1em; text-transform: uppercase;
+  }
+  .wx-row .flag.vfr { background: rgba(91,140,90,0.14); color: var(--success); }
+  .wx-row .flag.mvfr { background: rgba(184,137,60,0.16); color: var(--warn); }
+  .wx-row .flag.ifr { background: rgba(164,69,58,0.18); color: var(--error); }
+
+  /* Standup */
+  .stand-list { display: flex; flex-direction: column; gap: 6px; }
+  .stand {
+    display: grid; grid-template-columns: 28px 1fr auto; gap: 10px; align-items: center;
+    padding: 6px 0;
+  }
+  .stand .av { width: 28px; height: 28px; border-radius: 50%; background: var(--ink-3); display: flex; align-items: center; justify-content: center; font-family: var(--mono); font-size: 10px; color: var(--clearance); }
+  .stand .who { font-family: var(--sans); font-size: 12px; color: var(--bone); display: flex; flex-direction: column; gap: 1px; }
+  .stand .who .role { font-family: var(--mono); font-size: 9px; color: var(--steel); letter-spacing: 0.08em; }
+  .stand .stat {
+    width: 8px; height: 8px; border-radius: 50%;
+  }
+  .stand .stat.on { background: var(--success); }
+  .stand .stat.brk { background: var(--warn); }
+  .stand .stat.off { background: var(--steel); }
+  .stand .stat.call { background: var(--clearance); animation: pulse 1.4s infinite; }
+</style>
+</head>
+<body data-screen-label="16 Admin · Dispatch Inbox">
+
+<header class="adm-top">
+  <div class="brand-cell">
+    <a href="homepage.html" class="brand">JetNine <span class="nine">09</span></a>
+    <span class="env">DISPATCH</span>
+  </div>
+  <div class="crumbs">
+    <span>DESK</span>
+    <span class="sep">/</span>
+    <span class="here">INBOX</span>
+  </div>
+  <div class="right">
+    <span class="clk"><span class="z">PT</span>14:08</span>
+    <span class="clk"><span class="z">ET</span>17:08</span>
+    <span class="clk"><span class="z">UTC</span>22:08</span>
+    <span class="me"><span class="av">CV</span><span class="stat"></span><span>CATALINA · ON-DESK</span></span>
+  </div>
+</header>
+
+<div class="adm-shell">
+
+  <!-- LEFT RAIL -->
+  <aside class="adm-rail">
+    <div class="rail-grp">
+      <div class="h">— DESK</div>
+      <a href="admin-dispatch.html" class="active"><span class="gly">⌂</span><span>Inbox</span><span class="badge hot">7</span></a>
+      <a href="#"><span class="gly">◐</span><span>Quote workbench</span><span class="badge">4</span></a>
+      <a href="#"><span class="gly">◉</span><span>Live ops board</span><span class="badge warn">3</span></a>
+      <a href="#"><span class="gly">⌖</span><span>Trips</span><span class="badge">22</span></a>
+      <a href="#"><span class="gly">✉</span><span>Messages</span><span class="badge hot">12</span></a>
+    </div>
+    <div class="rail-grp">
+      <div class="h">— SUPPLY</div>
+      <a href="#"><span class="gly">⊞</span><span>Operators</span><span class="badge">148</span></a>
+      <a href="#"><span class="gly">✈</span><span>Aircraft</span><span class="badge">—</span></a>
+      <a href="#"><span class="gly">↻</span><span>Empty legs</span><span class="badge">6</span></a>
+      <a href="#"><span class="gly">⌬</span><span>Crew</span><span class="badge">—</span></a>
+    </div>
+    <div class="rail-grp">
+      <div class="h">— ACCOUNTS</div>
+      <a href="#"><span class="gly">◯</span><span>Members</span><span class="badge">412</span></a>
+      <a href="#"><span class="gly">$</span><span>Invoices</span><span class="badge err">2</span></a>
+      <a href="#"><span class="gly">▦</span><span>Reports</span><span class="badge">—</span></a>
+    </div>
+    <div class="rail-grp">
+      <div class="h">— TOOLS</div>
+      <a href="#"><span class="gly">⚙</span><span>Settings</span><span class="badge">—</span></a>
+      <a href="#"><span class="gly">?</span><span>Playbooks</span><span class="badge">—</span></a>
+    </div>
+
+    <div class="rail-foot">
+      <span class="wm">— ON DUTY · WEST DESK</span>
+      <span class="who">Catalina Vance</span>
+      <span class="wm">SHIFT 06:00 → 18:00 PT · 6h 8m IN</span>
+      <div class="row">
+        <a href="#">Break</a>
+        <a href="#">Handoff</a>
+      </div>
+    </div>
+  </aside>
+
+  <!-- CENTER -->
+  <main class="adm-main">
+
+    <div class="page-h">
+      <div>
+        <h1 class="ttl">Dispatch inbox.</h1>
+        <div class="strap">— Wed 11 NOV 2026 · 14:08 PT · 7 items in your queue · 4 quotes inside SLA</div>
+      </div>
+      <div class="actions">
+        <button class="btn-mini">Filter</button>
+        <button class="btn-mini">Snooze view</button>
+        <button class="btn-mini primary">+ New quote</button>
+      </div>
+    </div>
+
+    <!-- KPI -->
+    <div class="kpi-strip">
+      <div class="kpi">
+        <div class="l">— OPEN QUOTES</div>
+        <div class="v">7<span class="u">/ 4 in SLA</span></div>
+        <div class="d up">— median response 18 min</div>
+      </div>
+      <div class="kpi">
+        <div class="l">— FLIGHTS · TODAY</div>
+        <div class="v">14<span class="u">/ 4 in air</span></div>
+        <div class="d">— 8 to dep · 2 done</div>
+      </div>
+      <div class="kpi">
+        <div class="l">— IRREGULAR OPS</div>
+        <div class="v">3<span class="u">/ 1 critical</span></div>
+        <div class="d warn">— wx hold at KASE</div>
+      </div>
+      <div class="kpi">
+        <div class="l">— REVENUE · TODAY</div>
+        <div class="v">$612k</div>
+        <div class="d up">— +14% vs avg Wed</div>
+      </div>
+      <div class="kpi">
+        <div class="l">— UNREAD · MSGS</div>
+        <div class="v">12</div>
+        <div class="d">— 3 from members</div>
+      </div>
+    </div>
+
+    <!-- OPEN QUOTES -->
+    <div class="sec">
+      <span class="num">— 01</span>
+      <h2>Open quotes <span style="font-family: var(--mono); font-size: 11px; color: var(--steel); letter-spacing: 0.06em; margin-left: 8px;">/ awaiting your reply</span></h2>
+      <span class="meta">SLA · 30 MIN PROMISE</span>
+    </div>
+    <div class="qlist">
+      <div class="qhead">
+        <span>QUOTE ID</span>
+        <span>SLA</span>
+        <span>MEMBER</span>
+        <span>LANE</span>
+        <span style="text-align:right;">PRICE EST</span>
+        <span>AIRCRAFT</span>
+        <span>QUEUED</span>
+      </div>
+      <div class="qrow">
+        <span class="id">QT-3041</span>
+        <span class="sla crit"><span class="dot"></span>4 MIN LEFT</span>
+        <span class="mem"><span class="n">Marcus Aldrich</span><span class="t">— RESERVE 100 · 11Y</span></span>
+        <span class="lane"><span class="r">KVNY <span class="arr">→</span> KTEB</span><span class="c">Los Angeles → Teterboro · Fri 13 NOV</span></span>
+        <span class="pri">$56–62k</span>
+        <span class="ac"><span class="cat">— MIDSIZE</span>Citation Latitude</span>
+        <span class="acted">26m ago</span>
+      </div>
+      <div class="qrow">
+        <span class="id">QT-3042</span>
+        <span class="sla warn"><span class="dot"></span>11 MIN LEFT</span>
+        <span class="mem"><span class="n">Diane Pham</span><span class="t">— RESERVE 50 · 3Y</span></span>
+        <span class="lane"><span class="r">KSFO <span class="arr">→</span> KSAF</span><span class="c">Bay Area → Santa Fe · Sat 14 NOV</span></span>
+        <span class="pri">$28–34k</span>
+        <span class="ac"><span class="cat">— LIGHT</span>Phenom 300E</span>
+        <span class="acted">19m ago</span>
+      </div>
+      <div class="qrow">
+        <span class="id">QT-3043</span>
+        <span class="sla warn"><span class="dot"></span>17 MIN LEFT</span>
+        <span class="mem"><span class="n">Sven Kallio</span><span class="t">— ON-DEMAND · NEW</span></span>
+        <span class="lane"><span class="r">KVNY <span class="arr">→</span> KASE</span><span class="c">Los Angeles → Aspen · Fri 13 NOV · 4 pax + 2 ski bags</span></span>
+        <span class="pri">$22–28k</span>
+        <span class="ac"><span class="cat">— LIGHT/MID</span>Open</span>
+        <span class="acted">13m ago</span>
+      </div>
+      <div class="qrow">
+        <span class="id">QT-3044</span>
+        <span class="sla ok"><span class="dot"></span>24 MIN LEFT</span>
+        <span class="mem"><span class="n">Halberd Group</span><span class="t">— CORP · RESERVE 250</span></span>
+        <span class="lane"><span class="r">KTEB <span class="arr">→</span> EGGW</span><span class="c">Teterboro → London · Mon 16 NOV · 6 pax</span></span>
+        <span class="pri">$148–162k</span>
+        <span class="ac"><span class="cat">— ULR</span>Global 6500</span>
+        <span class="acted">6m ago</span>
+      </div>
+      <div class="qrow">
+        <span class="id">QT-3038</span>
+        <span class="sla lock"><span class="dot"></span>OPS HOLD</span>
+        <span class="mem"><span class="n">Rosa Mireles</span><span class="t">— RESERVE 50 · 5Y</span></span>
+        <span class="lane"><span class="r">KOPF <span class="arr">→</span> KVNY</span><span class="c">Miami → LA · Sun 15 NOV · waiting on 2nd operator quote</span></span>
+        <span class="pri">$74–84k</span>
+        <span class="ac"><span class="cat">— SUPER-MID</span>Challenger 350</span>
+        <span class="acted">52m ago</span>
+      </div>
+      <div class="qrow">
+        <span class="id">QT-3045</span>
+        <span class="sla ok"><span class="dot"></span>28 MIN LEFT</span>
+        <span class="mem"><span class="n">Kim &amp; Asher Yates</span><span class="t">— ON-DEMAND · 2Y</span></span>
+        <span class="lane"><span class="r">KBED <span class="arr">→</span> TFFJ</span><span class="c">Boston → St. Barth · Thu 19 NOV · honeymoon</span></span>
+        <span class="pri">$112–128k</span>
+        <span class="ac"><span class="cat">— HEAVY</span>Falcon 7X</span>
+        <span class="acted">2m ago</span>
+      </div>
+      <div class="qrow">
+        <span class="id">QT-3037</span>
+        <span class="sla lock"><span class="dot"></span>HOLD · WX</span>
+        <span class="mem"><span class="n">Penny Schwartz</span><span class="t">— RESERVE 50 · 8Y</span></span>
+        <span class="lane"><span class="r">KASE <span class="arr">→</span> KVNY</span><span class="c">Aspen → LA · Fri 13 NOV · KASE IFR pending</span></span>
+        <span class="pri">$24–28k</span>
+        <span class="ac"><span class="cat">— LIGHT</span>Pilatus PC-24</span>
+        <span class="acted">1h 12m ago</span>
+      </div>
+    </div>
+
+    <!-- IN-FLIGHT -->
+    <div class="sec">
+      <span class="num">— 02</span>
+      <h2>In flight now <span style="font-family: var(--mono); font-size: 11px; color: var(--steel); letter-spacing: 0.06em; margin-left: 8px;">/ four airframes airborne</span></h2>
+      <span class="meta">LIVE · ADS-B + ARINC</span>
+    </div>
+    <div class="iflist">
+      <div class="if">
+        <span class="id">JN-0091</span>
+        <span class="stat-chip flying"><span class="pulse"></span>FL410 · CRUISE</span>
+        <div class="pax">Aldrich · Citation Latitude · N814QX</div>
+        <div class="lane-wide">
+          <div class="end">
+            <span class="icao">KVNY</span>
+            <span class="city">Van Nuys, CA</span>
+            <span class="t">— OUT 13:42 PT</span>
+          </div>
+          <div class="arc">
+            <svg viewBox="0 0 100 28" preserveAspectRatio="none">
+              <path d="M0,24 Q50,-4 100,24" stroke="rgba(232,226,210,0.18)" fill="none" stroke-width="1" stroke-dasharray="2 3"/>
+              <path d="M0,24 Q24,7 38,3" stroke="var(--clearance)" fill="none" stroke-width="1.5"/>
+              <circle cx="38" cy="3" r="2.5" fill="var(--clearance)"/>
+            </svg>
+          </div>
+          <div class="end r">
+            <span class="icao">KTEB</span>
+            <span class="city">Teterboro, NJ</span>
+            <span class="t">— ETA 21:54 ET</span>
+          </div>
+        </div>
+        <div class="meta-row">
+          <span><span class="l">— SQUAWK</span> 4521</span>
+          <span><span class="l">— GS</span> 462 KT</span>
+          <span><span class="l">— WIND</span> 248° / 38</span>
+          <span><span class="l">— OPS</span> on plan</span>
+        </div>
+      </div>
+
+      <div class="if">
+        <span class="id">JN-0089</span>
+        <span class="stat-chip flying"><span class="pulse"></span>FL370 · CRUISE</span>
+        <div class="pax">Halberd Group · Challenger 350 · N445SR</div>
+        <div class="lane-wide">
+          <div class="end">
+            <span class="icao">KOPF</span>
+            <span class="city">Opa-locka, FL</span>
+            <span class="t">— OUT 11:28 ET</span>
+          </div>
+          <div class="arc">
+            <svg viewBox="0 0 100 28" preserveAspectRatio="none">
+              <path d="M0,24 Q50,-4 100,24" stroke="rgba(232,226,210,0.18)" fill="none" stroke-width="1" stroke-dasharray="2 3"/>
+              <path d="M0,24 Q34,2 68,3" stroke="var(--clearance)" fill="none" stroke-width="1.5"/>
+              <circle cx="68" cy="3" r="2.5" fill="var(--clearance)"/>
+            </svg>
+          </div>
+          <div class="end r">
+            <span class="icao">KTEB</span>
+            <span class="city">Teterboro, NJ</span>
+            <span class="t">— ETA 14:48 ET</span>
+          </div>
+        </div>
+        <div class="meta-row">
+          <span><span class="l">— SQUAWK</span> 3204</span>
+          <span><span class="l">— GS</span> 481 KT</span>
+          <span><span class="l">— WIND</span> 271° / 52</span>
+          <span><span class="l">— OPS</span> 6 min early</span>
+        </div>
+      </div>
+
+      <div class="if alert">
+        <span class="id">JN-0086</span>
+        <span class="stat-chip delayed"><span class="pulse"></span>HOLDING · KASE</span>
+        <div class="pax">Schwartz family · PC-24 · N224SP</div>
+        <div class="lane-wide">
+          <div class="end">
+            <span class="icao">KASE</span>
+            <span class="city">Aspen, CO</span>
+            <span class="t">— HOLD 13:55 MT</span>
+          </div>
+          <div class="arc">
+            <svg viewBox="0 0 100 28" preserveAspectRatio="none">
+              <path d="M0,24 Q50,-4 100,24" stroke="rgba(184,137,60,0.4)" fill="none" stroke-width="1" stroke-dasharray="2 3"/>
+              <circle cx="14" cy="20" r="2.5" fill="var(--warn)"/>
+              <circle cx="14" cy="20" r="6" fill="none" stroke="var(--warn)" stroke-width="1" opacity="0.4">
+                <animate attributeName="r" from="3" to="9" dur="1.5s" repeatCount="indefinite"/>
+                <animate attributeName="opacity" from="0.5" to="0" dur="1.5s" repeatCount="indefinite"/>
+              </circle>
+            </svg>
+          </div>
+          <div class="end r">
+            <span class="icao">KVNY</span>
+            <span class="city">Van Nuys, CA</span>
+            <span class="t">— ETA REVISED 16:40 PT</span>
+          </div>
+        </div>
+        <div class="alert-line">— KASE BELOW MINS · holding for ceiling lift · diversion KEGE prepped if no clear by 14:30 MT</div>
+        <div class="meta-row">
+          <span><span class="l">— FUEL</span> 2,140 lb · 1h 38m</span>
+          <span><span class="l">— PAX</span> 4 + 2 dogs</span>
+          <span><span class="l">— OPS</span> Catalina · ack 13:58</span>
+        </div>
+      </div>
+
+      <div class="if">
+        <span class="id">JN-0084</span>
+        <span class="stat-chip boarding"><span class="pulse"></span>BOARDING</span>
+        <div class="pax">Pham · Phenom 300E · N812EX</div>
+        <div class="lane-wide">
+          <div class="end">
+            <span class="icao">KSFO</span>
+            <span class="city">San Francisco, CA</span>
+            <span class="t">— OUT 14:35 PT</span>
+          </div>
+          <div class="arc">
+            <svg viewBox="0 0 100 28" preserveAspectRatio="none">
+              <path d="M0,24 Q50,-4 100,24" stroke="rgba(232,226,210,0.18)" fill="none" stroke-width="1" stroke-dasharray="2 3"/>
+              <circle cx="0" cy="24" r="2.5" fill="var(--clearance)"/>
+            </svg>
+          </div>
+          <div class="end r">
+            <span class="icao">KSAF</span>
+            <span class="city">Santa Fe, NM</span>
+            <span class="t">— ETA 17:18 MT</span>
+          </div>
+        </div>
+        <div class="meta-row">
+          <span><span class="l">— PAX</span> 3 + 0</span>
+          <span><span class="l">— FBO</span> Signature SFO</span>
+          <span><span class="l">— OPS</span> on plan</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- IRR + MSG -->
+    <div class="twoup">
+      <div>
+        <div class="sec">
+          <span class="num">— 03</span>
+          <h2>Irregular ops</h2>
+          <span class="meta">3 OPEN</span>
+        </div>
+        <div class="irr-list">
+          <div class="irr crit">
+            <div class="stripe"></div>
+            <div class="body">
+              <div class="h"><span class="id">IRR-0418</span><span class="kind">CRIT · WX</span></div>
+              <div class="t">KASE ceiling at 800 ft — JN-0086 holding, 38 min remaining fuel.</div>
+              <div class="d">— Diversion KEGE staged · ground notified · pax aware via Catalina at 13:58</div>
+            </div>
+            <span class="age">10m</span>
+          </div>
+          <div class="irr">
+            <div class="stripe"></div>
+            <div class="body">
+              <div class="h"><span class="id">IRR-0417</span><span class="kind">DELAY · MX</span></div>
+              <div class="t">FlexJet N814QX · slat fault cleared, ferry from KBJC complete.</div>
+              <div class="d">— No revenue impact · downgraded from CRIT 47m ago</div>
+            </div>
+            <span class="age">1h 8m</span>
+          </div>
+          <div class="irr info">
+            <div class="stripe"></div>
+            <div class="body">
+              <div class="h"><span class="id">IRR-0416</span><span class="kind">INFO · TFR</span></div>
+              <div class="t">KTEB short-term TFR 23:00–01:00 ET — POTUS movement.</div>
+              <div class="d">— Affects JN-0091 (Aldrich) inbound · already coordinated, no slot risk</div>
+            </div>
+            <span class="age">2h 14m</span>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <div class="sec">
+          <span class="num">— 04</span>
+          <h2>Messages</h2>
+          <span class="meta">12 UNREAD</span>
+        </div>
+        <div class="msg-list">
+          <div class="msg unread">
+            <span class="ch sms">SMS</span>
+            <div class="body">
+              <div class="top"><span class="who">Marcus Aldrich</span><span class="tag">— RESERVE 100</span></div>
+              <span class="prev">"Catalina — quick one. Can we add a third pax to QT-3041 — Helena's coming."</span>
+            </div>
+            <span class="age">3m</span>
+          </div>
+          <div class="msg unread">
+            <span class="ch call">CALL</span>
+            <div class="body">
+              <div class="top"><span class="who">Halberd Group · Anya</span><span class="tag">— CORP · TIER 3</span></div>
+              <span class="prev">Voicemail (00:42) — wants to confirm London leg crew, suggests Capt. Reese.</span>
+            </div>
+            <span class="age">11m</span>
+          </div>
+          <div class="msg unread">
+            <span class="ch eml">EML</span>
+            <div class="body">
+              <div class="top"><span class="who">Solairus Aviation · Ops</span><span class="tag">— OPERATOR</span></div>
+              <span class="prev">RE: QT-3038 second quote — Challenger 350 N445SR available, repositioning fee $4,200.</span>
+            </div>
+            <span class="age">22m</span>
+          </div>
+          <div class="msg">
+            <span class="ch sms">SMS</span>
+            <div class="body">
+              <div class="top"><span class="who">Diane Pham</span><span class="tag">— RESERVE 50</span></div>
+              <span class="prev">"Boarding now — thanks for the espresso machine, will report back."</span>
+            </div>
+            <span class="age">38m</span>
+          </div>
+          <div class="msg">
+            <span class="ch eml">EML</span>
+            <div class="body">
+              <div class="top"><span class="who">Catering · Air Culinaire</span><span class="tag">— VENDOR</span></div>
+              <span class="prev">JN-0091 catering loaded · pescatarian · negroni kit confirmed.</span>
+            </div>
+            <span class="age">1h 4m</span>
+          </div>
+          <div class="msg">
+            <span class="ch eml">EML</span>
+            <div class="body">
+              <div class="top"><span class="who">Sven Kallio</span><span class="tag">— PROSPECT</span></div>
+              <span class="prev">"Hi — followup on QT-3043, need to add a snowboard bag. Charge me whatever."</span>
+            </div>
+            <span class="age">1h 21m</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- RIGHT CONTEXT RAIL -->
+  <aside class="ctx-rail">
+
+    <!-- Active call -->
+    <div class="ctx-blk">
+      <div class="h"><span>— ACTIVE · INBOUND</span></div>
+      <div class="call-card">
+        <div class="top">
+          <div class="ring">MA</div>
+          <div>
+            <div class="who">Marcus Aldrich</div>
+            <div class="tier">— RESERVE 100 · 11 YR</div>
+          </div>
+        </div>
+        <div class="meta">
+          — Mobile · +1 (310) 555-0188<br/>
+          — Ringing 00:08 · last call 4d ago<br/>
+          — Likely about QT-3041 (4 min SLA)
+        </div>
+        <div class="acts">
+          <a href="#" class="ans">Answer</a>
+          <a href="#" class="snd">→ Voicemail</a>
+        </div>
+      </div>
+    </div>
+
+    <!-- Today timeline -->
+    <div class="ctx-blk">
+      <div class="h"><span>— YOUR DAY · WED 11 NOV</span><span class="right">Full day →</span></div>
+      <div class="tl">
+        <div class="tl-row done"><span class="t">06:00</span><div class="ev"><span class="id">— SHIFT</span><span class="d">On-desk · West handoff from Renji Park</span></div></div>
+        <div class="tl-row done"><span class="t">07:14</span><div class="ev"><span class="id">— QT-3036</span><span class="d">Quoted Schwartz · KVNY → KASE · accepted</span></div></div>
+        <div class="tl-row done"><span class="t">11:12</span><div class="ev"><span class="id">— JN-0084</span><span class="d">Pham · Phenom · trip sheet locked</span></div></div>
+        <div class="tl-row now"><span class="t">14:08</span><div class="ev"><span class="id">— NOW</span><span class="d">7 inbox · KASE IRR open · Aldrich call inbound</span></div></div>
+        <div class="tl-row"><span class="t">14:30</span><div class="ev"><span class="id">— OPS CALL</span><span class="d">15-min stand-up with East Desk · KASE update</span></div></div>
+        <div class="tl-row"><span class="t">16:00</span><div class="ev"><span class="id">— DEADLINE</span><span class="d">QT-3044 Halberd · ULR sourcing window closes</span></div></div>
+        <div class="tl-row"><span class="t">18:00</span><div class="ev"><span class="id">— HANDOFF</span><span class="d">East Desk takes over · pre-brief at 17:45</span></div></div>
+      </div>
+    </div>
+
+    <!-- Weather flags -->
+    <div class="ctx-blk">
+      <div class="h"><span>— WEATHER · YOUR LANES</span><span class="right">METAR →</span></div>
+      <div class="wx">
+        <div class="wx-row"><span class="icao">KASE</span><span class="desc">— OVC008 · 1¾ SM · ↓ ceiling</span><span class="flag ifr">IFR</span></div>
+        <div class="wx-row"><span class="icao">KVNY</span><span class="desc">— FEW250 · 10+ SM · CAVOK</span><span class="flag vfr">VFR</span></div>
+        <div class="wx-row"><span class="icao">KTEB</span><span class="desc">— BKN030 · 6 SM · light rain</span><span class="flag mvfr">MVFR</span></div>
+        <div class="wx-row"><span class="icao">KSFO</span><span class="desc">— FEW180 · 10 SM · gusty</span><span class="flag vfr">VFR</span></div>
+        <div class="wx-row"><span class="icao">EGGW</span><span class="desc">— OVC012 · 4 SM · 03Z fcst</span><span class="flag mvfr">MVFR</span></div>
+      </div>
+    </div>
+
+    <!-- Standup -->
+    <div class="ctx-blk">
+      <div class="h"><span>— DESK · NOW</span><span class="right">All →</span></div>
+      <div class="stand-list">
+        <div class="stand">
+          <span class="av">CV</span>
+          <div class="who">Catalina Vance<span class="role">— WEST · LEAD</span></div>
+          <span class="stat call" title="On call"></span>
+        </div>
+        <div class="stand">
+          <span class="av">RP</span>
+          <div class="who">Renji Park<span class="role">— EAST · ON</span></div>
+          <span class="stat on"></span>
+        </div>
+        <div class="stand">
+          <span class="av">SO</span>
+          <div class="who">Sade Okafor<span class="role">— SOURCING</span></div>
+          <span class="stat on"></span>
+        </div>
+        <div class="stand">
+          <span class="av">TM</span>
+          <div class="who">Tomás Mendes<span class="role">— OVERNIGHT</span></div>
+          <span class="stat off"></span>
+        </div>
+        <div class="stand">
+          <span class="av">BL</span>
+          <div class="who">Bea Liang<span class="role">— FLOAT</span></div>
+          <span class="stat brk"></span>
+        </div>
+      </div>
+    </div>
+
+  </aside>
+</div>
+
+<script>
+  // Click rows: just no-op for now
+  document.querySelectorAll('.qrow, .if, .irr, .msg').forEach(r => {
+    r.addEventListener('click', () => {});
+  });
+
+  // Update clocks live
+  function tick() {
+    const now = new Date();
+    const fmt = (tz) => now.toLocaleTimeString('en-US', { timeZone: tz, hour: '2-digit', minute: '2-digit', hour12: false });
+    const cells = document.querySelectorAll('.adm-top .clk');
+    if (cells.length >= 3) {
+      cells[0].innerHTML = '<span class="z">PT</span>' + fmt('America/Los_Angeles');
+      cells[1].innerHTML = '<span class="z">ET</span>' + fmt('America/New_York');
+      cells[2].innerHTML = '<span class="z">UTC</span>' + fmt('UTC');
+    }
+  }
+  tick(); setInterval(tick, 30000);
+</script>
+
+</body>
+</html>

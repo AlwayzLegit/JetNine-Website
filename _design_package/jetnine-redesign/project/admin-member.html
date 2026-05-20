@@ -1,0 +1,774 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>JetNine — Admin · Member · M. Aldrich</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,500;9..144,600&family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="shared.css" />
+<style>
+  body { background: var(--ink); }
+
+  /* === Top admin bar === */
+  .adm-top { height: 56px; border-bottom: 1px solid var(--ink-3); display: grid; grid-template-columns: 240px 1fr auto; align-items: center; background: var(--ink); position: sticky; top: 0; z-index: 60; }
+  .adm-top .brand-cell { display: flex; align-items: center; gap: 12px; height: 100%; padding: 0 20px; border-right: 1px solid var(--ink-3); }
+  .adm-top .brand { font-family: var(--serif); font-weight: 400; font-size: 20px; color: var(--bone); text-decoration: none; }
+  .adm-top .brand .nine { font-family: var(--mono); font-size: 9px; color: var(--clearance); letter-spacing: 0.1em; vertical-align: super; margin-left: 2px; }
+  .adm-top .env { font-family: var(--mono); font-size: 9px; padding: 3px 6px; background: var(--ink-3); color: var(--clearance); border-radius: 2px; letter-spacing: 0.14em; }
+  .adm-top .crumbs { padding: 0 24px; display: flex; gap: 14px; font-family: var(--mono); font-size: 10px; letter-spacing: 0.12em; color: var(--steel); text-transform: uppercase; }
+  .adm-top .crumbs a { color: var(--bone-2); text-decoration: none; }
+  .adm-top .crumbs .here { color: var(--bone); }
+  .adm-top .crumbs .sep { color: var(--ink-4); }
+  .adm-top .right { display: flex; align-items: center; gap: 16px; padding: 0 20px; height: 100%; border-left: 1px solid var(--ink-3); }
+  .adm-top .clk { font-family: var(--mono); font-size: 11px; color: var(--bone); letter-spacing: 0.06em; }
+  .adm-top .clk .z { color: var(--steel); margin-right: 4px; }
+  .adm-top .me { display: flex; align-items: center; gap: 10px; padding: 4px 10px 4px 4px; background: var(--ink-3); border-radius: 999px; font-family: var(--mono); font-size: 10px; color: var(--bone-2); }
+  .adm-top .me .av { width: 24px; height: 24px; border-radius: 50%; background: var(--ink-4); display: flex; align-items: center; justify-content: center; color: var(--clearance); font-size: 10px; }
+  .adm-top .me .stat { width: 6px; height: 6px; border-radius: 50%; background: var(--success); }
+
+  /* === Layout === */
+  .mb-shell { display: grid; grid-template-columns: 200px 1fr 340px; min-height: calc(100vh - 56px); }
+  @media (max-width: 1280px) { .mb-shell { grid-template-columns: 180px 1fr 320px; } }
+  @media (max-width: 1024px) { .mb-shell { grid-template-columns: 1fr; } .mb-rail, .mb-side { display: none; } }
+
+  /* Rail */
+  .mb-rail { border-right: 1px solid var(--ink-3); padding: 16px 0; background: var(--ink); }
+  .rg { padding: 0 12px 16px; }
+  .rg .h { font-family: var(--mono); font-size: 9px; letter-spacing: 0.16em; color: var(--steel); text-transform: uppercase; margin: 4px 8px 8px; }
+  .rg a { display: grid; grid-template-columns: 14px 1fr auto; gap: 10px; align-items: center; padding: 7px 10px; border-radius: 2px; color: var(--bone-2); text-decoration: none; font-size: 13px; transition: background 160ms, color 160ms; }
+  .rg a:hover { background: var(--ink-2); color: var(--bone); }
+  .rg a.active { background: var(--ink-2); color: var(--clearance); }
+  .rg a .gly { font-family: var(--mono); font-size: 10px; color: var(--steel); }
+  .rg a.active .gly { color: var(--clearance); }
+  .rg a .badge { font-family: var(--mono); font-size: 9px; padding: 1px 6px; border-radius: 2px; background: var(--ink-3); color: var(--bone-2); }
+
+  /* Main */
+  .mb-main { padding: 28px 36px 60px; min-width: 0; }
+  @media (max-width: 700px) { .mb-main { padding: 20px 16px; } }
+
+  /* Hero card */
+  .mb-hero {
+    display: grid; grid-template-columns: 88px 1fr auto; gap: 24px; align-items: center;
+    padding-bottom: 24px; margin-bottom: 24px; border-bottom: 1px solid var(--ink-3);
+  }
+  @media (max-width: 800px) { .mb-hero { grid-template-columns: 56px 1fr; } .mb-hero .actions { grid-column: 1 / -1; margin-top: 12px; } }
+  .mb-hero .av {
+    width: 88px; height: 88px; border-radius: 50%; background: var(--ink-3); border: 1px solid var(--ink-4);
+    display: flex; align-items: center; justify-content: center;
+    font-family: var(--serif); font-weight: 300; font-size: 36px; color: var(--clearance); letter-spacing: -0.02em;
+  }
+  .mb-hero .info { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+  .mb-hero .info .tags { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .mb-hero .info .id { font-family: var(--mono); font-size: 11px; color: var(--clearance); letter-spacing: 0.06em; }
+  .mb-hero .info .tier {
+    font-family: var(--mono); font-size: 9px; letter-spacing: 0.14em; text-transform: uppercase;
+    padding: 3px 7px; border-radius: 2px; background: rgba(232,226,210,0.08); color: var(--clearance);
+  }
+  .mb-hero .info .status { font-family: var(--mono); font-size: 9px; letter-spacing: 0.14em; text-transform: uppercase; padding: 3px 7px; border-radius: 2px; background: rgba(91,140,90,0.16); color: var(--success); display: inline-flex; align-items: center; gap: 5px; }
+  .mb-hero .info .status .d { width: 5px; height: 5px; border-radius: 50%; background: var(--success); }
+  .mb-hero h1 { font-family: var(--serif); font-weight: 300; font-size: 42px; line-height: 1.05; letter-spacing: -0.015em; }
+  .mb-hero .sub { font-family: var(--mono); font-size: 11px; color: var(--bone-2); letter-spacing: 0.04em; }
+  .mb-hero .actions { display: flex; gap: 8px; flex-wrap: wrap; }
+  .btn-mini { font-family: var(--mono); font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; padding: 8px 12px; border-radius: 2px; text-decoration: none; background: var(--ink-2); border: 1px solid var(--ink-3); color: var(--bone); transition: all 160ms; cursor: pointer; }
+  .btn-mini:hover { border-color: var(--clearance); color: var(--clearance); }
+  .btn-mini.primary { background: var(--clearance); color: var(--ink); border-color: var(--clearance); }
+  .btn-mini.danger { color: var(--error); }
+  .btn-mini.danger:hover { border-color: var(--error); }
+
+  /* KPI strip */
+  .strip { display: grid; grid-template-columns: repeat(6, 1fr); background: var(--ink-2); border: 1px solid var(--ink-3); border-radius: 4px; margin-bottom: 28px; }
+  @media (max-width: 1100px) { .strip { grid-template-columns: repeat(3, 1fr); } }
+  @media (max-width: 600px) { .strip { grid-template-columns: repeat(2, 1fr); } }
+  .strip .cell { padding: 16px 18px; border-right: 1px solid var(--ink-3); }
+  .strip .cell:last-child { border-right: none; }
+  .strip .l { font-family: var(--mono); font-size: 9px; letter-spacing: 0.14em; color: var(--steel); text-transform: uppercase; }
+  .strip .v { font-family: var(--serif); font-weight: 300; font-size: 24px; color: var(--bone); margin-top: 6px; letter-spacing: -0.005em; line-height: 1; }
+  .strip .v .u { font-family: var(--mono); font-size: 10px; color: var(--bone-2); margin-left: 4px; }
+  .strip .d { font-family: var(--mono); font-size: 9px; color: var(--bone-2); margin-top: 4px; letter-spacing: 0.04em; }
+  .strip .d.ok { color: var(--success); }
+  .strip .d.warn { color: var(--warn); }
+
+  /* Tabs */
+  .mb-tabs { display: flex; border-bottom: 1px solid var(--ink-3); margin-bottom: 24px; overflow-x: auto; }
+  .mb-tabs a { padding: 12px 18px; font-family: var(--mono); font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--bone-2); text-decoration: none; border-bottom: 2px solid transparent; transition: color 160ms, border-color 160ms; white-space: nowrap; }
+  .mb-tabs a:hover { color: var(--bone); }
+  .mb-tabs a.on { color: var(--clearance); border-bottom-color: var(--clearance); }
+  .mb-tabs a .ct { color: var(--steel); margin-left: 6px; }
+  .mb-tabs a.on .ct { color: var(--clearance); }
+
+  /* Section card */
+  .sec { background: var(--ink-2); border: 1px solid var(--ink-3); border-radius: 4px; margin-bottom: 20px; overflow: hidden; }
+  .sec .sh { display: grid; grid-template-columns: auto 1fr auto; gap: 16px; align-items: center; padding: 14px 20px; border-bottom: 1px solid var(--ink-3); background: var(--ink); }
+  .sec .sh .num { font-family: var(--mono); font-size: 10px; color: var(--clearance); letter-spacing: 0.12em; }
+  .sec .sh h2 { font-family: var(--serif); font-weight: 400; font-size: 18px; letter-spacing: -0.005em; color: var(--bone); }
+  .sec .sh .right { font-family: var(--mono); font-size: 10px; color: var(--bone-2); letter-spacing: 0.06em; display: flex; gap: 12px; align-items: center; }
+  .sec .sh .edit { color: var(--clearance); cursor: pointer; }
+  .sec .sh .edit:hover { color: var(--bone); }
+  .sec .body { padding: 18px 20px; }
+
+  /* Field grid */
+  .fg { display: grid; grid-template-columns: 160px 1fr; gap: 8px 20px; }
+  @media (max-width: 700px) { .fg { grid-template-columns: 1fr; gap: 4px 0; } .fg > .l { padding-top: 8px; } }
+  .fg > .l { font-family: var(--mono); font-size: 10px; color: var(--steel); letter-spacing: 0.12em; text-transform: uppercase; padding-top: 4px; }
+  .fg > .v { font-family: var(--sans); font-size: 14px; color: var(--bone); line-height: 1.5; padding: 4px 0; border-bottom: 1px dashed var(--ink-3); display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .fg > .v:last-child { border-bottom: none; }
+  .fg > .v .mono { font-family: var(--mono); font-size: 12px; letter-spacing: 0.04em; }
+  .fg > .v .tag { font-family: var(--mono); font-size: 9px; padding: 2px 6px; background: rgba(232,226,210,0.08); color: var(--clearance); border-radius: 2px; letter-spacing: 0.06em; text-transform: uppercase; }
+  .fg > .v .lock { color: var(--bone-2); font-family: var(--mono); font-size: 11px; }
+  .fg > .v .ok { color: var(--success); }
+  .fg > .v .warn { color: var(--warn); }
+
+  /* Reserve card */
+  .reserve {
+    background: linear-gradient(180deg, rgba(232,226,210,0.05), transparent);
+    border: 1px solid var(--ink-3); border-radius: 4px; padding: 22px; margin-bottom: 20px;
+    display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 24px; align-items: center;
+  }
+  @media (max-width: 900px) { .reserve { grid-template-columns: 1fr; } }
+  .reserve .blk { display: flex; flex-direction: column; gap: 6px; }
+  .reserve .l { font-family: var(--mono); font-size: 9px; color: var(--steel); letter-spacing: 0.14em; text-transform: uppercase; }
+  .reserve .v { font-family: var(--serif); font-weight: 300; font-size: 36px; color: var(--bone); line-height: 1; letter-spacing: -0.01em; }
+  .reserve .v .cur { font-family: var(--mono); font-size: 14px; color: var(--bone-2); margin-right: 4px; }
+  .reserve .d { font-family: var(--mono); font-size: 10px; color: var(--bone-2); letter-spacing: 0.04em; }
+  .reserve .bar { height: 5px; background: var(--ink-3); border-radius: 3px; overflow: hidden; margin-top: 6px; }
+  .reserve .bar .fill { height: 100%; background: var(--clearance); }
+
+  /* Two col */
+  .two-col { display: grid; grid-template-columns: 1.4fr 1fr; gap: 20px; }
+  @media (max-width: 1100px) { .two-col { grid-template-columns: 1fr; } }
+
+  /* Lanes — graph + list */
+  .lane-graph {
+    height: 180px;
+    background: var(--ink); border: 1px solid var(--ink-3); border-radius: 3px;
+    padding: 14px;
+    position: relative;
+  }
+  .lane-graph .axis { position: absolute; bottom: 24px; left: 60px; right: 14px; height: 1px; background: var(--ink-3); }
+  .lane-graph .bars { position: absolute; left: 60px; right: 14px; bottom: 25px; top: 14px; display: flex; align-items: end; gap: 10px; }
+  .lane-graph .bar {
+    flex: 1; background: linear-gradient(180deg, var(--clearance), rgba(232,226,210,0.35));
+    border-radius: 2px 2px 0 0; min-height: 4px; position: relative;
+  }
+  .lane-graph .bar .val { position: absolute; top: -16px; left: 50%; transform: translateX(-50%); font-family: var(--mono); font-size: 9px; color: var(--bone); }
+  .lane-graph .bar .lbl { position: absolute; bottom: -18px; left: 50%; transform: translateX(-50%); font-family: var(--mono); font-size: 9px; color: var(--bone-2); letter-spacing: 0.04em; white-space: nowrap; }
+  .lane-graph .y-l {
+    position: absolute; left: 14px; bottom: 24px; top: 14px;
+    display: flex; flex-direction: column; justify-content: space-between;
+    font-family: var(--mono); font-size: 9px; color: var(--steel);
+  }
+  .lane-graph .y-l span { line-height: 1; }
+  .lane-graph .title { font-family: var(--mono); font-size: 9px; color: var(--steel); letter-spacing: 0.14em; text-transform: uppercase; position: absolute; top: 8px; right: 14px; }
+
+  /* Lane list */
+  .lane-list { display: flex; flex-direction: column; }
+  .ln { display: grid; grid-template-columns: auto 1fr auto auto; gap: 14px; padding: 10px 0; border-bottom: 1px solid var(--ink-3); align-items: center; }
+  .ln:last-child { border-bottom: none; }
+  .ln .pair { font-family: var(--mono); font-size: 12px; color: var(--bone); letter-spacing: 0.06em; }
+  .ln .pair .arr { color: var(--steel); margin: 0 6px; }
+  .ln .city { font-family: var(--serif); font-size: 13px; color: var(--bone-2); }
+  .ln .freq { font-family: var(--mono); font-size: 10px; color: var(--bone-2); letter-spacing: 0.04em; }
+  .ln .freq .em { color: var(--clearance); }
+  .ln .last { font-family: var(--mono); font-size: 10px; color: var(--steel); letter-spacing: 0.04em; }
+
+  /* Trip table */
+  .tt { display: flex; flex-direction: column; }
+  .tt .h-row, .tt .row {
+    display: grid; grid-template-columns: 100px 100px 1fr 1fr 100px 100px;
+    gap: 14px; align-items: center; padding: 10px 0;
+    border-bottom: 1px solid var(--ink-3);
+  }
+  .tt .h-row { background: var(--ink); font-family: var(--mono); font-size: 9px; letter-spacing: 0.14em; color: var(--steel); text-transform: uppercase; padding: 10px 0; }
+  .tt .row { color: var(--bone); text-decoration: none; transition: background 160ms; cursor: pointer; }
+  .tt .row:hover { background: rgba(232,226,210,0.03); }
+  .tt .row:last-child { border-bottom: none; }
+  @media (max-width: 900px) {
+    .tt .h-row { display: none; }
+    .tt .row { grid-template-columns: 1fr 1fr; gap: 6px; padding: 12px 0; }
+    .tt .row .craft, .tt .row .status { display: none; }
+  }
+  .tt .row .id { font-family: var(--mono); font-size: 11px; color: var(--clearance); letter-spacing: 0.04em; }
+  .tt .row .date { font-family: var(--mono); font-size: 11px; color: var(--bone-2); letter-spacing: 0.04em; }
+  .tt .row .pair-cell { font-family: var(--mono); font-size: 12px; color: var(--bone); letter-spacing: 0.06em; }
+  .tt .row .pair-cell .arr { color: var(--steel); margin: 0 6px; }
+  .tt .row .pair-cell .city { font-family: var(--serif); font-size: 13px; color: var(--bone-2); display: block; margin-top: 2px; }
+  .tt .row .craft { font-family: var(--mono); font-size: 11px; color: var(--bone-2); letter-spacing: 0.04em; }
+  .tt .row .price { font-family: var(--mono); font-size: 12px; color: var(--bone); text-align: right; letter-spacing: 0.04em; }
+  .tt .row .status { font-family: var(--mono); font-size: 9px; padding: 2px 6px; border-radius: 2px; letter-spacing: 0.12em; text-transform: uppercase; width: fit-content; }
+  .tt .row .status.ok { background: rgba(91,140,90,0.16); color: var(--success); }
+  .tt .row .status.upcoming { background: rgba(232,226,210,0.1); color: var(--clearance); }
+  .tt .row .status.cancel { background: rgba(164,69,58,0.16); color: var(--error); }
+
+  /* Preferences chips */
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; padding-top: 4px; }
+  .chip {
+    font-family: var(--mono); font-size: 10px; padding: 5px 9px; border-radius: 2px;
+    border: 1px solid var(--ink-3); color: var(--bone); letter-spacing: 0.06em;
+    display: inline-flex; gap: 6px; align-items: center;
+  }
+  .chip.on { background: rgba(232,226,210,0.08); border-color: var(--clearance); color: var(--bone); }
+  .chip.on::before { content: "✓"; color: var(--clearance); font-size: 9px; }
+
+  /* Two col within section */
+  .pref-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; }
+  @media (max-width: 800px) { .pref-grid { grid-template-columns: 1fr; } }
+
+  /* === Side panel === */
+  .mb-side { border-left: 1px solid var(--ink-3); background: var(--ink); padding: 16px 16px 24px; overflow-y: auto; }
+  .mb-side .h { font-family: var(--mono); font-size: 9px; color: var(--steel); letter-spacing: 0.16em; text-transform: uppercase; padding-bottom: 10px; border-bottom: 1px solid var(--ink-3); margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between; }
+  .mb-side .h .more { color: var(--bone-2); cursor: pointer; }
+  .mb-side .h .more:hover { color: var(--clearance); }
+
+  /* Quick contact card */
+  .qc {
+    background: var(--ink-2); border: 1px solid var(--ink-3); border-radius: 3px;
+    padding: 12px; margin-bottom: 18px;
+    display: grid; grid-template-columns: 1fr 1fr; gap: 6px;
+  }
+  .qc a {
+    grid-column: span 1;
+    text-align: center; padding: 8px;
+    background: var(--ink); border: 1px solid var(--ink-3); border-radius: 2px;
+    font-family: var(--mono); font-size: 9px; color: var(--bone-2); letter-spacing: 0.12em;
+    text-transform: uppercase; text-decoration: none;
+    transition: border-color 160ms, color 160ms;
+  }
+  .qc a:hover { border-color: var(--clearance); color: var(--clearance); }
+  .qc a.full { grid-column: 1 / -1; }
+  .qc a.primary { background: var(--clearance); color: var(--ink); border-color: var(--clearance); }
+
+  /* Note card */
+  .note {
+    background: var(--ink-2); border: 1px solid var(--ink-3); border-left: 2px solid var(--clearance); border-radius: 0 3px 3px 0;
+    padding: 10px 12px; margin-bottom: 8px;
+  }
+  .note .top { display: flex; align-items: center; gap: 6px; }
+  .note .top .who { font-family: var(--mono); font-size: 10px; color: var(--clearance); letter-spacing: 0.06em; }
+  .note .top .t { font-family: var(--mono); font-size: 9px; color: var(--steel); margin-left: auto; }
+  .note .body { font-size: 12px; color: var(--bone-2); line-height: 1.5; margin-top: 4px; }
+  .note .body .em { color: var(--bone); }
+
+  /* Timeline */
+  .tl { display: flex; flex-direction: column; }
+  .tl-item { display: grid; grid-template-columns: 60px 1fr; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--ink-3); }
+  .tl-item:last-child { border-bottom: none; }
+  .tl-item .t { font-family: var(--mono); font-size: 9px; color: var(--steel); letter-spacing: 0.06em; padding-top: 2px; }
+  .tl-item .what { font-size: 12px; color: var(--bone-2); line-height: 1.5; }
+  .tl-item .what .em { color: var(--clearance); font-family: var(--mono); font-size: 10px; letter-spacing: 0.04em; }
+
+  /* Tags & rules */
+  .rules { display: flex; flex-direction: column; gap: 6px; }
+  .rule {
+    display: grid; grid-template-columns: 14px 1fr; gap: 8px;
+    padding: 6px 0; align-items: start;
+    font-size: 12px; color: var(--bone-2); line-height: 1.4;
+  }
+  .rule .b { width: 10px; height: 10px; border-radius: 2px; background: var(--clearance); margin-top: 3px; flex-shrink: 0; }
+  .rule.warn .b { background: var(--warn); }
+  .rule .em { color: var(--bone); font-family: var(--mono); font-size: 11px; letter-spacing: 0.04em; }
+</style>
+</head>
+<body data-screen-label="20 Admin · Member Profile">
+
+<header class="adm-top">
+  <div class="brand-cell">
+    <a href="homepage.html" class="brand">JetNine <span class="nine">09</span></a>
+    <span class="env">DISPATCH</span>
+  </div>
+  <div class="crumbs">
+    <a href="admin-dispatch.html">DESK</a>
+    <span class="sep">/</span>
+    <span>MEMBERS</span>
+    <span class="sep">/</span>
+    <span class="here">M. ALDRICH</span>
+  </div>
+  <div class="right">
+    <span class="clk"><span class="z">PT</span><span id="clkPT">14:08</span></span>
+    <span class="clk"><span class="z">ET</span><span id="clkET">17:08</span></span>
+    <span class="me"><span class="av">CV</span><span class="stat"></span><span>CATALINA · ON-DESK</span></span>
+  </div>
+</header>
+
+<div class="mb-shell">
+
+  <!-- RAIL -->
+  <aside class="mb-rail">
+    <div class="rg">
+      <div class="h">— DESK</div>
+      <a href="admin-dispatch.html"><span class="gly">⌂</span><span>Inbox</span><span class="badge">7</span></a>
+      <a href="admin-quote.html"><span class="gly">◐</span><span>Quote workbench</span></a>
+      <a href="admin-ops.html"><span class="gly">◉</span><span>Live ops board</span></a>
+      <a href="admin-trip.html"><span class="gly">⌖</span><span>Trip sheets</span></a>
+      <a href="#"><span class="gly">✉</span><span>Messages</span></a>
+    </div>
+    <div class="rg">
+      <div class="h">— ACCOUNTS</div>
+      <a href="admin-member.html" class="active"><span class="gly">◯</span><span>Members</span><span class="badge">412</span></a>
+      <a href="#"><span class="gly">$</span><span>Invoices</span></a>
+      <a href="#"><span class="gly">▦</span><span>Reports</span></a>
+    </div>
+    <div class="rg">
+      <div class="h">— SUPPLY</div>
+      <a href="#"><span class="gly">⊞</span><span>Operators</span></a>
+      <a href="#"><span class="gly">✈</span><span>Aircraft</span></a>
+      <a href="#"><span class="gly">↻</span><span>Empty legs</span></a>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <main class="mb-main">
+
+    <!-- Hero -->
+    <div class="mb-hero">
+      <div class="av">MA</div>
+      <div class="info">
+        <div class="tags">
+          <span class="id">M-2014-0287</span>
+          <span class="tier">RESERVE 100</span>
+          <span class="status"><span class="d"></span>ACTIVE</span>
+        </div>
+        <h1>Marcus James Aldrich</h1>
+        <div class="sub">— Aldrich Capital LLC · Los Angeles · member since 12 Feb 2022 · primary dispatcher Catalina Vance</div>
+      </div>
+      <div class="actions">
+        <button class="btn-mini">Call</button>
+        <button class="btn-mini">SMS</button>
+        <button class="btn-mini">Email</button>
+        <button class="btn-mini">View on member-side</button>
+        <button class="btn-mini primary">+ New quote</button>
+      </div>
+    </div>
+
+    <!-- KPI strip -->
+    <div class="strip">
+      <div class="cell">
+        <div class="l">— LIFETIME</div>
+        <div class="v">$2.41M</div>
+        <div class="d ok">— 62 trips · 312.4 hrs</div>
+      </div>
+      <div class="cell">
+        <div class="l">— YTD</div>
+        <div class="v">$284k</div>
+        <div class="d">— 9 trips · 42.6 hrs</div>
+      </div>
+      <div class="cell">
+        <div class="l">— AVG TRIP</div>
+        <div class="v">$31.5k</div>
+        <div class="d">— ~5h block-time</div>
+      </div>
+      <div class="cell">
+        <div class="l">— ON-TIME</div>
+        <div class="v">98.4<span class="u">%</span></div>
+        <div class="d ok">— +0.6 pts trailing 12m</div>
+      </div>
+      <div class="cell">
+        <div class="l">— RESERVE BAL</div>
+        <div class="v">$62.4k</div>
+        <div class="d">— 62% remaining</div>
+      </div>
+      <div class="cell">
+        <div class="l">— NEXT TRIP</div>
+        <div class="v">FRI</div>
+        <div class="d">— JN-0091 · KVNY→KTEB</div>
+      </div>
+    </div>
+
+    <!-- Tabs -->
+    <div class="mb-tabs">
+      <a href="#" class="on">Overview</a>
+      <a href="#">Trips <span class="ct">62</span></a>
+      <a href="#">Quotes <span class="ct">4</span></a>
+      <a href="#">Invoices <span class="ct">62</span></a>
+      <a href="#">Preferences</a>
+      <a href="#">Companions <span class="ct">8</span></a>
+      <a href="#">Communications <span class="ct">241</span></a>
+      <a href="#">Reserve activity</a>
+    </div>
+
+    <!-- 01 Identity / Account -->
+    <div class="sec">
+      <div class="sh">
+        <span class="num">— 01</span>
+        <h2>Identity &amp; account</h2>
+        <span class="right">
+          <span>2FA · enabled</span>
+          <span class="edit">EDIT</span>
+        </span>
+      </div>
+      <div class="body">
+        <div class="fg">
+          <div class="l">— LEGAL NAME</div>
+          <div class="v">Marcus James Aldrich <span class="lock">· born 1968-04-12 · age 58</span></div>
+          <div class="l">— ROLE</div>
+          <div class="v">Founder &amp; Managing Partner <span class="lock">· Aldrich Capital LLC</span></div>
+          <div class="l">— CONTACT</div>
+          <div class="v"><span class="mono">m.aldrich@aldrichcapital.com</span> <span class="lock">· verified</span></div>
+          <div class="l">— MOBILE</div>
+          <div class="v"><span class="mono">+1 (310) 555-0188</span> <span class="tag">PRIMARY · SMS OK</span></div>
+          <div class="l">— ASSISTANT</div>
+          <div class="v">Pilar Renteria <span class="lock">· pr@aldrichcapital.com · +1 (310) 555-0142</span> <span class="tag">CC ON ITINERARY</span></div>
+          <div class="l">— BILLING ADDR</div>
+          <div class="v">1840 Century Park East, Suite 220 <span class="lock">· Los Angeles, CA 90067</span></div>
+          <div class="l">— PASSPORT</div>
+          <div class="v"><span class="mono">USA · 5••••••42 · exp 03/2031</span> <span class="ok">— current</span></div>
+          <div class="l">— GLOBAL ENTRY</div>
+          <div class="v">Yes <span class="lock">· exp 11/2028 · KTN ••••2941</span></div>
+          <div class="l">— BILLING ENTITY</div>
+          <div class="v">Aldrich Capital LLC <span class="lock">· EIN ••-•••3081 · NET-30 invoice</span></div>
+          <div class="l">— PAY METHOD</div>
+          <div class="v">Wire · First Republic •••4421 <span class="tag">DEFAULT</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 02 Reserve / Membership -->
+    <div class="sec">
+      <div class="sh">
+        <span class="num">— 02</span>
+        <h2>Reserve · membership</h2>
+        <span class="right">
+          <span>Renews 12 Feb 2027 · auto</span>
+          <span class="edit">MANAGE</span>
+        </span>
+      </div>
+      <div class="body" style="padding: 0;">
+        <div class="reserve" style="margin: 0; border: none; border-radius: 0; border-bottom: 1px solid var(--ink-3);">
+          <div class="blk">
+            <span class="l">— TIER</span>
+            <span class="v" style="font-size: 28px;">Reserve 100</span>
+            <span class="d">— $100,000 retainer · 4% back as credit</span>
+          </div>
+          <div class="blk">
+            <span class="l">— BALANCE</span>
+            <span class="v"><span class="cur">$</span>62,400</span>
+            <div class="bar"><div class="fill" style="width: 62%;"></div></div>
+            <span class="d">— $37,600 drawn · 38% utilized YTD</span>
+          </div>
+          <div class="blk">
+            <span class="l">— CREDIT EARNED</span>
+            <span class="v"><span class="cur">$</span>1,504</span>
+            <span class="d">— YTD · 4% back accrual · auto-applied</span>
+          </div>
+        </div>
+        <div class="body" style="padding: 18px 20px;">
+          <div class="fg">
+            <div class="l">— TIER HISTORY</div>
+            <div class="v">— On-Demand <span class="lock">2022</span> → Reserve 50 <span class="lock">2023</span> → Reserve 100 <span class="lock">2024 · current</span></div>
+            <div class="l">— RATE LOCKS</div>
+            <div class="v">Midsize $7,800/hr <span class="lock">·</span> Super-mid $9,800/hr <span class="lock">·</span> Heavy $13,400/hr</div>
+            <div class="l">— ALLOWANCES</div>
+            <div class="v">Catering Plus included <span class="lock">·</span> Ground SUV at cost <span class="lock">·</span> FA at no add</div>
+            <div class="l">— RENEWAL</div>
+            <div class="v">— Auto-renew 12 Feb 2027 <span class="lock">· $100k recharge from First Republic ••4421</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 03 Lanes -->
+    <div class="sec">
+      <div class="sh">
+        <span class="num">— 03</span>
+        <h2>Lanes &amp; usage</h2>
+        <span class="right">— TRAILING 12 MO</span>
+      </div>
+      <div class="body">
+        <div class="two-col">
+          <div>
+            <div class="lane-graph">
+              <span class="title">— TRIPS BY MONTH (TRAILING 12)</span>
+              <div class="y-l">
+                <span>12</span>
+                <span>9</span>
+                <span>6</span>
+                <span>3</span>
+                <span>0</span>
+              </div>
+              <div class="bars">
+                <div class="bar" style="height: 28%;"><span class="val">2</span><span class="lbl">DEC</span></div>
+                <div class="bar" style="height: 45%;"><span class="val">4</span><span class="lbl">JAN</span></div>
+                <div class="bar" style="height: 22%;"><span class="val">2</span><span class="lbl">FEB</span></div>
+                <div class="bar" style="height: 65%;"><span class="val">5</span><span class="lbl">MAR</span></div>
+                <div class="bar" style="height: 38%;"><span class="val">3</span><span class="lbl">APR</span></div>
+                <div class="bar" style="height: 72%;"><span class="val">6</span><span class="lbl">MAY</span></div>
+                <div class="bar" style="height: 85%;"><span class="val">8</span><span class="lbl">JUN</span></div>
+                <div class="bar" style="height: 50%;"><span class="val">4</span><span class="lbl">JUL</span></div>
+                <div class="bar" style="height: 35%;"><span class="val">3</span><span class="lbl">AUG</span></div>
+                <div class="bar" style="height: 75%;"><span class="val">7</span><span class="lbl">SEP</span></div>
+                <div class="bar" style="height: 60%;"><span class="val">5</span><span class="lbl">OCT</span></div>
+                <div class="bar" style="height: 92%;"><span class="val">9</span><span class="lbl">NOV</span></div>
+              </div>
+              <div class="axis"></div>
+            </div>
+          </div>
+          <div>
+            <div class="lane-list">
+              <div class="ln">
+                <span class="pair">KVNY <span class="arr">→</span> KTEB</span>
+                <span class="city">LA → New York</span>
+                <span class="freq"><span class="em">14×</span> / yr</span>
+                <span class="last">— last 11 days</span>
+              </div>
+              <div class="ln">
+                <span class="pair">KVNY <span class="arr">→</span> KASE</span>
+                <span class="city">LA → Aspen</span>
+                <span class="freq"><span class="em">8×</span> / yr</span>
+                <span class="last">— last 6 wk</span>
+              </div>
+              <div class="ln">
+                <span class="pair">KVNY <span class="arr">→</span> KSFO</span>
+                <span class="city">LA → SF</span>
+                <span class="freq"><span class="em">7×</span> / yr</span>
+                <span class="last">— last 3 wk</span>
+              </div>
+              <div class="ln">
+                <span class="pair">KTEB <span class="arr">→</span> EGGW</span>
+                <span class="city">NYC → London</span>
+                <span class="freq"><span class="em">3×</span> / yr</span>
+                <span class="last">— last 8 wk</span>
+              </div>
+              <div class="ln">
+                <span class="pair">KVNY <span class="arr">→</span> KMVY</span>
+                <span class="city">LA → Martha's Vineyard</span>
+                <span class="freq"><span class="em">2×</span> / yr</span>
+                <span class="last">— last 4 mo</span>
+              </div>
+              <div class="ln">
+                <span class="pair">KVNY <span class="arr">→</span> KEYW</span>
+                <span class="city">LA → Key West</span>
+                <span class="freq"><span class="em">2×</span> / yr</span>
+                <span class="last">— last 11 mo</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 04 Trips -->
+    <div class="sec">
+      <div class="sh">
+        <span class="num">— 04</span>
+        <h2>Trips <span style="font-family: var(--mono); font-size: 11px; color: var(--steel); margin-left: 8px; letter-spacing: 0.06em;">/ 62 lifetime</span></h2>
+        <span class="right"><span class="edit">VIEW ALL →</span></span>
+      </div>
+      <div class="body">
+        <div class="tt">
+          <div class="h-row">
+            <span>TRIP ID</span>
+            <span>DATE</span>
+            <span>ROUTE</span>
+            <span>AIRCRAFT</span>
+            <span>STATUS</span>
+            <span style="text-align: right;">REVENUE</span>
+          </div>
+          <a class="row" href="admin-trip.html">
+            <span class="id">JN-0091</span>
+            <span class="date">14 NOV 2026</span>
+            <span class="pair-cell">KVNY <span class="arr">→</span> KTEB<span class="city">— LA → New York</span></span>
+            <span class="craft">Citation Latitude · N814QX</span>
+            <span class="status upcoming">UPCOMING</span>
+            <span class="price">$50,400</span>
+          </a>
+          <a class="row" href="admin-trip.html">
+            <span class="id">JN-0085</span>
+            <span class="date">28 OCT 2026</span>
+            <span class="pair-cell">KTEB <span class="arr">→</span> KVNY<span class="city">— New York → LA</span></span>
+            <span class="craft">Citation Latitude · N814QX</span>
+            <span class="status ok">COMPLETED</span>
+            <span class="price">$48,920</span>
+          </a>
+          <a class="row" href="admin-trip.html">
+            <span class="id">JN-0078</span>
+            <span class="date">22 OCT 2026</span>
+            <span class="pair-cell">KVNY <span class="arr">→</span> KTEB<span class="city">— LA → New York</span></span>
+            <span class="craft">Citation Latitude · N814QX</span>
+            <span class="status ok">COMPLETED</span>
+            <span class="price">$51,200</span>
+          </a>
+          <a class="row" href="admin-trip.html">
+            <span class="id">JN-0070</span>
+            <span class="date">05 OCT 2026</span>
+            <span class="pair-cell">KVNY <span class="arr">→</span> KSFO<span class="city">— LA → SF</span></span>
+            <span class="craft">Phenom 300 · N812EX</span>
+            <span class="status ok">COMPLETED</span>
+            <span class="price">$18,400</span>
+          </a>
+          <a class="row" href="admin-trip.html">
+            <span class="id">JN-0062</span>
+            <span class="date">18 SEP 2026</span>
+            <span class="pair-cell">KVNY <span class="arr">→</span> KASE<span class="city">— LA → Aspen</span></span>
+            <span class="craft">PC-24 · N224SP</span>
+            <span class="status ok">COMPLETED</span>
+            <span class="price">$22,800</span>
+          </a>
+          <a class="row" href="admin-trip.html">
+            <span class="id">JN-0054</span>
+            <span class="date">28 AUG 2026</span>
+            <span class="pair-cell">KTEB <span class="arr">→</span> EGGW<span class="city">— NYC → London</span></span>
+            <span class="craft">Global 6500 · N655GL</span>
+            <span class="status ok">COMPLETED</span>
+            <span class="price">$162,400</span>
+          </a>
+          <a class="row" href="admin-trip.html">
+            <span class="id">JN-0049</span>
+            <span class="date">14 AUG 2026</span>
+            <span class="pair-cell">KVNY <span class="arr">→</span> KTEB<span class="city">— LA → New York</span></span>
+            <span class="craft">Citation Latitude · N814QX</span>
+            <span class="status cancel">CANCELLED · WX</span>
+            <span class="price">— refunded</span>
+          </a>
+        </div>
+      </div>
+    </div>
+
+    <!-- 05 Preferences -->
+    <div class="sec">
+      <div class="sh">
+        <span class="num">— 05</span>
+        <h2>Preferences &amp; rules</h2>
+        <span class="right">
+          <span>— 14 active rules</span>
+          <span class="edit">EDIT</span>
+        </span>
+      </div>
+      <div class="body">
+        <div class="pref-grid">
+          <div>
+            <div class="fg">
+              <div class="l">— CABIN</div>
+              <div class="v" style="border-bottom: none; padding-bottom: 12px; flex-direction: column; align-items: flex-start;">
+                <div class="chips">
+                  <span class="chip on">Wi-Fi req'd</span>
+                  <span class="chip on">Stand-up</span>
+                  <span class="chip on">FA</span>
+                  <span class="chip on">Lie-flat 5h+</span>
+                  <span class="chip on">Pet-friendly</span>
+                  <span class="chip">Smoking</span>
+                </div>
+              </div>
+              <div class="l">— DEFAULT CAT</div>
+              <div class="v">Midsize <span class="lock">· step up if 5h+</span></div>
+              <div class="l">— PET PROFILE</div>
+              <div class="v">Otto · 14 lb labradoodle <span class="lock">· cabin-trained · no kennel</span></div>
+              <div class="l">— CATERING</div>
+              <div class="v">— Pescatarian · no shellfish (allergy) · cold-brew · negroni kit · berries</div>
+              <div class="l">— BAR</div>
+              <div class="v">— Negroni kit (Campari, Hendrick's, Cocchi) · Pellegrino · 4 espressos pre-board</div>
+              <div class="l">— SEATING</div>
+              <div class="v">— Forward-facing port window · Helena across · workspace AFT</div>
+            </div>
+          </div>
+          <div>
+            <div class="fg">
+              <div class="l">— FBO · KVNY</div>
+              <div class="v">Signature <span class="lock">· always</span></div>
+              <div class="l">— FBO · KTEB</div>
+              <div class="v">Meridian <span class="lock">· hangar 4 if available</span></div>
+              <div class="l">— FBO · KSFO</div>
+              <div class="v">Signature</div>
+              <div class="l">— FBO · KASE</div>
+              <div class="v">Atlantic <span class="lock">· call ahead for SUV</span></div>
+              <div class="l">— GROUND</div>
+              <div class="v">Empire CLS · Cadillac Escalade <span class="tag">DEFAULT BOTH ENDS</span></div>
+              <div class="l">— ALERT THRESHOLD</div>
+              <div class="v">— Empty-leg SMS @ ≥40% off only · matched lanes</div>
+              <div class="l">— COMMS</div>
+              <div class="v"><span class="tag">SMS</span> <span class="tag">EMAIL</span> · quiet hours 22:00–06:00 PT</div>
+            </div>
+
+            <div class="rules" style="margin-top: 18px;">
+              <div class="rule"><span class="b"></span><span><span class="em">RULE 01 ·</span> Always cc Pilar Renteria on trip-sheet emails.</span></div>
+              <div class="rule"><span class="b"></span><span><span class="em">RULE 02 ·</span> Never accept Wyvern Silver or below operators.</span></div>
+              <div class="rule"><span class="b"></span><span><span class="em">RULE 03 ·</span> Prefer N814QX (Citation Latitude · FlexJet) if available.</span></div>
+              <div class="rule warn"><span class="b"></span><span><span class="em">FLAG ·</span> Shellfish allergy — confirm catering vendor on every order.</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 06 Companions -->
+    <div class="sec">
+      <div class="sh">
+        <span class="num">— 06</span>
+        <h2>Companions <span style="font-family: var(--mono); font-size: 11px; color: var(--steel); margin-left: 8px; letter-spacing: 0.06em;">/ 8 on file</span></h2>
+        <span class="right"><span class="edit">+ ADD</span></span>
+      </div>
+      <div class="body">
+        <div class="fg">
+          <div class="l">— SPOUSE</div>
+          <div class="v">Helena Aldrich <span class="lock">· DOB 1971-11-03 · KTN ✓ · GE ✓</span> <span class="tag">PRIMARY</span></div>
+          <div class="l">— FAMILY</div>
+          <div class="v">Elliot Aldrich <span class="lock">· son · DOB 2002-08-14 · KTN ✓</span></div>
+          <div class="l">— BUSINESS</div>
+          <div class="v">David Wei <span class="lock">· CFO · DOB 1984-02-19 · KTN ✓ · APIS on file</span></div>
+          <div class="l">— BUSINESS</div>
+          <div class="v">Sarah Brennan <span class="lock">· principal · DOB 1989-07-22 · APIS pending</span></div>
+          <div class="l">— ASSISTANT</div>
+          <div class="v">Pilar Renteria <span class="lock">· itinerary cc · not flying</span></div>
+          <div class="l">— PET</div>
+          <div class="v">Otto <span class="lock">· labradoodle · 14 lb · cabin-trained</span></div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- SIDE PANEL -->
+  <aside class="mb-side">
+
+    <div class="h">— QUICK CONTACT</div>
+    <div class="qc">
+      <a class="primary full" href="tel:+13105550188">— CALL MARCUS</a>
+      <a href="sms:+13105550188">SMS</a>
+      <a href="mailto:m.aldrich@aldrichcapital.com">EMAIL</a>
+      <a class="full" href="#">— OPEN TRIP SHEET · JN-0091</a>
+      <a class="full" href="#">— DRAFT QUOTE FROM HISTORY</a>
+    </div>
+
+    <div class="h">— PINNED NOTES</div>
+    <div class="note">
+      <div class="top"><span class="who">— Catalina · 11 days ago</span><span class="t">pinned</span></div>
+      <div class="body"><span class="em">Always confirm shellfish allergy</span> with catering — Marcus had a reaction at a charity event in 2024. Air Culinaire and Lulu's both know.</div>
+    </div>
+    <div class="note">
+      <div class="top"><span class="who">— Renji · 3 mo ago</span><span class="t">pinned</span></div>
+      <div class="body"><span class="em">Helena prefers AFT seat</span> on long legs; Marcus takes forward-facing port. Crew should pre-set drinks in those positions.</div>
+    </div>
+    <div class="note">
+      <div class="top"><span class="who">— Catalina · 7 mo ago</span><span class="t">pinned</span></div>
+      <div class="body">N814QX is the bird Marcus loves — same crew (Capt. Mendoza) if at all possible. He sends back-of-the-cabin notes after every flight.</div>
+    </div>
+
+    <div class="h" style="margin-top: 18px;">— ACTIVITY · 7 DAYS</div>
+    <div class="tl">
+      <div class="tl-item"><span class="t">14:02</span><span class="what"><span class="em">JN-0091</span> trip-sheet v3 sent · catering upgraded.</span></div>
+      <div class="tl-item"><span class="t">13:42</span><span class="what">Wheels-up KVNY · airborne to KTEB.</span></div>
+      <div class="tl-item"><span class="t">YDAY</span><span class="what">Marcus SMS — added Sarah Brennan as new pax.</span></div>
+      <div class="tl-item"><span class="t">YDAY</span><span class="what">Pilar emailed updated bill-to memo line.</span></div>
+      <div class="tl-item"><span class="t">2D</span><span class="what">Q-2026-0418 accepted at $50,400 · wired same day.</span></div>
+      <div class="tl-item"><span class="t">5D</span><span class="what">Reserve credit accrual posted: +$1,936.</span></div>
+      <div class="tl-item"><span class="t">11D</span><span class="what">Post-flight survey · 5/5 stars · "Capt. Mendoza, again."</span></div>
+    </div>
+
+    <div class="h" style="margin-top: 18px;">— ADD DESK NOTE</div>
+    <div class="qc" style="grid-template-columns: 1fr; margin-bottom: 0;">
+      <a class="full" href="#" style="background: var(--ink-2); border-color: var(--ink-3); padding: 12px;">+ NEW NOTE / RULE</a>
+    </div>
+  </aside>
+</div>
+
+<script>
+  function tick() {
+    const d = new Date();
+    const fmt = (tz) => d.toLocaleTimeString('en-GB', { timeZone: tz, hour: '2-digit', minute: '2-digit' });
+    document.getElementById('clkPT').textContent = fmt('America/Los_Angeles');
+    document.getElementById('clkET').textContent = fmt('America/New_York');
+  }
+  tick(); setInterval(tick, 30000);
+</script>
+</body>
+</html>

@@ -1,0 +1,785 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>JetNine — Memberships &amp; Jet Card</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,500;9..144,600&family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="shared.css" />
+<style>
+  /* Hero */
+  .mb-hero { padding: 200px 0 96px; border-bottom: 1px solid var(--ink-3); }
+  .mb-hero .kicker { display: inline-flex; align-items: center; gap: 12px; margin-bottom: 32px; }
+  .mb-hero .kicker .dash { width: 32px; height: 1px; background: var(--clearance); }
+  .mb-hero h1 { max-width: 18ch; }
+  .mb-hero .lead { font-size: 20px; color: var(--bone-2); max-width: 60ch; margin-top: 32px; line-height: 1.55; }
+  .mb-hero .anchor-row {
+    margin-top: 64px; display: flex; gap: 16px; flex-wrap: wrap;
+  }
+  .anchor-link {
+    padding: 14px 18px; border: 1px solid var(--ink-3); border-radius: 2px;
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase;
+    color: var(--bone); text-decoration: none; transition: border-color 200ms;
+    display: inline-flex; align-items: center; gap: 12px;
+  }
+  .anchor-link:hover { border-color: var(--clearance); }
+  .anchor-link .ar { color: var(--clearance); }
+
+  /* Choose-your-flying section */
+  .choose { padding: 160px 0; border-bottom: 1px solid var(--ink-3); background: var(--ink-2); }
+  .choose-head { display: grid; grid-template-columns: 1fr 1.4fr; gap: 64px; margin-bottom: 64px; align-items: end; }
+  @media (max-width: 900px) { .choose-head { grid-template-columns: 1fr; gap: 24px; } }
+  .choose-head .kicker { display: inline-flex; align-items: center; gap: 12px; }
+  .choose-head .kicker .dash { width: 32px; height: 1px; background: var(--clearance); }
+
+  /* Three product tiers */
+  .tier-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
+  @media (max-width: 1000px) { .tier-grid { grid-template-columns: 1fr; } }
+
+  .tier {
+    background: var(--ink); border: 1px solid var(--ink-3); border-radius: 4px;
+    padding: 48px; display: flex; flex-direction: column; gap: 24px;
+    transition: all 240ms; position: relative;
+  }
+  .tier:hover { border-color: var(--bone-2); transform: translateY(-2px); }
+  .tier.recommended {
+    border-color: var(--clearance);
+    background: linear-gradient(180deg, rgba(212,98,42,0.05) 0%, var(--ink) 60%);
+  }
+  .tier .badge {
+    position: absolute; top: -12px; left: 32px;
+    padding: 6px 14px; background: var(--clearance); color: white;
+    font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase;
+    border-radius: 2px;
+  }
+  .tier .hd {
+    display: flex; flex-direction: column; gap: 8px;
+  }
+  .tier .num { font-family: var(--mono); font-size: 11px; color: var(--clearance); letter-spacing: 0.14em; }
+  .tier h3 { font-family: var(--serif); font-weight: 300; font-size: 36px; line-height: 1.1; letter-spacing: -0.01em; }
+  .tier .strap { color: var(--bone-2); font-size: 14px; line-height: 1.55; max-width: 32ch; margin-top: 4px; }
+
+  .tier .price-block {
+    padding: 24px 0; border-top: 1px solid var(--ink-3); border-bottom: 1px solid var(--ink-3);
+    display: flex; flex-direction: column; gap: 8px;
+  }
+  .tier .price-block .lbl {
+    font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em; color: var(--steel);
+    text-transform: uppercase;
+  }
+  .tier .price-block .val {
+    font-family: var(--serif); font-weight: 300; font-size: 48px; line-height: 1;
+    letter-spacing: -0.02em; color: var(--bone);
+  }
+  .tier .price-block .val .currency { color: var(--clearance); margin-right: 2px; }
+  .tier .price-block .val .unit {
+    font-family: var(--mono); font-size: 13px; color: var(--bone-2);
+    letter-spacing: 0.06em; text-transform: uppercase; margin-left: 8px;
+  }
+  .tier .price-block .sub {
+    font-size: 13px; color: var(--bone-2); margin-top: 4px;
+  }
+
+  .tier ul {
+    list-style: none; padding: 0; margin: 0;
+    display: flex; flex-direction: column; gap: 12px;
+  }
+  .tier ul li {
+    padding-left: 22px; position: relative;
+    font-size: 14px; color: var(--bone-2); line-height: 1.55;
+  }
+  .tier ul li::before {
+    content: "—"; position: absolute; left: 0; color: var(--clearance);
+    font-family: var(--mono);
+  }
+  .tier ul li strong { color: var(--bone); font-weight: 500; }
+
+  .tier .ftr { margin-top: auto; padding-top: 16px; }
+
+  /* Tier 1 (on-demand) */
+  .tier.ondemand .price-block .val { font-size: 32px; }
+
+  /* Compare table */
+  .compare { padding: 160px 0; border-bottom: 1px solid var(--ink-3); }
+  .compare-head { display: grid; grid-template-columns: 1fr 1.4fr; gap: 64px; margin-bottom: 64px; align-items: end; }
+  @media (max-width: 900px) { .compare-head { grid-template-columns: 1fr; gap: 24px; } }
+  .compare-head .kicker { display: inline-flex; align-items: center; gap: 12px; }
+  .compare-head .kicker .dash { width: 32px; height: 1px; background: var(--clearance); }
+
+  .compare-table {
+    background: var(--ink-2); border: 1px solid var(--ink-3); border-radius: 4px; overflow: hidden;
+  }
+  .ct-row {
+    display: grid; grid-template-columns: 1.6fr 1fr 1fr 1fr 1fr;
+    border-bottom: 1px solid var(--ink-3);
+  }
+  .ct-row:last-child { border-bottom: none; }
+  .ct-row.head { background: var(--ink); }
+  .ct-cell { padding: 22px 24px; border-left: 1px solid var(--ink-3); display: flex; flex-direction: column; gap: 6px; justify-content: center; }
+  .ct-cell:first-child { border-left: none; }
+  .ct-cell.attr {
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.06em; color: var(--bone-2);
+  }
+  .ct-cell.head-l {
+    font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em; color: var(--steel); text-transform: uppercase;
+  }
+  .ct-cell.col-h {
+    font-family: var(--serif); font-weight: 400; font-size: 18px; color: var(--bone);
+  }
+  .ct-cell.col-h .pill {
+    display: inline-block; padding: 3px 8px;
+    font-family: var(--mono); font-size: 9px; letter-spacing: 0.12em; text-transform: uppercase;
+    border-radius: 2px; margin-top: 4px;
+    background: var(--ink-3); color: var(--bone-2);
+  }
+  .ct-cell.col-h .pill.us { background: var(--clearance); color: white; }
+  .ct-cell.us { background: rgba(212,98,42,0.04); }
+  .ct-cell .val { font-family: var(--mono); font-size: 13px; color: var(--bone); letter-spacing: 0.04em; }
+  .ct-cell .sub { font-family: var(--mono); font-size: 11px; color: var(--steel); }
+  .ct-cell .check { color: var(--clearance); font-size: 16px; line-height: 1; }
+  .ct-cell .x { color: var(--steel); font-size: 14px; line-height: 1; }
+
+  @media (max-width: 1000px) {
+    .compare-table { overflow-x: auto; }
+    .compare-table-inner { min-width: 900px; }
+  }
+
+  /* Hourly rates table */
+  .rates { padding: 160px 0; border-bottom: 1px solid var(--ink-3); background: var(--ink-2); }
+  .rates-head { display: grid; grid-template-columns: 1fr 1.4fr; gap: 64px; margin-bottom: 64px; align-items: end; }
+  @media (max-width: 900px) { .rates-head { grid-template-columns: 1fr; gap: 24px; } }
+  .rates-head .kicker { display: inline-flex; align-items: center; gap: 12px; }
+  .rates-head .kicker .dash { width: 32px; height: 1px; background: var(--clearance); }
+
+  .rate-card {
+    background: var(--ink); border: 1px solid var(--ink-3); border-radius: 4px; overflow: hidden;
+  }
+  .rate-row {
+    display: grid; grid-template-columns: 200px 1fr 240px 200px;
+    padding: 24px 32px; border-bottom: 1px solid var(--ink-3); align-items: center; gap: 24px;
+  }
+  @media (max-width: 900px) { .rate-row { grid-template-columns: 1fr 1fr; gap: 12px; } .rate-row .desc { grid-column: 1 / -1; order: 3; } }
+  .rate-row.head {
+    background: var(--ink-2);
+    font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em; color: var(--steel); text-transform: uppercase;
+    padding: 16px 32px;
+  }
+  .rate-row:last-child { border-bottom: none; }
+  .rate-row .cat {
+    font-family: var(--serif); font-size: 22px; font-weight: 400; line-height: 1.2; color: var(--bone);
+  }
+  .rate-row .desc {
+    font-size: 13px; color: var(--bone-2); line-height: 1.55;
+  }
+  .rate-row .ondemand-price {
+    font-family: var(--mono); font-size: 14px; color: var(--bone-2); letter-spacing: 0.04em;
+  }
+  .rate-row .card-price {
+    font-family: var(--serif); font-size: 28px; font-weight: 300; color: var(--bone); letter-spacing: -0.01em; line-height: 1;
+    display: flex; align-items: baseline; gap: 6px;
+  }
+  .rate-row .card-price .currency { color: var(--clearance); font-size: 16px; }
+  .rate-row .card-price .unit { font-family: var(--mono); font-size: 11px; color: var(--steel); letter-spacing: 0.04em; }
+
+  /* Card tiers (deposit levels) */
+  .deposits { padding: 160px 0; border-bottom: 1px solid var(--ink-3); }
+  .deposits-head { display: grid; grid-template-columns: 1fr 1.4fr; gap: 64px; margin-bottom: 64px; align-items: end; }
+  @media (max-width: 900px) { .deposits-head { grid-template-columns: 1fr; gap: 24px; } }
+  .deposits-head .kicker { display: inline-flex; align-items: center; gap: 12px; }
+  .deposits-head .kicker .dash { width: 32px; height: 1px; background: var(--clearance); }
+
+  .deposit-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
+  @media (max-width: 900px) { .deposit-grid { grid-template-columns: 1fr; } }
+  .deposit-card {
+    background: var(--ink-2); border: 1px solid var(--ink-3); border-radius: 4px;
+    overflow: hidden; transition: all 240ms;
+    display: flex; flex-direction: column;
+  }
+  .deposit-card:hover { border-color: var(--bone-2); transform: translateY(-2px); }
+  .deposit-card.gold .top { background: linear-gradient(180deg, rgba(212,98,42,0.12) 0%, transparent 100%); }
+  .deposit-card .top {
+    padding: 32px; border-bottom: 1px solid var(--ink-3);
+    display: flex; flex-direction: column; gap: 12px;
+  }
+  .deposit-card .lbl-row {
+    display: flex; justify-content: space-between; align-items: center;
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.14em; color: var(--clearance);
+  }
+  .deposit-card .name {
+    font-family: var(--serif); font-size: 32px; font-weight: 300; line-height: 1.1; letter-spacing: -0.01em;
+  }
+  .deposit-card .deposit {
+    font-family: var(--serif); font-weight: 300; font-size: 56px; letter-spacing: -0.02em; line-height: 1;
+    color: var(--bone);
+  }
+  .deposit-card .deposit .currency { color: var(--clearance); font-size: 28px; vertical-align: super; }
+  .deposit-card .deposit-sub {
+    font-family: var(--mono); font-size: 11px; color: var(--steel); letter-spacing: 0.06em; text-transform: uppercase;
+  }
+  .deposit-card .body { padding: 32px; flex: 1; display: flex; flex-direction: column; gap: 16px; }
+  .deposit-card .body ul {
+    list-style: none; padding: 0; margin: 0;
+    display: flex; flex-direction: column; gap: 12px;
+  }
+  .deposit-card .body ul li {
+    padding-left: 20px; position: relative;
+    font-size: 14px; color: var(--bone-2); line-height: 1.55;
+  }
+  .deposit-card .body ul li::before {
+    content: "—"; position: absolute; left: 0; color: var(--clearance); font-family: var(--mono);
+  }
+  .deposit-card .body ul li strong { color: var(--bone); font-weight: 500; }
+
+  /* Avail */
+  .avail { padding: 160px 0; border-bottom: 1px solid var(--ink-3); background: var(--ink-2); }
+  .avail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 64px; align-items: start; }
+  @media (max-width: 900px) { .avail-grid { grid-template-columns: 1fr; gap: 32px; } }
+  .avail .kicker { display: inline-flex; align-items: center; gap: 12px; margin-bottom: 32px; }
+  .avail .kicker .dash { width: 32px; height: 1px; background: var(--clearance); }
+  .avail h2 { max-width: 14ch; }
+  .avail .lead { font-size: 18px; color: var(--bone-2); margin-top: 24px; line-height: 1.65; max-width: 50ch; }
+
+  .commit-list {
+    background: var(--ink); border: 1px solid var(--ink-3); border-radius: 4px;
+  }
+  .commit-row {
+    display: grid; grid-template-columns: 80px 1fr auto; gap: 24px;
+    padding: 24px 32px; border-bottom: 1px solid var(--ink-3); align-items: center;
+  }
+  .commit-row:last-child { border-bottom: none; }
+  .commit-row .num { font-family: var(--mono); font-size: 11px; color: var(--clearance); letter-spacing: 0.14em; }
+  .commit-row .what { font-family: var(--serif); font-size: 18px; line-height: 1.3; color: var(--bone); }
+  .commit-row .what .sub { display: block; font-family: var(--sans); font-size: 13px; color: var(--bone-2); margin-top: 4px; }
+  .commit-row .val { font-family: var(--mono); font-size: 13px; color: var(--bone); letter-spacing: 0.04em; white-space: nowrap; }
+
+  /* FAQ — same pattern as how-it-works */
+  .mb-faq { padding: 160px 0; border-bottom: 1px solid var(--ink-3); }
+  .mb-faq-head { display: grid; grid-template-columns: 1fr 1.4fr; gap: 64px; margin-bottom: 64px; align-items: end; }
+  @media (max-width: 900px) { .mb-faq-head { grid-template-columns: 1fr; gap: 24px; } }
+  .mb-faq-head .kicker { display: inline-flex; align-items: center; gap: 12px; }
+  .mb-faq-head .kicker .dash { width: 32px; height: 1px; background: var(--clearance); }
+  .faq-list { border-top: 1px solid var(--ink-3); }
+  .faq-item { border-bottom: 1px solid var(--ink-3); }
+  .faq-item summary {
+    list-style: none; cursor: pointer;
+    padding: 28px 0; display: grid; grid-template-columns: 60px 1fr 24px; gap: 24px; align-items: center;
+    font-family: var(--serif); font-size: 22px; font-weight: 400; color: var(--bone);
+    transition: color 200ms;
+  }
+  .faq-item summary::-webkit-details-marker { display: none; }
+  .faq-item summary:hover { color: var(--clearance); }
+  .faq-item summary .num { font-family: var(--mono); font-size: 11px; color: var(--clearance); letter-spacing: 0.06em; }
+  .faq-item summary .icon { transition: transform 240ms; color: var(--bone-2); }
+  .faq-item[open] summary .icon { transform: rotate(45deg); color: var(--clearance); }
+  .faq-item .answer {
+    padding: 0 0 32px 84px; color: var(--bone-2); font-size: 16px; line-height: 1.7; max-width: 80ch;
+  }
+  @media (max-width: 700px) {
+    .faq-item summary { grid-template-columns: 40px 1fr 24px; font-size: 18px; }
+    .faq-item .answer { padding-left: 0; }
+  }
+</style>
+</head>
+<body>
+
+<nav class="nav" id="nav" data-screen-label="06 Memberships">
+  <div class="nav-inner">
+    <a href="homepage.html" class="brand" style="text-decoration: none;">JetNine <span class="nine">09</span></a>
+    <div class="nav-links">
+      <a href="homepage.html">Home</a>
+      <a href="aircraft.html">Aircraft</a>
+      <a href="how-it-works.html">How it works</a>
+      <a href="memberships.html" class="active">Memberships</a>
+      <a href="empty-legs.html">Empty legs</a>
+      <a href="safety.html">Safety</a>
+    </div>
+    <div class="nav-cta">
+      <a class="phone-link" href="tel:+18188005678">+1 (818) 800-5678</a>
+      <a href="quote-step1.html" class="btn btn-primary btn-sm">Request quote <span class="arrow">→</span></a>
+    </div>
+  </div>
+</nav>
+
+<header class="mb-hero">
+  <div class="container">
+    <div class="reveal kicker"><span class="dash"></span> Memberships · jet card · on-demand</div>
+    <h1 class="display-xl reveal" data-stagger="1">Three ways to fly.<br/>None of them<br/>require a membership.</h1>
+    <p class="lead reveal" data-stagger="2">Most charter brokers want you on a yearly retainer. We don't. The default is on-demand — pay per flight, locked pricing, zero commitment. The jet card and reserve programs exist because some clients want fixed hourly rates and guaranteed availability. Pick the one that fits your year.</p>
+    <div class="anchor-row reveal" data-stagger="3">
+      <a class="anchor-link" href="#tiers">Compare programs <span class="ar">↓</span></a>
+      <a class="anchor-link" href="#rates">Hourly rates <span class="ar">↓</span></a>
+      <a class="anchor-link" href="#deposits">Card tiers <span class="ar">↓</span></a>
+      <a class="anchor-link" href="#faq">FAQ <span class="ar">↓</span></a>
+    </div>
+  </div>
+</header>
+
+<section class="choose" id="tiers">
+  <div class="container">
+    <div class="choose-head">
+      <div class="reveal"><div class="kicker"><span class="dash"></span> Three programs</div></div>
+      <div class="reveal" data-stagger="1">
+        <h2 class="display-l">Pick by how often<br/>you actually fly.</h2>
+        <p class="body-l" style="margin-top: 24px; max-width: 56ch;">Under 25 hours a year? Stay on-demand. 25–100 hours? The jet card pays for itself in locked rates and avoided peak pricing. Over 100? Reserve gives you a guaranteed call-out window and a dedicated dispatcher.</p>
+      </div>
+    </div>
+
+    <div class="tier-grid">
+      <div class="tier ondemand reveal">
+        <div class="hd">
+          <div class="num">— PROGRAM 01</div>
+          <h3>On-Demand</h3>
+          <div class="strap">Pay per flight, no commitment. The default. The right choice for most.</div>
+        </div>
+        <div class="price-block">
+          <div class="lbl">— ENTRY COST</div>
+          <div class="val"><span class="currency">$</span>0</div>
+          <div class="sub">No deposit, no annual fee, no minimum spend.</div>
+        </div>
+        <ul>
+          <li><strong>All-in pricing</strong> — every quote includes fuel, FET, repositioning, crew, catering, ground.</li>
+          <li><strong>Locked at acceptance</strong> — the number you accept is the number on the invoice.</li>
+          <li><strong>30-min quote turnaround</strong> with three to five specific airframes.</li>
+          <li>Empty-leg watchlist included free; no SMS-alert fees.</li>
+          <li>Best fit for under 25 flight hours per year.</li>
+        </ul>
+        <div class="ftr">
+          <a href="quote-step1.html" class="btn btn-secondary" style="width: 100%; justify-content: center;">Request a quote <span class="arrow">→</span></a>
+        </div>
+      </div>
+
+      <div class="tier recommended reveal" data-stagger="1">
+        <div class="badge">Most chosen</div>
+        <div class="hd">
+          <div class="num">— PROGRAM 02</div>
+          <h3>JetNine Card</h3>
+          <div class="strap">Refundable deposit. Fixed hourly rate. No peak-day surcharges, ever.</div>
+        </div>
+        <div class="price-block">
+          <div class="lbl">— FROM</div>
+          <div class="val"><span class="currency">$</span>100k <span class="unit">DEPOSIT</span></div>
+          <div class="sub">Deposit is yours — applied against flights, refundable if unused after 24 months.</div>
+        </div>
+        <ul>
+          <li><strong>Fixed hourly rates</strong> by category, locked for 24 months from card activation.</li>
+          <li><strong>No peak-day pricing.</strong> Thanksgiving Wednesday at the same rate as a Tuesday in March.</li>
+          <li><strong>72-hour call-out</strong> — guaranteed availability with three days notice.</li>
+          <li>Same dispatcher relationship; same vetting protocol.</li>
+          <li>Best fit for 25–100 flight hours per year.</li>
+        </ul>
+        <div class="ftr">
+          <a href="#deposits" class="btn btn-primary" style="width: 100%; justify-content: center;">See card tiers <span class="arrow">↓</span></a>
+        </div>
+      </div>
+
+      <div class="tier reveal" data-stagger="2">
+        <div class="hd">
+          <div class="num">— PROGRAM 03</div>
+          <h3>Reserve</h3>
+          <div class="strap">Guaranteed availability with as little as 8 hours notice. Dedicated dispatcher. White-glove.</div>
+        </div>
+        <div class="price-block">
+          <div class="lbl">— FROM</div>
+          <div class="val"><span class="currency">$</span>500k <span class="unit">DEPOSIT</span></div>
+          <div class="sub">Annual program review. By application — limited number of seats.</div>
+        </div>
+        <ul>
+          <li><strong>8-hour call-out</strong> — guaranteed airframe in the air, anywhere CONUS.</li>
+          <li><strong>Dedicated dispatcher</strong> assigned to your account; same person, every time.</li>
+          <li><strong>Priority access</strong> to the largest-cabin airframes during demand peaks.</li>
+          <li>Annual catering &amp; ground-transport allowance included.</li>
+          <li>Best fit for 100+ flight hours per year, time-critical missions.</li>
+        </ul>
+        <div class="ftr">
+          <a href="#" class="btn btn-secondary" style="width: 100%; justify-content: center;">Apply for Reserve <span class="arrow">→</span></a>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="compare">
+  <div class="container">
+    <div class="compare-head">
+      <div class="reveal"><div class="kicker"><span class="dash"></span> Side-by-side</div></div>
+      <div class="reveal" data-stagger="1">
+        <h2 class="display-l">JetNine vs. fractional<br/>vs. owning your own.</h2>
+        <p class="body-l" style="margin-top: 24px; max-width: 56ch;">The honest comparison. We're not the right answer for every flyer — if you fly 150+ hours a year on the same two routes, fractional or whole-aircraft will be cheaper. For everyone else, here's how the math works out.</p>
+      </div>
+    </div>
+
+    <div class="compare-table reveal">
+      <div class="compare-table-inner">
+      <div class="ct-row head">
+        <div class="ct-cell head-l">Compared on</div>
+        <div class="ct-cell col-h">JetNine on-demand <span class="pill us">FLEX</span></div>
+        <div class="ct-cell col-h">JetNine Card <span class="pill us">FIXED</span></div>
+        <div class="ct-cell col-h">Fractional <span class="pill">SHARES</span></div>
+        <div class="ct-cell col-h">Whole aircraft <span class="pill">OWN</span></div>
+      </div>
+      <div class="ct-row">
+        <div class="ct-cell attr">Annual commitment</div>
+        <div class="ct-cell us"><span class="val">None</span><span class="sub">Pay per flight</span></div>
+        <div class="ct-cell us"><span class="val">$100k+ deposit</span><span class="sub">Refundable, 24 mo</span></div>
+        <div class="ct-cell"><span class="val">$200k+ purchase</span><span class="sub">Plus $15–25k/mo mgmt</span></div>
+        <div class="ct-cell"><span class="val">$10–60M</span><span class="sub">Plus $1–3M/yr ops</span></div>
+      </div>
+      <div class="ct-row">
+        <div class="ct-cell attr">Hourly rate (midsize)</div>
+        <div class="ct-cell us"><span class="val">~$4,400</span><span class="sub">All-in, market rate</span></div>
+        <div class="ct-cell us"><span class="val">$3,950</span><span class="sub">Locked 24 mo</span></div>
+        <div class="ct-cell"><span class="val">$5,200</span><span class="sub">Plus monthly</span></div>
+        <div class="ct-cell"><span class="val">$2,200</span><span class="sub">Direct ops only</span></div>
+      </div>
+      <div class="ct-row">
+        <div class="ct-cell attr">Aircraft access</div>
+        <div class="ct-cell us"><span class="val">~20,000 worldwide</span></div>
+        <div class="ct-cell us"><span class="val">~20,000 worldwide</span></div>
+        <div class="ct-cell"><span class="val">~200 fleet</span></div>
+        <div class="ct-cell"><span class="val">1 (yours)</span></div>
+      </div>
+      <div class="ct-row">
+        <div class="ct-cell attr">Call-out time</div>
+        <div class="ct-cell us"><span class="val">2–24h notice</span></div>
+        <div class="ct-cell us"><span class="val">72h guaranteed</span></div>
+        <div class="ct-cell"><span class="val">10–24h</span></div>
+        <div class="ct-cell"><span class="val">2h (your call)</span></div>
+      </div>
+      <div class="ct-row">
+        <div class="ct-cell attr">Peak-day surcharge</div>
+        <div class="ct-cell us"><span class="val">Market rate</span></div>
+        <div class="ct-cell us"><span class="check">✓ None</span></div>
+        <div class="ct-cell"><span class="x">+ 25–40%</span></div>
+        <div class="ct-cell"><span class="check">✓ None</span></div>
+      </div>
+      <div class="ct-row">
+        <div class="ct-cell attr">Aircraft category</div>
+        <div class="ct-cell us"><span class="val">Per flight choice</span></div>
+        <div class="ct-cell us"><span class="val">Per flight choice</span></div>
+        <div class="ct-cell"><span class="val">Locked to share</span></div>
+        <div class="ct-cell"><span class="val">Locked to airframe</span></div>
+      </div>
+      <div class="ct-row">
+        <div class="ct-cell attr">Empty-leg access</div>
+        <div class="ct-cell us"><span class="check">✓ Yes</span></div>
+        <div class="ct-cell us"><span class="check">✓ Yes + watchlist priority</span></div>
+        <div class="ct-cell"><span class="x">— No</span></div>
+        <div class="ct-cell"><span class="x">— No</span></div>
+      </div>
+      <div class="ct-row">
+        <div class="ct-cell attr">Best for</div>
+        <div class="ct-cell us"><span class="val">Under 25h / year</span></div>
+        <div class="ct-cell us"><span class="val">25–100h / year</span></div>
+        <div class="ct-cell"><span class="val">25–50h / year, fixed routes</span></div>
+        <div class="ct-cell"><span class="val">200h+ / year</span></div>
+      </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="rates" id="rates">
+  <div class="container">
+    <div class="rates-head">
+      <div class="reveal"><div class="kicker"><span class="dash"></span> Hourly rates</div></div>
+      <div class="reveal" data-stagger="1">
+        <h2 class="display-l">JetNine Card rates,<br/>by category.</h2>
+        <p class="body-l" style="margin-top: 24px; max-width: 56ch;">Locked for 24 months from card activation. Includes everything except FET (7.5%, federal) and FBO ramp fees. Compare to typical on-demand market rates — the savings are 12–18% on average, more during peak.</p>
+      </div>
+    </div>
+
+    <div class="rate-card reveal">
+      <div class="rate-row head">
+        <div>Category</div>
+        <div>Typical mission</div>
+        <div>On-demand market</div>
+        <div>JetNine Card · locked</div>
+      </div>
+      <div class="rate-row">
+        <div class="cat">Light</div>
+        <div class="desc">3–4 pax · 1,500 NM · regional hops · KVNY → KASE</div>
+        <div class="ondemand-price">$3,200 – 3,600 / hr</div>
+        <div class="card-price"><span class="currency">$</span>2,950<span class="unit">/HR</span></div>
+      </div>
+      <div class="rate-row">
+        <div class="cat">Midsize</div>
+        <div class="desc">5–6 pax · 2,500 NM · transcon · KVNY → KTEB</div>
+        <div class="ondemand-price">$4,200 – 4,600 / hr</div>
+        <div class="card-price"><span class="currency">$</span>3,950<span class="unit">/HR</span></div>
+      </div>
+      <div class="rate-row">
+        <div class="cat">Super-mid</div>
+        <div class="desc">6–8 pax · 3,500 NM · transcon nonstop · KSFO → KMIA</div>
+        <div class="ondemand-price">$5,400 – 5,900 / hr</div>
+        <div class="card-price"><span class="currency">$</span>5,100<span class="unit">/HR</span></div>
+      </div>
+      <div class="rate-row">
+        <div class="cat">Heavy</div>
+        <div class="desc">8–12 pax · 4,500 NM · transatlantic · KJFK → EGLL</div>
+        <div class="ondemand-price">$7,800 – 8,400 / hr</div>
+        <div class="card-price"><span class="currency">$</span>7,400<span class="unit">/HR</span></div>
+      </div>
+      <div class="rate-row">
+        <div class="cat">Ultra long range</div>
+        <div class="desc">12–16 pax · 6,500+ NM · transpacific · KLAX → RJTT</div>
+        <div class="ondemand-price">$10,400 – 11,200 / hr</div>
+        <div class="card-price"><span class="currency">$</span>9,850<span class="unit">/HR</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="deposits" id="deposits">
+  <div class="container">
+    <div class="deposits-head">
+      <div class="reveal"><div class="kicker"><span class="dash"></span> Card tiers</div></div>
+      <div class="reveal" data-stagger="1">
+        <h2 class="display-l">Three deposit levels.<br/>Same locked rates, more perks.</h2>
+        <p class="body-l" style="margin-top: 24px; max-width: 56ch;">Higher deposits earn faster call-out, larger annual allowances, and elevated empty-leg priority. The hourly rate is the same across tiers — what changes is the service envelope.</p>
+      </div>
+    </div>
+
+    <div class="deposit-grid">
+      <div class="deposit-card reveal">
+        <div class="top">
+          <div class="lbl-row"><span>— TIER 01</span><span>BASE</span></div>
+          <div class="name">Card · 100</div>
+          <div class="deposit"><span class="currency">$</span>100k</div>
+          <div class="deposit-sub">— REFUNDABLE DEPOSIT</div>
+        </div>
+        <div class="body">
+          <ul>
+            <li>Locked hourly rates for 24 months</li>
+            <li><strong>72-hour</strong> guaranteed call-out</li>
+            <li>$2,500 catering allowance / year</li>
+            <li>Standard empty-leg watchlist access</li>
+            <li>One named cardholder</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="deposit-card gold reveal" data-stagger="1">
+        <div class="top">
+          <div class="lbl-row"><span style="color: var(--clearance);">— TIER 02</span><span style="color: var(--clearance);">PREFERRED</span></div>
+          <div class="name">Card · 250</div>
+          <div class="deposit"><span class="currency">$</span>250k</div>
+          <div class="deposit-sub">— REFUNDABLE DEPOSIT</div>
+        </div>
+        <div class="body">
+          <ul>
+            <li>Locked hourly rates for 24 months</li>
+            <li><strong>48-hour</strong> guaranteed call-out</li>
+            <li>$8,000 catering &amp; ground allowance / year</li>
+            <li><strong>Priority empty-leg access</strong> — 30 min advance window</li>
+            <li>Up to <strong>three</strong> named cardholders</li>
+            <li>Direct dispatcher cell number</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="deposit-card reveal" data-stagger="2">
+        <div class="top">
+          <div class="lbl-row"><span>— TIER 03</span><span>ELITE</span></div>
+          <div class="name">Card · 500</div>
+          <div class="deposit"><span class="currency">$</span>500k</div>
+          <div class="deposit-sub">— REFUNDABLE DEPOSIT</div>
+        </div>
+        <div class="body">
+          <ul>
+            <li>Locked hourly rates for 36 months</li>
+            <li><strong>24-hour</strong> guaranteed call-out</li>
+            <li>$20,000 catering &amp; ground allowance / year</li>
+            <li><strong>First-look empty-leg access</strong> — 60 min advance window</li>
+            <li>Unlimited named cardholders &amp; dependents</li>
+            <li>Annual safety briefing &amp; airframe selection consultation</li>
+            <li>Path to Reserve qualification</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="avail">
+  <div class="container">
+    <div class="avail-grid">
+      <div>
+        <div class="reveal kicker"><span class="dash"></span> Availability commitment</div>
+        <h2 class="display-l reveal" data-stagger="1">If we don't deliver,<br/>we make it right.</h2>
+        <p class="lead reveal" data-stagger="2">Guaranteed call-out is a commitment, not a marketing line. If we can't put an airframe in the air for you within your tier's window, here's what happens.</p>
+      </div>
+      <div class="commit-list reveal" data-stagger="2">
+        <div class="commit-row">
+          <div class="num">— 01</div>
+          <div class="what">Substitute aircraft<span class="sub">Same category or one tier up, our cost.</span></div>
+          <div class="val">No charge</div>
+        </div>
+        <div class="commit-row">
+          <div class="num">— 02</div>
+          <div class="what">Commercial first-class<span class="sub">If no airframe is reachable, we book commercial.</span></div>
+          <div class="val">Our cost</div>
+        </div>
+        <div class="commit-row">
+          <div class="num">— 03</div>
+          <div class="what">Hour credit<span class="sub">Failed call-out triggers a flight credit.</span></div>
+          <div class="val">+1 hour</div>
+        </div>
+        <div class="commit-row">
+          <div class="num">— 04</div>
+          <div class="what">No questions asked<span class="sub">Triggered by missed window, regardless of cause.</span></div>
+          <div class="val">Always</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="mb-faq" id="faq">
+  <div class="container">
+    <div class="mb-faq-head">
+      <div class="reveal"><div class="kicker"><span class="dash"></span> Frequently asked</div></div>
+      <div class="reveal" data-stagger="1"><h2 class="display-l">The questions<br/>most card prospects ask.</h2></div>
+    </div>
+
+    <div class="faq-list reveal">
+      <details class="faq-item">
+        <summary>
+          <span class="num">01</span>
+          <span>Is the deposit actually refundable?</span>
+          <svg class="icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 5v14M5 12h14"/></svg>
+        </summary>
+        <div class="answer">Yes, in plain terms. The deposit is held as a flight-credit balance. You can fly it down to zero, top it up, or — at any point in the 24-month locked-rate window — request a refund of the unused balance. We process refunds within ten business days, no penalties, no clawbacks. The only thing we don't refund is hours already flown.</div>
+      </details>
+      <details class="faq-item">
+        <summary>
+          <span class="num">02</span>
+          <span>What happens if I run out of deposit balance mid-year?</span>
+          <svg class="icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 5v14M5 12h14"/></svg>
+        </summary>
+        <div class="answer">Top it up, in any amount, any time. Or roll back to on-demand for the rest of the year — your locked rate stays in place if you re-load before the 24-month rate window expires. We don't penalize over-flying or charge the higher market rate retroactively; the locked rate is the locked rate.</div>
+      </details>
+      <details class="faq-item">
+        <summary>
+          <span class="num">03</span>
+          <span>Why is this cheaper than on-demand?</span>
+          <svg class="icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 5v14M5 12h14"/></svg>
+        </summary>
+        <div class="answer">Two reasons. First, the deposit gives us working capital to negotiate fleet-wide rate commitments with operators on your behalf — savings we pass through. Second, by knowing your annual flying volume in advance, we can place you on operators with capacity gaps, who give us better rates than spot-market lookups. The card is genuinely a discount, not a marketing wrapper. The math is in the comparison table above.</div>
+      </details>
+      <details class="faq-item">
+        <summary>
+          <span class="num">04</span>
+          <span>Are peak holidays really the same rate?</span>
+          <svg class="icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 5v14M5 12h14"/></svg>
+        </summary>
+        <div class="answer">Yes, with one nuance: the rate is the same, but availability isn't. Thanksgiving Wednesday and the days around the Super Bowl are genuinely capacity-constrained — even with the card, we can't manufacture airframes that don't exist. Card holders get priority over on-demand bookings, and we recommend booking peak dates 60+ days out. Once confirmed, the rate is your locked rate. Period.</div>
+      </details>
+      <details class="faq-item">
+        <summary>
+          <span class="num">05</span>
+          <span>Can I change tiers mid-year?</span>
+          <svg class="icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 5v14M5 12h14"/></svg>
+        </summary>
+        <div class="answer">Up only, any time — top up to a higher tier and the new perks kick in within 48 hours. Down requires written request 30 days before the next anniversary; we'll true up the deposit difference and refund the delta. Rates locked at the original tier carry over for the duration of the 24-month window.</div>
+      </details>
+      <details class="faq-item">
+        <summary>
+          <span class="num">06</span>
+          <span>How does Reserve actually work?</span>
+          <svg class="icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 5v14M5 12h14"/></svg>
+        </summary>
+        <div class="answer">Reserve is built around a dedicated dispatcher and a pre-positioned operator pool — we maintain standing arrangements with three to five operators in key metros so that an 8-hour call-out is realistic, not aspirational. It's by application because the operator commitments are finite; we run roughly 40 Reserve seats at any time. If you fly 100+ hours a year and need same-day or next-day flexibility, ask about it on your next call.</div>
+      </details>
+      <details class="faq-item">
+        <summary>
+          <span class="num">07</span>
+          <span>Do I lose my locked rate if I don't fly enough?</span>
+          <svg class="icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 5v14M5 12h14"/></svg>
+        </summary>
+        <div class="answer">No minimum hours, no use-it-or-lose-it. The deposit sits there at the locked rate; if you fly five hours in a year, you fly five hours at the locked rate. The 24-month rate window is from card activation, not from minimum-hours benchmarks. The only way to lose the locked rate is to let the 24 months expire without re-loading.</div>
+      </details>
+    </div>
+  </div>
+</section>
+
+<section style="position: relative; padding: 200px 0; overflow: hidden; text-align: center; border-top: 1px solid var(--ink-3); background: var(--ink);">
+  <div class="container">
+    <h2 class="display-l reveal">Talk to dispatch.<br/>We'll model the right program for you.</h2>
+    <p class="body-l reveal" data-stagger="1" style="margin: 24px auto 48px; max-width: 56ch;">Annual hours, typical lanes, peak-day exposure — fifteen minutes on the phone and we'll show you which program saves you money in writing.</p>
+    <div style="display: flex; gap: 24px; justify-content: center; flex-wrap: wrap;" class="reveal" data-stagger="2">
+      <a href="tel:+18188005678" class="btn btn-primary btn-lg">Call dispatch · +1 (818) 800-5678</a>
+      <a href="quote-step1.html" class="btn btn-secondary btn-lg">Request a quote <span class="arrow">→</span></a>
+    </div>
+  </div>
+</section>
+
+<footer class="docfoot">
+  <div class="container">
+    <div class="footer-grid">
+      <div class="foot-col">
+        <div class="brand" style="font-size: 28px;">JetNine <span class="nine" style="font-size: 12px;">09</span></div>
+        <p class="body" style="margin-top: 16px; max-width: 320px;">Private jet charter, anywhere, anytime. Twenty thousand aircraft worldwide, one number to call.</p>
+        <div style="margin-top: 24px; display: flex; flex-direction: column; gap: 8px;">
+          <a class="phone-link" style="font-size:14px;" href="tel:+18188005678">+1 (818) 800-5678</a>
+          <a class="phone-link" style="font-size:14px;" href="mailto:info@jetnine.com">info@jetnine.com</a>
+          <div class="caption" style="margin-top: 4px;">2934 BEVERLY GLEN CIRCLE #123<br/>LOS ANGELES, CA 90077</div>
+        </div>
+      </div>
+      <div class="foot-col"><h4>Sitemap</h4><ul>
+        <li><a href="homepage.html">Home</a></li>
+        <li><a href="aircraft.html">Aircraft</a></li>
+        <li><a href="how-it-works.html">How it works</a></li>
+        <li><a href="memberships.html">Memberships</a></li>
+        <li><a href="empty-legs.html">Empty legs</a></li>
+        <li><a href="safety.html">Safety</a></li>
+      </ul></div>
+      <div class="foot-col"><h4>Categories</h4><ul>
+        <li><a href="aircraft.html">Turboprop</a></li>
+        <li><a href="aircraft-light.html">Light</a></li>
+        <li><a href="aircraft-midsize.html">Midsize</a></li>
+        <li><a href="aircraft-supermid.html">Super-mid</a></li>
+        <li><a href="aircraft-heavy.html">Heavy</a></li>
+        <li><a href="aircraft-ultra.html">Ultra long range</a></li>
+      </ul></div>
+      <div class="foot-col">
+        <h4>Legal</h4>
+        <ul style="gap: 8px;">
+          <li><a href="#">Privacy</a></li>
+          <li><a href="#">Terms</a></li>
+          <li><a href="#">Part 295 broker disclosure</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="foot-bottom">
+      <div>JETNINE © 2026 — LOS ANGELES</div>
+      <div style="display: flex; gap: 24px;">
+        <a href="#" style="color: var(--steel); text-decoration: none;">X</a>
+        <a href="#" style="color: var(--steel); text-decoration: none;">IG</a>
+        <a href="#" style="color: var(--steel); text-decoration: none;">LI</a>
+      </div>
+      <div style="max-width: 480px; text-align: right;">JetNine is an indirect air carrier — Part 295 broker. All flights operated by FAA Part 135 certified carriers.</div>
+    </div>
+  </div>
+</footer>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script type="text/babel" src="tweaks-panel.jsx"></script>
+<div id="tweaks-root"></div>
+<script type="text/babel" src="tweaks.jsx"></script>
+
+<script>
+  const nav = document.getElementById('nav');
+  function updateNav() { if (window.scrollY > 60) nav.classList.add('scrolled'); else nav.classList.remove('scrolled'); }
+  window.addEventListener('scroll', updateNav, { passive: true }); updateNav();
+  const reveals = document.querySelectorAll('.reveal');
+  const revObs = new IntersectionObserver((entries) => {
+    entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('in'); revObs.unobserve(e.target); } });
+  }, { threshold: 0.15 });
+  reveals.forEach(r => revObs.observe(r));
+</script>
+</body>
+</html>

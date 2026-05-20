@@ -1,0 +1,866 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>JetNine — Admin · Quote Workbench</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,500;9..144,600&family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="shared.css" />
+<style>
+  body { background: var(--ink); overflow-x: hidden; }
+
+  /* === Top bar === */
+  .top {
+    height: 56px; border-bottom: 1px solid var(--ink-3);
+    display: grid; grid-template-columns: 240px 1fr auto; align-items: center;
+    background: var(--ink); position: sticky; top: 0; z-index: 60;
+  }
+  .top .brand-cell { padding: 0 20px; border-right: 1px solid var(--ink-3); height: 100%; display: flex; align-items: center; gap: 10px; }
+  .top .brand-cell .b { font-family: var(--serif); font-size: 18px; color: var(--bone); }
+  .top .brand-cell .b .nine { font-family: var(--mono); font-size: 9px; color: var(--clearance); letter-spacing: 0.1em; vertical-align: super; margin-left: 2px; }
+  .top .brand-cell .desk { font-family: var(--mono); font-size: 9px; letter-spacing: 0.18em; color: var(--steel); margin-left: auto; padding: 3px 6px; border: 1px solid var(--ink-3); border-radius: 2px; }
+
+  .top .crumbs { display: flex; align-items: center; gap: 12px; padding: 0 20px; font-family: var(--mono); font-size: 11px; letter-spacing: 0.06em; color: var(--steel); }
+  .top .crumbs a { color: var(--bone-2); text-decoration: none; }
+  .top .crumbs .sep { color: var(--ink-4); }
+  .top .crumbs .here { color: var(--bone); }
+  .top .crumbs .id { color: var(--clearance); margin-left: 4px; padding: 2px 6px; background: rgba(232,226,210,0.06); border-radius: 2px; }
+
+  .top .right { display: flex; align-items: center; gap: 14px; padding: 0 20px; height: 100%; }
+  .top .clock { font-family: var(--mono); font-size: 11px; color: var(--bone-2); letter-spacing: 0.04em; }
+  .top .clock .l { color: var(--steel); margin-right: 6px; }
+  .top .who { display: flex; align-items: center; gap: 8px; }
+  .top .who .av { width: 28px; height: 28px; border-radius: 50%; background: var(--ink-4); display: flex; align-items: center; justify-content: center; font-family: var(--mono); font-size: 10px; color: var(--clearance); }
+  .top .who .nm { font-family: var(--mono); font-size: 11px; color: var(--bone); letter-spacing: 0.04em; }
+
+  /* === Layout === */
+  .work { display: grid; grid-template-columns: 240px 1.2fr 1.6fr 1fr; min-height: calc(100vh - 56px); }
+  @media (max-width: 1500px) { .work { grid-template-columns: 200px 1fr 1.4fr 0.9fr; } }
+  @media (max-width: 1200px) { .work { grid-template-columns: 1fr; } .work > * { border-right: none !important; border-bottom: 1px solid var(--ink-3); } }
+
+  .col { border-right: 1px solid var(--ink-3); display: flex; flex-direction: column; min-width: 0; }
+  .col.scroll { overflow-y: auto; max-height: calc(100vh - 56px); }
+
+  /* Nav rail */
+  .rail { padding: 20px 0; gap: 24px; }
+  .rail .grp { padding: 0 16px; }
+  .rail .lbl { font-family: var(--mono); font-size: 9px; letter-spacing: 0.16em; color: var(--steel); text-transform: uppercase; padding: 0 8px 8px; }
+  .rail a {
+    display: grid; grid-template-columns: auto 1fr auto; gap: 10px; align-items: center;
+    padding: 8px 10px; margin: 0 -2px; border-radius: 2px;
+    color: var(--bone-2); text-decoration: none; font-size: 13px;
+    transition: background 160ms, color 160ms;
+  }
+  .rail a:hover { background: var(--ink-2); color: var(--bone); }
+  .rail a.active { background: rgba(232,226,210,0.06); color: var(--clearance); border-left: 2px solid var(--clearance); padding-left: 8px; margin-left: -4px; }
+  .rail a .num { font-family: var(--mono); font-size: 9px; color: var(--steel); letter-spacing: 0.06em; }
+  .rail a.active .num { color: var(--clearance); }
+  .rail a .badge { font-family: var(--mono); font-size: 9px; padding: 1px 5px; background: var(--clearance); color: var(--ink); border-radius: 2px; letter-spacing: 0.04em; }
+  .rail a .pill { font-family: var(--mono); font-size: 9px; padding: 1px 5px; border: 1px solid var(--ink-3); color: var(--bone-2); border-radius: 2px; letter-spacing: 0.04em; }
+
+  /* === Mission column === */
+  .miss-head {
+    padding: 18px 20px; border-bottom: 1px solid var(--ink-3);
+    display: flex; flex-direction: column; gap: 8px;
+  }
+  .miss-head .row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .miss-head .id { font-family: var(--mono); font-size: 11px; color: var(--clearance); letter-spacing: 0.08em; }
+  .miss-head .sla {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-family: var(--mono); font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase;
+    padding: 3px 7px; border-radius: 2px;
+  }
+  .miss-head .sla.warn { background: rgba(184,137,60,0.15); color: var(--warn); }
+  .miss-head .sla .dot { width: 5px; height: 5px; border-radius: 50%; background: var(--warn);
+    box-shadow: 0 0 0 0 rgba(184,137,60,0.6); animation: pulse 1.4s infinite; }
+  @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(184,137,60,0.5); } 70% { box-shadow: 0 0 0 6px rgba(184,137,60,0); } 100% { box-shadow: 0 0 0 0 rgba(184,137,60,0); } }
+  .miss-head .source { font-family: var(--mono); font-size: 10px; color: var(--steel); letter-spacing: 0.06em; }
+  .miss-head h1 { font-family: var(--serif); font-weight: 400; font-size: 22px; line-height: 1.25; letter-spacing: -0.005em; }
+
+  /* Member card */
+  .mem-card { padding: 16px 20px; border-bottom: 1px solid var(--ink-3); background: rgba(232,226,210,0.025); }
+  .mem-card .top { all: unset; display: grid; grid-template-columns: 36px 1fr auto; gap: 12px; align-items: center; }
+  .mem-card .av { width: 36px; height: 36px; border-radius: 50%; background: var(--ink-4); border: 1px solid var(--ink-3); display: flex; align-items: center; justify-content: center; font-family: var(--mono); font-size: 12px; color: var(--clearance); }
+  .mem-card .nm { font-family: var(--serif); font-size: 17px; color: var(--bone); line-height: 1.2; }
+  .mem-card .meta { font-family: var(--mono); font-size: 10px; color: var(--bone-2); letter-spacing: 0.04em; margin-top: 2px; }
+  .mem-card .tier { font-family: var(--mono); font-size: 10px; color: var(--clearance); letter-spacing: 0.1em; padding: 3px 7px; border: 1px solid var(--clearance); border-radius: 2px; }
+  .mem-card .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--ink-3); }
+  .mem-card .stats > div { display: flex; flex-direction: column; gap: 2px; }
+  .mem-card .stats .l { font-family: var(--mono); font-size: 8px; letter-spacing: 0.14em; color: var(--steel); text-transform: uppercase; }
+  .mem-card .stats .v { font-family: var(--mono); font-size: 12px; color: var(--bone); letter-spacing: 0.04em; }
+
+  /* Mission spec */
+  .miss-sec { padding: 16px 20px; border-bottom: 1px solid var(--ink-3); }
+  .miss-sec h3 { font-family: var(--mono); font-size: 9px; letter-spacing: 0.16em; color: var(--steel); text-transform: uppercase; margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between; }
+  .miss-sec h3 .edit { color: var(--bone-2); cursor: pointer; }
+  .miss-sec h3 .edit:hover { color: var(--clearance); }
+
+  .legs { display: flex; flex-direction: column; gap: 10px; }
+  .leg-row {
+    background: var(--ink-2); border: 1px solid var(--ink-3); border-radius: 3px;
+    padding: 12px 14px; display: flex; flex-direction: column; gap: 8px;
+  }
+  .leg-row .head { display: flex; align-items: center; gap: 8px; }
+  .leg-row .head .n { font-family: var(--mono); font-size: 9px; color: var(--clearance); letter-spacing: 0.1em; }
+  .leg-row .head .when { font-family: var(--mono); font-size: 11px; color: var(--bone); letter-spacing: 0.04em; margin-left: auto; }
+  .leg-row .pair { display: grid; grid-template-columns: 1fr auto 1fr; gap: 12px; align-items: center; }
+  .leg-row .end .icao { font-family: var(--mono); font-size: 12px; color: var(--bone); letter-spacing: 0.06em; }
+  .leg-row .end .city { font-family: var(--serif); font-size: 13px; color: var(--bone-2); margin-top: 2px; }
+  .leg-row .end.r { text-align: right; }
+  .leg-row .arc { display: flex; flex-direction: column; align-items: center; gap: 2px; min-width: 80px; }
+  .leg-row .arc svg { width: 100%; height: 14px; overflow: visible; }
+  .leg-row .arc .d { font-family: var(--mono); font-size: 9px; color: var(--steel); letter-spacing: 0.04em; }
+  .leg-row .pax { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; padding-top: 8px; border-top: 1px solid var(--ink-3); }
+  .leg-row .pax > div { display: flex; flex-direction: column; gap: 2px; }
+  .leg-row .pax .l { font-family: var(--mono); font-size: 8px; letter-spacing: 0.14em; color: var(--steel); text-transform: uppercase; }
+  .leg-row .pax .v { font-family: var(--mono); font-size: 11px; color: var(--bone-2); letter-spacing: 0.04em; }
+
+  .req-list { display: flex; flex-direction: column; gap: 6px; }
+  .req-row {
+    display: grid; grid-template-columns: 110px 1fr; gap: 12px;
+    padding: 6px 0; font-family: var(--mono); font-size: 11px; letter-spacing: 0.04em;
+  }
+  .req-row .l { color: var(--steel); }
+  .req-row .v { color: var(--bone); }
+  .req-row .v .tag { font-family: var(--mono); font-size: 9px; padding: 1px 5px; background: rgba(232,226,210,0.08); color: var(--clearance); border-radius: 2px; letter-spacing: 0.06em; margin-right: 4px; }
+
+  .notes-card {
+    background: var(--ink-2); border: 1px solid var(--ink-3); border-left: 2px solid var(--clearance); border-radius: 3px;
+    padding: 12px 14px; font-size: 13px; line-height: 1.5; color: var(--bone-2);
+  }
+  .notes-card .who { font-family: var(--mono); font-size: 9px; color: var(--clearance); letter-spacing: 0.1em; margin-bottom: 6px; }
+
+  /* === Sourcing column === */
+  .src-toolbar {
+    padding: 14px 20px; border-bottom: 1px solid var(--ink-3);
+    display: grid; grid-template-columns: 1fr auto; gap: 12px; align-items: center;
+  }
+  .src-toolbar .filt { display: flex; gap: 6px; flex-wrap: wrap; }
+  .src-toolbar .chip {
+    font-family: var(--mono); font-size: 9px; letter-spacing: 0.1em; padding: 4px 8px;
+    border: 1px solid var(--ink-3); border-radius: 2px; color: var(--bone-2); cursor: pointer;
+    text-transform: uppercase; transition: all 160ms;
+  }
+  .src-toolbar .chip.on { border-color: var(--clearance); color: var(--clearance); background: rgba(232,226,210,0.06); }
+  .src-toolbar .chip:hover { border-color: var(--bone-2); color: var(--bone); }
+  .src-toolbar .summary { font-family: var(--mono); font-size: 10px; color: var(--steel); letter-spacing: 0.06em; text-align: right; }
+  .src-toolbar .summary .n { color: var(--clearance); }
+
+  /* Operator card */
+  .ops-list { display: flex; flex-direction: column; }
+  .op-card {
+    padding: 16px 20px; border-bottom: 1px solid var(--ink-3); cursor: pointer;
+    display: grid; grid-template-columns: 28px 1fr; gap: 14px; transition: background 160ms;
+  }
+  .op-card:hover { background: rgba(232,226,210,0.025); }
+  .op-card.selected { background: rgba(232,226,210,0.06); }
+  .op-card.selected .pick-circle { background: var(--clearance); border-color: var(--clearance); }
+  .op-card.selected .pick-circle::after { content: "✓"; color: var(--ink); font-family: var(--mono); font-size: 12px; }
+
+  .pick-circle {
+    width: 22px; height: 22px; border-radius: 50%; border: 1px solid var(--ink-4);
+    display: flex; align-items: center; justify-content: center; margin-top: 2px;
+    transition: all 180ms;
+  }
+
+  .op-body { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+  .op-row1 { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+  .op-row1 .name { font-family: var(--serif); font-size: 18px; color: var(--bone); line-height: 1.2; }
+  .op-row1 .tail { font-family: var(--mono); font-size: 12px; color: var(--clearance); letter-spacing: 0.06em; }
+  .op-row1 .price-pill {
+    margin-left: auto; font-family: var(--mono); font-size: 13px; color: var(--bone); letter-spacing: 0.04em;
+    padding: 4px 10px; background: var(--ink-2); border: 1px solid var(--ink-3); border-radius: 2px;
+  }
+  .op-row1 .price-pill.best { border-color: var(--success); color: var(--success); }
+
+  .op-row2 { display: flex; gap: 14px; flex-wrap: wrap; font-family: var(--mono); font-size: 10px; color: var(--bone-2); letter-spacing: 0.04em; }
+  .op-row2 .b { color: var(--bone); }
+  .op-row2 .sep { color: var(--ink-4); }
+
+  .op-rating { display: flex; gap: 6px; flex-wrap: wrap; }
+  .op-rating .r {
+    font-family: var(--mono); font-size: 9px; padding: 2px 6px; border-radius: 2px;
+    letter-spacing: 0.08em; text-transform: uppercase;
+  }
+  .op-rating .r.argus { background: rgba(91,140,90,0.15); color: var(--success); }
+  .op-rating .r.wyvern { background: rgba(74,158,240,0.15); color: #6FB6F0; }
+  .op-rating .r.iscao { background: rgba(232,226,210,0.1); color: var(--clearance); }
+  .op-rating .r.warn { background: rgba(184,137,60,0.15); color: var(--warn); }
+
+  .op-meta { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; padding-top: 8px; border-top: 1px solid var(--ink-3); }
+  .op-meta > div { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+  .op-meta .l { font-family: var(--mono); font-size: 8px; letter-spacing: 0.14em; color: var(--steel); text-transform: uppercase; }
+  .op-meta .v { font-family: var(--mono); font-size: 11px; color: var(--bone); letter-spacing: 0.04em; }
+  .op-meta .v.warn { color: var(--warn); }
+  .op-meta .v.ok { color: var(--success); }
+
+  .op-notes {
+    font-family: var(--mono); font-size: 10px; color: var(--bone-2); line-height: 1.5; letter-spacing: 0.02em;
+    padding: 8px 10px; background: var(--ink); border-left: 2px solid var(--ink-4); border-radius: 0 2px 2px 0;
+  }
+
+  /* === Pricing/draft column === */
+  .price-pad { padding: 16px 20px; border-bottom: 1px solid var(--ink-3); }
+  .price-pad h3 { font-family: var(--mono); font-size: 9px; letter-spacing: 0.16em; color: var(--steel); text-transform: uppercase; margin-bottom: 14px; display: flex; align-items: center; justify-content: space-between; }
+  .price-pad h3 .who { font-family: var(--mono); font-size: 9px; color: var(--clearance); letter-spacing: 0.06em; padding: 2px 6px; background: rgba(232,226,210,0.06); border-radius: 2px; }
+
+  .ll {
+    display: grid; grid-template-columns: 1fr auto auto auto; gap: 8px; align-items: center;
+    padding: 8px 0; border-bottom: 1px dashed var(--ink-3); font-family: var(--mono); font-size: 11px; color: var(--bone-2); letter-spacing: 0.04em;
+  }
+  .ll .desc { color: var(--bone); }
+  .ll .desc .s { color: var(--steel); font-size: 9px; display: block; margin-top: 1px; }
+  .ll .qty { color: var(--steel); }
+  .ll .rate { color: var(--steel); }
+  .ll .v { color: var(--bone); text-align: right; min-width: 80px; }
+
+  .ll-tot {
+    display: grid; grid-template-columns: 1fr auto; padding: 12px 0 4px;
+    border-top: 1px solid var(--ink-3); margin-top: 8px;
+    font-family: var(--mono); font-size: 11px; color: var(--bone-2); letter-spacing: 0.04em;
+  }
+  .ll-tot .v { color: var(--bone); }
+  .ll-grand {
+    display: grid; grid-template-columns: 1fr auto; padding: 14px 0 4px;
+    border-top: 1px solid var(--bone-2); margin-top: 12px;
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.06em; color: var(--clearance); text-transform: uppercase;
+  }
+  .ll-grand .v { font-family: var(--serif); font-size: 28px; color: var(--bone); font-weight: 300; letter-spacing: -0.005em; }
+
+  /* margin slider */
+  .margin-card { padding: 14px 20px; border-bottom: 1px solid var(--ink-3); display: flex; flex-direction: column; gap: 8px; }
+  .margin-card h4 { font-family: var(--mono); font-size: 9px; letter-spacing: 0.16em; color: var(--steel); text-transform: uppercase; }
+  .margin-card .row { display: flex; align-items: center; gap: 14px; }
+  .margin-card .pct { font-family: var(--serif); font-weight: 300; font-size: 32px; color: var(--bone); letter-spacing: -0.005em; line-height: 1; }
+  .margin-card .pct .u { font-family: var(--mono); font-size: 11px; color: var(--bone-2); margin-left: 2px; }
+  .margin-card .dollars { font-family: var(--mono); font-size: 11px; color: var(--success); letter-spacing: 0.04em; margin-left: auto; }
+  .margin-card .track { height: 4px; background: var(--ink-3); border-radius: 2px; position: relative; cursor: pointer; }
+  .margin-card .track .fill { height: 100%; background: linear-gradient(90deg, var(--warn), var(--clearance), var(--success)); width: 38%; border-radius: 2px; }
+  .margin-card .track .knob { position: absolute; top: 50%; left: 38%; width: 14px; height: 14px; border-radius: 50%; background: var(--bone); border: 2px solid var(--ink); transform: translate(-50%, -50%); cursor: grab; }
+  .margin-card .scale { display: flex; justify-content: space-between; font-family: var(--mono); font-size: 9px; color: var(--steel); letter-spacing: 0.06em; }
+
+  /* Draft reply */
+  .draft { padding: 16px 20px; flex: 1; display: flex; flex-direction: column; gap: 12px; }
+  .draft h3 { font-family: var(--mono); font-size: 9px; letter-spacing: 0.16em; color: var(--steel); text-transform: uppercase; display: flex; align-items: center; justify-content: space-between; }
+  .draft h3 .ai { color: var(--bone-2); font-family: var(--mono); font-size: 9px; padding: 2px 6px; border: 1px solid var(--ink-3); border-radius: 2px; cursor: pointer; transition: all 160ms; }
+  .draft h3 .ai:hover { border-color: var(--clearance); color: var(--clearance); }
+
+  .draft .preview {
+    background: var(--ink-2); border: 1px solid var(--ink-3); border-radius: 3px;
+    padding: 18px; font-family: var(--sans); font-size: 13px; line-height: 1.65; color: var(--bone-2);
+    flex: 1; display: flex; flex-direction: column; gap: 12px;
+  }
+  .draft .preview p { margin: 0; }
+  .draft .preview .greet { color: var(--bone); font-size: 14px; }
+  .draft .preview .num { font-family: var(--mono); color: var(--clearance); letter-spacing: 0.04em; }
+  .draft .preview .sig { font-family: var(--serif); color: var(--bone); font-size: 16px; padding-top: 8px; border-top: 1px solid var(--ink-3); margin-top: 4px; }
+  .draft .preview .sig small { font-family: var(--mono); font-size: 10px; color: var(--steel); display: block; margin-top: 2px; letter-spacing: 0.04em; }
+
+  .draft-actions { display: flex; gap: 8px; flex-wrap: wrap; padding-top: 4px; }
+  .draft-actions .btn { flex: 1; }
+  .send-meta {
+    font-family: var(--mono); font-size: 10px; color: var(--steel); letter-spacing: 0.06em;
+    display: flex; gap: 16px; flex-wrap: wrap;
+  }
+  .send-meta .ok { color: var(--success); }
+
+  /* === Activity rail === */
+  .act-rail { padding: 16px 18px; gap: 18px; }
+  .act-h { font-family: var(--mono); font-size: 9px; letter-spacing: 0.16em; color: var(--steel); text-transform: uppercase; padding-bottom: 10px; border-bottom: 1px solid var(--ink-3); margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between; }
+  .act-h .tabs { display: flex; gap: 6px; }
+  .act-h .tab { font-family: var(--mono); font-size: 9px; padding: 3px 7px; border: 1px solid var(--ink-3); border-radius: 2px; color: var(--bone-2); cursor: pointer; }
+  .act-h .tab.on { border-color: var(--clearance); color: var(--clearance); }
+
+  .timeline { display: flex; flex-direction: column; gap: 0; }
+  .tl-item {
+    display: grid; grid-template-columns: 70px 1fr; gap: 12px; padding: 10px 0;
+    border-bottom: 1px solid var(--ink-3);
+  }
+  .tl-item:last-child { border-bottom: none; }
+  .tl-item .t { font-family: var(--mono); font-size: 9px; color: var(--steel); letter-spacing: 0.06em; padding-top: 1px; }
+  .tl-item .what { font-size: 12px; color: var(--bone-2); line-height: 1.55; }
+  .tl-item .what .who { color: var(--clearance); font-family: var(--mono); font-size: 10px; letter-spacing: 0.04em; }
+  .tl-item .what .em { color: var(--bone); }
+
+  .checks { display: flex; flex-direction: column; gap: 6px; }
+  .chk {
+    display: grid; grid-template-columns: 18px 1fr auto; gap: 10px; align-items: center;
+    padding: 7px 0; border-bottom: 1px solid var(--ink-3);
+    font-size: 12px; color: var(--bone-2);
+  }
+  .chk:last-child { border-bottom: none; }
+  .chk .b { width: 14px; height: 14px; border: 1px solid var(--ink-4); border-radius: 2px; display: flex; align-items: center; justify-content: center; }
+  .chk.done .b { background: var(--clearance); border-color: var(--clearance); }
+  .chk.done .b::after { content: "✓"; color: var(--ink); font-family: var(--mono); font-size: 9px; }
+  .chk.done .t { color: var(--bone); text-decoration: line-through; text-decoration-color: var(--ink-4); }
+  .chk .meta { font-family: var(--mono); font-size: 9px; color: var(--steel); letter-spacing: 0.06em; }
+
+  /* SLA countdown big */
+  .sla-big {
+    background: linear-gradient(180deg, rgba(184,137,60,0.06), var(--ink-2));
+    border: 1px solid rgba(184,137,60,0.4); border-radius: 3px;
+    padding: 16px; display: flex; flex-direction: column; gap: 6px;
+  }
+  .sla-big .l { font-family: var(--mono); font-size: 9px; color: var(--warn); letter-spacing: 0.16em; text-transform: uppercase; }
+  .sla-big .v { font-family: var(--serif); font-weight: 300; font-size: 38px; color: var(--bone); line-height: 1; letter-spacing: -0.01em; }
+  .sla-big .v .u { font-family: var(--mono); font-size: 11px; color: var(--bone-2); margin-left: 4px; }
+  .sla-big .meta { font-family: var(--mono); font-size: 10px; color: var(--bone-2); letter-spacing: 0.04em; }
+  .sla-big .bar { height: 3px; background: var(--ink-3); border-radius: 2px; overflow: hidden; margin-top: 4px; }
+  .sla-big .bar .fill { height: 100%; width: 38%; background: var(--warn); }
+
+  /* status/footer of left col */
+  .ls-foot {
+    margin-top: auto; padding: 14px 16px; border-top: 1px solid var(--ink-3);
+    font-family: var(--mono); font-size: 10px; color: var(--bone-2); letter-spacing: 0.04em;
+    display: flex; flex-direction: column; gap: 6px;
+  }
+  .ls-foot .l { color: var(--steel); font-size: 9px; letter-spacing: 0.16em; text-transform: uppercase; }
+  .ls-foot .stat-row { display: flex; align-items: center; gap: 6px; }
+  .ls-foot .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--success); box-shadow: 0 0 0 0 rgba(91,140,90,0.6); animation: pulseG 1.6s infinite; }
+  @keyframes pulseG { 0% { box-shadow: 0 0 0 0 rgba(91,140,90,0.5); } 70% { box-shadow: 0 0 0 8px rgba(91,140,90,0); } 100% { box-shadow: 0 0 0 0 rgba(91,140,90,0); } }
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="brand-cell">
+    <span class="b">JetNine <span class="nine">09</span></span>
+    <span class="desk">DISPATCH</span>
+  </div>
+  <div class="crumbs">
+    <a href="admin-dispatch.html">INBOX</a>
+    <span class="sep">/</span>
+    <span>QUOTES</span>
+    <span class="sep">/</span>
+    <span class="here">WORKBENCH</span>
+    <span class="id">Q-2026-0418</span>
+  </div>
+  <div class="right">
+    <span class="clock"><span class="l">PT</span>14:08:42</span>
+    <span class="clock"><span class="l">UTC</span>21:08</span>
+    <div class="who"><span class="av">CV</span><span class="nm">CATALINA V.</span></div>
+  </div>
+</header>
+
+<div class="work" data-screen-label="17 Admin · Quote Workbench">
+  <!-- ========= NAV RAIL ========= -->
+  <aside class="col rail">
+    <div class="grp">
+      <div class="lbl">— DESK</div>
+      <a href="admin-dispatch.html"><span class="num">01</span><span>Inbox</span><span class="badge">7</span></a>
+      <a href="#" class="active"><span class="num">02</span><span>Quote workbench</span><span class="pill">Q-0418</span></a>
+      <a href="#"><span class="num">03</span><span>Live ops</span><span class="pill">14</span></a>
+      <a href="#"><span class="num">04</span><span>Trip sheets</span><span></span></a>
+      <a href="#"><span class="num">05</span><span>Members</span><span></span></a>
+    </div>
+    <div class="grp">
+      <div class="lbl">— SUPPLY</div>
+      <a href="#"><span class="num">06</span><span>Operators</span><span></span></a>
+      <a href="#"><span class="num">07</span><span>Aircraft board</span><span></span></a>
+      <a href="#"><span class="num">08</span><span>Empty legs</span><span class="pill">12</span></a>
+    </div>
+    <div class="grp">
+      <div class="lbl">— BUSINESS</div>
+      <a href="#"><span class="num">09</span><span>Reports</span><span></span></a>
+      <a href="#"><span class="num">10</span><span>Settings</span><span></span></a>
+    </div>
+
+    <div class="ls-foot">
+      <span class="l">— DESK · ACTIVE</span>
+      <div class="stat-row"><span class="dot"></span><span>Catalina V. · West coast</span></div>
+      <div class="stat-row"><span class="dot"></span><span>Maren O. · East coast</span></div>
+      <div class="stat-row"><span class="dot" style="background: var(--warn); animation: none;"></span><span>Theo P. · Overnight (in 5h)</span></div>
+    </div>
+  </aside>
+
+  <!-- ========= MISSION COLUMN ========= -->
+  <section class="col scroll">
+    <div class="miss-head">
+      <div class="row">
+        <span class="id">Q-2026-0418</span>
+        <span class="sla warn"><span class="dot"></span>SLA 11M LEFT</span>
+        <span class="source">— SOURCE: HOMEPAGE WIDGET · 14:01 PT</span>
+      </div>
+      <h1>One-way charter, KVNY → KTEB</h1>
+    </div>
+
+    <div class="mem-card">
+      <div class="top">
+        <div class="av">MA</div>
+        <div>
+          <div class="nm">Marcus Aldrich</div>
+          <div class="meta">Aldrich Capital · m.aldrich@…</div>
+        </div>
+        <span class="tier">RESERVE 100</span>
+      </div>
+      <div class="stats">
+        <div><span class="l">— TRIPS</span><span class="v">62</span></div>
+        <div><span class="l">— LIFETIME</span><span class="v">$2.41M</span></div>
+        <div><span class="l">— LANE FREQ</span><span class="v">14× / yr</span></div>
+        <div><span class="l">— ON-TIME</span><span class="v">98.4%</span></div>
+      </div>
+    </div>
+
+    <div class="miss-sec">
+      <h3>— LEGS <span class="edit">+ ADD LEG</span></h3>
+      <div class="legs">
+        <div class="leg-row">
+          <div class="head">
+            <span class="n">— LEG 01</span>
+            <span class="when">FRI 14 NOV · 09:30 PT</span>
+          </div>
+          <div class="pair">
+            <div class="end">
+              <div class="icao">KVNY</div>
+              <div class="city">Van Nuys, LA</div>
+            </div>
+            <div class="arc">
+              <svg viewBox="0 0 80 14" preserveAspectRatio="none"><path d="M2 12 Q 40 -2 78 12" fill="none" stroke="#E8E2D2" stroke-width="0.8" stroke-dasharray="2 2"/></svg>
+              <span class="d">4h 38m · 2,141 NM</span>
+            </div>
+            <div class="end r">
+              <div class="icao">KTEB</div>
+              <div class="city">Teterboro, NY</div>
+            </div>
+          </div>
+          <div class="pax">
+            <div><span class="l">— PAX</span><span class="v">4 / max 9</span></div>
+            <div><span class="l">— BAGS</span><span class="v">5 + 2 golf</span></div>
+            <div><span class="l">— GROUND</span><span class="v">SUV both ends</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="miss-sec">
+      <h3>— REQUESTED PROFILE</h3>
+      <div class="req-list">
+        <div class="req-row"><span class="l">— CATEGORY</span><span class="v"><span class="tag">DEFAULT</span>Midsize</span></div>
+        <div class="req-row"><span class="l">— CABIN</span><span class="v">Stand-up · enclosed lav · Wi-Fi req'd</span></div>
+        <div class="req-row"><span class="l">— SEATS</span><span class="v">Lie-flat preferred (5h+)</span></div>
+        <div class="req-row"><span class="l">— CATERING</span><span class="v"><span class="tag">PLUS</span>Pescatarian · Negroni kit</span></div>
+        <div class="req-row"><span class="l">— FA</span><span class="v">Default on (member rule)</span></div>
+        <div class="req-row"><span class="l">— PETS</span><span class="v">— No this trip</span></div>
+        <div class="req-row"><span class="l">— FBO · KVNY</span><span class="v">Signature Flight Support</span></div>
+        <div class="req-row"><span class="l">— FBO · KTEB</span><span class="v">Meridian Teterboro</span></div>
+      </div>
+    </div>
+
+    <div class="miss-sec">
+      <h3>— MEMBER NOTES <span class="edit">EDIT</span></h3>
+      <div class="notes-card">
+        <div class="who">— MARCUS, 14:01 PT</div>
+        Need to be in NYC for a 19:00 ET dinner — wheels-up has to be 09:30 PT or earlier. Catering: berries, cold brew, no shellfish (allergy). Last trip's Latitude (N814QX) was excellent if it's available.
+      </div>
+    </div>
+
+    <div class="miss-sec">
+      <h3>— CONSTRAINTS</h3>
+      <div class="req-list">
+        <div class="req-row"><span class="l">— WX · KVNY</span><span class="v">VFR · 14kt 270° · CAVOK</span></div>
+        <div class="req-row"><span class="l">— WX · KTEB</span><span class="v">— MVFR · OVC025 · gusts 22kt 320°</span></div>
+        <div class="req-row"><span class="l">— ATC FLOW</span><span class="v">— KTEB ground stop forecast 17:00–17:45 ET</span></div>
+        <div class="req-row"><span class="l">— SLOTS</span><span class="v">KTEB arrival slot req'd · 18:00–18:30 ET</span></div>
+        <div class="req-row"><span class="l">— CURFEW</span><span class="v">— None (KTEB not subject)</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ========= SOURCING COLUMN ========= -->
+  <section class="col scroll">
+    <div class="src-toolbar">
+      <div class="filt">
+        <span class="chip on">MIDSIZE</span>
+        <span class="chip on">≥ ARG/US GOLD</span>
+        <span class="chip on">WI-FI</span>
+        <span class="chip on">STAND-UP</span>
+        <span class="chip">SUPER-MID</span>
+        <span class="chip">FA INCLUDED</span>
+        <span class="chip">+3</span>
+      </div>
+      <div class="summary">
+        <div><span class="n">7 airframes</span> matched · 11 operators canvassed</div>
+        <div>Last refresh 14:06 PT · 3 quotes back</div>
+      </div>
+    </div>
+
+    <div class="ops-list">
+
+      <!-- 1. SELECTED FlexJet Latitude -->
+      <div class="op-card selected">
+        <div class="pick-circle"></div>
+        <div class="op-body">
+          <div class="op-row1">
+            <div class="name">Citation Latitude</div>
+            <div class="tail">N814QX</div>
+            <div class="price-pill best">$48,400</div>
+          </div>
+          <div class="op-row2">
+            <span class="b">FlexJet</span><span class="sep">·</span>
+            <span>2019 · 9 PAX</span><span class="sep">·</span>
+            <span>BL · 5h flight time</span><span class="sep">·</span>
+            <span>Pos KVNY · 0 ferry</span>
+          </div>
+          <div class="op-rating">
+            <span class="r argus">ARG/US PLATINUM</span>
+            <span class="r wyvern">WYVERN WINGMAN</span>
+            <span class="r iscao">ISCAO STG-3</span>
+          </div>
+          <div class="op-meta">
+            <div><span class="l">— MEMBER FLOWN</span><span class="v ok">3× · last 14 OCT</span></div>
+            <div><span class="l">— CREW</span><span class="v">2 + FA confirmed</span></div>
+            <div><span class="l">— OPERATOR</span><span class="v">FlexJet · NET-30</span></div>
+            <div><span class="l">— SLOT</span><span class="v ok">KTEB 18:08 confirmed</span></div>
+          </div>
+          <div class="op-notes">
+            — Same airframe Marcus flew on JN-0084. Wi-Fi Gogo 5G upgraded last refurb (Q3 2025). FlexJet West dispatcher Renée Acosta confirmed availability at 14:04 PT. Catering pass-through: Air Culinaire KVNY ✓.
+          </div>
+        </div>
+      </div>
+
+      <!-- 2. NetJets Hawker -->
+      <div class="op-card">
+        <div class="pick-circle"></div>
+        <div class="op-body">
+          <div class="op-row1">
+            <div class="name">Hawker 900XP</div>
+            <div class="tail">N445QS</div>
+            <div class="price-pill">$46,800</div>
+          </div>
+          <div class="op-row2">
+            <span class="b">NetJets</span><span class="sep">·</span>
+            <span>2014 · 8 PAX</span><span class="sep">·</span>
+            <span>5h 10m</span><span class="sep">·</span>
+            <span>Pos KSMO · 22m ferry</span>
+          </div>
+          <div class="op-rating">
+            <span class="r argus">ARG/US PLATINUM</span>
+            <span class="r wyvern">WYVERN WINGMAN</span>
+          </div>
+          <div class="op-meta">
+            <div><span class="l">— MEMBER FLOWN</span><span class="v">— Never</span></div>
+            <div><span class="l">— CREW</span><span class="v warn">2 · no FA</span></div>
+            <div><span class="l">— OPERATOR</span><span class="v">NetJets · NET-15</span></div>
+            <div><span class="l">— SLOT</span><span class="v">KTEB 17:55 pending</span></div>
+          </div>
+          <div class="op-notes">
+            — Cheaper but older airframe, no FA available, and Marcus's standing rule is FA on heavy/midsize. Wi-Fi is older Aircell — known weak over Plains. Skip unless Latitude falls through.
+          </div>
+        </div>
+      </div>
+
+      <!-- 3. Solairus Challenger 350 -->
+      <div class="op-card">
+        <div class="pick-circle"></div>
+        <div class="op-body">
+          <div class="op-row1">
+            <div class="name">Challenger 350</div>
+            <div class="tail">N445SR</div>
+            <div class="price-pill">$58,900</div>
+          </div>
+          <div class="op-row2">
+            <span class="b">Solairus Aviation</span><span class="sep">·</span>
+            <span>2021 · 9 PAX</span><span class="sep">·</span>
+            <span>4h 48m</span><span class="sep">·</span>
+            <span>Pos KVNY · 0 ferry</span>
+          </div>
+          <div class="op-rating">
+            <span class="r argus">ARG/US PLATINUM</span>
+            <span class="r wyvern">WYVERN WINGMAN</span>
+            <span class="r iscao">ISCAO STG-3</span>
+          </div>
+          <div class="op-meta">
+            <div><span class="l">— MEMBER FLOWN</span><span class="v ok">2× · last 14 OCT</span></div>
+            <div><span class="l">— CREW</span><span class="v">2 + FA confirmed</span></div>
+            <div><span class="l">— OPERATOR</span><span class="v">Solairus · NET-30</span></div>
+            <div><span class="l">— SLOT</span><span class="v ok">KTEB 17:48 confirmed</span></div>
+          </div>
+          <div class="op-notes">
+            — Step-up super-mid. Newer than Latitude, marginally faster, but $10.5k more. Worth offering as upgrade tier in the reply.
+          </div>
+        </div>
+      </div>
+
+      <!-- 4. Jet Linx XLS+ -->
+      <div class="op-card">
+        <div class="pick-circle"></div>
+        <div class="op-body">
+          <div class="op-row1">
+            <div class="name">Citation XLS+</div>
+            <div class="tail">N221TS</div>
+            <div class="price-pill">$42,200</div>
+          </div>
+          <div class="op-row2">
+            <span class="b">Travel Mgmt Co.</span><span class="sep">·</span>
+            <span>2018 · 8 PAX</span><span class="sep">·</span>
+            <span>5h 22m</span><span class="sep">·</span>
+            <span>Pos KBUR · 8m ferry</span>
+          </div>
+          <div class="op-rating">
+            <span class="r argus">ARG/US GOLD</span>
+            <span class="r iscao">ISCAO STG-2</span>
+          </div>
+          <div class="op-meta">
+            <div><span class="l">— MEMBER FLOWN</span><span class="v ok">1× · 02 OCT</span></div>
+            <div><span class="l">— CREW</span><span class="v warn">2 · FA on req +$3.4k</span></div>
+            <div><span class="l">— OPERATOR</span><span class="v">TMC · NET-15</span></div>
+            <div><span class="l">— SLOT</span><span class="v warn">KTEB pending · waitlist</span></div>
+          </div>
+          <div class="op-notes">
+            — Light-mid stretch — small cabin for a 5h flight; member's lie-flat preference at this duration not met. Out of policy unless member explicitly accepts.
+          </div>
+        </div>
+      </div>
+
+      <!-- 5. VistaJet -->
+      <div class="op-card">
+        <div class="pick-circle"></div>
+        <div class="op-body">
+          <div class="op-row1">
+            <div class="name">Praetor 600</div>
+            <div class="tail">N609VJ</div>
+            <div class="price-pill">$54,200</div>
+          </div>
+          <div class="op-row2">
+            <span class="b">VistaJet</span><span class="sep">·</span>
+            <span>2022 · 8 PAX</span><span class="sep">·</span>
+            <span>4h 41m</span><span class="sep">·</span>
+            <span>Pos KLAS · 1h 12m ferry</span>
+          </div>
+          <div class="op-rating">
+            <span class="r argus">ARG/US PLATINUM</span>
+            <span class="r wyvern">WYVERN WINGMAN</span>
+          </div>
+          <div class="op-meta">
+            <div><span class="l">— MEMBER FLOWN</span><span class="v ok">2× · transatlantic</span></div>
+            <div><span class="l">— CREW</span><span class="v">2 + FA confirmed</span></div>
+            <div><span class="l">— OPERATOR</span><span class="v">VistaJet · NET-30</span></div>
+            <div><span class="l">— SLOT</span><span class="v">KTEB 17:52 confirmed</span></div>
+          </div>
+          <div class="op-notes">
+            — Strong cabin, but ferry from KLAS adds positioning cost &amp; CO₂. Use only if Latitude unavailable.
+          </div>
+        </div>
+      </div>
+
+      <!-- 6. ARG/US Silver excluded -->
+      <div class="op-card" style="opacity: 0.55;">
+        <div class="pick-circle"></div>
+        <div class="op-body">
+          <div class="op-row1">
+            <div class="name">Citation Excel</div>
+            <div class="tail">N919AB</div>
+            <div class="price-pill">$39,400</div>
+          </div>
+          <div class="op-row2">
+            <span class="b">Aero Air Charter</span><span class="sep">·</span>
+            <span>2009 · 7 PAX</span><span class="sep">·</span>
+            <span>5h 38m</span><span class="sep">·</span>
+            <span>Pos KSNA · 18m ferry</span>
+          </div>
+          <div class="op-rating">
+            <span class="r warn">ARG/US SILVER · BELOW POLICY</span>
+          </div>
+          <div class="op-meta">
+            <div><span class="l">— STATUS</span><span class="v warn">Excluded · rating below member tier policy</span></div>
+            <div><span class="l">— OVERRIDE</span><span class="v">Requires desk supervisor approval</span></div>
+            <div><span class="l">— LAST AUDIT</span><span class="v">— 2024</span></div>
+            <div><span class="l">— SLOT</span><span class="v">— Not requested</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 7. Empty leg match -->
+      <div class="op-card" style="border-bottom: 2px solid var(--clearance);">
+        <div class="pick-circle"></div>
+        <div class="op-body">
+          <div class="op-row1">
+            <div class="name">Citation Sovereign+ <span style="font-family: var(--mono); font-size: 9px; color: var(--clearance); letter-spacing: 0.1em; padding: 2px 6px; border: 1px solid var(--clearance); border-radius: 2px; margin-left: 4px;">EMPTY LEG</span></div>
+            <div class="tail">N722QX</div>
+            <div class="price-pill best">$31,200</div>
+          </div>
+          <div class="op-row2">
+            <span class="b">FlexJet · repositioning</span><span class="sep">·</span>
+            <span>5h 02m</span><span class="sep">·</span>
+            <span>Confirmed leg KVNY → KTEB</span><span class="sep">·</span>
+            <span>14 NOV · DEP 11:15 PT</span>
+          </div>
+          <div class="op-rating">
+            <span class="r argus">ARG/US PLATINUM</span>
+            <span class="r wyvern">WYVERN WINGMAN</span>
+          </div>
+          <div class="op-notes">
+            — 11:15 PT departure means 19:30 ET arrival → 30 min late for the dinner. Will need to be flagged in the reply as "if you can move your day by 90 min, save $17,200." Member-priority match per Reserve 100 rules.
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ========= PRICING + DRAFT COLUMN ========= -->
+  <section class="col scroll">
+    <div class="sla-big" style="margin: 14px 18px 0;">
+      <span class="l">— REPLY DUE</span>
+      <span class="v">11:42<span class="u">until 30-min SLA</span></span>
+      <span class="meta">— received 14:01 · target reply 14:31 PT</span>
+      <div class="bar"><div class="fill"></div></div>
+    </div>
+
+    <div class="price-pad">
+      <h3>— PRICING PAD <span class="who">CATALINA · DRAFT</span></h3>
+      <div class="ll">
+        <div class="desc">Citation Latitude · charter<span class="s">FlexJet · N814QX · 5h flight time</span></div>
+        <div class="qty">5.0 hrs</div>
+        <div class="rate">@ $7,800</div>
+        <div class="v">$39,000</div>
+      </div>
+      <div class="ll">
+        <div class="desc">Crew &amp; FA<span class="s">2 pilots + 1 cabin attendant</span></div>
+        <div class="qty">— incl.</div>
+        <div class="rate">—</div>
+        <div class="v">$0</div>
+      </div>
+      <div class="ll">
+        <div class="desc">Catering Plus<span class="s">— 4 pax · pescatarian · Negroni bar</span></div>
+        <div class="qty">4 pax</div>
+        <div class="rate">@ $220</div>
+        <div class="v">$880</div>
+      </div>
+      <div class="ll">
+        <div class="desc">Ground transport<span class="s">SUV both ends · Empire CLS</span></div>
+        <div class="qty">2 legs</div>
+        <div class="rate">@ $220</div>
+        <div class="v">$440</div>
+      </div>
+      <div class="ll">
+        <div class="desc">FBO &amp; ramp fees<span class="s">Signature KVNY · Meridian KTEB</span></div>
+        <div class="qty">2</div>
+        <div class="rate">— pass-thru</div>
+        <div class="v">$680</div>
+      </div>
+      <div class="ll">
+        <div class="desc">Federal excise tax<span class="s">7.5% on transport portion</span></div>
+        <div class="qty">—</div>
+        <div class="rate">7.5%</div>
+        <div class="v">$2,925</div>
+      </div>
+      <div class="ll">
+        <div class="desc">Segment fee<span class="s">$5.20 × 4 pax</span></div>
+        <div class="qty">4</div>
+        <div class="rate">$5.20</div>
+        <div class="v">$20.80</div>
+      </div>
+
+      <div class="ll-tot">
+        <span>— Operator cost (FlexJet inc. all)</span>
+        <span class="v">$43,946</span>
+      </div>
+      <div class="ll-tot">
+        <span>— JetNine margin · 10.1%</span>
+        <span class="v">$4,454</span>
+      </div>
+      <div class="ll-grand">
+        <span>— ALL-IN TO MEMBER</span>
+        <span class="v">$48,400</span>
+      </div>
+    </div>
+
+    <div class="margin-card">
+      <h4>— MARGIN · ADJUSTABLE</h4>
+      <div class="row">
+        <span class="pct">10.1<span class="u">%</span></span>
+        <span class="dollars">+ $4,454 GROSS</span>
+      </div>
+      <div class="track"><div class="fill"></div><div class="knob"></div></div>
+      <div class="scale"><span>5%</span><span>10%</span><span>15%</span><span>20%</span><span>25%</span></div>
+    </div>
+
+    <div class="draft">
+      <h3>— DRAFT REPLY · EMAIL <span class="ai">AI ASSIST →</span></h3>
+      <div class="preview">
+        <p class="greet">Marcus,</p>
+        <p>Got you on Friday. <span class="num">N814QX</span> — same Latitude you flew on the Miami trip — wheels-up <span class="num">09:30 PT</span> from Signature, KTEB arrival <span class="num">18:08 ET</span> with 52 minutes of slack against your dinner. Negroni kit and cold-brew already on the order.</p>
+        <p>All-in: <span class="num">$48,400</span> against your Reserve. Two cents back as flight credit because you're on Reserve 100.</p>
+        <p>One alt to flag: there's a repositioning leg same airframe class for <span class="num">$31,200</span> — but it pushes wheels-up to 11:15 PT and gets you to Teterboro 30 min after your dinner starts. Not recommending it; flagging only.</p>
+        <p>Wire by Thursday 13:00 PT or apply Reserve. Reply yes and I'll lock the slot.</p>
+        <p class="sig">Catalina<small>JetNine · west-coast desk · +1 (818) 555-0188</small></p>
+      </div>
+      <div class="draft-actions">
+        <a href="#" class="btn btn-secondary btn-sm">Save draft</a>
+        <a href="#" class="btn btn-primary btn-sm">Send reply <span class="arrow">→</span></a>
+      </div>
+      <div class="send-meta">
+        <span>— Will send to: m.aldrich@aldrichcapital.com</span>
+        <span class="ok">✓ tracked · ✓ logged to CRM · ✓ trip sheet drafted</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ========= ACTIVITY / CHECKLIST RAIL ========= -->
+  <aside class="col act-rail">
+    <div>
+      <div class="act-h">
+        — TIMELINE
+        <div class="tabs"><span class="tab on">ALL</span><span class="tab">DESK</span><span class="tab">MEMBER</span></div>
+      </div>
+      <div class="timeline">
+        <div class="tl-item">
+          <span class="t">14:08 PT</span>
+          <span class="what"><span class="who">— CATALINA</span> Drafted reply email; pricing locked at 10.1% margin.</span>
+        </div>
+        <div class="tl-item">
+          <span class="t">14:06 PT</span>
+          <span class="what">FlexJet West desk <span class="em">confirmed</span> N814QX, KTEB slot 18:08 ET.</span>
+        </div>
+        <div class="tl-item">
+          <span class="t">14:04 PT</span>
+          <span class="what"><span class="who">— RENÉE A.</span> (FlexJet) called back — Latitude available, FA on board.</span>
+        </div>
+        <div class="tl-item">
+          <span class="t">14:03 PT</span>
+          <span class="what"><span class="who">— CATALINA</span> Canvassed 11 operators · 7 matched filters · 3 returned quotes.</span>
+        </div>
+        <div class="tl-item">
+          <span class="t">14:02 PT</span>
+          <span class="what"><span class="who">— SYSTEM</span> Quote routed to <span class="em">CV</span> based on Marcus's lane history.</span>
+        </div>
+        <div class="tl-item">
+          <span class="t">14:01 PT</span>
+          <span class="what"><span class="who">— MARCUS</span> Submitted quote via homepage · KVNY → KTEB · 14 NOV.</span>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="act-h">— DESK CHECKLIST</div>
+      <div class="checks">
+        <div class="chk done"><span class="b"></span><span class="t">Triage — match operator pool</span><span class="meta">14:03</span></div>
+        <div class="chk done"><span class="b"></span><span class="t">Confirm primary tail availability</span><span class="meta">14:06</span></div>
+        <div class="chk done"><span class="b"></span><span class="t">Get KTEB arrival slot</span><span class="meta">14:06</span></div>
+        <div class="chk done"><span class="b"></span><span class="t">Verify member preferences</span><span class="meta">14:04</span></div>
+        <div class="chk done"><span class="b"></span><span class="t">Build pricing pad</span><span class="meta">14:07</span></div>
+        <div class="chk"><span class="b"></span><span class="t">Send reply to member</span><span class="meta">— due 14:31</span></div>
+        <div class="chk"><span class="b"></span><span class="t">Pre-draft trip sheet (on confirm)</span><span class="meta">— pending</span></div>
+        <div class="chk"><span class="b"></span><span class="t">Place catering order (Air Culinaire)</span><span class="meta">— T-72h</span></div>
+        <div class="chk"><span class="b"></span><span class="t">Confirm ground (Empire CLS)</span><span class="meta">— T-48h</span></div>
+        <div class="chk"><span class="b"></span><span class="t">Day-before brief to crew</span><span class="meta">— T-24h</span></div>
+      </div>
+    </div>
+
+    <div>
+      <div class="act-h">— LINKED</div>
+      <div class="checks">
+        <div class="chk"><span class="b" style="background: var(--ink-3); border: none;"></span><span class="t" style="color: var(--bone-2);">Member: <span style="color: var(--bone);">Marcus Aldrich</span></span><span class="meta">→</span></div>
+        <div class="chk"><span class="b" style="background: var(--ink-3); border: none;"></span><span class="t" style="color: var(--bone-2);">Past trip: <span style="color: var(--bone);">JN-0084</span></span><span class="meta">→</span></div>
+        <div class="chk"><span class="b" style="background: var(--ink-3); border: none;"></span><span class="t" style="color: var(--bone-2);">Operator: <span style="color: var(--bone);">FlexJet (West)</span></span><span class="meta">→</span></div>
+        <div class="chk"><span class="b" style="background: var(--ink-3); border: none;"></span><span class="t" style="color: var(--bone-2);">Aircraft: <span style="color: var(--bone);">N814QX history</span></span><span class="meta">→</span></div>
+      </div>
+    </div>
+  </aside>
+</div>
+
+</body>
+</html>

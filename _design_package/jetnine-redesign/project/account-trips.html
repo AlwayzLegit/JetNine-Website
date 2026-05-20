@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>JetNine — Account · Trips</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,500;9..144,600&family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="shared.css" />
+<style>
+  body { background: var(--ink); }
+
+  /* Top */
+  .acct-top {
+    height: 64px; border-bottom: 1px solid var(--ink-3);
+    display: flex; align-items: center; padding: 0 32px; gap: 32px;
+    background: var(--ink); position: sticky; top: 0; z-index: 50;
+  }
+  .acct-top .brand { font-family: var(--serif); font-weight: 400; font-size: 22px; letter-spacing: -0.005em; text-decoration: none; color: var(--bone); }
+  .acct-top .brand .nine { font-family: var(--mono); font-size: 10px; color: var(--clearance); letter-spacing: 0.1em; vertical-align: super; margin-left: 2px; }
+  .acct-top .crumbs { font-family: var(--mono); font-size: 11px; letter-spacing: 0.06em; color: var(--steel); display: flex; gap: 8px; }
+  .acct-top .crumbs .sep { color: var(--ink-4); }
+  .acct-top .crumbs .here { color: var(--bone); }
+  .acct-top .crumbs a { color: var(--bone-2); text-decoration: none; transition: color 180ms; }
+  .acct-top .crumbs a:hover { color: var(--clearance); }
+  .acct-top .right { margin-left: auto; display: flex; align-items: center; gap: 16px; }
+  .acct-top .desk-status {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-family: var(--mono); font-size: 10px; letter-spacing: 0.12em; color: var(--clearance); text-transform: uppercase;
+    padding: 6px 10px; border: 1px solid var(--ink-3); border-radius: 2px;
+  }
+  .acct-top .desk-status .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--clearance);
+    box-shadow: 0 0 0 0 rgba(232,226,210,0.6); animation: dotPulse 1.8s infinite; }
+  @keyframes dotPulse { 0% { box-shadow: 0 0 0 0 rgba(232,226,210,0.5); } 70% { box-shadow: 0 0 0 8px rgba(232,226,210,0); } 100% { box-shadow: 0 0 0 0 rgba(232,226,210,0); } }
+  .acct-top .avatar {
+    width: 32px; height: 32px; border-radius: 50%; background: var(--ink-4); border: 1px solid var(--ink-3);
+    display: flex; align-items: center; justify-content: center;
+    font-family: var(--mono); font-size: 11px; color: var(--clearance); letter-spacing: 0.04em;
+  }
+
+  /* Layout */
+  .acct-layout { display: grid; grid-template-columns: 240px 1fr; min-height: calc(100vh - 64px); }
+  @media (max-width: 900px) { .acct-layout { grid-template-columns: 1fr; } }
+
+  /* Sidebar */
+  .acct-side { border-right: 1px solid var(--ink-3); padding: 32px 0; background: var(--ink); position: sticky; top: 64px; height: calc(100vh - 64px); overflow-y: auto; }
+  @media (max-width: 900px) { .acct-side { position: static; height: auto; border-right: none; border-bottom: 1px solid var(--ink-3); } }
+  .acct-side .grp { padding: 0 24px; margin-bottom: 24px; }
+  .acct-side .lbl { font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em; color: var(--steel); text-transform: uppercase; margin-bottom: 12px; }
+  .acct-side a {
+    display: grid; grid-template-columns: auto 1fr auto; gap: 12px; align-items: center;
+    padding: 9px 12px; margin: 0 -12px; border-radius: 2px;
+    color: var(--bone-2); text-decoration: none; font-size: 14px;
+    transition: background 180ms, color 180ms;
+  }
+  .acct-side a:hover { background: var(--ink-2); color: var(--bone); }
+  .acct-side a.active { background: var(--ink-2); color: var(--clearance); }
+  .acct-side a .num { font-family: var(--mono); font-size: 10px; color: var(--steel); letter-spacing: 0.06em; }
+  .acct-side a.active .num { color: var(--clearance); }
+  .acct-side a .badge {
+    font-family: var(--mono); font-size: 9px; padding: 2px 6px; background: var(--clearance); color: var(--ink); border-radius: 2px; letter-spacing: 0.04em;
+  }
+
+  .acct-dispatcher {
+    margin: 32px 24px 0; padding: 16px; background: var(--ink-2); border: 1px solid var(--ink-3); border-radius: 4px;
+    display: flex; flex-direction: column; gap: 8px;
+  }
+  .acct-dispatcher .lbl { font-family: var(--mono); font-size: 9px; letter-spacing: 0.14em; color: var(--steel); text-transform: uppercase; }
+  .acct-dispatcher .name { font-family: var(--serif); font-size: 18px; color: var(--bone); }
+  .acct-dispatcher .meta { font-family: var(--mono); font-size: 10px; color: var(--bone-2); letter-spacing: 0.04em; }
+  .acct-dispatcher .actions { display: flex; gap: 6px; margin-top: 4px; }
+  .acct-dispatcher .actions a {
+    flex: 1; padding: 6px; text-align: center; background: var(--ink); border: 1px solid var(--ink-3); border-radius: 2px;
+    font-family: var(--mono); font-size: 9px; letter-spacing: 0.1em; color: var(--bone); text-decoration: none; text-transform: uppercase;
+    transition: border-color 180ms, color 180ms;
+  }
+  .acct-dispatcher .actions a:hover { border-color: var(--clearance); color: var(--clearance); }
+
+  /* Main */
+  .acct-main { padding: 48px; }
+  @media (max-width: 700px) { .acct-main { padding: 32px 20px; } }
+
+  .acct-h {
+    display: flex; align-items: end; justify-content: space-between; gap: 32px;
+    padding-bottom: 32px; margin-bottom: 32px; border-bottom: 1px solid var(--ink-3);
+    flex-wrap: wrap;
+  }
+  .acct-h .title { font-family: var(--serif); font-weight: 300; font-size: 48px; line-height: 1.05; letter-spacing: -0.015em; }
+  .acct-h .strap { color: var(--bone-2); font-size: 14px; max-width: 48ch; margin-top: 8px; line-height: 1.55; }
+  .acct-h .meta-strip { display: flex; gap: 32px; flex-wrap: wrap; }
+  .acct-h .meta-strip > div { display: flex; flex-direction: column; gap: 4px; }
+  .acct-h .meta-strip .l { font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em; color: var(--steel); text-transform: uppercase; }
+  .acct-h .meta-strip .v { font-family: var(--mono); font-size: 13px; color: var(--bone); letter-spacing: 0.04em; }
+
+  /* Filter bar */
+  .filt-bar {
+    display: grid; grid-template-columns: 1.4fr auto auto auto auto; gap: 12px; align-items: stretch;
+    margin-bottom: 16px;
+  }
+  @media (max-width: 1100px) { .filt-bar { grid-template-columns: 1fr 1fr; } }
+  .filt-bar .filt-search {
+    background: var(--ink-2); border: 1px solid var(--ink-3); border-radius: 2px;
+    padding: 12px 14px; color: var(--bone); font-family: var(--sans); font-size: 14px;
+    transition: border-color 180ms;
+  }
+  .filt-bar .filt-search:focus { outline: none; border-color: var(--clearance); }
+  .filt-bar .filt-search::placeholder { color: var(--steel); }
+  .filt-bar select {
+    background: var(--ink-2); border: 1px solid var(--ink-3); border-radius: 2px;
+    padding: 12px 14px; color: var(--bone); font-family: var(--mono); font-size: 12px; letter-spacing: 0.04em;
+  }
+  .filt-bar select:focus { outline: none; border-color: var(--clearance); }
+
+  /* Active filter chips */
+  .chip-row { display: flex; gap: 8px; flex-wrap: wrap; padding-bottom: 24px; border-bottom: 1px solid var(--ink-3); margin-bottom: 24px; align-items: center; }
+  .chip {
+    font-family: var(--mono); font-size: 10px; letter-spacing: 0.1em; color: var(--bone);
+    padding: 5px 10px; border: 1px solid var(--clearance); border-radius: 2px;
+    text-transform: uppercase; display: inline-flex; gap: 8px; align-items: center;
+  }
+  .chip .x { color: var(--clearance); cursor: pointer; }
+  .chip-row .clear {
+    font-family: var(--mono); font-size: 10px; letter-spacing: 0.1em; color: var(--steel);
+    margin-left: auto; cursor: pointer; text-transform: uppercase; transition: color 180ms;
+  }
+  .chip-row .clear:hover { color: var(--clearance); }
+
+  /* Stats strip */
+  .stats {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 32px;
+  }
+  @media (max-width: 1100px) { .stats { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 600px) { .stats { grid-template-columns: 1fr 1fr; } }
+  .stat {
+    padding: 20px 24px; background: var(--ink-2); border: 1px solid var(--ink-3); border-radius: 4px;
+    display: flex; flex-direction: column; gap: 6px;
+  }
+  .stat .l { font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em; color: var(--steel); text-transform: uppercase; }
+  .stat .v { font-family: var(--serif); font-weight: 300; font-size: 32px; line-height: 1; color: var(--bone); letter-spacing: -0.005em; }
+  .stat .v .suf { font-family: var(--mono); font-size: 12px; color: var(--bone-2); margin-left: 4px; letter-spacing: 0.04em; }
+
+  /* Table */
+  .trips-table { background: var(--ink-2); border: 1px solid var(--ink-3); border-radius: 4px; overflow: hidden; }
+  .trips-thead, .trips-row {
+    display: grid; grid-template-columns: 110px 70px 1.4fr 1fr 110px 130px 60px;
+    gap: 16px; align-items: center; padding: 14px 24px;
+    border-bottom: 1px solid var(--ink-3);
+  }
+  @media (max-width: 1100px) {
+    .trips-thead { display: none; }
+    .trips-row { grid-template-columns: 1fr 1fr; gap: 8px; padding: 16px; }
+    .trips-row .craft, .trips-row .arrow-cell { display: none; }
+  }
+  .trips-thead {
+    background: var(--ink); padding: 14px 24px;
+    font-family: var(--mono); font-size: 9px; letter-spacing: 0.14em; color: var(--steel); text-transform: uppercase;
+  }
+  .trips-row { color: var(--bone); text-decoration: none; transition: background 180ms; }
+  .trips-row:hover { background: rgba(232,226,210,0.03); }
+  .trips-row:last-child { border-bottom: none; }
+
+  .trips-row .date { font-family: var(--mono); font-size: 11px; color: var(--bone-2); letter-spacing: 0.04em; }
+  .trips-row .id { font-family: var(--mono); font-size: 11px; color: var(--clearance); letter-spacing: 0.04em; }
+  .trips-row .pair { display: flex; flex-direction: column; gap: 2px; }
+  .trips-row .pair .icaos { font-family: var(--mono); font-size: 13px; color: var(--bone); letter-spacing: 0.06em; }
+  .trips-row .pair .icaos .arr { color: var(--steel); margin: 0 6px; }
+  .trips-row .pair .city { font-family: var(--serif); font-size: 14px; color: var(--bone-2); }
+  .trips-row .craft { font-family: var(--mono); font-size: 11px; color: var(--steel); letter-spacing: 0.04em; line-height: 1.5; }
+  .trips-row .craft strong { color: var(--bone); font-family: var(--sans); font-size: 13px; font-weight: 400; }
+  .trips-row .price { font-family: var(--mono); font-size: 12px; color: var(--bone); letter-spacing: 0.04em; text-align: right; }
+  .trips-row .status {
+    font-family: var(--mono); font-size: 9px; letter-spacing: 0.12em; text-transform: uppercase;
+    padding: 4px 8px; border-radius: 2px; text-align: center; width: fit-content;
+  }
+  .trips-row .status.ok { background: rgba(91,140,90,0.15); color: var(--success); }
+  .trips-row .status.up { background: rgba(232,226,210,0.1); color: var(--clearance); }
+  .trips-row .status.cn { background: rgba(164,69,58,0.12); color: var(--error); }
+  .trips-row .arrow-cell { font-family: var(--mono); color: var(--steel); text-align: right; }
+
+  /* Pagination */
+  .page-bar {
+    display: flex; align-items: center; justify-content: space-between;
+    padding-top: 24px; gap: 16px; flex-wrap: wrap;
+  }
+  .page-bar .info { font-family: var(--mono); font-size: 11px; color: var(--bone-2); letter-spacing: 0.04em; }
+  .page-bar .pages { display: flex; gap: 6px; }
+  .page-bar .pg {
+    width: 32px; height: 32px; border: 1px solid var(--ink-3); border-radius: 2px;
+    display: inline-flex; align-items: center; justify-content: center;
+    font-family: var(--mono); font-size: 11px; color: var(--bone); cursor: pointer;
+    transition: border-color 180ms, color 180ms;
+    text-decoration: none;
+  }
+  .page-bar .pg:hover { border-color: var(--clearance); color: var(--clearance); }
+  .page-bar .pg.active { border-color: var(--clearance); color: var(--clearance); background: rgba(232,226,210,0.05); }
+</style>
+</head>
+<body>
+
+<header class="acct-top">
+  <a href="homepage.html" class="brand">JetNine <span class="nine">09</span></a>
+  <div class="crumbs">
+    <a href="account-dashboard.html">ACCOUNT</a>
+    <span class="sep">/</span>
+    <span class="here">TRIPS</span>
+  </div>
+  <div class="right">
+    <span class="desk-status"><span class="dot"></span> Dispatch · open</span>
+    <a href="quote-step1.html" class="btn btn-primary btn-sm">New trip <span class="arrow">→</span></a>
+    <div class="avatar" title="Marcus Aldrich">MA</div>
+  </div>
+</header>
+
+<div class="acct-layout" data-screen-label="12 Account · Trips">
+  <aside class="acct-side">
+    <div class="grp">
+      <div class="lbl">— ACCOUNT</div>
+      <a href="account-dashboard.html"><span class="num">01</span><span>Dashboard</span><span></span></a>
+      <a href="account-trips.html" class="active"><span class="num">02</span><span>Trips</span><span class="badge">2</span></a>
+      <a href="account-invoices.html"><span class="num">03</span><span>Invoices</span><span></span></a>
+      <a href="account-preferences.html"><span class="num">04</span><span>Preferences</span><span></span></a>
+      <a href="account-members.html"><span class="num">05</span><span>Membership</span><span></span></a>
+    </div>
+    <div class="grp">
+      <div class="lbl">— TOOLS</div>
+      <a href="quote-step1.html"><span class="num">06</span><span>Request a quote</span><span></span></a>
+      <a href="empty-legs.html"><span class="num">07</span><span>Empty legs</span><span></span></a>
+      <a href="aircraft.html"><span class="num">08</span><span>Aircraft</span><span></span></a>
+    </div>
+    <div class="grp">
+      <div class="lbl">— SUPPORT</div>
+      <a href="contact.html"><span class="num">09</span><span>Contact dispatch</span><span></span></a>
+      <a href="faq.html"><span class="num">10</span><span>FAQ</span><span></span></a>
+      <a href="legal.html"><span class="num">11</span><span>Legal</span><span></span></a>
+    </div>
+
+    <div class="acct-dispatcher">
+      <span class="lbl">— YOUR DISPATCHER</span>
+      <span class="name">Catalina Vance</span>
+      <span class="meta">14 yrs · West-coast lanes</span>
+      <span class="meta">Reply &lt; 5 min · 24 / 7</span>
+      <div class="actions">
+        <a href="tel:+18188005678">Call</a>
+        <a href="sms:+18188005678">Text</a>
+        <a href="mailto:catalina@jetnine.com">Email</a>
+      </div>
+    </div>
+  </aside>
+
+  <main class="acct-main">
+    <div class="acct-h">
+      <div>
+        <h1 class="title">Trips.</h1>
+        <p class="strap">Every flight you've taken on JetNine. Filter by year, status, or route. Click any trip for the full sheet, manifest, and downloadable invoice.</p>
+      </div>
+      <div class="meta-strip">
+        <div><span class="l">— LIFETIME TRIPS</span><span class="v">62</span></div>
+        <div><span class="l">— LIFETIME HOURS</span><span class="v">312.4</span></div>
+        <div><span class="l">— LIFETIME SPEND</span><span class="v">$2.41M</span></div>
+        <div><span class="l">— ON TIME</span><span class="v">98.4%</span></div>
+      </div>
+    </div>
+
+    <div class="stats">
+      <div class="stat"><span class="l">— YTD TRIPS</span><span class="v">9</span></div>
+      <div class="stat"><span class="l">— YTD HOURS</span><span class="v">42.6<span class="suf">hrs</span></span></div>
+      <div class="stat"><span class="l">— YTD SPEND</span><span class="v">$284K</span></div>
+      <div class="stat"><span class="l">— AVG TRIP COST</span><span class="v">$31,500</span></div>
+    </div>
+
+    <!-- Filter bar -->
+    <div class="filt-bar">
+      <input class="filt-search" type="search" placeholder="Search by route, tail, operator, trip ID…" />
+      <select>
+        <option>YEAR · ALL</option><option>2026</option><option>2025</option><option>2024</option><option>2023</option><option>2022</option>
+      </select>
+      <select>
+        <option>STATUS · ALL</option><option>Upcoming</option><option>Completed</option><option>Cancelled</option>
+      </select>
+      <select>
+        <option>CATEGORY · ALL</option><option>Light</option><option>Midsize</option><option>Super-mid</option><option>Heavy</option><option>ULR</option>
+      </select>
+      <select>
+        <option>SORT · NEWEST</option><option>Oldest</option><option>Price ↑</option><option>Price ↓</option>
+      </select>
+    </div>
+
+    <div class="chip-row">
+      <span class="chip">— YEAR · 2026 <span class="x">×</span></span>
+      <span class="chip">— STATUS · ALL <span class="x">×</span></span>
+      <span class="chip">— SORT · NEWEST <span class="x">×</span></span>
+      <span class="clear">— CLEAR ALL</span>
+    </div>
+
+    <!-- Table -->
+    <div class="trips-table">
+      <div class="trips-thead">
+        <div>DATE</div>
+        <div>TRIP ID</div>
+        <div>ROUTE</div>
+        <div>AIRCRAFT</div>
+        <div>STATUS</div>
+        <div style="text-align: right;">PRICE</div>
+        <div></div>
+      </div>
+
+      <a class="trips-row" href="#">
+        <span class="date">14 NOV 2026</span>
+        <span class="id">JN-0094</span>
+        <span class="pair"><span class="icaos">KVNY <span class="arr">→</span> KTEB</span><span class="city">Los Angeles → New York</span></span>
+        <span class="craft"><strong>Citation Latitude</strong><br/>N814QX · FlexJet</span>
+        <span class="status up">Confirmed</span>
+        <span class="price">$58,400</span>
+        <span class="arrow-cell">→</span>
+      </a>
+
+      <a class="trips-row" href="#">
+        <span class="date">22 NOV 2026</span>
+        <span class="id">JN-0098</span>
+        <span class="pair"><span class="icaos">KTEB <span class="arr">→</span> KVNY</span><span class="city">New York → Los Angeles</span></span>
+        <span class="craft"><strong>Citation Latitude</strong><br/>N814QX · FlexJet</span>
+        <span class="status up">Confirmed</span>
+        <span class="price">$54,200</span>
+        <span class="arrow-cell">→</span>
+      </a>
+
+      <a class="trips-row" href="#">
+        <span class="date">28 OCT 2026</span>
+        <span class="id">JN-0089</span>
+        <span class="pair"><span class="icaos">KVNY <span class="arr">→</span> KSFO</span><span class="city">Los Angeles → Bay Area</span></span>
+        <span class="craft"><strong>Phenom 300E</strong><br/>N812EX · NetJets</span>
+        <span class="status ok">Completed</span>
+        <span class="price">$18,420</span>
+        <span class="arrow-cell">→</span>
+      </a>
+
+      <a class="trips-row" href="#">
+        <span class="date">14 OCT 2026</span>
+        <span class="id">JN-0084</span>
+        <span class="pair"><span class="icaos">KTEB <span class="arr">→</span> KOPF</span><span class="city">New York → Miami</span></span>
+        <span class="craft"><strong>Challenger 350</strong><br/>N445SR · Solairus</span>
+        <span class="status ok">Completed</span>
+        <span class="price">$48,600</span>
+        <span class="arrow-cell">→</span>
+      </a>
+
+      <a class="trips-row" href="#">
+        <span class="date">02 OCT 2026</span>
+        <span class="id">JN-0079</span>
+        <span class="pair"><span class="icaos">KVNY <span class="arr">→</span> KASE</span><span class="city">Los Angeles → Aspen</span></span>
+        <span class="craft"><strong>Citation XLS+</strong><br/>N221TS · Travel Mgmt</span>
+        <span class="status ok">Completed</span>
+        <span class="price">$22,140</span>
+        <span class="arrow-cell">→</span>
+      </a>
+
+      <a class="trips-row" href="#">
+        <span class="date">18 SEP 2026</span>
+        <span class="id">JN-0072</span>
+        <span class="pair"><span class="icaos">KSFO <span class="arr">→</span> KVNY</span><span class="city">Bay Area → Los Angeles</span></span>
+        <span class="craft"><strong>Phenom 300E</strong><br/>N812EX · NetJets</span>
+        <span class="status ok">Completed</span>
+        <span class="price">$17,950</span>
+        <span class="arrow-cell">→</span>
+      </a>
+
+      <a class="trips-row" href="#">
+        <span class="date">04 SEP 2026</span>
+        <span class="id">JN-0068</span>
+        <span class="pair"><span class="icaos">KVNY <span class="arr">→</span> KSFO</span><span class="city">Los Angeles → Bay Area</span></span>
+        <span class="craft"><strong>Phenom 300E</strong><br/>N812EX · NetJets</span>
+        <span class="status ok">Completed</span>
+        <span class="price">$17,820</span>
+        <span class="arrow-cell">→</span>
+      </a>
+
+      <a class="trips-row" href="#">
+        <span class="date">22 AUG 2026</span>
+        <span class="id">JN-0061</span>
+        <span class="pair"><span class="icaos">KVNY <span class="arr">→</span> KJFK</span><span class="city">Los Angeles → New York</span></span>
+        <span class="craft"><strong>Gulfstream G450</strong><br/>N818JB · Jet Linx</span>
+        <span class="status cn">Cancelled · WX</span>
+        <span class="price">$0</span>
+        <span class="arrow-cell">→</span>
+      </a>
+
+      <a class="trips-row" href="#">
+        <span class="date">14 AUG 2026</span>
+        <span class="id">JN-0058</span>
+        <span class="pair"><span class="icaos">KVNY <span class="arr">→</span> EGGW</span><span class="city">Los Angeles → London</span></span>
+        <span class="craft"><strong>Global 6500</strong><br/>N655GL · VistaJet</span>
+        <span class="status ok">Completed</span>
+        <span class="price">$148,600</span>
+        <span class="arrow-cell">→</span>
+      </a>
+
+      <a class="trips-row" href="#">
+        <span class="date">28 JUL 2026</span>
+        <span class="id">JN-0052</span>
+        <span class="pair"><span class="icaos">EGGW <span class="arr">→</span> LFPB</span><span class="city">London → Paris</span></span>
+        <span class="craft"><strong>Citation XLS+</strong><br/>G-CITX · Air Charter</span>
+        <span class="status ok">Completed</span>
+        <span class="price">$14,420</span>
+        <span class="arrow-cell">→</span>
+      </a>
+
+      <a class="trips-row" href="#">
+        <span class="date">03 JUL 2026</span>
+        <span class="id">JN-0046</span>
+        <span class="pair"><span class="icaos">LFPB <span class="arr">→</span> KVNY</span><span class="city">Paris → Los Angeles</span></span>
+        <span class="craft"><strong>Global 6500</strong><br/>N655GL · VistaJet</span>
+        <span class="status ok">Completed</span>
+        <span class="price">$162,400</span>
+        <span class="arrow-cell">→</span>
+      </a>
+
+      <a class="trips-row" href="#">
+        <span class="date">12 JUN 2026</span>
+        <span class="id">JN-0041</span>
+        <span class="pair"><span class="icaos">KVNY <span class="arr">→</span> KOPF</span><span class="city">Los Angeles → Miami</span></span>
+        <span class="craft"><strong>Challenger 350</strong><br/>N445SR · Solairus</span>
+        <span class="status ok">Completed</span>
+        <span class="price">$52,200</span>
+        <span class="arrow-cell">→</span>
+      </a>
+    </div>
+
+    <div class="page-bar">
+      <span class="info">Showing 1–12 of 62 trips</span>
+      <div class="pages">
+        <a class="pg" href="#">‹</a>
+        <a class="pg active" href="#">1</a>
+        <a class="pg" href="#">2</a>
+        <a class="pg" href="#">3</a>
+        <a class="pg" href="#">4</a>
+        <a class="pg" href="#">5</a>
+        <a class="pg" href="#">›</a>
+      </div>
+    </div>
+  </main>
+</div>
+
+</body>
+</html>

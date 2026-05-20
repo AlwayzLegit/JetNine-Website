@@ -1,0 +1,632 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>JetNine — Contact</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,500;9..144,600&family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="shared.css" />
+<style>
+  /* Hero */
+  .ct-hero { padding: 200px 0 64px; border-bottom: 1px solid var(--ink-3); }
+  .ct-hero .kicker { display: inline-flex; align-items: center; gap: 12px; margin-bottom: 32px; }
+  .ct-hero .kicker .dash { width: 32px; height: 1px; background: var(--clearance); }
+  .ct-hero h1 { max-width: 18ch; }
+  .ct-hero .lead { font-size: 19px; color: var(--bone-2); max-width: 56ch; margin-top: 24px; line-height: 1.6; }
+
+  /* Live status strip */
+  .live-strip {
+    display: grid; grid-template-columns: auto 1fr auto; gap: 32px; align-items: center;
+    margin-top: 48px; padding: 24px 32px; background: var(--ink-2); border: 1px solid var(--ink-3); border-radius: 4px;
+  }
+  @media (max-width: 700px) { .live-strip { grid-template-columns: 1fr; gap: 16px; } }
+  .live-pill {
+    display: inline-flex; align-items: center; gap: 12px;
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.14em; color: var(--clearance);
+    text-transform: uppercase;
+  }
+  .live-dot {
+    width: 8px; height: 8px; border-radius: 50%; background: var(--clearance);
+    box-shadow: 0 0 0 0 rgba(212,98,42,0.7); animation: pulse 1.8s infinite;
+  }
+  @keyframes pulse {
+    0% { box-shadow: 0 0 0 0 rgba(212,98,42,0.7); }
+    70% { box-shadow: 0 0 0 12px rgba(212,98,42,0); }
+    100% { box-shadow: 0 0 0 0 rgba(212,98,42,0); }
+  }
+  .live-strip .msg { color: var(--bone); font-size: 14px; }
+  .live-strip .meta { font-family: var(--mono); font-size: 11px; color: var(--bone-2); letter-spacing: 0.04em; }
+
+  /* Channels grid — phone-first */
+  .channels { padding: 64px 0 160px; border-bottom: 1px solid var(--ink-3); }
+  .channels-grid {
+    display: grid; grid-template-columns: 1.4fr 1fr 1fr; gap: 24px;
+  }
+  @media (max-width: 1000px) { .channels-grid { grid-template-columns: 1fr; } }
+
+  .channel {
+    background: var(--ink-2); border: 1px solid var(--ink-3); border-radius: 4px;
+    padding: 40px; display: flex; flex-direction: column; gap: 20px;
+    transition: border-color 240ms;
+  }
+  .channel:hover { border-color: var(--bone-2); }
+  .channel.primary {
+    border-color: var(--clearance);
+    background: linear-gradient(180deg, rgba(212,98,42,0.06) 0%, var(--ink-2) 60%);
+  }
+
+  .channel .num { font-family: var(--mono); font-size: 11px; color: var(--clearance); letter-spacing: 0.14em; }
+  .channel h2 {
+    font-family: var(--serif); font-weight: 300; font-size: 36px; line-height: 1.1; letter-spacing: -0.01em;
+  }
+  .channel.primary h2 { font-size: 56px; }
+  .channel .strap { color: var(--bone-2); font-size: 14px; line-height: 1.6; max-width: 36ch; }
+  .channel .big {
+    font-family: var(--serif); font-weight: 300; font-size: 48px; line-height: 1; letter-spacing: -0.01em; color: var(--bone);
+    text-decoration: none; display: inline-block; margin-top: 8px;
+  }
+  .channel.primary .big { font-size: 64px; color: var(--bone); }
+  .channel .big:hover { color: var(--clearance); }
+  .channel .meta-row {
+    display: flex; gap: 24px; padding-top: 16px; border-top: 1px solid var(--ink-3); margin-top: auto;
+  }
+  .channel .meta-row > div { display: flex; flex-direction: column; gap: 4px; }
+  .channel .meta-row .lbl { font-family: var(--mono); font-size: 9px; letter-spacing: 0.12em; color: var(--steel); text-transform: uppercase; }
+  .channel .meta-row .val { font-family: var(--mono); font-size: 11px; color: var(--bone); letter-spacing: 0.04em; }
+
+  /* Form section */
+  .form { padding: 160px 0; border-bottom: 1px solid var(--ink-3); background: var(--ink-2); }
+  .form-grid { display: grid; grid-template-columns: 1fr 1.4fr; gap: 96px; align-items: start; }
+  @media (max-width: 900px) { .form-grid { grid-template-columns: 1fr; gap: 32px; } }
+  .form .kicker { display: inline-flex; align-items: center; gap: 12px; margin-bottom: 32px; }
+  .form .kicker .dash { width: 32px; height: 1px; background: var(--clearance); }
+
+  .form-side h2 { max-width: 14ch; }
+  .form-side p { font-size: 17px; color: var(--bone-2); line-height: 1.7; margin-top: 24px; max-width: 44ch; }
+  .form-side ul {
+    margin-top: 32px; list-style: none; padding: 0;
+    display: flex; flex-direction: column; gap: 12px;
+  }
+  .form-side ul li {
+    padding-left: 22px; position: relative; font-size: 14px; color: var(--bone-2); line-height: 1.55;
+  }
+  .form-side ul li::before { content: "—"; position: absolute; left: 0; color: var(--clearance); font-family: var(--mono); }
+
+  .form-card {
+    background: var(--ink); border: 1px solid var(--ink-3); border-radius: 4px;
+    padding: 48px;
+  }
+  .form-row { display: grid; gap: 16px; margin-bottom: 16px; }
+  .form-row.two { grid-template-columns: 1fr 1fr; }
+  @media (max-width: 600px) { .form-row.two { grid-template-columns: 1fr; } }
+  .form-field { display: flex; flex-direction: column; gap: 8px; }
+  .form-field label {
+    font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em; color: var(--steel); text-transform: uppercase;
+  }
+  .form-field input, .form-field select, .form-field textarea {
+    width: 100%; padding: 14px 16px;
+    background: var(--ink-2); border: 1px solid var(--ink-3); border-radius: 2px;
+    color: var(--bone); font-family: var(--sans); font-size: 14px;
+    transition: border-color 200ms;
+  }
+  .form-field input:focus, .form-field select:focus, .form-field textarea:focus {
+    outline: none; border-color: var(--clearance);
+  }
+  .form-field input::placeholder, .form-field textarea::placeholder { color: var(--steel); }
+  .form-field textarea { resize: vertical; min-height: 120px; font-family: var(--sans); }
+  .form-radio-row { display: flex; gap: 8px; flex-wrap: wrap; }
+  .form-radio {
+    flex: 1; min-width: 120px; padding: 12px 14px;
+    background: var(--ink-2); border: 1px solid var(--ink-3); border-radius: 2px;
+    cursor: pointer; transition: all 200ms;
+    display: flex; flex-direction: column; gap: 4px;
+  }
+  .form-radio:hover { border-color: var(--bone-2); }
+  .form-radio.active {
+    border-color: var(--clearance);
+    background: rgba(212,98,42,0.06);
+  }
+  .form-radio .lbl { font-family: var(--mono); font-size: 10px; color: var(--steel); letter-spacing: 0.12em; text-transform: uppercase; }
+  .form-radio.active .lbl { color: var(--clearance); }
+  .form-radio .name { font-family: var(--sans); font-size: 14px; color: var(--bone); }
+  .form-submit-row {
+    display: flex; align-items: center; justify-content: space-between; gap: 16px;
+    padding-top: 24px; border-top: 1px solid var(--ink-3); margin-top: 8px;
+  }
+  @media (max-width: 600px) { .form-submit-row { flex-direction: column; align-items: stretch; } }
+  .form-submit-row .micro {
+    flex: 1 1 0; min-width: 0;
+    font-family: var(--mono); font-size: 11px; color: var(--steel); letter-spacing: 0.04em; max-width: 36ch;
+  }
+  .form-submit-row .btn { flex: 0 0 auto; white-space: nowrap; }
+
+  /* Regional dispatchers */
+  .regions { padding: 160px 0; border-bottom: 1px solid var(--ink-3); }
+  .regions-head { display: grid; grid-template-columns: 1fr 1.4fr; gap: 64px; margin-bottom: 64px; align-items: end; }
+  @media (max-width: 900px) { .regions-head { grid-template-columns: 1fr; gap: 24px; } }
+  .regions-head .kicker { display: inline-flex; align-items: center; gap: 12px; }
+  .regions-head .kicker .dash { width: 32px; height: 1px; background: var(--clearance); }
+
+  .region-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+  @media (max-width: 1000px) { .region-grid { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 600px) { .region-grid { grid-template-columns: 1fr; } }
+
+  .region {
+    padding: 32px; background: var(--ink-2); border: 1px solid var(--ink-3); border-radius: 4px;
+    display: flex; flex-direction: column; gap: 12px;
+  }
+  .region .lbl { font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em; color: var(--clearance); text-transform: uppercase; }
+  .region .name { font-family: var(--serif); font-size: 24px; font-weight: 400; line-height: 1.2; color: var(--bone); }
+  .region .lanes { font-family: var(--mono); font-size: 11px; color: var(--bone-2); letter-spacing: 0.04em; }
+  .region .who { font-size: 13px; color: var(--bone-2); padding-top: 12px; border-top: 1px solid var(--ink-3); margin-top: auto; }
+  .region .who strong { color: var(--bone); font-weight: 500; }
+
+  /* Office card */
+  .office { padding: 160px 0; border-bottom: 1px solid var(--ink-3); background: var(--ink-2); }
+  .office-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 64px; align-items: center; }
+  @media (max-width: 900px) { .office-grid { grid-template-columns: 1fr; gap: 32px; } }
+  .office .kicker { display: inline-flex; align-items: center; gap: 12px; margin-bottom: 32px; }
+  .office .kicker .dash { width: 32px; height: 1px; background: var(--clearance); }
+  .office h2 { max-width: 14ch; }
+
+  .office-info {
+    margin-top: 32px;
+    background: var(--ink); border: 1px solid var(--ink-3); border-radius: 4px;
+  }
+  .office-info-row {
+    display: grid; grid-template-columns: 140px 1fr;
+    padding: 20px 24px; border-bottom: 1px solid var(--ink-3);
+    gap: 16px; align-items: start;
+  }
+  .office-info-row:last-child { border-bottom: none; }
+  .office-info-row .lbl { font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em; color: var(--steel); text-transform: uppercase; padding-top: 4px; }
+  .office-info-row .val { color: var(--bone); font-size: 15px; line-height: 1.5; }
+
+  .office-map {
+    aspect-ratio: 4 / 3; background: linear-gradient(135deg, #1f1f1c 0%, #14141a 60%);
+    border: 1px solid var(--ink-3); border-radius: 4px; position: relative; overflow: hidden;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .office-map::before {
+    content: ""; position: absolute; inset: 0;
+    background-image:
+      linear-gradient(rgba(232,226,210,0.05) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(232,226,210,0.05) 1px, transparent 1px);
+    background-size: 40px 40px;
+  }
+  .office-map .pin {
+    position: relative; z-index: 1; display: flex; flex-direction: column; align-items: center; gap: 12px;
+  }
+  .office-map .pin .dot {
+    width: 16px; height: 16px; border-radius: 50%; background: var(--clearance);
+    box-shadow: 0 0 0 8px rgba(212,98,42,0.15);
+  }
+  .office-map .pin .label {
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.14em; color: var(--bone);
+    text-transform: uppercase;
+  }
+
+  /* FBO partners */
+  .fbos { padding: 160px 0; border-bottom: 1px solid var(--ink-3); }
+  .fbos-head { display: grid; grid-template-columns: 1fr 1.4fr; gap: 64px; margin-bottom: 64px; align-items: end; }
+  @media (max-width: 900px) { .fbos-head { grid-template-columns: 1fr; gap: 24px; } }
+  .fbos-head .kicker { display: inline-flex; align-items: center; gap: 12px; }
+  .fbos-head .kicker .dash { width: 32px; height: 1px; background: var(--clearance); }
+
+  .fbo-table {
+    background: var(--ink-2); border: 1px solid var(--ink-3); border-radius: 4px; overflow: hidden;
+  }
+  .fbo-row {
+    display: grid; grid-template-columns: 100px 1.6fr 1fr 1fr;
+    padding: 18px 28px; border-bottom: 1px solid var(--ink-3); align-items: center; gap: 24px;
+  }
+  @media (max-width: 800px) { .fbo-row { grid-template-columns: 80px 1fr 1fr; } .fbo-row .city { grid-column: 1 / -1; order: 4; } }
+  .fbo-row.head {
+    background: var(--ink);
+    font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em; color: var(--steel); text-transform: uppercase;
+    padding: 14px 28px;
+  }
+  .fbo-row:last-child { border-bottom: none; }
+  .fbo-row .icao { font-family: var(--mono); font-size: 14px; color: var(--clearance); letter-spacing: 0.06em; }
+  .fbo-row .name { font-family: var(--serif); font-size: 18px; font-weight: 400; color: var(--bone); line-height: 1.2; }
+  .fbo-row .name .sub { display: block; font-family: var(--mono); font-size: 11px; color: var(--steel); letter-spacing: 0.04em; margin-top: 4px; }
+  .fbo-row .city { font-family: var(--mono); font-size: 12px; color: var(--bone-2); letter-spacing: 0.04em; }
+</style>
+</head>
+<body>
+
+<nav class="nav" id="nav" data-screen-label="08 Contact">
+  <div class="nav-inner">
+    <a href="homepage.html" class="brand" style="text-decoration: none;">JetNine <span class="nine">09</span></a>
+    <div class="nav-links">
+      <a href="homepage.html">Home</a>
+      <a href="aircraft.html">Aircraft</a>
+      <a href="how-it-works.html">How it works</a>
+      <a href="memberships.html">Memberships</a>
+      <a href="empty-legs.html">Empty legs</a>
+      <a href="about.html">About</a>
+      <a href="contact.html" class="active">Contact</a>
+    </div>
+    <div class="nav-cta">
+      <a class="phone-link" href="tel:+18188005678">+1 (818) 800-5678</a>
+      <a href="quote-step1.html" class="btn btn-primary btn-sm">Request quote <span class="arrow">→</span></a>
+    </div>
+  </div>
+</nav>
+
+<header class="ct-hero">
+  <div class="container">
+    <div class="reveal kicker"><span class="dash"></span> Contact dispatch</div>
+    <h1 class="display-xl reveal" data-stagger="1">One desk. One number.<br/>Open every hour<br/>of every day.</h1>
+    <p class="lead reveal" data-stagger="2">A senior dispatcher will pick up — and stay on with you for the duration of the call. No phone tree, no hold music, no after-hours voicemail. Below: the channel that gets you there fastest, plus the form if you'd rather start in writing.</p>
+
+    <div class="reveal live-strip" data-stagger="3">
+      <span class="live-pill"><span class="live-dot"></span> Live · dispatch desk open</span>
+      <span class="msg">Catalina V. and Eli M. on the desk now · average pick-up under 20 seconds.</span>
+      <span class="meta">VAN NUYS · 14:08 PT</span>
+    </div>
+  </div>
+</header>
+
+<section class="channels">
+  <div class="container">
+    <div class="channels-grid">
+      <a class="channel primary reveal" href="tel:+18188005678" style="text-decoration: none;">
+        <div class="num">— CHANNEL 01 · FASTEST</div>
+        <h2>Call the dispatch line.</h2>
+        <p class="strap">Senior dispatcher picks up. Average call to first specific airframe quote: under 30 minutes.</p>
+        <span class="big">+1 (818) 800-5678</span>
+        <div class="meta-row">
+          <div><span class="lbl">— HOURS</span><span class="val">24 / 7 / 365</span></div>
+          <div><span class="lbl">— PICKUP</span><span class="val">&lt; 20 sec avg</span></div>
+        </div>
+      </a>
+
+      <div class="channel reveal" data-stagger="1">
+        <div class="num">— CHANNEL 02</div>
+        <h2>Email dispatch.</h2>
+        <p class="strap">Best for non-urgent quotes &amp; multi-leg trips you want to think through.</p>
+        <a class="big" style="font-size: 22px;" href="mailto:dispatch@jetnine.com">dispatch@jetnine.com</a>
+        <div class="meta-row">
+          <div><span class="lbl">— REPLY</span><span class="val">&lt; 30 min · biz hrs</span></div>
+          <div><span class="lbl">— AFTER HOURS</span><span class="val">&lt; 2 hr</span></div>
+        </div>
+      </div>
+
+      <div class="channel reveal" data-stagger="2">
+        <div class="num">— CHANNEL 03</div>
+        <h2>Text the desk.</h2>
+        <p class="strap">For existing clients with a confirmed dispatcher. Same number as the phone line.</p>
+        <a class="big" style="font-size: 22px;" href="sms:+18188005678">SMS · +1 (818) 800-5678</a>
+        <div class="meta-row">
+          <div><span class="lbl">— REPLY</span><span class="val">&lt; 5 min</span></div>
+          <div><span class="lbl">— ESCALATE</span><span class="val">Auto · 15 min</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="form">
+  <div class="container">
+    <div class="form-grid">
+      <div class="form-side">
+        <div class="reveal kicker"><span class="dash"></span> Or, in writing</div>
+        <h2 class="display-l reveal" data-stagger="1">Tell us the route.<br/>We'll be in touch.</h2>
+        <p class="reveal" data-stagger="2">If you'd rather start with a few lines of context, drop them here. Same dispatcher will reach out within thirty minutes during business hours, two hours after.</p>
+        <ul class="reveal" data-stagger="3">
+          <li>What we'll come back with: three to five specific airframes, all-in pricing, photos, operator standing.</li>
+          <li>What we won't do: pass your details to operators, run promotional sequences, or share your inquiry with anyone outside the dispatch desk.</li>
+          <li>Prefer a faster path? Call <a class="phone-link" style="font-size: inherit;" href="tel:+18188005678">+1 (818) 800-5678</a> — same desk.</li>
+        </ul>
+      </div>
+
+      <form class="form-card reveal" data-stagger="2" onsubmit="event.preventDefault(); alert('Submitted (demo).');">
+        <div class="form-row two">
+          <div class="form-field">
+            <label>— FIRST NAME</label>
+            <input type="text" placeholder="Marcus" />
+          </div>
+          <div class="form-field">
+            <label>— LAST NAME</label>
+            <input type="text" placeholder="Aldrich" />
+          </div>
+        </div>
+        <div class="form-row two">
+          <div class="form-field">
+            <label>— EMAIL</label>
+            <input type="email" placeholder="m.aldrich@example.com" />
+          </div>
+          <div class="form-field">
+            <label>— MOBILE</label>
+            <input type="tel" placeholder="+1 (818) 555-0142" />
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-field">
+            <label>— REASON FOR CONTACT</label>
+            <div class="form-radio-row">
+              <div class="form-radio active" onclick="document.querySelectorAll('.form-radio').forEach(r=>r.classList.remove('active')); this.classList.add('active');">
+                <span class="lbl">— OPTION 01</span><span class="name">Quote a flight</span>
+              </div>
+              <div class="form-radio" onclick="document.querySelectorAll('.form-radio').forEach(r=>r.classList.remove('active')); this.classList.add('active');">
+                <span class="lbl">— OPTION 02</span><span class="name">Card / Reserve</span>
+              </div>
+              <div class="form-radio" onclick="document.querySelectorAll('.form-radio').forEach(r=>r.classList.remove('active')); this.classList.add('active');">
+                <span class="lbl">— OPTION 03</span><span class="name">Existing trip</span>
+              </div>
+              <div class="form-radio" onclick="document.querySelectorAll('.form-radio').forEach(r=>r.classList.remove('active')); this.classList.add('active');">
+                <span class="lbl">— OPTION 04</span><span class="name">Other</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="form-row two">
+          <div class="form-field">
+            <label>— DEPARTING (CITY OR AIRPORT)</label>
+            <input type="text" placeholder="Los Angeles, KVNY" />
+          </div>
+          <div class="form-field">
+            <label>— ARRIVING</label>
+            <input type="text" placeholder="New York, KTEB" />
+          </div>
+        </div>
+        <div class="form-row two">
+          <div class="form-field">
+            <label>— DATE / WINDOW</label>
+            <input type="text" placeholder="Fri 14 Nov · flexible ±1 day" />
+          </div>
+          <div class="form-field">
+            <label>— PASSENGERS</label>
+            <input type="text" placeholder="4 adults" />
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-field">
+            <label>— ANYTHING ELSE</label>
+            <textarea placeholder="Repositioning leg, multi-stop, pets, special catering — whatever the dispatcher should know up front."></textarea>
+          </div>
+        </div>
+
+        <div class="form-submit-row">
+          <span class="micro">Goes directly to the dispatch desk. Not a marketing list.</span>
+          <button type="submit" class="btn btn-primary">Send to dispatch <span class="arrow">→</span></button>
+        </div>
+      </form>
+    </div>
+  </div>
+</section>
+
+<section class="regions">
+  <div class="container">
+    <div class="regions-head">
+      <div class="reveal"><div class="kicker"><span class="dash"></span> Regional dispatchers</div></div>
+      <div class="reveal" data-stagger="1">
+        <h2 class="display-l">A dedicated dispatcher<br/>per region of the network.</h2>
+        <p class="body-l" style="margin-top: 24px; max-width: 56ch;">Local FBO knowledge, customs &amp; permitting expertise, fluent in the language and time zone. They route calls inside the desk so you talk to the right person on the first try.</p>
+      </div>
+    </div>
+
+    <div class="region-grid">
+      <div class="region reveal">
+        <div class="lbl">— REGION 01</div>
+        <div class="name">North America · West</div>
+        <div class="lanes">KVNY · KSFO · KSEA · KLAS · KASE · KSDL</div>
+        <div class="who"><strong>Catalina Vance</strong><br/>14 yrs · West-coast lanes</div>
+      </div>
+      <div class="region reveal" data-stagger="1">
+        <div class="lbl">— REGION 02</div>
+        <div class="name">North America · East</div>
+        <div class="lanes">KTEB · KJFK · KBOS · KMIA · KOPF · KIAD</div>
+        <div class="who"><strong>Daniel Hsieh</strong><br/>17 yrs · East &amp; Mid-Atlantic</div>
+      </div>
+      <div class="region reveal" data-stagger="2">
+        <div class="lbl">— REGION 03</div>
+        <div class="name">Europe</div>
+        <div class="lanes">EGGW · EGLF · LFPB · LSGG · LIRA</div>
+        <div class="who"><strong>James Kowalski</strong><br/>22 yrs · transatlantic ops</div>
+      </div>
+      <div class="region reveal" data-stagger="3">
+        <div class="lbl">— REGION 04</div>
+        <div class="name">Asia &amp; Middle East</div>
+        <div class="lanes">RJTT · RJBB · OMDB · VHHH · WSSS</div>
+        <div class="who"><strong>Aamir Talwar</strong><br/>11 yrs · trans-pacific &amp; ME</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="office">
+  <div class="container">
+    <div class="office-grid">
+      <div>
+        <div class="reveal kicker"><span class="dash"></span> Headquarters</div>
+        <h2 class="display-l reveal" data-stagger="1">Van Nuys.<br/>Ten minutes from<br/>FBO row at KVNY.</h2>
+        <p class="reveal" data-stagger="2" style="font-size: 17px; color: var(--bone-2); line-height: 1.7; margin-top: 24px; max-width: 44ch;">One office, one desk. Visitors welcome by appointment — most clients fly through Van Nuys at some point and stop in to meet the dispatcher who handles their flights.</p>
+
+        <div class="office-info reveal" data-stagger="3">
+          <div class="office-info-row">
+            <div class="lbl">— ADDRESS</div>
+            <div class="val">2934 Beverly Glen Cir #123<br/>Los Angeles, CA 90077</div>
+          </div>
+          <div class="office-info-row">
+            <div class="lbl">— PHONE</div>
+            <div class="val">+1 (818) 800-5678 · 24 / 7</div>
+          </div>
+          <div class="office-info-row">
+            <div class="lbl">— EMAIL</div>
+            <div class="val">dispatch@jetnine.com</div>
+          </div>
+          <div class="office-info-row">
+            <div class="lbl">— VISITS</div>
+            <div class="val">By appointment · same-day usually OK</div>
+          </div>
+          <div class="office-info-row">
+            <div class="lbl">— PRESS</div>
+            <div class="val">press@jetnine.com</div>
+          </div>
+        </div>
+      </div>
+      <div class="office-map reveal" data-stagger="2">
+        <div class="pin">
+          <div class="dot"></div>
+          <div class="label">KVNY · VAN NUYS</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="fbos">
+  <div class="container">
+    <div class="fbos-head">
+      <div class="reveal"><div class="kicker"><span class="dash"></span> Preferred FBO partners</div></div>
+      <div class="reveal" data-stagger="1">
+        <h2 class="display-l">Where to find us<br/>on the ramp.</h2>
+        <p class="body-l" style="margin-top: 24px; max-width: 56ch;">A short list of FBOs we route through most often. We hold accounts at all of them — fueling, ramp, and ground are coordinated by your dispatcher before you arrive.</p>
+      </div>
+    </div>
+
+    <div class="fbo-table reveal">
+      <div class="fbo-row head">
+        <div>ICAO</div>
+        <div>FBO</div>
+        <div>City</div>
+        <div>Notes</div>
+      </div>
+      <div class="fbo-row">
+        <div class="icao">KVNY</div>
+        <div class="name">Signature Flight Support<span class="sub">— FBO of record · home base</span></div>
+        <div class="city">Van Nuys, CA</div>
+        <div class="city">Customs · 24h tower</div>
+      </div>
+      <div class="fbo-row">
+        <div class="icao">KTEB</div>
+        <div class="name">Meridian Teterboro<span class="sub">— Northeast hub</span></div>
+        <div class="city">Teterboro, NJ</div>
+        <div class="city">24h customs</div>
+      </div>
+      <div class="fbo-row">
+        <div class="icao">KSFO</div>
+        <div class="name">Signature SFO<span class="sub">— Bay Area</span></div>
+        <div class="city">San Francisco, CA</div>
+        <div class="city">— Customs available</div>
+      </div>
+      <div class="fbo-row">
+        <div class="icao">KOPF</div>
+        <div class="name">Atlantic Aviation Opa-Locka<span class="sub">— Miami, ex-MIA</span></div>
+        <div class="city">Opa-Locka, FL</div>
+        <div class="city">24h customs</div>
+      </div>
+      <div class="fbo-row">
+        <div class="icao">KASE</div>
+        <div class="name">Atlantic Aviation Aspen<span class="sub">— mountain ops</span></div>
+        <div class="city">Aspen, CO</div>
+        <div class="city">— Slot-controlled</div>
+      </div>
+      <div class="fbo-row">
+        <div class="icao">EGGW</div>
+        <div class="name">Signature London Luton<span class="sub">— preferred London FBO</span></div>
+        <div class="city">London, UK</div>
+        <div class="city">24h customs</div>
+      </div>
+      <div class="fbo-row">
+        <div class="icao">LFPB</div>
+        <div class="name">Universal Aviation Le Bourget<span class="sub">— Paris</span></div>
+        <div class="city">Paris, FR</div>
+        <div class="city">— Schengen ops</div>
+      </div>
+      <div class="fbo-row">
+        <div class="icao">RJTT</div>
+        <div class="name">Universal Aviation Haneda<span class="sub">— Tokyo, slot-restricted</span></div>
+        <div class="city">Tokyo, JP</div>
+        <div class="city">Slot req'd · 96h notice</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section style="position: relative; padding: 200px 0; overflow: hidden; text-align: center; border-top: 1px solid var(--ink-3); background: var(--ink);">
+  <div class="container">
+    <h2 class="display-l reveal">Easiest path:<br/>pick up the phone.</h2>
+    <p class="body-l reveal" data-stagger="1" style="margin: 24px auto 48px; max-width: 56ch;">Senior dispatcher answers. Same one for the life of the trip.</p>
+    <div style="display: flex; gap: 24px; justify-content: center; flex-wrap: wrap;" class="reveal" data-stagger="2">
+      <a href="tel:+18188005678" class="btn btn-primary btn-lg">+1 (818) 800-5678</a>
+      <a href="quote-step1.html" class="btn btn-secondary btn-lg">Request a quote <span class="arrow">→</span></a>
+    </div>
+  </div>
+</section>
+
+<footer class="docfoot">
+  <div class="container">
+    <div class="footer-grid">
+      <div class="foot-col">
+        <div class="brand" style="font-size: 28px;">JetNine <span class="nine" style="font-size: 12px;">09</span></div>
+        <p class="body" style="margin-top: 16px; max-width: 320px;">Private jet charter, anywhere, anytime. Twenty thousand aircraft worldwide, one number to call.</p>
+        <div style="margin-top: 24px; display: flex; flex-direction: column; gap: 8px;">
+          <a class="phone-link" style="font-size:14px;" href="tel:+18188005678">+1 (818) 800-5678</a>
+          <a class="phone-link" style="font-size:14px;" href="mailto:dispatch@jetnine.com">dispatch@jetnine.com</a>
+          <div class="caption" style="margin-top: 4px;">2934 BEVERLY GLEN CIRCLE #123<br/>LOS ANGELES, CA 90077</div>
+        </div>
+      </div>
+      <div class="foot-col"><h4>Sitemap</h4><ul>
+        <li><a href="homepage.html">Home</a></li>
+        <li><a href="aircraft.html">Aircraft</a></li>
+        <li><a href="how-it-works.html">How it works</a></li>
+        <li><a href="memberships.html">Memberships</a></li>
+        <li><a href="empty-legs.html">Empty legs</a></li>
+        <li><a href="about.html">About</a></li>
+        <li><a href="contact.html">Contact</a></li>
+      </ul></div>
+      <div class="foot-col"><h4>Categories</h4><ul>
+        <li><a href="aircraft.html">Turboprop</a></li>
+        <li><a href="aircraft-light.html">Light</a></li>
+        <li><a href="aircraft-midsize.html">Midsize</a></li>
+        <li><a href="aircraft-supermid.html">Super-mid</a></li>
+        <li><a href="aircraft-heavy.html">Heavy</a></li>
+        <li><a href="aircraft-ultra.html">Ultra long range</a></li>
+      </ul></div>
+      <div class="foot-col">
+        <h4>Legal</h4>
+        <ul style="gap: 8px;">
+          <li><a href="#">Privacy</a></li>
+          <li><a href="#">Terms</a></li>
+          <li><a href="#">Part 295 broker disclosure</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="foot-bottom">
+      <div>JETNINE © 2026 — LOS ANGELES</div>
+      <div style="display: flex; gap: 24px;">
+        <a href="#" style="color: var(--steel); text-decoration: none;">X</a>
+        <a href="#" style="color: var(--steel); text-decoration: none;">IG</a>
+        <a href="#" style="color: var(--steel); text-decoration: none;">LI</a>
+      </div>
+      <div style="max-width: 480px; text-align: right;">JetNine is an indirect air carrier — Part 295 broker. All flights operated by FAA Part 135 certified carriers.</div>
+    </div>
+  </div>
+</footer>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script type="text/babel" src="tweaks-panel.jsx"></script>
+<div id="tweaks-root"></div>
+<script type="text/babel" src="tweaks.jsx"></script>
+
+<script>
+  const nav = document.getElementById('nav');
+  function updateNav() { if (window.scrollY > 60) nav.classList.add('scrolled'); else nav.classList.remove('scrolled'); }
+  window.addEventListener('scroll', updateNav, { passive: true }); updateNav();
+  const reveals = document.querySelectorAll('.reveal');
+  const revObs = new IntersectionObserver((entries) => {
+    entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('in'); revObs.unobserve(e.target); } });
+  }, { threshold: 0.15 });
+  reveals.forEach(r => revObs.observe(r));
+</script>
+</body>
+</html>

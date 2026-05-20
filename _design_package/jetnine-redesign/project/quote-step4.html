@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>JetNine — Request a quote · Step 4 of 4</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,500;9..144,600&family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="shared.css" />
+<style>
+  body { background: var(--ink); }
+
+  /* Slim quote nav */
+  .qnav { position: fixed; top: 0; left: 0; right: 0; z-index: 50; height: 72px; background: rgba(7,8,10,0.92); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); border-bottom: 1px solid var(--ink-3); }
+  .qnav-inner { height: 100%; display: flex; align-items: center; justify-content: space-between; max-width: 1440px; margin: 0 auto; padding: 0 var(--pad-x); }
+  .qnav .exit { font-family: var(--mono); font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--bone-2); text-decoration: none; display: inline-flex; align-items: center; gap: 10px; transition: color 200ms; }
+  .qnav .exit:hover { color: var(--bone); }
+  .qnav .exit svg { width: 12px; height: 12px; }
+  .qnav .help { font-family: var(--mono); font-size: 11px; color: var(--bone-2); letter-spacing: 0.06em; display: flex; align-items: center; gap: 12px; }
+  .qnav .help .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--success); box-shadow: 0 0 0 0 rgba(91,140,90,0.6); animation: pulse 2.4s var(--ease-out) infinite; }
+  @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(91,140,90,0.6); } 70% { box-shadow: 0 0 0 8px rgba(91,140,90,0); } 100% { box-shadow: 0 0 0 0 rgba(91,140,90,0); } }
+  .qnav .help a { color: var(--bone); text-decoration: none; }
+
+  /* Progress (all done except active) */
+  .progress-strip { margin-top: 72px; border-bottom: 1px solid var(--ink-3); background: var(--ink); }
+  .progress-inner { max-width: 1440px; margin: 0 auto; padding: 24px var(--pad-x); display: flex; align-items: center; gap: 0; }
+  .pstep { flex: 1; display: flex; align-items: center; gap: 14px; padding: 8px 0; min-width: 0; cursor: pointer; text-decoration: none; }
+  .pstep .num { width: 28px; height: 28px; border-radius: 50%; background: var(--ink-3); color: var(--steel); font-family: var(--mono); font-size: 11px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: all 240ms; border: 1px solid var(--ink-3); }
+  .pstep.active .num { background: var(--clearance); color: var(--ink); border-color: var(--clearance); }
+  .pstep.done .num { background: var(--ink); color: var(--clearance); border-color: var(--clearance); }
+  .pstep.done .num::before { content: "✓"; font-size: 12px; }
+  .pstep.done .num span { display: none; }
+  .pstep .meta { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+  .pstep .lbl { font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em; color: var(--steel); text-transform: uppercase; }
+  .pstep.active .lbl, .pstep.done .lbl { color: var(--bone-2); }
+  .pstep .name { font-size: 14px; color: var(--bone-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .pstep.active .name { color: var(--bone); }
+  .pdiv { flex: 0 0 24px; height: 1px; background: var(--ink-3); }
+  .pdiv.done { background: var(--clearance); }
+  @media (max-width: 900px) { .pstep .meta { display: none; } .pstep { flex: 0 0 auto; } .pdiv { flex: 1; } }
+
+  /* Layout — single column, wider */
+  .qmain { max-width: 1100px; margin: 0 auto; padding: 64px var(--pad-x) 160px; }
+
+  .step-head { margin-bottom: 64px; }
+  .step-head .kicker { display: inline-flex; align-items: center; gap: 12px; margin-bottom: 24px; font-family: var(--mono); font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--bone-2); }
+  .step-head .kicker .dash { width: 32px; height: 1px; background: var(--clearance); }
+  .step-head h1 { font-family: var(--serif); font-weight: 300; font-size: clamp(40px, 5vw, 64px); line-height: 1.05; letter-spacing: -0.015em; max-width: 16ch; }
+  .step-head p { color: var(--bone-2); font-size: 17px; line-height: 1.55; max-width: 56ch; margin-top: 24px; }
+
+  /* Indicative price banner */
+  .price-banner {
+    background: var(--ink-2); border: 1px solid var(--ink-3); border-radius: 4px;
+    padding: 40px; margin-bottom: 48px;
+    display: grid; grid-template-columns: 1fr auto; gap: 32px; align-items: end;
+    position: relative; overflow: hidden;
+  }
+  .price-banner::before {
+    content: ""; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+    background: var(--clearance);
+  }
+  @media (max-width: 700px) { .price-banner { grid-template-columns: 1fr; gap: 16px; } }
+  .price-banner .l { font-family: var(--mono); font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--bone-2); margin-bottom: 16px; }
+  .price-banner .range { font-family: var(--serif); font-weight: 300; font-size: clamp(40px, 5vw, 64px); line-height: 1; letter-spacing: -0.015em; color: var(--bone); }
+  .price-banner .range .dash { color: var(--steel); margin: 0 12px; }
+  .price-banner .note { margin-top: 16px; font-size: 14px; color: var(--bone-2); max-width: 48ch; line-height: 1.55; }
+  .price-banner .meta {
+    display: flex; flex-direction: column; gap: 6px; align-items: flex-end; text-align: right;
+  }
+  .price-banner .meta .item {
+    font-family: var(--mono); font-size: 11px; color: var(--bone-2); letter-spacing: 0.06em;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .price-banner .meta .item svg { color: var(--clearance); }
+
+  /* Review block */
+  .review-block {
+    background: var(--ink-2); border: 1px solid var(--ink-3); border-radius: 4px;
+    margin-bottom: 16px; overflow: hidden;
+  }
+  .rb-head {
+    display: flex; align-items: center; justify-content: space-between; gap: 16px;
+    padding: 24px 32px; border-bottom: 1px solid var(--ink-3);
+  }
+  .rb-head .lbl {
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase;
+    color: var(--bone-2);
+    display: inline-flex; align-items: center; gap: 12px;
+  }
+  .rb-head .lbl .num {
+    font-family: var(--mono); font-size: 10px; color: var(--clearance);
+    background: var(--ink); padding: 4px 8px; border-radius: 2px; letter-spacing: 0.12em;
+  }
+  .rb-head .edit {
+    font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--bone-2); text-decoration: none; display: inline-flex; align-items: center; gap: 8px;
+    transition: color 200ms;
+  }
+  .rb-head .edit:hover { color: var(--clearance); }
+  .rb-body { padding: 32px; }
+
+  /* Itinerary list */
+  .itin-list { display: flex; flex-direction: column; gap: 24px; }
+  .itin-leg {
+    display: grid; grid-template-columns: 80px 1fr auto; gap: 24px; align-items: center;
+    padding-bottom: 24px; border-bottom: 1px solid var(--ink-3);
+  }
+  .itin-leg:last-child { padding-bottom: 0; border-bottom: none; }
+  @media (max-width: 700px) { .itin-leg { grid-template-columns: 60px 1fr; } .itin-leg .itin-meta { grid-column: 1 / -1; padding-top: 12px; border-top: 1px solid var(--ink-3); } }
+  .itin-tag {
+    font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--bone-2);
+  }
+  .itin-tag .num {
+    display: block; color: var(--clearance); font-size: 22px;
+    font-family: var(--serif); font-weight: 300; letter-spacing: -0.01em;
+    margin-bottom: 4px; line-height: 1;
+  }
+  .itin-route {
+    display: grid; grid-template-columns: 1fr auto 1fr; gap: 16px; align-items: center;
+  }
+  .itin-pt { display: flex; flex-direction: column; gap: 4px; }
+  .itin-pt .iata { font-family: var(--mono); font-size: 22px; color: var(--bone); letter-spacing: 0.04em; line-height: 1; }
+  .itin-pt .city { font-size: 13px; color: var(--bone-2); }
+  .itin-pt .airport { font-family: var(--mono); font-size: 11px; color: var(--steel); letter-spacing: 0.04em; }
+  .itin-line {
+    position: relative; height: 28px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .itin-line .l {
+    width: 100%; height: 1px; background: var(--ink-4);
+    background-image: linear-gradient(to right, var(--ink-4) 50%, transparent 50%);
+    background-size: 8px 1px; background-repeat: repeat-x;
+  }
+  .itin-line .plane {
+    position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+    color: var(--clearance); background: var(--ink-2); padding: 0 12px;
+  }
+  .itin-meta { display: flex; flex-direction: column; gap: 4px; align-items: flex-end; text-align: right; }
+  .itin-meta .date { font-family: var(--mono); font-size: 13px; color: var(--bone); letter-spacing: 0.04em; }
+  .itin-meta .time { font-family: var(--mono); font-size: 11px; color: var(--bone-2); letter-spacing: 0.06em; }
+  .itin-meta .dist { font-family: var(--mono); font-size: 10px; color: var(--steel); letter-spacing: 0.06em; margin-top: 4px; }
+
+  /* Field-style summary */
+  .summary-grid {
+    display: grid; grid-template-columns: repeat(2, 1fr); gap: 24px 32px;
+  }
+  @media (max-width: 700px) { .summary-grid { grid-template-columns: 1fr; gap: 20px; } }
+  .summary-grid.cols-3 { grid-template-columns: repeat(3, 1fr); }
+  @media (max-width: 700px) { .summary-grid.cols-3 { grid-template-columns: 1fr; } }
+  .sg-item { display: flex; flex-direction: column; gap: 6px; }
+  .sg-item .l { font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--steel); }
+  .sg-item .v { font-size: 16px; color: var(--bone); }
+  .sg-item .v.big { font-family: var(--serif); font-weight: 400; font-size: 22px; line-height: 1.2; }
+  .sg-item .v.mono { font-family: var(--mono); font-size: 13px; letter-spacing: 0.04em; }
+  .sg-item .v.muted { color: var(--bone-2); font-style: italic; }
+
+  .pref-list { display: flex; flex-wrap: wrap; gap: 8px; }
+  .pref-pill {
+    background: var(--ink); border: 1px solid var(--ink-3); border-radius: 2px;
+    padding: 8px 12px; font-family: var(--mono); font-size: 11px; color: var(--bone);
+    letter-spacing: 0.04em;
+    display: inline-flex; align-items: center; gap: 8px;
+  }
+  .pref-pill::before { content: "✓"; color: var(--clearance); font-size: 11px; }
+  .pref-pill.muted { color: var(--steel); }
+  .pref-pill.muted::before { display: none; }
+
+  .notes-block {
+    background: var(--ink); border: 1px solid var(--ink-3); border-radius: 2px;
+    padding: 16px; font-size: 14px; line-height: 1.6; color: var(--bone-2);
+    font-style: italic;
+  }
+  .notes-block.empty { color: var(--steel); }
+
+  /* What happens next — timeline */
+  .timeline {
+    margin: 48px 0 0;
+    background: var(--ink-2); border: 1px solid var(--ink-3); border-radius: 4px; padding: 40px;
+  }
+  .timeline-head {
+    display: grid; grid-template-columns: 200px 1fr; gap: 32px; margin-bottom: 32px; align-items: baseline;
+  }
+  @media (max-width: 700px) { .timeline-head { grid-template-columns: 1fr; gap: 8px; } }
+  .timeline-head .h { font-family: var(--mono); font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--bone-2); padding-top: 8px; }
+  .timeline-head .lead { font-family: var(--serif); font-weight: 300; font-size: 28px; line-height: 1.2; letter-spacing: -0.005em; color: var(--bone); }
+  .tl { display: flex; flex-direction: column; gap: 0; position: relative; }
+  .tl::before {
+    content: ""; position: absolute; left: 23px; top: 12px; bottom: 12px;
+    width: 1px; background: var(--ink-3);
+  }
+  .tl-step { display: grid; grid-template-columns: 48px 1fr auto; gap: 20px; padding: 20px 0; align-items: center; position: relative; }
+  .tl-step .dot {
+    width: 24px; height: 24px; border-radius: 50%;
+    background: var(--ink); border: 1px solid var(--clearance);
+    margin-left: 12px;
+    display: flex; align-items: center; justify-content: center;
+    color: var(--clearance); font-family: var(--mono); font-size: 11px;
+    position: relative; z-index: 2;
+  }
+  .tl-step:first-child .dot { background: var(--clearance); color: var(--ink); }
+  .tl-step .text { display: flex; flex-direction: column; gap: 4px; }
+  .tl-step .name { font-size: 16px; color: var(--bone); }
+  .tl-step .desc { font-size: 13px; color: var(--bone-2); line-height: 1.5; }
+  .tl-step .time { font-family: var(--mono); font-size: 11px; letter-spacing: 0.06em; color: var(--steel); white-space: nowrap; }
+
+  /* Submit area */
+  .submit-area {
+    margin-top: 48px;
+    background: var(--ink-2); border: 1px solid var(--ink-3); border-radius: 4px;
+    padding: 40px;
+    display: grid; grid-template-columns: 1fr auto; gap: 32px; align-items: center;
+  }
+  @media (max-width: 700px) { .submit-area { grid-template-columns: 1fr; gap: 24px; } }
+  .submit-area .copy h3 { font-family: var(--serif); font-weight: 400; font-size: 24px; margin-bottom: 8px; }
+  .submit-area .copy p { color: var(--bone-2); font-size: 14px; line-height: 1.55; max-width: 56ch; }
+
+  .step-actions { margin-top: 32px; padding-top: 24px; border-top: 1px solid var(--ink-3); display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; font-family: var(--mono); font-size: 11px; letter-spacing: 0.06em; color: var(--steel); }
+  .step-actions .saved { display: inline-flex; align-items: center; gap: 8px; color: var(--bone-2); }
+  .step-actions .saved .check { color: var(--success); }
+
+  /* Success overlay */
+  .success-overlay {
+    position: fixed; inset: 0; z-index: 100;
+    background: rgba(7,8,10,0.96); backdrop-filter: blur(20px);
+    display: none; align-items: center; justify-content: center;
+    padding: 32px;
+    opacity: 0; transition: opacity 400ms var(--ease-out);
+  }
+  .success-overlay.open { display: flex; opacity: 1; }
+  .success-card {
+    max-width: 640px; text-align: center;
+    transform: translateY(20px); opacity: 0;
+    transition: all 700ms var(--ease-out) 200ms;
+  }
+  .success-overlay.open .success-card { transform: none; opacity: 1; }
+  .success-card .ring {
+    width: 88px; height: 88px; border-radius: 50%;
+    border: 1px solid var(--clearance);
+    display: flex; align-items: center; justify-content: center;
+    margin: 0 auto 32px;
+    color: var(--clearance);
+    position: relative;
+  }
+  .success-card .ring::before {
+    content: ""; position: absolute; inset: -8px; border-radius: 50%;
+    border: 1px solid rgba(232,226,210,0.2);
+    animation: ringPulse 3s var(--ease-out) infinite;
+  }
+  @keyframes ringPulse {
+    0%, 100% { transform: scale(1); opacity: 0.6; }
+    50% { transform: scale(1.15); opacity: 0; }
+  }
+  .success-card .kicker { display: inline-flex; align-items: center; gap: 12px; margin-bottom: 24px; font-family: var(--mono); font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--clearance); }
+  .success-card .kicker .dash { width: 32px; height: 1px; background: var(--clearance); }
+  .success-card h2 { font-family: var(--serif); font-weight: 300; font-size: clamp(40px, 6vw, 64px); line-height: 1.05; letter-spacing: -0.015em; }
+  .success-card p { color: var(--bone-2); font-size: 17px; line-height: 1.55; margin: 24px auto 32px; max-width: 50ch; }
+  .success-card .ref {
+    font-family: var(--mono); font-size: 12px; color: var(--bone-2); letter-spacing: 0.12em;
+    background: var(--ink-2); border: 1px solid var(--ink-3); border-radius: 4px;
+    padding: 16px 20px; display: inline-flex; align-items: center; gap: 16px;
+    margin-bottom: 32px;
+  }
+  .success-card .ref .l { color: var(--steel); }
+  .success-card .ref .v { color: var(--clearance); font-size: 14px; letter-spacing: 0.14em; }
+  .success-card .actions { display: flex; gap: 16px; justify-content: center; flex-wrap: wrap; }
+</style>
+</head>
+<body>
+
+<nav class="qnav" data-screen-label="Quote · 04 Review">
+  <div class="qnav-inner">
+    <a href="homepage.html" class="exit">
+      <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 3L3 9M3 3l6 6"/></svg>
+      Save &amp; exit
+    </a>
+    <a href="homepage.html" class="brand" style="text-decoration: none;">JetNine <span class="nine">09</span></a>
+    <div class="help">
+      <span class="dot"></span>
+      Dispatch open · <a href="tel:+18188005678">+1 (818) 800-5678</a>
+    </div>
+  </div>
+</nav>
+
+<div class="progress-strip">
+  <div class="progress-inner">
+    <a href="quote-step1.html" class="pstep done">
+      <div class="num"><span>01</span></div>
+      <div class="meta"><div class="lbl">Step 01</div><div class="name">Mission</div></div>
+    </a>
+    <div class="pdiv done"></div>
+    <a href="quote-step2.html" class="pstep done">
+      <div class="num"><span>02</span></div>
+      <div class="meta"><div class="lbl">Step 02</div><div class="name">Aircraft &amp; preferences</div></div>
+    </a>
+    <div class="pdiv done"></div>
+    <a href="quote-step3.html" class="pstep done">
+      <div class="num"><span>03</span></div>
+      <div class="meta"><div class="lbl">Step 03</div><div class="name">Contact</div></div>
+    </a>
+    <div class="pdiv done"></div>
+    <div class="pstep active">
+      <div class="num">04</div>
+      <div class="meta"><div class="lbl">Step 04</div><div class="name">Review</div></div>
+    </div>
+  </div>
+</div>
+
+<main class="qmain">
+  <header class="step-head">
+    <div class="kicker"><span class="dash"></span> Step 04 · Review</div>
+    <h1>Last look, then we send it.</h1>
+    <p>Everything you've given us. Edit any section if something needs changing — the rest of your work is preserved. When you submit, dispatch picks it up immediately and returns specific airframes &amp; pricing within 30 minutes.</p>
+  </header>
+
+  <!-- Indicative price -->
+  <div class="price-banner">
+    <div>
+      <div class="l">— Indicative range</div>
+      <div class="range">$48,000 <span class="dash">–</span> $66,500</div>
+      <div class="note">All-in pricing. Fuel, taxes, FET (7.5%), repositioning, crew, catering &amp; ground transport included. Final pricing locks once a specific airframe is selected.</div>
+    </div>
+    <div class="meta">
+      <div class="item">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+        Quote returned in &lt; 30 min
+      </div>
+      <div class="item">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 3l8 4v5c0 5-3.5 8-8 9-4.5-1-8-4-8-9V7l8-4z"/></svg>
+        ARG/US PLATINUM operators only
+      </div>
+      <div class="item">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 12l3 3 4-7M11 14l3 3 7-12"/></svg>
+        No commitment until accepted
+      </div>
+    </div>
+  </div>
+
+  <!-- Mission -->
+  <div class="review-block">
+    <div class="rb-head">
+      <div class="lbl"><span class="num">01</span> Mission</div>
+      <a href="quote-step1.html" class="edit">Edit <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 17v4h4l11-11-4-4L3 17z"/></svg></a>
+    </div>
+    <div class="rb-body">
+      <div class="itin-list">
+        <div class="itin-leg">
+          <div class="itin-tag"><span class="num">01</span>Outbound</div>
+          <div class="itin-route">
+            <div class="itin-pt">
+              <div class="iata">VNY</div>
+              <div class="city">Los Angeles, CA</div>
+              <div class="airport">Van Nuys</div>
+            </div>
+            <div class="itin-line">
+              <div class="l"></div>
+              <svg class="plane" width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M21 14L13 9V4a1 1 0 0 0-2 0v5L3 14v2l8-2v5l-2 1.5V22l3-1 3 1v-1.5L13 19v-5l8 2v-2z"/></svg>
+            </div>
+            <div class="itin-pt">
+              <div class="iata">JFK</div>
+              <div class="city">New York, NY</div>
+              <div class="airport">John F. Kennedy Intl</div>
+            </div>
+          </div>
+          <div class="itin-meta">
+            <div class="date">MAY 21 · 2026</div>
+            <div class="time">09:00 PT DEPART</div>
+            <div class="dist">2,143 NM · ~5h 12m</div>
+          </div>
+        </div>
+        <div class="itin-leg">
+          <div class="itin-tag"><span class="num">02</span>Return</div>
+          <div class="itin-route">
+            <div class="itin-pt">
+              <div class="iata">JFK</div>
+              <div class="city">New York, NY</div>
+              <div class="airport">John F. Kennedy Intl</div>
+            </div>
+            <div class="itin-line">
+              <div class="l"></div>
+              <svg class="plane" width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M21 14L13 9V4a1 1 0 0 0-2 0v5L3 14v2l8-2v5l-2 1.5V22l3-1 3 1v-1.5L13 19v-5l8 2v-2z"/></svg>
+            </div>
+            <div class="itin-pt">
+              <div class="iata">VNY</div>
+              <div class="city">Los Angeles, CA</div>
+              <div class="airport">Van Nuys</div>
+            </div>
+          </div>
+          <div class="itin-meta">
+            <div class="date">MAY 25 · 2026</div>
+            <div class="time">17:00 ET DEPART</div>
+            <div class="dist">2,143 NM · ~5h 14m</div>
+          </div>
+        </div>
+      </div>
+      <div class="summary-grid cols-3" style="margin-top: 32px; padding-top: 24px; border-top: 1px solid var(--ink-3);">
+        <div class="sg-item"><div class="l">Passengers</div><div class="v big">4</div></div>
+        <div class="sg-item"><div class="l">Total distance</div><div class="v big">4,286 <span style="font-size: 14px; color: var(--steel); font-family: var(--mono);">NM</span></div></div>
+        <div class="sg-item"><div class="l">Total flight time</div><div class="v big">~10h 26m</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Aircraft & preferences -->
+  <div class="review-block">
+    <div class="rb-head">
+      <div class="lbl"><span class="num">02</span> Aircraft &amp; preferences</div>
+      <a href="quote-step2.html" class="edit">Edit <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 17v4h4l11-11-4-4L3 17z"/></svg></a>
+    </div>
+    <div class="rb-body">
+      <div class="summary-grid">
+        <div class="sg-item">
+          <div class="l">Category</div>
+          <div class="v big">Midsize jet</div>
+          <div class="v mono" style="color: var(--steel);">~430 KT · 2,400 NM range · 8–9 PAX</div>
+        </div>
+        <div class="sg-item">
+          <div class="l">Catering</div>
+          <div class="v big">Standard</div>
+          <div class="v mono" style="color: var(--steel);">Cold platters · snacks · bar</div>
+        </div>
+        <div class="sg-item">
+          <div class="l">Ground transport</div>
+          <div class="v big">Black sedan</div>
+          <div class="v mono" style="color: var(--steel);">Both legs · ~$180/leg</div>
+        </div>
+        <div class="sg-item">
+          <div class="l">Extras</div>
+          <div class="v big">None</div>
+        </div>
+      </div>
+      <div style="margin-top: 32px; padding-top: 24px; border-top: 1px solid var(--ink-3);">
+        <div class="sg-item">
+          <div class="l" style="margin-bottom: 12px;">Cabin preferences</div>
+          <div class="pref-list">
+            <span class="pref-pill">Wi-Fi</span>
+            <span class="pref-pill">Enclosed lavatory</span>
+            <span class="pref-pill muted">Flight attendant — not requested</span>
+            <span class="pref-pill muted">Stand-up cabin — not requested</span>
+            <span class="pref-pill muted">Lie-flat — not requested</span>
+            <span class="pref-pill muted">Pet-friendly — not requested</span>
+          </div>
+        </div>
+      </div>
+      <div style="margin-top: 24px;">
+        <div class="sg-item">
+          <div class="l" style="margin-bottom: 12px;">Notes for dispatch</div>
+          <div class="notes-block empty">— No notes added.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Contact -->
+  <div class="review-block">
+    <div class="rb-head">
+      <div class="lbl"><span class="num">03</span> Contact</div>
+      <a href="quote-step3.html" class="edit">Edit <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 17v4h4l11-11-4-4L3 17z"/></svg></a>
+    </div>
+    <div class="rb-body">
+      <div class="summary-grid">
+        <div class="sg-item"><div class="l">Name</div><div class="v">Sarah Chen</div></div>
+        <div class="sg-item"><div class="l">Company</div><div class="v">Continental Holdings</div></div>
+        <div class="sg-item"><div class="l">Email</div><div class="v mono">sarah@continental-hldgs.com</div></div>
+        <div class="sg-item"><div class="l">Phone</div><div class="v mono">+1 (415) 555-0188</div></div>
+        <div class="sg-item"><div class="l">Reach me by</div><div class="v">Email + Phone</div></div>
+        <div class="sg-item"><div class="l">Best time</div><div class="v">Any time</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- What happens next -->
+  <div class="timeline">
+    <div class="timeline-head">
+      <div class="h"><span style="color: var(--clearance); margin-right: 8px;">04</span>What happens next</div>
+      <div class="lead">Four steps. Most clients fly within a week.</div>
+    </div>
+    <div class="tl">
+      <div class="tl-step">
+        <div class="dot">1</div>
+        <div class="text">
+          <div class="name">Dispatch picks up your request</div>
+          <div class="desc">A senior dispatcher (not a chatbot, not a queue) reviews your mission and starts sourcing aircraft.</div>
+        </div>
+        <div class="time">Within 5 min</div>
+      </div>
+      <div class="tl-step">
+        <div class="dot">2</div>
+        <div class="text">
+          <div class="name">Quote returned with 3–5 specific airframes</div>
+          <div class="desc">Each option has a tail number, operator, year, photos, all-in price, and availability window.</div>
+        </div>
+        <div class="time">&lt; 30 min</div>
+      </div>
+      <div class="tl-step">
+        <div class="dot">3</div>
+        <div class="text">
+          <div class="name">You pick &amp; we hold the airframe</div>
+          <div class="desc">No commitment until you accept. We can hold an option for up to 4 hours while you decide.</div>
+        </div>
+        <div class="time">Your pace</div>
+      </div>
+      <div class="tl-step">
+        <div class="dot">4</div>
+        <div class="text">
+          <div class="name">Confirmation, contract, take-off</div>
+          <div class="desc">Trip sheet, ground transport details, &amp; FBO instructions delivered. Most clients fly within a week of first quote.</div>
+        </div>
+        <div class="time">Same week</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Submit -->
+  <div class="submit-area">
+    <div class="copy">
+      <h3>Send it to dispatch.</h3>
+      <p>By submitting, you agree to the Part 295 broker disclosure &amp; terms of service. Quote requests are not commitments — you'll review specific airframes and pricing before anything is booked.</p>
+    </div>
+    <button class="btn btn-primary btn-lg" id="submitBtn" type="button">Submit quote request <span class="arrow">→</span></button>
+  </div>
+
+  <div class="step-actions">
+    <div class="saved"><span class="check">✓</span> Saved automatically · just now</div>
+    <a href="quote-step3.html" class="btn btn-ghost">← Back to contact</a>
+  </div>
+</main>
+
+<!-- Success overlay -->
+<div class="success-overlay" id="successOverlay">
+  <div class="success-card">
+    <div class="ring">
+      <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M5 12l5 5L20 7"/></svg>
+    </div>
+    <div class="kicker"><span class="dash"></span> Submitted</div>
+    <h2>Off to dispatch.</h2>
+    <p>A senior dispatcher will reach out within 30 minutes with three to five specific airframes for your mission. Confirmation is in your inbox.</p>
+    <div class="ref">
+      <span class="l">QUOTE REF</span>
+      <span class="v" id="quoteRef">JN-2026-04829</span>
+    </div>
+    <div class="actions">
+      <a href="homepage.html" class="btn btn-secondary btn-lg">Back to home</a>
+      <a href="aircraft.html" class="btn btn-primary btn-lg">Explore aircraft <span class="arrow">→</span></a>
+    </div>
+  </div>
+</div>
+
+<script>
+document.getElementById('submitBtn').addEventListener('click', () => {
+  const btn = document.getElementById('submitBtn');
+  btn.disabled = true;
+  btn.style.opacity = '0.6';
+  btn.innerHTML = 'Sending...';
+  setTimeout(() => {
+    // Generate a quote ref
+    const num = Math.floor(Math.random() * 90000) + 10000;
+    document.getElementById('quoteRef').textContent = `JN-2026-${num}`;
+    document.getElementById('successOverlay').classList.add('open');
+    document.body.style.overflow = 'hidden';
+  }, 900);
+});
+</script>
+</body>
+</html>

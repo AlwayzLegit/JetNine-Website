@@ -1,0 +1,816 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>JetNine — Admin · Empty Leg Authoring</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,500;9..144,600&family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="shared.css" />
+<style>
+  body { background: var(--ink); }
+
+  /* Top */
+  .adm-top { height: 56px; border-bottom: 1px solid var(--ink-3); display: grid; grid-template-columns: 240px 1fr auto; align-items: center; background: var(--ink); position: sticky; top: 0; z-index: 60; }
+  .adm-top .brand-cell { display: flex; align-items: center; gap: 12px; height: 100%; padding: 0 20px; border-right: 1px solid var(--ink-3); }
+  .adm-top .brand { font-family: var(--serif); font-weight: 400; font-size: 20px; color: var(--bone); text-decoration: none; }
+  .adm-top .brand .nine { font-family: var(--mono); font-size: 9px; color: var(--clearance); letter-spacing: 0.1em; vertical-align: super; margin-left: 2px; }
+  .adm-top .env { font-family: var(--mono); font-size: 9px; padding: 3px 6px; background: var(--ink-3); color: var(--clearance); border-radius: 2px; letter-spacing: 0.14em; }
+  .adm-top .crumbs { padding: 0 24px; display: flex; gap: 14px; font-family: var(--mono); font-size: 10px; letter-spacing: 0.12em; color: var(--steel); text-transform: uppercase; }
+  .adm-top .crumbs a { color: var(--bone-2); text-decoration: none; }
+  .adm-top .crumbs .here { color: var(--bone); }
+  .adm-top .crumbs .sep { color: var(--ink-4); }
+  .adm-top .crumbs .id { color: var(--clearance); padding: 2px 6px; background: rgba(232,226,210,0.06); border-radius: 2px; }
+  .adm-top .right { display: flex; align-items: center; gap: 16px; padding: 0 20px; height: 100%; border-left: 1px solid var(--ink-3); }
+  .adm-top .clk { font-family: var(--mono); font-size: 11px; color: var(--bone); letter-spacing: 0.06em; }
+  .adm-top .clk .z { color: var(--steel); margin-right: 4px; }
+  .adm-top .me { display: flex; align-items: center; gap: 10px; padding: 4px 10px 4px 4px; background: var(--ink-3); border-radius: 999px; font-family: var(--mono); font-size: 10px; color: var(--bone-2); }
+  .adm-top .me .av { width: 24px; height: 24px; border-radius: 50%; background: var(--ink-4); display: flex; align-items: center; justify-content: center; color: var(--clearance); font-size: 10px; }
+  .adm-top .me .stat { width: 6px; height: 6px; border-radius: 50%; background: var(--success); }
+
+  /* === Layout === */
+  .el-shell { display: grid; grid-template-columns: 200px 1fr 380px; min-height: calc(100vh - 56px); }
+  @media (max-width: 1280px) { .el-shell { grid-template-columns: 180px 1fr 340px; } }
+  @media (max-width: 1024px) { .el-shell { grid-template-columns: 1fr; } .el-rail, .el-preview { display: none; } }
+
+  /* Rail */
+  .el-rail { border-right: 1px solid var(--ink-3); padding: 16px 0; background: var(--ink); }
+  .rg { padding: 0 12px 16px; }
+  .rg .h { font-family: var(--mono); font-size: 9px; letter-spacing: 0.16em; color: var(--steel); text-transform: uppercase; margin: 4px 8px 8px; }
+  .rg a { display: grid; grid-template-columns: 14px 1fr auto; gap: 10px; align-items: center; padding: 7px 10px; border-radius: 2px; color: var(--bone-2); text-decoration: none; font-size: 13px; transition: background 160ms, color 160ms; }
+  .rg a:hover { background: var(--ink-2); color: var(--bone); }
+  .rg a.active { background: var(--ink-2); color: var(--clearance); }
+  .rg a .gly { font-family: var(--mono); font-size: 10px; color: var(--steel); }
+  .rg a.active .gly { color: var(--clearance); }
+  .rg a .badge { font-family: var(--mono); font-size: 9px; padding: 1px 6px; border-radius: 2px; background: var(--ink-3); color: var(--bone-2); }
+  .rg a .badge.hot { background: #D4622A; color: var(--ink); }
+
+  /* Main */
+  .el-main { padding: 24px 32px 60px; min-width: 0; }
+  @media (max-width: 700px) { .el-main { padding: 18px 16px; } }
+
+  .el-h { display: flex; align-items: end; justify-content: space-between; gap: 24px; flex-wrap: wrap; padding-bottom: 16px; margin-bottom: 18px; border-bottom: 1px solid var(--ink-3); }
+  .el-h h1 { font-family: var(--serif); font-weight: 300; font-size: 36px; line-height: 1; letter-spacing: -0.015em; }
+  .el-h .strap { font-family: var(--mono); font-size: 11px; color: var(--bone-2); margin-top: 6px; letter-spacing: 0.04em; }
+  .el-h .id-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .el-h .id { font-family: var(--mono); font-size: 12px; color: var(--clearance); letter-spacing: 0.06em; }
+  .el-h .stamp {
+    font-family: var(--mono); font-size: 9px; padding: 3px 7px; border-radius: 2px;
+    letter-spacing: 0.12em; text-transform: uppercase;
+    display: inline-flex; align-items: center; gap: 5px;
+  }
+  .el-h .stamp.draft { background: rgba(184,137,60,0.16); color: var(--warn); }
+  .el-h .stamp.draft .d { width: 5px; height: 5px; border-radius: 50%; background: var(--warn); }
+  .el-h .stamp.live { background: rgba(91,140,90,0.16); color: var(--success); }
+  .el-h .actions { display: flex; gap: 8px; flex-wrap: wrap; }
+  .btn-mini { font-family: var(--mono); font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; padding: 8px 12px; border-radius: 2px; text-decoration: none; background: var(--ink-2); border: 1px solid var(--ink-3); color: var(--bone); transition: all 160ms; cursor: pointer; }
+  .btn-mini:hover { border-color: var(--clearance); color: var(--clearance); }
+  .btn-mini.primary { background: var(--clearance); color: var(--ink); border-color: var(--clearance); }
+  .btn-mini.danger { color: var(--error); }
+
+  /* Save state */
+  .save-state { font-family: var(--mono); font-size: 10px; letter-spacing: 0.08em; color: var(--bone-2); display: inline-flex; align-items: center; gap: 6px; }
+  .save-state .dot { width: 5px; height: 5px; border-radius: 50%; background: var(--success); animation: pulse 1.4s infinite; }
+  @keyframes pulse { 0% { box-shadow: 0 0 0 0 currentColor; opacity: 1; } 70% { box-shadow: 0 0 0 6px transparent; opacity: 0.5; } 100% { box-shadow: 0 0 0 0 transparent; opacity: 1; } }
+
+  /* Section card */
+  .sec { background: var(--ink-2); border: 1px solid var(--ink-3); border-radius: 4px; margin-bottom: 18px; overflow: hidden; }
+  .sec .sh {
+    display: grid; grid-template-columns: auto 1fr auto; gap: 16px; align-items: center;
+    padding: 14px 20px; border-bottom: 1px solid var(--ink-3); background: var(--ink);
+  }
+  .sec .sh .num { font-family: var(--mono); font-size: 10px; color: var(--clearance); letter-spacing: 0.12em; }
+  .sec .sh h2 { font-family: var(--serif); font-weight: 400; font-size: 18px; letter-spacing: -0.005em; color: var(--bone); }
+  .sec .sh .right { font-family: var(--mono); font-size: 10px; color: var(--bone-2); letter-spacing: 0.06em; display: flex; gap: 12px; align-items: center; }
+  .sec .body { padding: 18px 20px; }
+
+  /* Field rows */
+  .fg { display: grid; grid-template-columns: 180px 1fr; gap: 10px 24px; }
+  @media (max-width: 700px) { .fg { grid-template-columns: 1fr; gap: 6px 0; } .fg > .l { padding-top: 12px; } }
+  .fg > .l { font-family: var(--mono); font-size: 10px; color: var(--steel); letter-spacing: 0.12em; text-transform: uppercase; padding-top: 9px; }
+  .fg > .v { padding: 4px 0; }
+
+  /* Inputs */
+  .inp, .sel {
+    width: 100%; background: var(--ink); border: 1px solid var(--ink-3); border-radius: 2px;
+    padding: 9px 12px; color: var(--bone); font-family: var(--sans); font-size: 13px;
+    transition: border-color 160ms;
+  }
+  .inp:focus, .sel:focus { outline: none; border-color: var(--clearance); }
+  .inp::placeholder { color: var(--steel); }
+  .inp.mono { font-family: var(--mono); font-size: 12px; letter-spacing: 0.04em; }
+
+  .pair-inputs { display: grid; grid-template-columns: 1fr auto 1fr; gap: 10px; align-items: center; }
+  .pair-inputs .arr { color: var(--steel); font-family: var(--mono); font-size: 12px; padding: 0 2px; }
+  .pair-inputs .icao-input { position: relative; }
+  .pair-inputs .icao-input .hint { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); font-family: var(--mono); font-size: 9px; color: var(--success); letter-spacing: 0.06em; padding: 2px 5px; background: rgba(91,140,90,0.14); border-radius: 2px; }
+
+  .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  @media (max-width: 600px) { .row2 { grid-template-columns: 1fr; } }
+
+  /* Source aircraft picker (selected card) */
+  .src-card {
+    background: var(--ink); border: 1px solid var(--ink-3); border-left: 2px solid var(--clearance); border-radius: 2px;
+    padding: 14px 16px; display: grid; grid-template-columns: 1fr auto; gap: 16px; align-items: center;
+  }
+  .src-card .info { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+  .src-card .top { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+  .src-card .top .tail { font-family: var(--mono); font-size: 13px; color: var(--clearance); letter-spacing: 0.06em; }
+  .src-card .top .typ { font-family: var(--serif); font-size: 16px; color: var(--bone); letter-spacing: -0.005em; }
+  .src-card .top .cat { font-family: var(--mono); font-size: 9px; padding: 2px 6px; border: 1px solid var(--ink-3); border-radius: 2px; color: var(--bone-2); letter-spacing: 0.08em; text-transform: uppercase; }
+  .src-card .meta { font-family: var(--mono); font-size: 10px; color: var(--bone-2); letter-spacing: 0.04em; line-height: 1.5; }
+  .src-card .meta .ok { color: var(--success); }
+  .src-card .swap { font-family: var(--mono); font-size: 10px; letter-spacing: 0.1em; color: var(--bone-2); text-transform: uppercase; cursor: pointer; padding: 6px 10px; border: 1px solid var(--ink-3); border-radius: 2px; }
+  .src-card .swap:hover { border-color: var(--clearance); color: var(--clearance); }
+
+  /* Pricing pad */
+  .pricing-grid { display: grid; grid-template-columns: 1.4fr 1fr; gap: 24px; }
+  @media (max-width: 1000px) { .pricing-grid { grid-template-columns: 1fr; } }
+
+  /* Slider */
+  .slider {
+    background: var(--ink); border: 1px solid var(--ink-3); border-radius: 2px;
+    padding: 18px 20px;
+    display: flex; flex-direction: column; gap: 12px;
+  }
+  .slider .top-row { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+  .slider .l { font-family: var(--mono); font-size: 10px; color: var(--steel); letter-spacing: 0.14em; text-transform: uppercase; }
+  .slider .pct-big { font-family: var(--serif); font-weight: 300; font-size: 44px; color: var(--bone); line-height: 1; letter-spacing: -0.01em; }
+  .slider .pct-big .u { font-family: var(--mono); font-size: 14px; color: var(--bone-2); margin-left: 2px; }
+  .slider .savings { font-family: var(--mono); font-size: 11px; color: #D4622A; letter-spacing: 0.06em; }
+
+  .track {
+    position: relative; height: 6px; background: var(--ink-3); border-radius: 3px;
+  }
+  .track .fill { position: absolute; left: 0; top: 0; bottom: 0; width: 52%; background: linear-gradient(90deg, var(--warn), #D4622A, var(--success)); border-radius: 3px; }
+  .track .thumb { position: absolute; top: 50%; left: 52%; transform: translate(-50%, -50%); width: 16px; height: 16px; border-radius: 50%; background: var(--bone); border: 2px solid var(--ink); cursor: grab; }
+  .track .ticks { position: absolute; left: 0; right: 0; bottom: -20px; display: flex; justify-content: space-between; font-family: var(--mono); font-size: 9px; color: var(--steel); letter-spacing: 0.06em; }
+  .track .ticks .now-tick { color: var(--clearance); }
+
+  /* Pricing card */
+  .price-card {
+    background: var(--ink); border: 1px solid var(--ink-3); border-radius: 2px;
+    padding: 18px 20px;
+  }
+  .price-card .row { display: grid; grid-template-columns: 1fr auto; gap: 12px; padding: 6px 0; font-family: var(--mono); font-size: 11px; letter-spacing: 0.04em; color: var(--bone-2); align-items: baseline; }
+  .price-card .row .l { color: var(--steel); }
+  .price-card .row .v { color: var(--bone); }
+  .price-card .row.strike .v { color: var(--steel); text-decoration: line-through; }
+  .price-card .row.calc .v { color: var(--bone); }
+  .price-card .total {
+    margin-top: 10px; padding-top: 12px; border-top: 1px solid var(--bone-2);
+    display: grid; grid-template-columns: 1fr auto; gap: 12px; align-items: baseline;
+  }
+  .price-card .total .l { font-family: var(--mono); font-size: 10px; color: var(--clearance); letter-spacing: 0.14em; text-transform: uppercase; }
+  .price-card .total .v { font-family: var(--serif); font-weight: 300; font-size: 38px; color: var(--bone); letter-spacing: -0.01em; line-height: 1; }
+  .price-card .nm { font-family: var(--mono); font-size: 9px; color: var(--steel); letter-spacing: 0.06em; margin-top: 8px; }
+
+  /* Toggles row */
+  .toggles { display: flex; flex-direction: column; gap: 8px; }
+  .toggle-row {
+    display: grid; grid-template-columns: 1fr auto;
+    align-items: center; gap: 12px;
+    padding: 10px 12px; background: var(--ink); border: 1px solid var(--ink-3); border-radius: 2px;
+  }
+  .toggle-row .info { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+  .toggle-row .info .t { font-family: var(--sans); font-size: 13px; color: var(--bone); }
+  .toggle-row .info .d { font-family: var(--mono); font-size: 9px; color: var(--steel); letter-spacing: 0.06em; }
+  .switch {
+    width: 36px; height: 20px; background: var(--ink-3); border-radius: 999px; position: relative; cursor: pointer; transition: background 200ms; flex-shrink: 0;
+  }
+  .switch::after { content: ""; position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; background: var(--bone-2); border-radius: 50%; transition: transform 220ms var(--ease-out), background 200ms; }
+  .switch.on { background: var(--clearance); }
+  .switch.on::after { transform: translateX(16px); background: var(--ink); }
+
+  /* Copy editor */
+  .copy-editor {
+    background: var(--ink); border: 1px solid var(--ink-3); border-radius: 2px;
+    padding: 14px 16px;
+  }
+  .copy-editor .label-row { display: flex; align-items: center; gap: 10px; padding-bottom: 8px; border-bottom: 1px solid var(--ink-3); margin-bottom: 10px; }
+  .copy-editor .label-row .l { font-family: var(--mono); font-size: 9px; color: var(--steel); letter-spacing: 0.14em; text-transform: uppercase; }
+  .copy-editor .label-row .count { font-family: var(--mono); font-size: 9px; color: var(--bone-2); letter-spacing: 0.06em; margin-left: auto; }
+  .copy-editor .label-row .ai { font-family: var(--mono); font-size: 9px; color: var(--bone-2); padding: 2px 7px; border: 1px solid var(--ink-3); border-radius: 2px; cursor: pointer; letter-spacing: 0.08em; }
+  .copy-editor .label-row .ai:hover { border-color: var(--clearance); color: var(--clearance); }
+  .copy-editor textarea {
+    width: 100%; background: transparent; border: none; outline: none; resize: vertical;
+    color: var(--bone); font-family: var(--sans); font-size: 14px; line-height: 1.55; min-height: 90px;
+  }
+
+  /* Audience matches */
+  .audience { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+  @media (max-width: 900px) { .audience { grid-template-columns: 1fr 1fr; } }
+  @media (max-width: 600px) { .audience { grid-template-columns: 1fr; } }
+  .a-card {
+    background: var(--ink); border: 1px solid var(--ink-3); border-radius: 2px;
+    padding: 14px;
+    display: flex; flex-direction: column; gap: 6px;
+  }
+  .a-card .top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .a-card .tag { font-family: var(--mono); font-size: 9px; color: var(--clearance); letter-spacing: 0.1em; text-transform: uppercase; }
+  .a-card .ct { font-family: var(--serif); font-weight: 400; font-size: 22px; color: var(--bone); letter-spacing: -0.005em; line-height: 1; }
+  .a-card .desc { font-family: var(--mono); font-size: 9px; color: var(--bone-2); letter-spacing: 0.04em; line-height: 1.5; }
+
+  /* Audience inline list */
+  .matches-inline { margin-top: 12px; display: flex; flex-direction: column; }
+  .mi-row {
+    display: grid; grid-template-columns: 26px 1fr auto auto; gap: 12px; align-items: center;
+    padding: 7px 0; border-bottom: 1px solid var(--ink-3);
+  }
+  .mi-row:last-child { border-bottom: none; }
+  .mi-row .av { width: 26px; height: 26px; border-radius: 50%; background: var(--ink-3); display: flex; align-items: center; justify-content: center; font-family: var(--mono); font-size: 9px; color: var(--clearance); }
+  .mi-row .nm { font-family: var(--sans); font-size: 13px; color: var(--bone); display: flex; flex-direction: column; gap: 1px; }
+  .mi-row .nm .m { font-family: var(--mono); font-size: 9px; color: var(--steel); letter-spacing: 0.06em; }
+  .mi-row .freq { font-family: var(--mono); font-size: 10px; color: var(--bone-2); letter-spacing: 0.04em; }
+  .mi-row .freq .em { color: var(--clearance); }
+  .mi-row .channel { font-family: var(--mono); font-size: 9px; color: var(--bone-2); padding: 2px 6px; border: 1px solid var(--ink-3); border-radius: 2px; letter-spacing: 0.08em; }
+
+  /* === Right preview rail === */
+  .el-preview { border-left: 1px solid var(--ink-3); background: var(--ink); padding: 18px 18px 30px; overflow-y: auto; display: flex; flex-direction: column; gap: 16px; }
+
+  .pre-h {
+    font-family: var(--mono); font-size: 9px; color: var(--steel); letter-spacing: 0.16em;
+    text-transform: uppercase; padding-bottom: 8px; border-bottom: 1px solid var(--ink-3);
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .pre-h .tabs { display: flex; gap: 4px; }
+  .pre-h .tab { font-family: var(--mono); font-size: 9px; padding: 3px 7px; border: 1px solid var(--ink-3); border-radius: 2px; color: var(--bone-2); cursor: pointer; letter-spacing: 0.08em; }
+  .pre-h .tab.on { border-color: var(--clearance); color: var(--clearance); }
+
+  /* Member-side preview card */
+  .preview-card {
+    background: var(--ink-2); border: 1px solid var(--ink-3); border-radius: 3px;
+    overflow: hidden;
+    display: flex; flex-direction: column;
+  }
+  .preview-card .img {
+    aspect-ratio: 16 / 9;
+    background: linear-gradient(135deg, rgba(212,98,42,0.15), rgba(232,226,210,0.04));
+    position: relative;
+    display: flex; align-items: end;
+    padding: 14px;
+    border-bottom: 1px solid var(--ink-3);
+  }
+  .preview-card .img::before {
+    content: ""; position: absolute; inset: 0;
+    background-image:
+      linear-gradient(rgba(232,226,210,0.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(232,226,210,0.04) 1px, transparent 1px);
+    background-size: 28px 28px;
+  }
+  .preview-card .img .ph-cap { position: absolute; left: 12px; top: 12px; font-family: var(--mono); font-size: 9px; color: var(--steel); letter-spacing: 0.12em; text-transform: uppercase; }
+  .preview-card .img .disc { position: relative; font-family: var(--serif); font-weight: 300; font-size: 36px; color: var(--bone); line-height: 1; letter-spacing: -0.01em; }
+  .preview-card .img .disc .u { font-family: var(--mono); font-size: 11px; color: var(--bone-2); margin-left: 2px; letter-spacing: 0.06em; }
+  .preview-card .body { padding: 14px 16px 18px; display: flex; flex-direction: column; gap: 10px; }
+  .preview-card .body .ic { font-family: var(--mono); font-size: 9px; color: var(--clearance); letter-spacing: 0.12em; }
+  .preview-card .body .lane { font-family: var(--serif); font-weight: 300; font-size: 22px; color: var(--bone); line-height: 1.2; letter-spacing: -0.005em; }
+  .preview-card .body .meta { font-family: var(--mono); font-size: 10px; color: var(--bone-2); letter-spacing: 0.04em; }
+  .preview-card .body .meta .em { color: var(--bone); }
+  .preview-card .body .price-row { display: flex; align-items: baseline; gap: 10px; padding-top: 6px; border-top: 1px solid var(--ink-3); margin-top: 2px; }
+  .preview-card .body .price-row .was { font-family: var(--mono); font-size: 10px; color: var(--steel); text-decoration: line-through; letter-spacing: 0.04em; }
+  .preview-card .body .price-row .now { font-family: var(--serif); font-size: 22px; color: var(--bone); font-weight: 300; letter-spacing: -0.005em; }
+  .preview-card .body .cta {
+    background: var(--clearance); color: var(--ink); padding: 9px; text-align: center;
+    font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; text-decoration: none; border-radius: 2px;
+  }
+
+  /* SMS preview */
+  .sms-preview {
+    background: var(--ink-2); border: 1px solid var(--ink-3); border-radius: 3px;
+    padding: 14px;
+    display: flex; flex-direction: column; gap: 10px;
+  }
+  .sms-preview .from { font-family: var(--mono); font-size: 9px; color: var(--steel); letter-spacing: 0.14em; text-transform: uppercase; }
+  .sms-preview .bubble {
+    background: var(--ink); border: 1px solid var(--ink-3); border-radius: 12px 12px 12px 4px;
+    padding: 12px 14px;
+    font-family: var(--sans); font-size: 13px; color: var(--bone); line-height: 1.5;
+  }
+  .sms-preview .bubble .em { color: var(--clearance); font-family: var(--mono); font-size: 12px; letter-spacing: 0.04em; }
+  .sms-preview .meta { font-family: var(--mono); font-size: 9px; color: var(--bone-2); letter-spacing: 0.06em; display: flex; gap: 14px; }
+
+  /* Publish actions */
+  .publish-blk {
+    background: var(--ink-2); border: 1px solid var(--clearance); border-radius: 3px;
+    padding: 16px;
+  }
+  .publish-blk .ph { font-family: var(--mono); font-size: 9px; color: var(--clearance); letter-spacing: 0.14em; text-transform: uppercase; margin-bottom: 8px; }
+  .publish-blk .pt { font-family: var(--serif); font-weight: 400; font-size: 16px; color: var(--bone); line-height: 1.3; margin-bottom: 10px; }
+  .publish-blk .pl { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
+  .publish-blk .pl .li { display: grid; grid-template-columns: 14px 1fr; gap: 8px; align-items: baseline; font-family: var(--mono); font-size: 10px; color: var(--bone-2); letter-spacing: 0.04em; }
+  .publish-blk .pl .li .c { color: var(--success); font-size: 11px; line-height: 1; }
+  .publish-blk .row { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .publish-blk .row a {
+    text-align: center; padding: 9px;
+    background: var(--ink); border: 1px solid var(--ink-3); border-radius: 2px;
+    font-family: var(--mono); font-size: 10px; color: var(--bone-2); letter-spacing: 0.1em; text-decoration: none; text-transform: uppercase;
+    transition: border-color 160ms, color 160ms;
+  }
+  .publish-blk .row a:hover { border-color: var(--clearance); color: var(--clearance); }
+  .publish-blk .row a.full { grid-column: 1 / -1; background: var(--clearance); color: var(--ink); border-color: var(--clearance); }
+
+  .audit { display: flex; flex-direction: column; padding-top: 4px; }
+  .ae { display: grid; grid-template-columns: 50px 1fr; gap: 10px; padding: 7px 0; border-bottom: 1px solid var(--ink-3); }
+  .ae:last-child { border-bottom: none; }
+  .ae .t { font-family: var(--mono); font-size: 9px; color: var(--steel); letter-spacing: 0.06em; padding-top: 1px; }
+  .ae .what { font-family: var(--sans); font-size: 11px; color: var(--bone-2); line-height: 1.5; }
+  .ae .what .em { color: var(--clearance); font-family: var(--mono); font-size: 9px; letter-spacing: 0.04em; }
+  .ae .what .who { color: var(--bone); }
+</style>
+</head>
+<body data-screen-label="23 Admin · Empty-Leg Authoring">
+
+<header class="adm-top">
+  <div class="brand-cell">
+    <a href="homepage.html" class="brand">JetNine <span class="nine">09</span></a>
+    <span class="env">DISPATCH</span>
+  </div>
+  <div class="crumbs">
+    <a href="admin-dispatch.html">DESK</a>
+    <span class="sep">/</span>
+    <a href="#">EMPTY LEGS</a>
+    <span class="sep">/</span>
+    <span class="here">AUTHOR</span>
+    <span class="id">EL-0342</span>
+  </div>
+  <div class="right">
+    <span class="clk"><span class="z">PT</span><span id="clkPT">14:08</span></span>
+    <span class="me"><span class="av">CV</span><span class="stat"></span><span>CATALINA · ON-DESK</span></span>
+  </div>
+</header>
+
+<div class="el-shell">
+
+  <!-- Rail -->
+  <aside class="el-rail">
+    <div class="rg">
+      <div class="h">— DESK</div>
+      <a href="admin-dispatch.html"><span class="gly">⌂</span><span>Inbox</span><span class="badge">7</span></a>
+      <a href="admin-quote.html"><span class="gly">◐</span><span>Quote workbench</span></a>
+      <a href="admin-ops.html"><span class="gly">◉</span><span>Live ops board</span></a>
+      <a href="admin-trip.html"><span class="gly">⌖</span><span>Trip sheets</span></a>
+    </div>
+    <div class="rg">
+      <div class="h">— SUPPLY</div>
+      <a href="admin-operators.html"><span class="gly">⊞</span><span>Operators</span></a>
+      <a href="admin-aircraft.html"><span class="gly">✈</span><span>Aircraft</span></a>
+      <a href="#" class="active"><span class="gly">↻</span><span>Empty legs</span><span class="badge hot">31</span></a>
+      <a href="#"><span class="gly">⌬</span><span>Crew</span></a>
+    </div>
+    <div class="rg">
+      <div class="h">— ACCOUNTS</div>
+      <a href="admin-member.html"><span class="gly">◯</span><span>Members</span></a>
+      <a href="#"><span class="gly">$</span><span>Invoices</span></a>
+      <a href="#"><span class="gly">▦</span><span>Reports</span></a>
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <main class="el-main">
+
+    <div class="el-h">
+      <div>
+        <h1>New empty leg</h1>
+        <div class="strap">— sourced from N502QX ferry on 19 NOV · auto-detected by repositioning engine</div>
+        <div class="id-row" style="margin-top: 10px;">
+          <span class="id">EL-2026-0342</span>
+          <span class="stamp draft"><span class="d"></span>DRAFT · NOT LIVE</span>
+          <span class="save-state"><span class="dot"></span>SAVED 14:07 PT</span>
+        </div>
+      </div>
+      <div class="actions">
+        <button class="btn-mini">Preview</button>
+        <button class="btn-mini">Save draft</button>
+        <button class="btn-mini danger">Discard</button>
+        <button class="btn-mini primary">Publish · push to board</button>
+      </div>
+    </div>
+
+    <!-- 01 Source -->
+    <div class="sec">
+      <div class="sh">
+        <span class="num">— 01</span>
+        <h2>Source aircraft &amp; ferry</h2>
+        <span class="right">— auto-detected from aircraft board</span>
+      </div>
+      <div class="body">
+        <div class="src-card" style="margin-bottom: 16px;">
+          <div class="info">
+            <div class="top">
+              <span class="tail">N502QX</span>
+              <span class="typ">Praetor 500</span>
+              <span class="cat">MIDSIZE · 8 PAX</span>
+            </div>
+            <div class="meta">
+              FlexJet West · ARG/US PLAT · WYV · IS-BAO 3 · <span class="ok">repositioning required</span>
+            </div>
+            <div class="meta">
+              — Inbound JN-0098 lands KOPF 18 NOV 21:14 ET · outbound JN-0104 needs aircraft KOPF→KSAN 20 NOV 09:00 ET
+            </div>
+          </div>
+          <div class="swap">Swap →</div>
+        </div>
+
+        <div class="fg">
+          <div class="l">— DEPART · FROM</div>
+          <div class="v">
+            <div class="pair-inputs">
+              <div class="icao-input"><input class="inp mono" type="text" value="KOPF" /><span class="hint">— OPA-LOCKA</span></div>
+              <span class="arr">→</span>
+              <div class="icao-input"><input class="inp mono" type="text" value="KSAN" /><span class="hint">— SAN DIEGO</span></div>
+            </div>
+          </div>
+
+          <div class="l">— WHEELS-UP</div>
+          <div class="v">
+            <div class="row2">
+              <input class="inp mono" type="text" value="19 NOV 2026" />
+              <input class="inp mono" type="text" value="14:30 ET (11:30 PT)" />
+            </div>
+          </div>
+
+          <div class="l">— FLIGHT TIME</div>
+          <div class="v">
+            <div class="row2">
+              <input class="inp mono" type="text" value="5h 02m · 2,140 NM" />
+              <input class="inp mono" type="text" value="ETA 13:32 PT" />
+            </div>
+          </div>
+
+          <div class="l">— SEATS · BAGS</div>
+          <div class="v">
+            <div class="row2">
+              <input class="inp" type="text" value="8 seats available · 8 max" />
+              <input class="inp" type="text" value="Standard hold · 2 ski bags OK" />
+            </div>
+          </div>
+
+          <div class="l">— FBO · DEP / ARR</div>
+          <div class="v">
+            <div class="row2">
+              <input class="inp" type="text" value="Atlantic Aviation KOPF" />
+              <input class="inp" type="text" value="Signature KSAN" />
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 02 Pricing -->
+    <div class="sec">
+      <div class="sh">
+        <span class="num">— 02</span>
+        <h2>Pricing &amp; discount</h2>
+        <span class="right">— full-charter ref: $52,400 · margin 6.4%</span>
+      </div>
+      <div class="body">
+        <div class="pricing-grid">
+          <div class="slider">
+            <div class="top-row">
+              <span class="l">— DISCOUNT VS FULL CHARTER</span>
+              <span class="savings">— member saves $27,250</span>
+            </div>
+            <div class="pct-big">52<span class="u">%</span> OFF</div>
+            <div class="track" style="margin-top: 6px;">
+              <div class="fill"></div>
+              <div class="thumb"></div>
+              <div class="ticks">
+                <span>30%</span>
+                <span>40%</span>
+                <span class="now-tick">52% · NOW</span>
+                <span>60%</span>
+                <span>70%</span>
+              </div>
+            </div>
+
+            <div class="toggles" style="margin-top: 28px;">
+              <div class="toggle-row">
+                <div class="info">
+                  <span class="t">Auto-price decay</span>
+                  <span class="d">— Drop 5% per day if not sold, min 32%</span>
+                </div>
+                <div class="switch on"></div>
+              </div>
+              <div class="toggle-row">
+                <div class="info">
+                  <span class="t">Reserve-100 lock</span>
+                  <span class="d">— Hold from public board for 30 min · members get first look</span>
+                </div>
+                <div class="switch on"></div>
+              </div>
+              <div class="toggle-row">
+                <div class="info">
+                  <span class="t">Pet-friendly</span>
+                  <span class="d">— FlexJet allows · default on for N502QX</span>
+                </div>
+                <div class="switch on"></div>
+              </div>
+              <div class="toggle-row">
+                <div class="info">
+                  <span class="t">Split sectors</span>
+                  <span class="d">— Allow partial-route booking (KOPF → KDAL only)</span>
+                </div>
+                <div class="switch"></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="price-card">
+            <div class="row strike">
+              <span class="l">Full charter ref</span>
+              <span class="v">$52,400</span>
+            </div>
+            <div class="row calc">
+              <span class="l">Discount @ 52%</span>
+              <span class="v">−$27,250</span>
+            </div>
+            <div class="row">
+              <span class="l">Catering · Standard</span>
+              <span class="v">$420</span>
+            </div>
+            <div class="row">
+              <span class="l">Ramp · KOPF / KSAN</span>
+              <span class="v">$680</span>
+            </div>
+            <div class="row">
+              <span class="l">FET 7.5%</span>
+              <span class="v">$1,536</span>
+            </div>
+            <div class="row">
+              <span class="l">Segment fee</span>
+              <span class="v">$26</span>
+            </div>
+
+            <div class="total">
+              <span class="l">— LISTED PRICE</span>
+              <span class="v">$25,150</span>
+            </div>
+            <div class="nm">— Operator cost $23,540 · JetNine margin $1,610 (6.4%) · pet-friendly · pass-thru ramp</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 03 Audience -->
+    <div class="sec">
+      <div class="sh">
+        <span class="num">— 03</span>
+        <h2>Audience &amp; matching</h2>
+        <span class="right">— matched against 412 active members</span>
+      </div>
+      <div class="body">
+        <div class="audience">
+          <div class="a-card">
+            <div class="top"><span class="tag">— LANE MATCHES</span></div>
+            <span class="ct">14</span>
+            <span class="desc">members with KOPF↔KSAN or KOPF↔KVNY in saved lanes &amp; ≥40% threshold</span>
+          </div>
+          <div class="a-card">
+            <div class="top"><span class="tag">— RESERVE 100</span></div>
+            <span class="ct">6</span>
+            <span class="desc">— Reserve 100 / 250 members in matching pool · 30-min early-access</span>
+          </div>
+          <div class="a-card">
+            <div class="top"><span class="tag">— CHANNELS</span></div>
+            <span class="ct">3</span>
+            <span class="desc">SMS, member-side board, mailing list · publish times configurable</span>
+          </div>
+        </div>
+
+        <div class="matches-inline">
+          <div class="mi-row">
+            <div class="av">RM</div>
+            <div class="nm">Rosa Mireles<span class="m">— RESERVE 100 · KOPF→KSAN 3× / yr</span></div>
+            <span class="freq"><span class="em">95%</span> match</span>
+            <span class="channel">SMS · EMAIL</span>
+          </div>
+          <div class="mi-row">
+            <div class="av">DP</div>
+            <div class="nm">Diane Pham<span class="m">— RESERVE 50 · KSFO↔KSAN regular</span></div>
+            <span class="freq"><span class="em">82%</span> match</span>
+            <span class="channel">SMS</span>
+          </div>
+          <div class="mi-row">
+            <div class="av">MA</div>
+            <div class="nm">Marcus Aldrich<span class="m">— RESERVE 100 · KVNY-anchor</span></div>
+            <span class="freq"><span class="em">61%</span> match</span>
+            <span class="channel">EMAIL</span>
+          </div>
+          <div class="mi-row">
+            <div class="av">JK</div>
+            <div class="nm">JK Halberd<span class="m">— RESERVE 250 · cross-country</span></div>
+            <span class="freq"><span class="em">58%</span> match</span>
+            <span class="channel">SMS · EMAIL</span>
+          </div>
+          <div class="mi-row">
+            <div class="av">SK</div>
+            <div class="nm">Sven Kallio<span class="m">— Prospect · trialing</span></div>
+            <span class="freq"><span class="em">42%</span> match</span>
+            <span class="channel">EMAIL</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 04 Copy -->
+    <div class="sec">
+      <div class="sh">
+        <span class="num">— 04</span>
+        <h2>Listing copy</h2>
+        <span class="right">— shown on member-side board · SMS truncated to 160</span>
+      </div>
+      <div class="body">
+        <div class="fg">
+          <div class="l">— HEADLINE</div>
+          <div class="v">
+            <div class="copy-editor">
+              <div class="label-row">
+                <span class="l">— HEADLINE · BOARD</span>
+                <span class="count">42 / 64 chars</span>
+                <span class="ai">AI · refine</span>
+              </div>
+              <textarea>Miami → San Diego · 52% off · 19 Nov, midsize</textarea>
+            </div>
+          </div>
+
+          <div class="l">— SUMMARY</div>
+          <div class="v">
+            <div class="copy-editor">
+              <div class="label-row">
+                <span class="l">— BODY · BOARD</span>
+                <span class="count">186 / 280 chars</span>
+                <span class="ai">AI · refine</span>
+              </div>
+              <textarea>Repositioning leg on a 2022 Praetor 500 from FlexJet — 8 seats, stand-up cabin, Wi-Fi, full lavatory. Wheels-up 14:30 ET from Atlantic KOPF, on the ramp at Signature KSAN 13:32 PT. Pet-friendly.</textarea>
+            </div>
+          </div>
+
+          <div class="l">— SMS BLAST</div>
+          <div class="v">
+            <div class="copy-editor">
+              <div class="label-row">
+                <span class="l">— SMS · MATCHED MEMBERS</span>
+                <span class="count">142 / 160 chars</span>
+                <span class="ai">AI · refine</span>
+              </div>
+              <textarea>JetNine: empty leg KOPF→KSAN, 19 Nov 14:30 ET. Praetor 500, 8 seats, $25,150 (52% off). Reply Y for hold. — Catalina (Wests Desk)</textarea>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 05 Visibility -->
+    <div class="sec">
+      <div class="sh">
+        <span class="num">— 05</span>
+        <h2>Visibility &amp; schedule</h2>
+        <span class="right">— controls when leg appears on each surface</span>
+      </div>
+      <div class="body">
+        <div class="fg">
+          <div class="l">— BOARD GO-LIVE</div>
+          <div class="v">
+            <div class="row2">
+              <input class="inp mono" type="text" value="15 NOV 2026 · 08:00 PT" />
+              <input class="inp mono" type="text" value="— 4 days before wheels-up" />
+            </div>
+          </div>
+
+          <div class="l">— RESERVE EARLY ACCESS</div>
+          <div class="v">
+            <div class="row2">
+              <input class="inp mono" type="text" value="15 NOV 07:30 PT" />
+              <input class="inp mono" type="text" value="— 30 min head start" />
+            </div>
+          </div>
+
+          <div class="l">— SMS BLAST</div>
+          <div class="v">
+            <div class="row2">
+              <input class="inp mono" type="text" value="15 NOV 09:00 PT" />
+              <input class="inp mono" type="text" value="— matched members only · 14 recipients" />
+            </div>
+          </div>
+
+          <div class="l">— EXPIRES</div>
+          <div class="v">
+            <div class="row2">
+              <input class="inp mono" type="text" value="18 NOV 22:00 ET" />
+              <input class="inp mono" type="text" value="— auto-pull · 16h before wheels-up" />
+            </div>
+          </div>
+
+          <div class="l">— DISPLAY ON</div>
+          <div class="v">
+            <div class="toggles">
+              <div class="toggle-row">
+                <div class="info"><span class="t">Public empty-leg board</span><span class="d">— jetnine.com/empty-legs · cardable to non-members</span></div>
+                <div class="switch on"></div>
+              </div>
+              <div class="toggle-row">
+                <div class="info"><span class="t">Member dashboard match</span><span class="d">— surfaces in saved-lane notifications</span></div>
+                <div class="switch on"></div>
+              </div>
+              <div class="toggle-row">
+                <div class="info"><span class="t">Weekly digest email</span><span class="d">— Fri 09:00 PT roundup of new legs</span></div>
+                <div class="switch on"></div>
+              </div>
+              <div class="toggle-row">
+                <div class="info"><span class="t">Affiliate feed (partners)</span><span class="d">— pushes to JetSmarter, Stratos, Avinode</span></div>
+                <div class="switch"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- Preview rail -->
+  <aside class="el-preview">
+    <div class="pre-h">
+      — LIVE PREVIEW
+      <div class="tabs">
+        <span class="tab on">BOARD</span>
+        <span class="tab">SMS</span>
+        <span class="tab">EMAIL</span>
+      </div>
+    </div>
+
+    <!-- Member-side preview -->
+    <div class="preview-card">
+      <div class="img">
+        <span class="ph-cap">— PREVIEW · MEMBER-SIDE</span>
+        <span class="disc">52<span class="u">% OFF</span></span>
+      </div>
+      <div class="body">
+        <span class="ic">— EMPTY LEG · EL-0342</span>
+        <span class="lane">Miami → San Diego</span>
+        <span class="meta">— <span class="em">19 NOV</span> · 14:30 ET wheels-up · 5h 02m</span>
+        <span class="meta">— Praetor 500 · 8 seats · pet-friendly · Wi-Fi · stand-up</span>
+        <span class="meta">— FlexJet · ARG/US PLATINUM</span>
+        <div class="price-row">
+          <span class="was">$52,400</span>
+          <span class="now">$25,150</span>
+        </div>
+        <a href="#" class="cta">Request hold →</a>
+      </div>
+    </div>
+
+    <!-- SMS preview -->
+    <div class="sms-preview">
+      <span class="from">— SMS · TO 14 MATCHED MEMBERS</span>
+      <div class="bubble">
+        <span class="em">JetNine</span>: empty leg <span class="em">KOPF→KSAN</span>, 19 Nov 14:30 ET. Praetor 500, 8 seats, <span class="em">$25,150</span> (52% off). Reply Y for hold. — Catalina (West Desk)
+      </div>
+      <div class="meta">
+        <span>— 142 / 160 char</span>
+        <span>— SEND 15 NOV 09:00 PT</span>
+        <span>— EST. RESP 4–7</span>
+      </div>
+    </div>
+
+    <!-- Publish -->
+    <div class="publish-blk">
+      <div class="ph">— PRE-PUBLISH</div>
+      <div class="pt">5 of 5 checks passed</div>
+      <div class="pl">
+        <div class="li"><span class="c">✓</span><span>Operator confirmed ferry · FlexJet · 14:02</span></div>
+        <div class="li"><span class="c">✓</span><span>Aircraft availability locked · N502QX</span></div>
+        <div class="li"><span class="c">✓</span><span>Pricing within margin floor (6.4% &gt; 5%)</span></div>
+        <div class="li"><span class="c">✓</span><span>Copy under SMS limit (142 / 160)</span></div>
+        <div class="li"><span class="c">✓</span><span>14 matched members surfaced for blast</span></div>
+      </div>
+      <div class="row">
+        <a href="#" class="full">— PUBLISH · PUSH TO BOARD</a>
+        <a href="#">Schedule</a>
+        <a href="#">Test SMS</a>
+      </div>
+    </div>
+
+    <!-- Audit -->
+    <div>
+      <div class="pre-h">— AUDIT</div>
+      <div class="audit">
+        <div class="ae"><span class="t">14:07</span><span class="what"><span class="who">— Catalina</span> set discount to 52% · last edit 1 min ago</span></div>
+        <div class="ae"><span class="t">14:04</span><span class="what">AI · drafted board copy <span class="em">v1</span> from ferry brief</span></div>
+        <div class="ae"><span class="t">14:02</span><span class="what"><span class="who">— FlexJet West</span> confirmed N502QX ferry KOPF→KSAN</span></div>
+        <div class="ae"><span class="t">13:58</span><span class="what">Repositioning engine flagged 5h gap on N502QX</span></div>
+      </div>
+    </div>
+  </aside>
+</div>
+
+<script>
+  function tick() {
+    const d = new Date();
+    const fmt = (tz) => d.toLocaleTimeString('en-GB', { timeZone: tz, hour: '2-digit', minute: '2-digit' });
+    document.getElementById('clkPT').textContent = fmt('America/Los_Angeles');
+  }
+  tick(); setInterval(tick, 30000);
+</script>
+</body>
+</html>

@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>JetNine — Account · Membership</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,500;9..144,600&family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="shared.css" />
+<style>
+  body { background: var(--ink); }
+
+  .acct-top { height: 64px; border-bottom: 1px solid var(--ink-3); display: flex; align-items: center; padding: 0 32px; gap: 32px; background: var(--ink); position: sticky; top: 0; z-index: 50; }
+  .acct-top .brand { font-family: var(--serif); font-weight: 400; font-size: 22px; letter-spacing: -0.005em; text-decoration: none; color: var(--bone); }
+  .acct-top .brand .nine { font-family: var(--mono); font-size: 10px; color: var(--clearance); letter-spacing: 0.1em; vertical-align: super; margin-left: 2px; }
+  .acct-top .crumbs { font-family: var(--mono); font-size: 11px; letter-spacing: 0.06em; color: var(--steel); display: flex; gap: 8px; }
+  .acct-top .crumbs .sep { color: var(--ink-4); }
+  .acct-top .crumbs .here { color: var(--bone); }
+  .acct-top .crumbs a { color: var(--bone-2); text-decoration: none; }
+  .acct-top .right { margin-left: auto; display: flex; align-items: center; gap: 16px; }
+  .acct-top .desk-status { display: inline-flex; align-items: center; gap: 8px; font-family: var(--mono); font-size: 10px; letter-spacing: 0.12em; color: var(--clearance); text-transform: uppercase; padding: 6px 10px; border: 1px solid var(--ink-3); border-radius: 2px; }
+  .acct-top .desk-status .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--clearance); box-shadow: 0 0 0 0 rgba(232,226,210,0.6); animation: dotPulse 1.8s infinite; }
+  @keyframes dotPulse { 0% { box-shadow: 0 0 0 0 rgba(232,226,210,0.5); } 70% { box-shadow: 0 0 0 8px rgba(232,226,210,0); } 100% { box-shadow: 0 0 0 0 rgba(232,226,210,0); } }
+  .acct-top .avatar { width: 32px; height: 32px; border-radius: 50%; background: var(--ink-4); border: 1px solid var(--ink-3); display: flex; align-items: center; justify-content: center; font-family: var(--mono); font-size: 11px; color: var(--clearance); }
+
+  .acct-layout { display: grid; grid-template-columns: 240px 1fr; min-height: calc(100vh - 64px); }
+  @media (max-width: 900px) { .acct-layout { grid-template-columns: 1fr; } }
+
+  .acct-side { border-right: 1px solid var(--ink-3); padding: 32px 0; background: var(--ink); position: sticky; top: 64px; height: calc(100vh - 64px); overflow-y: auto; }
+  @media (max-width: 900px) { .acct-side { position: static; height: auto; border-right: none; border-bottom: 1px solid var(--ink-3); } }
+  .acct-side .grp { padding: 0 24px; margin-bottom: 24px; }
+  .acct-side .lbl { font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em; color: var(--steel); text-transform: uppercase; margin-bottom: 12px; }
+  .acct-side a { display: grid; grid-template-columns: auto 1fr auto; gap: 12px; align-items: center; padding: 9px 12px; margin: 0 -12px; border-radius: 2px; color: var(--bone-2); text-decoration: none; font-size: 14px; transition: background 180ms, color 180ms; }
+  .acct-side a:hover { background: var(--ink-2); color: var(--bone); }
+  .acct-side a.active { background: var(--ink-2); color: var(--clearance); }
+  .acct-side a .num { font-family: var(--mono); font-size: 10px; color: var(--steel); letter-spacing: 0.06em; }
+  .acct-side a.active .num { color: var(--clearance); }
+  .acct-side a .badge { font-family: var(--mono); font-size: 9px; padding: 2px 6px; background: var(--clearance); color: var(--ink); border-radius: 2px; letter-spacing: 0.04em; }
+  .acct-dispatcher { margin: 32px 24px 0; padding: 16px; background: var(--ink-2); border: 1px solid var(--ink-3); border-radius: 4px; display: flex; flex-direction: column; gap: 8px; }
+  .acct-dispatcher .lbl { font-family: var(--mono); font-size: 9px; letter-spacing: 0.14em; color: var(--steel); text-transform: uppercase; }
+  .acct-dispatcher .name { font-family: var(--serif); font-size: 18px; color: var(--bone); }
+  .acct-dispatcher .meta { font-family: var(--mono); font-size: 10px; color: var(--bone-2); letter-spacing: 0.04em; }
+  .acct-dispatcher .actions { display: flex; gap: 6px; margin-top: 4px; }
+  .acct-dispatcher .actions a { flex: 1; padding: 6px; text-align: center; background: var(--ink); border: 1px solid var(--ink-3); border-radius: 2px; font-family: var(--mono); font-size: 9px; letter-spacing: 0.1em; color: var(--bone); text-decoration: none; text-transform: uppercase; }
+
+  .acct-main { padding: 48px; }
+  @media (max-width: 700px) { .acct-main { padding: 32px 20px; } }
+
+  .acct-h { display: flex; align-items: end; justify-content: space-between; gap: 32px; padding-bottom: 32px; margin-bottom: 32px; border-bottom: 1px solid var(--ink-3); flex-wrap: wrap; }
+  .acct-h .title { font-family: var(--serif); font-weight: 300; font-size: 48px; line-height: 1.05; letter-spacing: -0.015em; }
+  .acct-h .strap { color: var(--bone-2); font-size: 14px; max-width: 56ch; margin-top: 8px; line-height: 1.55; }
+
+  /* Plan card — current */
+  .plan-current {
+    padding: 32px; background: linear-gradient(180deg, rgba(232,226,210,0.06), var(--ink-2));
+    border: 1px solid var(--clearance); border-radius: 4px; margin-bottom: 32px;
+    display: grid; grid-template-columns: 1.6fr 1fr; gap: 32px; align-items: stretch;
+  }
+  @media (max-width: 1000px) { .plan-current { grid-template-columns: 1fr; } }
+  .plan-current .l { font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em; color: var(--clearance); text-transform: uppercase; }
+  .plan-current .name { font-family: var(--serif); font-weight: 300; font-size: 56px; line-height: 1; color: var(--bone); letter-spacing: -0.015em; margin-top: 6px; }
+  .plan-current .since { font-family: var(--mono); font-size: 11px; color: var(--bone-2); letter-spacing: 0.04em; margin-top: 8px; }
+  .plan-current .desc { color: var(--bone-2); font-size: 15px; line-height: 1.55; margin-top: 18px; max-width: 42ch; }
+
+  .balance {
+    padding: 24px; background: rgba(0,0,0,0.25); border: 1px solid var(--ink-3); border-radius: 4px;
+    display: flex; flex-direction: column; gap: 8px; justify-content: space-between;
+  }
+  .balance .l { font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em; color: var(--steel); text-transform: uppercase; }
+  .balance .v { font-family: var(--serif); font-weight: 300; font-size: 44px; color: var(--bone); line-height: 1; letter-spacing: -0.01em; }
+  .balance .meta { font-family: var(--mono); font-size: 10px; color: var(--bone-2); letter-spacing: 0.04em; }
+  .balance .bar { height: 4px; background: var(--ink-3); border-radius: 2px; overflow: hidden; margin-top: 4px; }
+  .balance .bar .fill { height: 100%; background: var(--clearance); width: 62%; }
+  .balance .acts { display: flex; gap: 8px; margin-top: 12px; }
+
+  /* Benefits grid */
+  .benefits-h { font-family: var(--mono); font-size: 11px; letter-spacing: 0.14em; color: var(--steel); text-transform: uppercase; margin: 48px 0 16px; padding-bottom: 12px; border-bottom: 1px solid var(--ink-3); }
+  .benefits { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+  @media (max-width: 1000px) { .benefits { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 600px) { .benefits { grid-template-columns: 1fr; } }
+  .ben { padding: 20px 24px; background: var(--ink-2); border: 1px solid var(--ink-3); border-radius: 4px; display: flex; flex-direction: column; gap: 10px; min-height: 160px; }
+  .ben .num { font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em; color: var(--clearance); }
+  .ben .t { font-family: var(--serif); font-size: 19px; line-height: 1.25; color: var(--bone); letter-spacing: -0.005em; margin-top: 2px; }
+  .ben .d { font-family: var(--sans); font-size: 13px; line-height: 1.55; color: var(--bone-2); }
+  .ben .v { margin-top: auto; padding-top: 8px; border-top: 1px solid var(--ink-3); font-family: var(--mono); font-size: 10px; letter-spacing: 0.04em; color: var(--bone-2); }
+
+  /* Compare tiers */
+  .tiers-h { font-family: var(--serif); font-size: 28px; font-weight: 400; line-height: 1.2; letter-spacing: -0.005em; margin: 56px 0 8px; }
+  .tiers-strap { color: var(--bone-2); font-size: 14px; max-width: 56ch; margin-bottom: 24px; line-height: 1.55; }
+
+  .tiers { display: grid; grid-template-columns: repeat(4, 1fr); border-top: 1px solid var(--ink-3); border-left: 1px solid var(--ink-3); }
+  @media (max-width: 1100px) { .tiers { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 600px) { .tiers { grid-template-columns: 1fr; } }
+  .tier { background: var(--ink-2); padding: 24px; border-right: 1px solid var(--ink-3); border-bottom: 1px solid var(--ink-3); display: flex; flex-direction: column; gap: 16px; position: relative; }
+  .tier.current { background: rgba(232,226,210,0.04); border-color: var(--clearance); }
+  .tier.current::before { content: "— YOUR PLAN"; position: absolute; top: 12px; right: 12px; font-family: var(--mono); font-size: 9px; letter-spacing: 0.12em; color: var(--clearance); }
+  .tier .num { font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em; color: var(--steel); }
+  .tier .name { font-family: var(--serif); font-weight: 400; font-size: 24px; color: var(--bone); letter-spacing: -0.005em; }
+  .tier .price { font-family: var(--serif); font-weight: 300; font-size: 36px; color: var(--bone); letter-spacing: -0.01em; line-height: 1; }
+  .tier .price .u { font-family: var(--mono); font-size: 11px; color: var(--steel); letter-spacing: 0.06em; display: block; margin-top: 6px; }
+  .tier .desc { font-size: 13px; color: var(--bone-2); line-height: 1.5; }
+  .tier ul { display: flex; flex-direction: column; gap: 10px; padding: 16px 0; border-top: 1px solid var(--ink-3); margin-top: auto; }
+  .tier li { display: grid; grid-template-columns: 16px 1fr; gap: 8px; align-items: start; font-size: 12px; color: var(--bone-2); line-height: 1.45; }
+  .tier li .c { color: var(--clearance); font-family: var(--mono); font-size: 10px; padding-top: 2px; }
+  .tier li.off { color: var(--steel); text-decoration: line-through; }
+  .tier li.off .c { color: var(--steel); text-decoration: none; }
+  .tier .cta { padding: 10px 14px; border: 1px solid var(--ink-3); border-radius: 2px; font-family: var(--mono); font-size: 10px; letter-spacing: 0.12em; color: var(--bone); text-align: center; text-decoration: none; text-transform: uppercase; transition: border-color 180ms, color 180ms; }
+  .tier .cta:hover { border-color: var(--clearance); color: var(--clearance); }
+  .tier.current .cta { background: var(--ink); border-color: var(--ink-3); color: var(--steel); pointer-events: none; }
+
+  /* Activity */
+  .act-list { background: var(--ink-2); border: 1px solid var(--ink-3); border-radius: 4px; }
+  .act-row {
+    display: grid; grid-template-columns: 130px 1fr 130px 130px; gap: 16px; padding: 14px 24px;
+    border-bottom: 1px solid var(--ink-3); align-items: center;
+  }
+  .act-row:last-child { border-bottom: none; }
+  @media (max-width: 800px) { .act-row { grid-template-columns: 1fr 1fr; } .act-row .ref { display: none; } }
+  .act-row .date { font-family: var(--mono); font-size: 11px; color: var(--bone-2); letter-spacing: 0.04em; }
+  .act-row .desc { color: var(--bone); font-size: 14px; }
+  .act-row .ref { font-family: var(--mono); font-size: 10px; color: var(--steel); letter-spacing: 0.04em; }
+  .act-row .delta { font-family: var(--mono); font-size: 12px; letter-spacing: 0.04em; text-align: right; }
+  .act-row .delta.in { color: var(--success); }
+  .act-row .delta.out { color: var(--bone); }
+
+  /* Renewal card */
+  .renewal {
+    padding: 24px 32px; background: var(--ink-2); border: 1px solid var(--ink-3); border-radius: 4px; margin-top: 32px;
+    display: grid; grid-template-columns: 1fr auto; gap: 24px; align-items: center;
+  }
+  @media (max-width: 700px) { .renewal { grid-template-columns: 1fr; } }
+  .renewal .l { font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em; color: var(--steel); text-transform: uppercase; }
+  .renewal .t { font-family: var(--serif); font-size: 22px; color: var(--bone); margin-top: 6px; }
+  .renewal .meta { font-family: var(--mono); font-size: 11px; color: var(--bone-2); letter-spacing: 0.04em; margin-top: 6px; }
+  .renewal .acts { display: flex; gap: 8px; flex-wrap: wrap; }
+</style>
+</head>
+<body>
+
+<header class="acct-top">
+  <a href="homepage.html" class="brand">JetNine <span class="nine">09</span></a>
+  <div class="crumbs">
+    <a href="account-dashboard.html">ACCOUNT</a>
+    <span class="sep">/</span>
+    <span class="here">MEMBERSHIP</span>
+  </div>
+  <div class="right">
+    <span class="desk-status"><span class="dot"></span> Dispatch · open</span>
+    <a href="quote-step1.html" class="btn btn-primary btn-sm">New trip <span class="arrow">→</span></a>
+    <div class="avatar">MA</div>
+  </div>
+</header>
+
+<div class="acct-layout" data-screen-label="15 Account · Membership">
+  <aside class="acct-side">
+    <div class="grp">
+      <div class="lbl">— ACCOUNT</div>
+      <a href="account-dashboard.html"><span class="num">01</span><span>Dashboard</span><span></span></a>
+      <a href="account-trips.html"><span class="num">02</span><span>Trips</span><span class="badge">2</span></a>
+      <a href="account-invoices.html"><span class="num">03</span><span>Invoices</span><span class="badge">1</span></a>
+      <a href="account-preferences.html"><span class="num">04</span><span>Preferences</span><span></span></a>
+      <a href="account-members.html" class="active"><span class="num">05</span><span>Membership</span><span></span></a>
+    </div>
+    <div class="grp">
+      <div class="lbl">— TOOLS</div>
+      <a href="quote-step1.html"><span class="num">06</span><span>Request a quote</span><span></span></a>
+      <a href="empty-legs.html"><span class="num">07</span><span>Empty legs</span><span></span></a>
+      <a href="aircraft.html"><span class="num">08</span><span>Aircraft</span><span></span></a>
+    </div>
+    <div class="grp">
+      <div class="lbl">— SUPPORT</div>
+      <a href="contact.html"><span class="num">09</span><span>Contact dispatch</span><span></span></a>
+      <a href="faq.html"><span class="num">10</span><span>FAQ</span><span></span></a>
+      <a href="legal.html"><span class="num">11</span><span>Legal</span><span></span></a>
+    </div>
+    <div class="acct-dispatcher">
+      <span class="lbl">— YOUR DISPATCHER</span>
+      <span class="name">Catalina Vance</span>
+      <span class="meta">14 yrs · West-coast lanes</span>
+      <span class="meta">Reply &lt; 5 min · 24 / 7</span>
+      <div class="actions">
+        <a href="tel:+18188005678">Call</a>
+        <a href="sms:+18188005678">Text</a>
+        <a href="mailto:catalina@jetnine.com">Email</a>
+      </div>
+    </div>
+  </aside>
+
+  <main class="acct-main">
+    <div class="acct-h">
+      <div>
+        <h1 class="title">Membership.</h1>
+        <p class="strap">Your plan, your reserve balance, your year so far. Memberships are commitments — never lock-in. Step up or out at any month-end.</p>
+      </div>
+    </div>
+
+    <!-- Current plan -->
+    <div class="plan-current">
+      <div>
+        <span class="l">— YOUR PLAN · ACTIVE</span>
+        <div class="name">Reserve 100.</div>
+        <div class="since">— Member since 12 FEB 2022 · auto-renews 12 FEB 2027</div>
+        <p class="desc">A $100k retainer that earns 4% back as flight credit, locks in capped hourly rates, and gives you the same dispatcher every call. No fixed schedules, no peak-day blackouts, no use-it-or-lose-it.</p>
+      </div>
+      <div class="balance">
+        <div>
+          <span class="l">— RESERVE BALANCE</span>
+          <div class="v">$62,400</div>
+          <span class="meta">— $37,600 drawn · 7 trips YTD · auto-applied to invoices</span>
+          <div class="bar"><div class="fill"></div></div>
+          <span class="meta">62% remaining of $100,000 deposit</span>
+        </div>
+        <div class="acts">
+          <a href="#" class="btn btn-primary btn-sm" style="flex: 1; text-align: center;">Top up</a>
+          <a href="#" class="btn btn-secondary btn-sm" style="flex: 1; text-align: center;">Statement</a>
+        </div>
+      </div>
+    </div>
+
+    <!-- Benefits grid -->
+    <div class="benefits-h">— WHAT'S INCLUDED IN RESERVE 100</div>
+    <div class="benefits">
+      <div class="ben">
+        <span class="num">— BENEFIT · 01</span>
+        <span class="t">Capped hourly rates.</span>
+        <span class="d">Light $5,500 · Mid $7,800 · Super-mid $9,800 · Heavy $13,400. Operator fluctuations absorbed.</span>
+        <span class="v">— Saves you ~$1,200 / hr vs spot</span>
+      </div>
+      <div class="ben">
+        <span class="num">— BENEFIT · 02</span>
+        <span class="t">4% back as flight credit.</span>
+        <span class="d">Every dollar drawn from the reserve earns four cents back, applied to your next trip — never expires.</span>
+        <span class="v">— $1,504 earned YTD</span>
+      </div>
+      <div class="ben">
+        <span class="num">— BENEFIT · 03</span>
+        <span class="t">Dedicated dispatcher.</span>
+        <span class="d">Catalina answers your line directly. No round-robin, no transfer queue, no script.</span>
+        <span class="v">— Direct line: +1 (818) 555-0188</span>
+      </div>
+      <div class="ben">
+        <span class="num">— BENEFIT · 04</span>
+        <span class="t">Empty-leg priority.</span>
+        <span class="d">Matching legs are texted to you 30 minutes before they hit the public board.</span>
+        <span class="v">— 4 matched lanes on file</span>
+      </div>
+      <div class="ben">
+        <span class="num">— BENEFIT · 05</span>
+        <span class="t">Catering Plus included.</span>
+        <span class="d">Tier-2 catering at no charge on every trip — coffee setup, hot meals, full bar.</span>
+        <span class="v">— ~$220 / pax / leg, gratis</span>
+      </div>
+      <div class="ben">
+        <span class="num">— BENEFIT · 06</span>
+        <span class="t">24-hour cancellation.</span>
+        <span class="d">Cancel any trip up to 24 hours before wheels-up for a full reserve refund. No questions.</span>
+        <span class="v">— Used twice in 2025</span>
+      </div>
+    </div>
+
+    <!-- Tier compare -->
+    <h2 class="tiers-h">Compare tiers.</h2>
+    <p class="tiers-strap">Three commitment levels and one pay-per-trip option. Step up at any time — your reserve carries forward.</p>
+
+    <div class="tiers">
+      <div class="tier">
+        <span class="num">— TIER · 00</span>
+        <span class="name">On-demand.</span>
+        <div class="price">$0<span class="u">— pay per trip · spot rates</span></div>
+        <p class="desc">No retainer. Quote-by-quote. Best for under 25 hrs / yr.</p>
+        <ul>
+          <li><span class="c">+</span><span>Same fleet, same standards</span></li>
+          <li><span class="c">+</span><span>Quote in 30 min</span></li>
+          <li class="off"><span class="c">×</span><span>Capped hourly rates</span></li>
+          <li class="off"><span class="c">×</span><span>4% back as credit</span></li>
+          <li class="off"><span class="c">×</span><span>Dedicated dispatcher</span></li>
+        </ul>
+        <a href="quote-step1.html" class="cta">Request a quote</a>
+      </div>
+
+      <div class="tier">
+        <span class="num">— TIER · 01</span>
+        <span class="name">Reserve 50.</span>
+        <div class="price">$50,000<span class="u">— deposit · 3% back</span></div>
+        <p class="desc">Entry tier. Right for 25–60 hrs / yr.</p>
+        <ul>
+          <li><span class="c">+</span><span>Capped hourly rates</span></li>
+          <li><span class="c">+</span><span>3% back as flight credit</span></li>
+          <li><span class="c">+</span><span>Shared dispatch desk</span></li>
+          <li><span class="c">+</span><span>Catering Standard included</span></li>
+          <li class="off"><span class="c">×</span><span>Dedicated dispatcher</span></li>
+        </ul>
+        <a href="#" class="cta">Step down →</a>
+      </div>
+
+      <div class="tier current">
+        <span class="num">— TIER · 02</span>
+        <span class="name">Reserve 100.</span>
+        <div class="price">$100,000<span class="u">— deposit · 4% back</span></div>
+        <p class="desc">Right for 60–150 hrs / yr.</p>
+        <ul>
+          <li><span class="c">+</span><span>Capped hourly rates</span></li>
+          <li><span class="c">+</span><span>4% back as flight credit</span></li>
+          <li><span class="c">+</span><span>Dedicated dispatcher</span></li>
+          <li><span class="c">+</span><span>Catering Plus included</span></li>
+          <li><span class="c">+</span><span>Empty-leg early access</span></li>
+        </ul>
+        <a href="#" class="cta">Current</a>
+      </div>
+
+      <div class="tier">
+        <span class="num">— TIER · 03</span>
+        <span class="name">Reserve 250.</span>
+        <div class="price">$250,000<span class="u">— deposit · 6% back</span></div>
+        <p class="desc">For 150+ hrs / yr. Operates more like a fractional than a charter.</p>
+        <ul>
+          <li><span class="c">+</span><span>Capped rates · further 4% off</span></li>
+          <li><span class="c">+</span><span>6% back as flight credit</span></li>
+          <li><span class="c">+</span><span>Two dedicated dispatchers · day &amp; night</span></li>
+          <li><span class="c">+</span><span>Catering Premium included</span></li>
+          <li><span class="c">+</span><span>Guaranteed availability — 24h notice</span></li>
+        </ul>
+        <a href="#" class="cta">Step up →</a>
+      </div>
+    </div>
+
+    <!-- Reserve activity -->
+    <h2 class="tiers-h" style="margin-top: 64px;">Reserve activity.</h2>
+    <p class="tiers-strap">Every dollar in, every dollar out — going back twelve months.</p>
+
+    <div class="act-list">
+      <div class="act-row">
+        <span class="date">07 NOV 2026</span>
+        <span class="desc">— Charter draw — Citation Latitude</span>
+        <span class="ref">JN-0094 / INV-1056</span>
+        <span class="delta out">−$58,400.00</span>
+      </div>
+      <div class="act-row">
+        <span class="date">02 NOV 2026</span>
+        <span class="desc">— Charter draw — Citation Latitude (return)</span>
+        <span class="ref">JN-0098 / INV-1052</span>
+        <span class="delta out">−$54,200.00</span>
+      </div>
+      <div class="act-row">
+        <span class="date">28 OCT 2026</span>
+        <span class="desc">— Charter draw — Phenom 300E</span>
+        <span class="ref">JN-0089 / INV-1037</span>
+        <span class="delta out">−$18,420.00</span>
+      </div>
+      <div class="act-row">
+        <span class="date">14 OCT 2026</span>
+        <span class="desc">— 4% credit accrual</span>
+        <span class="ref">— for INV-1041</span>
+        <span class="delta in">+$1,944.00</span>
+      </div>
+      <div class="act-row">
+        <span class="date">22 AUG 2026</span>
+        <span class="desc">— Weather cancellation refund</span>
+        <span class="ref">JN-0061 / CR-0114</span>
+        <span class="delta in">+$2,150.00</span>
+      </div>
+      <div class="act-row">
+        <span class="date">14 AUG 2026</span>
+        <span class="desc">— Charter draw — Global 6500 transatlantic</span>
+        <span class="ref">JN-0058 / INV-0998</span>
+        <span class="delta out">−$148,600.00</span>
+      </div>
+      <div class="act-row">
+        <span class="date">12 FEB 2026</span>
+        <span class="desc">— Reserve 100 renewal · top-up</span>
+        <span class="ref">— wire · First Republic 4421</span>
+        <span class="delta in">+$100,000.00</span>
+      </div>
+    </div>
+
+    <!-- Renewal -->
+    <div class="renewal">
+      <div>
+        <span class="l">— RENEWAL · 12 FEB 2027</span>
+        <div class="t">Auto-renew at Reserve 100.</div>
+        <div class="meta">— 95 days out · we'll email you a summary 30 days before · cancel anytime, balance refundable in 30 days</div>
+      </div>
+      <div class="acts">
+        <a href="#" class="btn btn-secondary btn-sm">Switch to Reserve 250</a>
+        <a href="#" class="btn btn-secondary btn-sm">Pause auto-renew</a>
+      </div>
+    </div>
+  </main>
+</div>
+
+</body>
+</html>

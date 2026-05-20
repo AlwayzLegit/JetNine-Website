@@ -1,0 +1,714 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>JetNine — Admin · Aircraft Availability</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,500;9..144,600&family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="shared.css" />
+<style>
+  body { background: var(--ink); overflow-x: hidden; }
+
+  /* Top */
+  .adm-top { height: 56px; border-bottom: 1px solid var(--ink-3); display: grid; grid-template-columns: 240px 1fr auto; align-items: center; background: var(--ink); position: sticky; top: 0; z-index: 60; }
+  .adm-top .brand-cell { display: flex; align-items: center; gap: 12px; height: 100%; padding: 0 20px; border-right: 1px solid var(--ink-3); }
+  .adm-top .brand { font-family: var(--serif); font-weight: 400; font-size: 20px; color: var(--bone); text-decoration: none; }
+  .adm-top .brand .nine { font-family: var(--mono); font-size: 9px; color: var(--clearance); letter-spacing: 0.1em; vertical-align: super; margin-left: 2px; }
+  .adm-top .env { font-family: var(--mono); font-size: 9px; padding: 3px 6px; background: var(--ink-3); color: var(--clearance); border-radius: 2px; letter-spacing: 0.14em; }
+  .adm-top .crumbs { padding: 0 24px; display: flex; gap: 14px; font-family: var(--mono); font-size: 10px; letter-spacing: 0.12em; color: var(--steel); text-transform: uppercase; }
+  .adm-top .crumbs a { color: var(--bone-2); text-decoration: none; }
+  .adm-top .crumbs .here { color: var(--bone); }
+  .adm-top .crumbs .sep { color: var(--ink-4); }
+  .adm-top .right { display: flex; align-items: center; gap: 16px; padding: 0 20px; height: 100%; border-left: 1px solid var(--ink-3); }
+  .adm-top .clk { font-family: var(--mono); font-size: 11px; color: var(--bone); letter-spacing: 0.06em; }
+  .adm-top .clk .z { color: var(--steel); margin-right: 4px; }
+  .adm-top .me { display: flex; align-items: center; gap: 10px; padding: 4px 10px 4px 4px; background: var(--ink-3); border-radius: 999px; font-family: var(--mono); font-size: 10px; color: var(--bone-2); }
+  .adm-top .me .av { width: 24px; height: 24px; border-radius: 50%; background: var(--ink-4); display: flex; align-items: center; justify-content: center; color: var(--clearance); font-size: 10px; }
+  .adm-top .me .stat { width: 6px; height: 6px; border-radius: 50%; background: var(--success); }
+
+  /* Layout */
+  .ac-shell { display: grid; grid-template-columns: 200px 1fr; min-height: calc(100vh - 56px); }
+  @media (max-width: 1024px) { .ac-shell { grid-template-columns: 1fr; } .ac-rail { display: none; } }
+
+  /* Rail */
+  .ac-rail { border-right: 1px solid var(--ink-3); padding: 16px 0; background: var(--ink); }
+  .rg { padding: 0 12px 16px; }
+  .rg .h { font-family: var(--mono); font-size: 9px; letter-spacing: 0.16em; color: var(--steel); text-transform: uppercase; margin: 4px 8px 8px; }
+  .rg a { display: grid; grid-template-columns: 14px 1fr auto; gap: 10px; align-items: center; padding: 7px 10px; border-radius: 2px; color: var(--bone-2); text-decoration: none; font-size: 13px; transition: background 160ms, color 160ms; }
+  .rg a:hover { background: var(--ink-2); color: var(--bone); }
+  .rg a.active { background: var(--ink-2); color: var(--clearance); }
+  .rg a .gly { font-family: var(--mono); font-size: 10px; color: var(--steel); }
+  .rg a.active .gly { color: var(--clearance); }
+  .rg a .badge { font-family: var(--mono); font-size: 9px; padding: 1px 6px; border-radius: 2px; background: var(--ink-3); color: var(--bone-2); }
+
+  /* Main */
+  .ac-main { padding: 24px 32px 60px; min-width: 0; }
+  @media (max-width: 700px) { .ac-main { padding: 18px 16px; } }
+
+  .ac-h { display: flex; align-items: end; justify-content: space-between; gap: 24px; flex-wrap: wrap; padding-bottom: 16px; margin-bottom: 18px; border-bottom: 1px solid var(--ink-3); }
+  .ac-h h1 { font-family: var(--serif); font-weight: 300; font-size: 36px; line-height: 1; letter-spacing: -0.015em; }
+  .ac-h .strap { font-family: var(--mono); font-size: 11px; color: var(--bone-2); margin-top: 6px; letter-spacing: 0.04em; }
+  .ac-h .actions { display: flex; gap: 8px; flex-wrap: wrap; }
+  .btn-mini { font-family: var(--mono); font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; padding: 8px 12px; border-radius: 2px; text-decoration: none; background: var(--ink-2); border: 1px solid var(--ink-3); color: var(--bone); transition: all 160ms; cursor: pointer; }
+  .btn-mini:hover { border-color: var(--clearance); color: var(--clearance); }
+  .btn-mini.primary { background: var(--clearance); color: var(--ink); border-color: var(--clearance); }
+
+  /* KPI */
+  .strip { display: grid; grid-template-columns: repeat(5, 1fr); background: var(--ink-2); border: 1px solid var(--ink-3); border-radius: 4px; margin-bottom: 20px; }
+  @media (max-width: 1100px) { .strip { grid-template-columns: repeat(3, 1fr); } }
+  @media (max-width: 600px) { .strip { grid-template-columns: repeat(2, 1fr); } }
+  .strip .cell { padding: 16px 18px; border-right: 1px solid var(--ink-3); }
+  .strip .cell:last-child { border-right: none; }
+  .strip .l { font-family: var(--mono); font-size: 9px; letter-spacing: 0.14em; color: var(--steel); text-transform: uppercase; }
+  .strip .v { font-family: var(--serif); font-weight: 300; font-size: 26px; color: var(--bone); margin-top: 6px; letter-spacing: -0.005em; line-height: 1; }
+  .strip .v .u { font-family: var(--mono); font-size: 10px; color: var(--bone-2); margin-left: 4px; }
+  .strip .d { font-family: var(--mono); font-size: 9px; color: var(--bone-2); margin-top: 4px; letter-spacing: 0.04em; }
+  .strip .d.ok { color: var(--success); }
+  .strip .d.warn { color: var(--warn); }
+
+  /* Toolbar */
+  .toolbar { display: grid; grid-template-columns: 1fr auto auto; gap: 14px; align-items: center; padding-bottom: 14px; border-bottom: 1px solid var(--ink-3); margin-bottom: 0; }
+  @media (max-width: 900px) { .toolbar { grid-template-columns: 1fr; } }
+  .search { display: flex; align-items: center; gap: 10px; padding: 9px 14px; background: var(--ink-2); border: 1px solid var(--ink-3); border-radius: 2px; max-width: 360px; }
+  .search input { background: transparent; border: none; outline: none; color: var(--bone); font-family: var(--mono); font-size: 12px; flex: 1; letter-spacing: 0.04em; }
+  .search input::placeholder { color: var(--steel); }
+  .search .sl { font-family: var(--mono); font-size: 9px; color: var(--steel); letter-spacing: 0.12em; }
+
+  .scope { display: flex; gap: 6px; }
+  .sc {
+    font-family: var(--mono); font-size: 10px; padding: 7px 10px; border-radius: 2px;
+    border: 1px solid var(--ink-3); color: var(--bone-2); letter-spacing: 0.08em; text-transform: uppercase;
+    cursor: pointer; transition: all 160ms;
+  }
+  .sc:hover { border-color: var(--bone-2); color: var(--bone); }
+  .sc.on { background: rgba(232,226,210,0.06); border-color: var(--clearance); color: var(--bone); }
+
+  /* Filter chips */
+  .filters { display: flex; gap: 6px; flex-wrap: wrap; padding: 14px 0; }
+  .chip { font-family: var(--mono); font-size: 10px; padding: 5px 9px; border-radius: 2px; border: 1px solid var(--ink-3); color: var(--bone-2); letter-spacing: 0.08em; text-transform: uppercase; cursor: pointer; }
+  .chip:hover { border-color: var(--bone-2); color: var(--bone); }
+  .chip.on { background: rgba(232,226,210,0.08); border-color: var(--clearance); color: var(--bone); }
+  .chip.on::before { content: "—"; color: var(--clearance); margin-right: 4px; }
+
+  /* Schedule grid */
+  .sched-wrap { background: var(--ink-2); border: 1px solid var(--ink-3); border-radius: 4px; overflow: hidden; margin-top: 12px; }
+
+  /* Day header */
+  .day-head {
+    display: grid; grid-template-columns: 240px repeat(14, 1fr);
+    background: var(--ink);
+    border-bottom: 1px solid var(--ink-3);
+  }
+  @media (max-width: 1400px) { .day-head { grid-template-columns: 220px repeat(14, 1fr); } }
+  .day-head .corner {
+    padding: 14px 16px;
+    font-family: var(--mono); font-size: 9px; letter-spacing: 0.14em;
+    color: var(--steel); text-transform: uppercase;
+    border-right: 1px solid var(--ink-3);
+  }
+  .day-head .day {
+    padding: 8px 4px; text-align: center;
+    border-right: 1px solid var(--ink-3);
+    font-family: var(--mono); color: var(--bone-2);
+  }
+  .day-head .day:last-child { border-right: none; }
+  .day-head .day.today { background: rgba(232,226,210,0.06); color: var(--clearance); }
+  .day-head .day.wknd { background: rgba(0,0,0,0.18); }
+  .day-head .day .num { display: block; font-family: var(--serif); font-weight: 400; font-size: 16px; color: var(--bone); letter-spacing: -0.005em; line-height: 1; }
+  .day-head .day .nm { font-size: 9px; color: var(--steel); letter-spacing: 0.1em; margin-top: 3px; }
+  .day-head .day.today .nm { color: var(--clearance); }
+
+  /* Group divider */
+  .group-row {
+    display: grid; grid-template-columns: 240px 1fr;
+    background: var(--ink);
+    border-bottom: 1px solid var(--ink-3);
+    border-top: 1px solid var(--ink-3);
+  }
+  @media (max-width: 1400px) { .group-row { grid-template-columns: 220px 1fr; } }
+  .group-row .lbl {
+    padding: 10px 16px;
+    font-family: var(--mono); font-size: 9px; letter-spacing: 0.14em;
+    color: var(--clearance); text-transform: uppercase;
+    border-right: 1px solid var(--ink-3);
+    display: flex; align-items: center; gap: 8px;
+  }
+  .group-row .lbl .n { color: var(--bone-2); }
+  .group-row .stats {
+    padding: 10px 14px;
+    font-family: var(--mono); font-size: 9px; letter-spacing: 0.06em;
+    color: var(--bone-2); text-transform: uppercase;
+    display: flex; gap: 18px;
+  }
+  .group-row .stats .em { color: var(--clearance); }
+
+  /* Aircraft row */
+  .ac-row {
+    display: grid; grid-template-columns: 240px repeat(14, 1fr);
+    border-bottom: 1px solid var(--ink-3);
+    position: relative;
+    height: 44px;
+    transition: background 160ms;
+  }
+  @media (max-width: 1400px) { .ac-row { grid-template-columns: 220px repeat(14, 1fr); } }
+  .ac-row:hover { background: rgba(232,226,210,0.025); }
+  .ac-row:last-child { border-bottom: none; }
+
+  /* Aircraft name cell */
+  .ac-cell {
+    padding: 6px 14px;
+    border-right: 1px solid var(--ink-3);
+    display: grid; grid-template-columns: 28px 1fr auto; gap: 10px;
+    align-items: center;
+  }
+  .ac-cell .tail { font-family: var(--mono); font-size: 10px; color: var(--clearance); letter-spacing: 0.04em; }
+  .ac-cell .name { display: flex; flex-direction: column; min-width: 0; gap: 1px; }
+  .ac-cell .name .t { font-family: var(--sans); font-size: 12px; color: var(--bone); line-height: 1.1; }
+  .ac-cell .name .m { font-family: var(--mono); font-size: 9px; color: var(--bone-2); letter-spacing: 0.04em; }
+  .ac-cell .util {
+    font-family: var(--mono); font-size: 9px; color: var(--bone-2); letter-spacing: 0.04em;
+    padding: 2px 5px; background: var(--ink-3); border-radius: 2px;
+  }
+  .ac-cell .util.hi { color: var(--success); }
+  .ac-cell .util.lo { color: var(--warn); }
+
+  /* Day cells (background grid) */
+  .day-cell {
+    border-right: 1px solid var(--ink-3);
+    position: relative;
+  }
+  .day-cell:last-child { border-right: none; }
+  .day-cell.today { background: rgba(232,226,210,0.025); }
+  .day-cell.wknd { background: rgba(0,0,0,0.16); }
+
+  /* Schedule blocks (positioned on grid) */
+  .blocks {
+    position: absolute; left: 240px; right: 0; top: 0; bottom: 0;
+    display: grid; grid-template-columns: repeat(14, 1fr);
+    pointer-events: none;
+  }
+  @media (max-width: 1400px) { .blocks { left: 220px; } }
+
+  .blk {
+    position: relative;
+    margin: 4px 2px;
+    padding: 2px 8px;
+    border-radius: 2px;
+    font-family: var(--mono); font-size: 9px; letter-spacing: 0.04em;
+    overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
+    line-height: 1.4;
+    display: flex; flex-direction: column; justify-content: center; gap: 1px;
+    pointer-events: auto; cursor: pointer;
+    transition: filter 160ms;
+  }
+  .blk:hover { filter: brightness(1.2); }
+  .blk .id { font-size: 8px; color: rgba(255,255,255,0.7); letter-spacing: 0.06em; }
+  .blk .lane { font-size: 9px; color: var(--bone); }
+
+  /* Block colors by status */
+  .blk.flying {
+    background: rgba(91,140,90,0.22); color: var(--bone);
+    border-left: 2px solid var(--success);
+  }
+  .blk.confirmed {
+    background: rgba(232,226,210,0.14); color: var(--bone);
+    border-left: 2px solid var(--clearance);
+  }
+  .blk.hold {
+    background: rgba(232,226,210,0.06); color: var(--bone-2);
+    border-left: 2px solid var(--bone-2);
+    border-style: solid solid solid dashed;
+  }
+  .blk.maint {
+    background: rgba(184,137,60,0.18); color: var(--warn);
+    border-left: 2px solid var(--warn);
+  }
+  .blk.empty {
+    background: rgba(212,98,42,0.18); color: var(--bone);
+    border-left: 2px solid #D4622A;
+  }
+  .blk.ferry {
+    background: var(--ink-3); color: var(--bone-2);
+    border-left: 2px dashed var(--bone-2);
+  }
+  .blk.crew {
+    background: rgba(74,158,240,0.14); color: #6FB6F0;
+    border-left: 2px solid #6FB6F0;
+  }
+  .blk.banned {
+    background: rgba(164,69,58,0.16); color: var(--error);
+    border-left: 2px solid var(--error);
+  }
+
+  /* "Now" line */
+  .now-line {
+    position: absolute; top: 0; bottom: 0; width: 1px;
+    background: var(--clearance);
+    z-index: 5;
+    pointer-events: none;
+  }
+  .now-line::before {
+    content: "— NOW";
+    position: absolute; top: -16px; left: -22px;
+    font-family: var(--mono); font-size: 8px; color: var(--clearance); letter-spacing: 0.14em;
+    background: var(--ink); padding: 1px 4px;
+  }
+
+  /* Legend */
+  .legend {
+    margin-top: 18px; display: flex; gap: 14px; flex-wrap: wrap;
+    padding: 12px 16px; background: var(--ink-2); border: 1px solid var(--ink-3); border-radius: 2px;
+    font-family: var(--mono); font-size: 9px; letter-spacing: 0.08em; color: var(--bone-2);
+  }
+  .legend .row { display: flex; align-items: center; gap: 6px; }
+  .legend .row .sw { width: 16px; height: 8px; border-radius: 1px; }
+  .legend .row .sw.flying { background: rgba(91,140,90,0.5); border-left: 2px solid var(--success); }
+  .legend .row .sw.confirmed { background: rgba(232,226,210,0.3); border-left: 2px solid var(--clearance); }
+  .legend .row .sw.hold { background: rgba(232,226,210,0.12); border-left: 2px dashed var(--bone-2); }
+  .legend .row .sw.maint { background: rgba(184,137,60,0.4); border-left: 2px solid var(--warn); }
+  .legend .row .sw.empty { background: rgba(212,98,42,0.5); border-left: 2px solid #D4622A; }
+  .legend .row .sw.ferry { background: var(--ink-3); border-left: 2px dashed var(--bone-2); }
+  .legend .row .sw.crew { background: rgba(74,158,240,0.4); border-left: 2px solid #6FB6F0; }
+</style>
+</head>
+<body data-screen-label="22 Admin · Aircraft Availability">
+
+<header class="adm-top">
+  <div class="brand-cell">
+    <a href="homepage.html" class="brand">JetNine <span class="nine">09</span></a>
+    <span class="env">DISPATCH</span>
+  </div>
+  <div class="crumbs">
+    <a href="admin-dispatch.html">DESK</a>
+    <span class="sep">/</span>
+    <span>SUPPLY</span>
+    <span class="sep">/</span>
+    <span class="here">AIRCRAFT</span>
+  </div>
+  <div class="right">
+    <span class="clk"><span class="z">PT</span><span id="clkPT">14:08</span></span>
+    <span class="me"><span class="av">CV</span><span class="stat"></span><span>CATALINA · ON-DESK</span></span>
+  </div>
+</header>
+
+<div class="ac-shell">
+
+  <!-- Rail -->
+  <aside class="ac-rail">
+    <div class="rg">
+      <div class="h">— DESK</div>
+      <a href="admin-dispatch.html"><span class="gly">⌂</span><span>Inbox</span><span class="badge">7</span></a>
+      <a href="admin-quote.html"><span class="gly">◐</span><span>Quote workbench</span></a>
+      <a href="admin-ops.html"><span class="gly">◉</span><span>Live ops board</span></a>
+      <a href="admin-trip.html"><span class="gly">⌖</span><span>Trip sheets</span></a>
+    </div>
+    <div class="rg">
+      <div class="h">— SUPPLY</div>
+      <a href="admin-operators.html"><span class="gly">⊞</span><span>Operators</span></a>
+      <a href="admin-aircraft.html" class="active"><span class="gly">✈</span><span>Aircraft</span><span class="badge">412</span></a>
+      <a href="#"><span class="gly">↻</span><span>Empty legs</span></a>
+      <a href="#"><span class="gly">⌬</span><span>Crew</span></a>
+    </div>
+    <div class="rg">
+      <div class="h">— ACCOUNTS</div>
+      <a href="admin-member.html"><span class="gly">◯</span><span>Members</span></a>
+      <a href="#"><span class="gly">$</span><span>Invoices</span></a>
+      <a href="#"><span class="gly">▦</span><span>Reports</span></a>
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <main class="ac-main">
+
+    <div class="ac-h">
+      <div>
+        <h1>Aircraft availability</h1>
+        <div class="strap">— 412 airframes · 11–24 Nov 2026 · 14-day fleet planner</div>
+      </div>
+      <div class="actions">
+        <button class="btn-mini">← Prev 14d</button>
+        <button class="btn-mini">Today</button>
+        <button class="btn-mini">Next 14d →</button>
+        <button class="btn-mini primary">+ Reserve airframe</button>
+      </div>
+    </div>
+
+    <!-- KPI -->
+    <div class="strip">
+      <div class="cell">
+        <div class="l">— AVAILABLE TODAY</div>
+        <div class="v">186<span class="u">/ 412</span></div>
+        <div class="d ok">— 45% of fleet</div>
+      </div>
+      <div class="cell">
+        <div class="l">— CONFIRMED · 14D</div>
+        <div class="v">274<span class="u">trips</span></div>
+        <div class="d">— $14.8M projected revenue</div>
+      </div>
+      <div class="cell">
+        <div class="l">— EMPTY LEGS</div>
+        <div class="v" style="color: #D4622A;">31</div>
+        <div class="d">— 6 unsold · auto-priced</div>
+      </div>
+      <div class="cell">
+        <div class="l">— IN MAINT</div>
+        <div class="v warn">18</div>
+        <div class="d warn">— 3 unplanned</div>
+      </div>
+      <div class="cell">
+        <div class="l">— UTILIZATION</div>
+        <div class="v ok">68<span class="u">%</span></div>
+        <div class="d ok">— +4 pts vs 30d avg</div>
+      </div>
+    </div>
+
+    <!-- Toolbar -->
+    <div class="toolbar">
+      <div class="search">
+        <span class="sl">— SEARCH</span>
+        <input type="search" placeholder="Tail · type · operator · base FBO" />
+      </div>
+      <div class="scope">
+        <span class="sc on">FLEET</span>
+        <span class="sc">PREFERRED</span>
+        <span class="sc">MEMBER'S LANES</span>
+        <span class="sc">CATEGORY</span>
+      </div>
+      <div class="actions">
+        <button class="btn-mini">Group by: OPERATOR ▾</button>
+        <button class="btn-mini">View: 14D ▾</button>
+      </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="filters">
+      <span class="chip on">ALL</span>
+      <span class="chip">LIGHT</span>
+      <span class="chip on">MIDSIZE</span>
+      <span class="chip on">SUPER-MID</span>
+      <span class="chip">HEAVY</span>
+      <span class="chip">ULR</span>
+      <span class="chip">— AVAILABLE</span>
+      <span class="chip">— EMPTY LEGS</span>
+      <span class="chip">+ ADD FILTER</span>
+    </div>
+
+    <!-- Schedule -->
+    <div class="sched-wrap">
+
+      <!-- Day header -->
+      <div class="day-head">
+        <div class="corner">— AIRFRAME · 14 DAYS</div>
+        <div class="day"><span class="num">11</span><span class="nm">TUE</span></div>
+        <div class="day today"><span class="num">12</span><span class="nm">WED</span></div>
+        <div class="day"><span class="num">13</span><span class="nm">THU</span></div>
+        <div class="day"><span class="num">14</span><span class="nm">FRI</span></div>
+        <div class="day wknd"><span class="num">15</span><span class="nm">SAT</span></div>
+        <div class="day wknd"><span class="num">16</span><span class="nm">SUN</span></div>
+        <div class="day"><span class="num">17</span><span class="nm">MON</span></div>
+        <div class="day"><span class="num">18</span><span class="nm">TUE</span></div>
+        <div class="day"><span class="num">19</span><span class="nm">WED</span></div>
+        <div class="day"><span class="num">20</span><span class="nm">THU</span></div>
+        <div class="day"><span class="num">21</span><span class="nm">FRI</span></div>
+        <div class="day wknd"><span class="num">22</span><span class="nm">SAT</span></div>
+        <div class="day wknd"><span class="num">23</span><span class="nm">SUN</span></div>
+        <div class="day"><span class="num">24</span><span class="nm">MON</span></div>
+      </div>
+
+      <!-- FLEXJET WEST GROUP -->
+      <div class="group-row">
+        <div class="lbl">— FLEXJET WEST <span class="n">· 6 visible · 194 total</span></div>
+        <div class="stats">
+          <span><span class="em">98.7%</span> on-time</span>
+          <span>42 YTD trips</span>
+          <span><span class="em">$3.84M</span> YTD</span>
+          <span>Preferred</span>
+        </div>
+      </div>
+
+      <!-- N814QX -->
+      <div class="ac-row" style="position: relative;">
+        <div class="ac-cell">
+          <span class="tail">N814QX</span>
+          <span class="name"><span class="t">Citation Latitude</span><span class="m">— MID · KVNY</span></span>
+          <span class="util hi">71%</span>
+        </div>
+        <div class="day-cell"></div><div class="day-cell today"></div><div class="day-cell"></div><div class="day-cell"></div><div class="day-cell wknd"></div><div class="day-cell wknd"></div><div class="day-cell"></div><div class="day-cell"></div><div class="day-cell"></div><div class="day-cell"></div><div class="day-cell"></div><div class="day-cell wknd"></div><div class="day-cell wknd"></div><div class="day-cell"></div>
+        <div class="blocks">
+          <div class="blk confirmed" style="grid-column: 1; "><span class="id">JN-0085</span><span class="lane">KTEB→KVNY</span></div>
+          <div class="blk flying" style="grid-column: 4 / span 1; "><span class="id">JN-0091 · AIR</span><span class="lane">KVNY→KTEB</span></div>
+          <div class="blk confirmed" style="grid-column: 5 / span 2;"><span class="id">JN-0094 · HOLD</span><span class="lane">KTEB · ground hold</span></div>
+          <div class="blk empty" style="grid-column: 7 / span 1;"><span class="id">EL-0312</span><span class="lane">KTEB→KVNY · empty</span></div>
+          <div class="blk confirmed" style="grid-column: 10 / span 2;"><span class="id">JN-0102</span><span class="lane">KVNY→KMVY · 2-leg</span></div>
+          <div class="blk hold" style="grid-column: 13;"><span class="id">— HOLD</span><span class="lane">soft · Aldrich</span></div>
+        </div>
+      </div>
+
+      <!-- N722QX -->
+      <div class="ac-row" style="position: relative;">
+        <div class="ac-cell">
+          <span class="tail">N722QX</span>
+          <span class="name"><span class="t">Citation Sovereign+</span><span class="m">— SUPER-MID · KVNY</span></span>
+          <span class="util hi">82%</span>
+        </div>
+        <div class="day-cell"></div><div class="day-cell today"></div><div class="day-cell"></div><div class="day-cell"></div><div class="day-cell wknd"></div><div class="day-cell wknd"></div><div class="day-cell"></div><div class="day-cell"></div><div class="day-cell"></div><div class="day-cell"></div><div class="day-cell"></div><div class="day-cell wknd"></div><div class="day-cell wknd"></div><div class="day-cell"></div>
+        <div class="blocks">
+          <div class="blk confirmed" style="grid-column: 1 / span 2;"><span class="id">JN-0089</span><span class="lane">KVNY→KOPF</span></div>
+          <div class="blk empty" style="grid-column: 3;"><span class="id">EL-0314</span><span class="lane">KOPF→KVNY · empty</span></div>
+          <div class="blk confirmed" style="grid-column: 4 / span 2;"><span class="id">JN-0095</span><span class="lane">KVNY→EGGW</span></div>
+          <div class="blk ferry" style="grid-column: 6;"><span class="id">— FERRY</span><span class="lane">EGGW→LFPB</span></div>
+          <div class="blk confirmed" style="grid-column: 7 / span 2;"><span class="id">JN-0099</span><span class="lane">LFPB→KTEB</span></div>
+          <div class="blk crew" style="grid-column: 9 / span 1;"><span class="id">— REST</span><span class="lane">crew · 14h</span></div>
+          <div class="blk confirmed" style="grid-column: 10 / span 3;"><span class="id">JN-0107 · 3-leg</span><span class="lane">KTEB → KOPF → KASE</span></div>
+        </div>
+      </div>
+
+      <!-- N905QX -->
+      <div class="ac-row" style="position: relative;">
+        <div class="ac-cell">
+          <span class="tail">N905QX</span>
+          <span class="name"><span class="t">Phenom 300E</span><span class="m">— LIGHT · KSDL</span></span>
+          <span class="util hi">68%</span>
+        </div>
+        <div class="day-cell"></div><div class="day-cell today"></div><div class="day-cell"></div><div class="day-cell"></div><div class="day-cell wknd"></div><div class="day-cell wknd"></div><div class="day-cell"></div><div class="day-cell"></div><div class="day-cell"></div><div class="day-cell"></div><div class="day-cell"></div><div class="day-cell wknd"></div><div class="day-cell wknd"></div><div class="day-cell"></div>
+        <div class="blocks">
+          <div class="blk maint" style="grid-column: 1 / span 2;"><span class="id">— C-CHECK</span><span class="lane">scheduled · -36h</span></div>
+          <div class="blk confirmed" style="grid-column: 4;"><span class="id">JN-0093</span><span class="lane">KSDL→KASE</span></div>
+          <div class="blk confirmed" style="grid-column: 5;"><span class="id">JN-0097</span><span class="lane">KASE→KSDL</span></div>
+          <div class="blk empty" style="grid-column: 7 / span 1;"><span class="id">EL-0319</span><span class="lane">KSDL→KSFO · empty</span></div>
+          <div class="blk confirmed" style="grid-column: 8 / span 2;"><span class="id">JN-0101</span><span class="lane">KSFO→KSDL</span></div>
+          <div class="blk hold" style="grid-column: 11;"><span class="id">— HOLD</span><span class="lane">soft · Pham</span></div>
+        </div>
+      </div>
+
+      <!-- N611QX -->
+      <div class="ac-row" style="position: relative;">
+        <div class="ac-cell">
+          <span class="tail">N611QX</span>
+          <span class="name"><span class="t">Challenger 350</span><span class="m">— SUPER-MID · KTEB</span></span>
+          <span class="util hi">76%</span>
+        </div>
+        <div class="day-cell"></div><div class="day-cell today"></div><div class="day-cell"></div><div class="day-cell"></div><div class="day-cell wknd"></div><div class="day-cell wknd"></div><div class="day-cell"></div><div class="day-cell"></div><div class="day-cell"></div><div class="day-cell"></div><div class="day-cell"></div><div class="day-cell wknd"></div><div class="day-cell wknd"></div><div class="day-cell"></div>
+        <div class="blocks">
+          <div class="blk flying" style="grid-column: 2;"><span class="id">JN-0090 · AIR</span><span class="lane">KTEB→KOPF</span></div>
+          <div class="blk confirmed" style="grid-column: 3;"><span class="id">JN-0092</span><span class="lane">KOPF→KTEB</span></div>
+          <div class="blk confirmed" style="grid-column: 5 / span 2;"><span class="id">JN-0096 · 2-leg</span><span class="lane">KTEB→KOPF→KTEB</span></div>
+          <div class="blk empty" style="grid-column: 8;"><span class="id">EL-0321</span><span class="lane">KTEB→KSFO · empty</span></div>
+          <div class="blk confirmed" style="grid-column: 10 / span 2;"><span class="id">JN-0103</span><span class="lane">KSFO→KTEB</span></div>
+          <div class="blk confirmed" style="grid-column: 14;"><span class="id">JN-0110</span><span class="lane">KTEB→KMIA</span></div>
+        </div>
+      </div>
+
+      <!-- N502QX -->
+      <div class="ac-row" style="position: relative;">
+        <div class="ac-cell">
+          <span class="tail">N502QX</span>
+          <span class="name"><span class="t">Praetor 500</span><span class="m">— MID · KSAN</span></span>
+          <span class="util lo">42%</span>
+        </div>
+        <div class="day-cell"></div><div class="day-cell today"></div><div class="day-cell"></div><div class="day-cell"></div><div class="day-cell wknd"></div><div class="day-cell wknd"></div><div class="day-cell"></div><div class="day-cell"></div><div class="day-cell"></div><div class="day-cell"></div><div class="day-cell"></div><div class="day-cell wknd"></div><div class="day-cell wknd"></div><div class="day-cell"></div>
+        <div class="blocks">
+          <div class="blk maint" style="grid-column: 1 / span 4;"><span class="id">— AOG</span><span class="lane">slat fault · ETR 14 NOV</span></div>
+          <div class="blk ferry" style="grid-column: 5;"><span class="id">— FERRY</span><span class="lane">KSAN→KSFO</span></div>
+          <div class="blk confirmed" style="grid-column: 6 / span 2;"><span class="id">JN-0098</span><span class="lane">KSFO→KOPF</span></div>
+          <div class="blk empty" style="grid-column: 9 / span 2;"><span class="id">EL-0324</span><span class="lane">KOPF→KSAN · empty · 56% off</span></div>
+        </div>
+      </div>
+
+      <!-- N655QX -->
+      <div class="ac-row" style="position: relative;">
+        <div class="ac-cell">
+          <span class="tail">N655QX</span>
+          <span class="name"><span class="t">Global 6500</span><span class="m">— ULR · KTEB</span></span>
+          <span class="util hi">88%</span>
+        </div>
+        <div class="day-cell"></div><div class="day-cell today"></div><div class="day-cell"></div><div class="day-cell"></div><div class="day-cell wknd"></div><div class="day-cell wknd"></div><div class="day-cell"></div><div class="day-cell"></div><div class="day-cell"></div><div class="day-cell"></div><div class="day-cell"></div><div class="day-cell wknd"></div><div class="day-cell wknd"></div><div class="day-cell"></div>
+        <div class="blocks">
+          <div class="blk confirmed" style="grid-column: 1 / span 2;"><span class="id">JN-0087</span><span class="lane">KTEB→EGGW</span></div>
+          <div class="blk crew" style="grid-column: 3;"><span class="id">— REST</span><span class="lane">crew · 14h</span></div>
+          <div class="blk confirmed" style="grid-column: 4 / span 2;"><span class="id">JN-0095</span><span class="lane">EGGW→VHHH · 12h</span></div>
+          <div class="blk ferry" style="grid-column: 6 / span 2;"><span class="id">— POSITION</span><span class="lane">VHHH→RJTT</span></div>
+          <div class="blk confirmed" style="grid-column: 8 / span 3;"><span class="id">JN-0104</span><span class="lane">RJTT→KTEB · 13h</span></div>
+          <div class="blk hold" style="grid-column: 12 / span 1;"><span class="id">— HOLD</span><span class="lane">soft · Halberd</span></div>
+          <div class="blk confirmed" style="grid-column: 13 / span 2;"><span class="id">JN-0112</span><span class="lane">KTEB→EGGW</span></div>
+        </div>
+      </div>
+
+      <!-- SOLAIRUS GROUP -->
+      <div class="group-row">
+        <div class="lbl">— SOLAIRUS AVIATION <span class="n">· 4 visible · 82 total</span></div>
+        <div class="stats">
+          <span><span class="em">97.4%</span> on-time</span>
+          <span>38 YTD trips</span>
+          <span>$2.18M YTD</span>
+        </div>
+      </div>
+
+      <!-- N445SR -->
+      <div class="ac-row" style="position: relative;">
+        <div class="ac-cell">
+          <span class="tail">N445SR</span>
+          <span class="name"><span class="t">Challenger 350</span><span class="m">— SUPER-MID · KOPF</span></span>
+          <span class="util hi">74%</span>
+        </div>
+        <div class="day-cell"></div><div class="day-cell today"></div><div class="day-cell"></div><div class="day-cell"></div><div class="day-cell wknd"></div><div class="day-cell wknd"></div><div class="day-cell"></div><div class="day-cell"></div><div class="day-cell"></div><div class="day-cell"></div><div class="day-cell"></div><div class="day-cell wknd"></div><div class="day-cell wknd"></div><div class="day-cell"></div>
+        <div class="blocks">
+          <div class="blk flying" style="grid-column: 2;"><span class="id">JN-0089 · AIR</span><span class="lane">KOPF→KTEB</span></div>
+          <div class="blk ferry" style="grid-column: 3;"><span class="id">— FERRY</span><span class="lane">KTEB→KOPF</span></div>
+          <div class="blk confirmed" style="grid-column: 4 / span 2;"><span class="id">JN-0093</span><span class="lane">KOPF→KASE · 2-leg</span></div>
+          <div class="blk empty" style="grid-column: 7;"><span class="id">EL-0327</span><span class="lane">KASE→KOPF · empty</span></div>
+          <div class="blk confirmed" style="grid-column: 9 / span 2;"><span class="id">JN-0100</span><span class="lane">KOPF→KMIA→KOPF</span></div>
+          <div class="blk maint" style="grid-column: 13 / span 2;"><span class="id">— A-CHECK</span><span class="lane">scheduled · 48h</span></div>
+        </div>
+      </div>
+
+      <!-- N812EX -->
+      <div class="ac-row" style="position: relative;">
+        <div class="ac-cell">
+          <span class="tail">N812EX</span>
+          <span class="name"><span class="t">Phenom 300E</span><span class="m">— LIGHT · KSFO</span></span>
+          <span class="util hi">79%</span>
+        </div>
+        <div class="day-cell"></div><div class="day-cell today"></div><div class="day-cell"></div><div class="day-cell"></div><div class="day-cell wknd"></div><div class="day-cell wknd"></div><div class="day-cell"></div><div class="day-cell"></div><div class="day-cell"></div><div class="day-cell"></div><div class="day-cell"></div><div class="day-cell wknd"></div><div class="day-cell wknd"></div><div class="day-cell"></div>
+        <div class="blocks">
+          <div class="blk confirmed" style="grid-column: 1;"><span class="id">JN-0086</span><span class="lane">KSFO→KSAF</span></div>
+          <div class="blk flying" style="grid-column: 2;"><span class="id">JN-0084 · AIR</span><span class="lane">KSFO→KSAF</span></div>
+          <div class="blk confirmed" style="grid-column: 4 / span 2;"><span class="id">JN-0094 · 2-leg</span><span class="lane">KSFO→KASE→KSFO</span></div>
+          <div class="blk empty" style="grid-column: 6;"><span class="id">EL-0329</span><span class="lane">KSFO→KVNY · empty</span></div>
+          <div class="blk confirmed" style="grid-column: 8 / span 2;"><span class="id">JN-0102</span><span class="lane">KVNY→KSFO</span></div>
+          <div class="blk confirmed" style="grid-column: 11 / span 2;"><span class="id">JN-0108</span><span class="lane">KSFO→KSEA→KSFO</span></div>
+          <div class="blk confirmed" style="grid-column: 14;"><span class="id">JN-0114</span><span class="lane">KSFO→KSAF</span></div>
+        </div>
+      </div>
+
+      <!-- N224SP -->
+      <div class="ac-row" style="position: relative;">
+        <div class="ac-cell">
+          <span class="tail">N224SP</span>
+          <span class="name"><span class="t">PC-24</span><span class="m">— LIGHT · KAPA</span></span>
+          <span class="util hi">61%</span>
+        </div>
+        <div class="day-cell"></div><div class="day-cell today"></div><div class="day-cell"></div><div class="day-cell"></div><div class="day-cell wknd"></div><div class="day-cell wknd"></div><div class="day-cell"></div><div class="day-cell"></div><div class="day-cell"></div><div class="day-cell"></div><div class="day-cell"></div><div class="day-cell wknd"></div><div class="day-cell wknd"></div><div class="day-cell"></div>
+        <div class="blocks">
+          <div class="blk hold" style="grid-column: 2;"><span class="id">— WX HOLD</span><span class="lane">KASE · IFR</span></div>
+          <div class="blk confirmed" style="grid-column: 3;"><span class="id">JN-0091</span><span class="lane">KASE→KAPA</span></div>
+          <div class="blk confirmed" style="grid-column: 5 / span 2;"><span class="id">JN-0095</span><span class="lane">KAPA→KJAC→KAPA</span></div>
+          <div class="blk empty" style="grid-column: 8;"><span class="id">EL-0331</span><span class="lane">KAPA→KASE · empty</span></div>
+          <div class="blk confirmed" style="grid-column: 10 / span 2;"><span class="id">JN-0106</span><span class="lane">KASE→KSDL→KASE</span></div>
+        </div>
+      </div>
+
+      <!-- VISTAJET GROUP -->
+      <div class="group-row">
+        <div class="lbl">— VISTAJET US <span class="n">· 3 visible · 71 total</span></div>
+        <div class="stats">
+          <span><span class="em">96.8%</span> on-time</span>
+          <span>29 YTD trips</span>
+          <span>$2.94M YTD</span>
+        </div>
+      </div>
+
+      <!-- N655VJ -->
+      <div class="ac-row" style="position: relative;">
+        <div class="ac-cell">
+          <span class="tail">N655VJ</span>
+          <span class="name"><span class="t">Global 6500</span><span class="m">— ULR · KIAD</span></span>
+          <span class="util hi">84%</span>
+        </div>
+        <div class="day-cell"></div><div class="day-cell today"></div><div class="day-cell"></div><div class="day-cell"></div><div class="day-cell wknd"></div><div class="day-cell wknd"></div><div class="day-cell"></div><div class="day-cell"></div><div class="day-cell"></div><div class="day-cell"></div><div class="day-cell"></div><div class="day-cell wknd"></div><div class="day-cell wknd"></div><div class="day-cell"></div>
+        <div class="blocks">
+          <div class="blk confirmed" style="grid-column: 1 / span 2;"><span class="id">JN-0088</span><span class="lane">KIAD→EGGW · 7h</span></div>
+          <div class="blk crew" style="grid-column: 3;"><span class="id">— REST</span><span class="lane">crew · 14h</span></div>
+          <div class="blk confirmed" style="grid-column: 4 / span 2;"><span class="id">JN-0096</span><span class="lane">EGGW→LSGG→LIRA</span></div>
+          <div class="blk ferry" style="grid-column: 6;"><span class="id">— FERRY</span><span class="lane">LIRA→LFMN</span></div>
+          <div class="blk confirmed" style="grid-column: 7 / span 3;"><span class="id">JN-0101</span><span class="lane">LFMN→KIAD · 9h</span></div>
+          <div class="blk hold" style="grid-column: 12 / span 2;"><span class="id">— HOLD</span><span class="lane">soft · Kallio</span></div>
+        </div>
+      </div>
+
+      <!-- N609VJ -->
+      <div class="ac-row" style="position: relative;">
+        <div class="ac-cell">
+          <span class="tail">N609VJ</span>
+          <span class="name"><span class="t">Praetor 600</span><span class="m">— SUPER-MID · KLAS</span></span>
+          <span class="util hi">66%</span>
+        </div>
+        <div class="day-cell"></div><div class="day-cell today"></div><div class="day-cell"></div><div class="day-cell"></div><div class="day-cell wknd"></div><div class="day-cell wknd"></div><div class="day-cell"></div><div class="day-cell"></div><div class="day-cell"></div><div class="day-cell"></div><div class="day-cell"></div><div class="day-cell wknd"></div><div class="day-cell wknd"></div><div class="day-cell"></div>
+        <div class="blocks">
+          <div class="blk confirmed" style="grid-column: 2;"><span class="id">JN-0090</span><span class="lane">KLAS→KSAF</span></div>
+          <div class="blk confirmed" style="grid-column: 3;"><span class="id">JN-0094</span><span class="lane">KSAF→KASE</span></div>
+          <div class="blk ferry" style="grid-column: 4;"><span class="id">— FERRY</span><span class="lane">KASE→KLAS</span></div>
+          <div class="blk empty" style="grid-column: 5;"><span class="id">EL-0334</span><span class="lane">KLAS→KORD · empty · 41%</span></div>
+          <div class="blk confirmed" style="grid-column: 7 / span 2;"><span class="id">JN-0100</span><span class="lane">KORD→KOPF→KORD</span></div>
+          <div class="blk confirmed" style="grid-column: 11 / span 2;"><span class="id">JN-0109</span><span class="lane">KORD→KLAS</span></div>
+        </div>
+      </div>
+
+      <!-- N221VJ -->
+      <div class="ac-row" style="position: relative;">
+        <div class="ac-cell">
+          <span class="tail">N221VJ</span>
+          <span class="name"><span class="t">Citation Latitude</span><span class="m">— MID · KDAL</span></span>
+          <span class="util lo">38%</span>
+        </div>
+        <div class="day-cell"></div><div class="day-cell today"></div><div class="day-cell"></div><div class="day-cell"></div><div class="day-cell wknd"></div><div class="day-cell wknd"></div><div class="day-cell"></div><div class="day-cell"></div><div class="day-cell"></div><div class="day-cell"></div><div class="day-cell"></div><div class="day-cell wknd"></div><div class="day-cell wknd"></div><div class="day-cell"></div>
+        <div class="blocks">
+          <div class="blk confirmed" style="grid-column: 2;"><span class="id">JN-0089</span><span class="lane">KDAL→KAUS</span></div>
+          <div class="blk empty" style="grid-column: 4;"><span class="id">EL-0337</span><span class="lane">KAUS→KDAL · empty · 55%</span></div>
+          <div class="blk maint" style="grid-column: 6 / span 2;"><span class="id">— B-CHECK</span><span class="lane">phase insp · -54h</span></div>
+          <div class="blk confirmed" style="grid-column: 9 / span 2;"><span class="id">JN-0104</span><span class="lane">KDAL→KOPF</span></div>
+          <div class="blk empty" style="grid-column: 13;"><span class="id">EL-0341</span><span class="lane">KOPF→KDAL · empty</span></div>
+        </div>
+      </div>
+
+      <!-- BANNED -->
+      <div class="group-row">
+        <div class="lbl" style="color: var(--error);">— HIGHLINE JETS · SUSPENDED <span class="n" style="color: var(--steel);">· locked from sourcing</span></div>
+        <div class="stats">
+          <span style="color: var(--error);">DO NOT BOOK</span>
+          <span>Post-incident review · 04/2025</span>
+        </div>
+      </div>
+      <div class="ac-row" style="position: relative;">
+        <div class="ac-cell">
+          <span class="tail" style="color: var(--error);">N611HL</span>
+          <span class="name"><span class="t" style="color: var(--bone-2);">Challenger 605</span><span class="m">— HEAVY · KAPA</span></span>
+          <span class="util" style="color: var(--error);">—</span>
+        </div>
+        <div class="day-cell"></div><div class="day-cell today"></div><div class="day-cell"></div><div class="day-cell"></div><div class="day-cell wknd"></div><div class="day-cell wknd"></div><div class="day-cell"></div><div class="day-cell"></div><div class="day-cell"></div><div class="day-cell"></div><div class="day-cell"></div><div class="day-cell wknd"></div><div class="day-cell wknd"></div><div class="day-cell"></div>
+        <div class="blocks">
+          <div class="blk banned" style="grid-column: 1 / span 14;"><span class="id">— SUSPENDED · NOT SOURCEABLE</span><span class="lane">post-incident review · 04/2025 · ban active</span></div>
+        </div>
+      </div>
+
+      <!-- Now line approximately at day 2 (Wed 12 Nov, today) middle -->
+      <div class="now-line" style="left: calc(240px + ((100% - 240px) / 14 * 1.5));"></div>
+    </div>
+
+    <!-- Legend -->
+    <div class="legend">
+      <span style="color: var(--steel);">LEGEND ·</span>
+      <div class="row"><span class="sw flying"></span>In flight</div>
+      <div class="row"><span class="sw confirmed"></span>Confirmed</div>
+      <div class="row"><span class="sw hold"></span>Soft hold</div>
+      <div class="row"><span class="sw empty"></span>Empty leg</div>
+      <div class="row"><span class="sw ferry"></span>Ferry / positioning</div>
+      <div class="row"><span class="sw maint"></span>Maintenance / AOG</div>
+      <div class="row"><span class="sw crew"></span>Crew rest</div>
+    </div>
+
+  </main>
+</div>
+
+<script>
+  function tick() {
+    const d = new Date();
+    const fmt = (tz) => d.toLocaleTimeString('en-GB', { timeZone: tz, hour: '2-digit', minute: '2-digit' });
+    document.getElementById('clkPT').textContent = fmt('America/Los_Angeles');
+  }
+  tick(); setInterval(tick, 30000);
+</script>
+</body>
+</html>

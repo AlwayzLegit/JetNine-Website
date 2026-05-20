@@ -1,0 +1,655 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>JetNine — FAQ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,500;9..144,600&family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="shared.css" />
+<style>
+  /* Hero */
+  .faq-hero { padding: 200px 0 80px; border-bottom: 1px solid var(--ink-3); }
+  .faq-hero .grid { display: grid; grid-template-columns: 1.4fr 1fr; gap: 64px; align-items: end; }
+  @media (max-width: 900px) { .faq-hero .grid { grid-template-columns: 1fr; gap: 32px; } }
+  .faq-hero .kicker { display: inline-flex; align-items: center; gap: 12px; margin-bottom: 32px; }
+  .faq-hero .kicker .dash { width: 32px; height: 1px; background: var(--clearance); }
+  .faq-hero h1 { max-width: 14ch; }
+  .faq-hero .lead { font-size: 18px; color: var(--bone-2); margin-top: 24px; line-height: 1.6; max-width: 56ch; }
+
+  .faq-search-card {
+    background: var(--ink-2); border: 1px solid var(--ink-3); border-radius: 4px;
+    padding: 28px; display: flex; flex-direction: column; gap: 16px;
+  }
+  .faq-search-card .lbl {
+    font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em; color: var(--steel); text-transform: uppercase;
+  }
+  .faq-search-input {
+    background: var(--ink); border: 1px solid var(--ink-3); border-radius: 2px;
+    padding: 14px 16px; color: var(--bone); font-family: var(--sans); font-size: 15px;
+    transition: border-color 200ms; width: 100%;
+  }
+  .faq-search-input:focus { outline: none; border-color: var(--clearance); }
+  .faq-search-input::placeholder { color: var(--steel); }
+  .faq-search-tags { display: flex; gap: 8px; flex-wrap: wrap; }
+  .faq-search-tag {
+    font-family: var(--mono); font-size: 10px; letter-spacing: 0.1em; color: var(--bone-2);
+    padding: 6px 10px; border: 1px solid var(--ink-3); border-radius: 2px;
+    cursor: pointer; transition: border-color 180ms, color 180ms;
+    text-transform: uppercase;
+  }
+  .faq-search-tag:hover { border-color: var(--clearance); color: var(--clearance); }
+
+  /* Body — sticky TOC + columns */
+  .faq-body { padding: 96px 0 160px; }
+  .faq-grid { display: grid; grid-template-columns: 240px 1fr; gap: 96px; align-items: start; }
+  @media (max-width: 900px) { .faq-grid { grid-template-columns: 1fr; gap: 48px; } }
+
+  .faq-toc {
+    position: sticky; top: 120px;
+    display: flex; flex-direction: column; gap: 4px;
+  }
+  .faq-toc .toc-head {
+    font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em; color: var(--steel);
+    text-transform: uppercase; padding-bottom: 14px; border-bottom: 1px solid var(--ink-3); margin-bottom: 14px;
+  }
+  .faq-toc a {
+    display: flex; gap: 12px; align-items: baseline;
+    padding: 8px 0; color: var(--bone-2); text-decoration: none;
+    font-size: 14px; transition: color 180ms;
+    border-left: 1px solid transparent; padding-left: 14px; margin-left: -14px;
+  }
+  .faq-toc a:hover { color: var(--bone); }
+  .faq-toc a.active { color: var(--clearance); border-left-color: var(--clearance); }
+  .faq-toc a .num {
+    font-family: var(--mono); font-size: 10px; color: var(--steel); letter-spacing: 0.1em;
+    min-width: 18px;
+  }
+  .faq-toc a.active .num { color: var(--clearance); }
+
+  .faq-cat { margin-bottom: 96px; }
+  .faq-cat:last-child { margin-bottom: 0; }
+  .faq-cat .cat-head {
+    display: grid; grid-template-columns: auto 1fr; gap: 24px; align-items: baseline;
+    padding-bottom: 24px; margin-bottom: 32px; border-bottom: 1px solid var(--ink-3);
+  }
+  .faq-cat .cat-num {
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.14em; color: var(--clearance);
+  }
+  .faq-cat .cat-name {
+    font-family: var(--serif); font-size: 36px; font-weight: 400; line-height: 1.15; letter-spacing: -0.005em;
+  }
+
+  /* Item — accordion */
+  .faq-item {
+    border-bottom: 1px solid var(--ink-3);
+  }
+  .faq-item summary {
+    display: grid; grid-template-columns: auto 1fr auto; gap: 24px; align-items: baseline;
+    padding: 24px 0; cursor: pointer; list-style: none;
+    font-size: 18px; line-height: 1.4; color: var(--bone);
+    transition: color 180ms;
+  }
+  .faq-item summary::-webkit-details-marker { display: none; }
+  .faq-item summary:hover { color: var(--clearance); }
+  .faq-item summary .q-num {
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.1em; color: var(--steel);
+    min-width: 36px;
+  }
+  .faq-item summary .q-icon {
+    width: 24px; height: 24px; position: relative; flex-shrink: 0;
+    transition: transform 240ms var(--ease-out);
+  }
+  .faq-item summary .q-icon::before, .faq-item summary .q-icon::after {
+    content: ""; position: absolute; background: var(--bone-2);
+    transition: background 180ms;
+  }
+  .faq-item summary .q-icon::before { top: 50%; left: 0; right: 0; height: 1px; transform: translateY(-50%); }
+  .faq-item summary .q-icon::after  { left: 50%; top: 0; bottom: 0; width: 1px; transform: translateX(-50%); transition: transform 240ms var(--ease-out), background 180ms; }
+  .faq-item[open] summary .q-icon::after { transform: translateX(-50%) rotate(90deg); opacity: 0; }
+  .faq-item[open] summary { color: var(--clearance); }
+  .faq-item[open] summary .q-icon::before { background: var(--clearance); }
+
+  .faq-item .answer {
+    padding: 0 0 32px 60px; max-width: 64ch;
+    color: var(--bone-2); font-size: 15px; line-height: 1.7;
+    animation: ansFade 280ms var(--ease-out);
+  }
+  @media (max-width: 600px) { .faq-item .answer { padding-left: 0; } }
+  @keyframes ansFade { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: translateY(0); } }
+  .faq-item .answer p + p { margin-top: 14px; }
+  .faq-item .answer ul { list-style: none; padding: 0; margin-top: 14px; display: flex; flex-direction: column; gap: 10px; }
+  .faq-item .answer ul li { padding-left: 22px; position: relative; }
+  .faq-item .answer ul li::before { content: "—"; position: absolute; left: 0; color: var(--clearance); font-family: var(--mono); }
+  .faq-item .answer .pull {
+    margin-top: 20px; padding: 16px 20px;
+    background: var(--ink-2); border-left: 2px solid var(--clearance); border-radius: 0 2px 2px 0;
+    font-family: var(--mono); font-size: 12px; letter-spacing: 0.04em; color: var(--bone);
+  }
+  .faq-item .answer a { color: var(--clearance); text-decoration: none; border-bottom: 1px solid var(--ink-4); transition: border-color 180ms; }
+  .faq-item .answer a:hover { border-bottom-color: var(--clearance); }
+
+  /* Still stuck — bottom CTA */
+  .faq-stuck { padding: 160px 0; border-top: 1px solid var(--ink-3); background: var(--ink-2); }
+  .faq-stuck .grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; margin-top: 64px; }
+  @media (max-width: 900px) { .faq-stuck .grid { grid-template-columns: 1fr; } }
+  .faq-stuck .kicker { display: inline-flex; align-items: center; gap: 12px; margin-bottom: 32px; }
+  .faq-stuck .kicker .dash { width: 32px; height: 1px; background: var(--clearance); }
+
+  .stuck-card {
+    background: var(--ink); border: 1px solid var(--ink-3); border-radius: 4px;
+    padding: 32px; display: flex; flex-direction: column; gap: 16px;
+    text-decoration: none; color: inherit;
+    transition: border-color 240ms;
+  }
+  .stuck-card:hover { border-color: var(--clearance); }
+  .stuck-card .num { font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em; color: var(--clearance); }
+  .stuck-card .h { font-family: var(--serif); font-size: 24px; font-weight: 400; line-height: 1.2; }
+  .stuck-card .v { font-family: var(--mono); font-size: 13px; color: var(--bone); letter-spacing: 0.04em; margin-top: auto; }
+  .stuck-card .d { font-size: 13px; color: var(--bone-2); line-height: 1.55; }
+</style>
+</head>
+<body>
+
+<nav class="nav" id="nav" data-screen-label="09 FAQ">
+  <div class="nav-inner">
+    <a href="homepage.html" class="brand" style="text-decoration: none;">JetNine <span class="nine">09</span></a>
+    <div class="nav-links">
+      <a href="homepage.html">Home</a>
+      <a href="aircraft.html">Aircraft</a>
+      <a href="how-it-works.html">How it works</a>
+      <a href="memberships.html">Memberships</a>
+      <a href="empty-legs.html">Empty legs</a>
+      <a href="about.html">About</a>
+      <a href="contact.html">Contact</a>
+    </div>
+    <div class="nav-cta">
+      <a class="phone-link" href="tel:+18188005678">+1 (818) 800-5678</a>
+      <a href="quote-step1.html" class="btn btn-primary btn-sm">Request quote <span class="arrow">→</span></a>
+    </div>
+  </div>
+</nav>
+
+<header class="faq-hero">
+  <div class="container">
+    <div class="grid">
+      <div>
+        <div class="reveal kicker"><span class="dash"></span> Frequently asked</div>
+        <h1 class="display-xl reveal" data-stagger="1">The questions<br/>before the call.</h1>
+        <p class="lead reveal" data-stagger="2">Forty-two answers, written by the dispatch desk, edited for the kind of question that comes in at 11pm on a Sunday. If yours isn't here, the line is open — same desk, same people.</p>
+      </div>
+      <div class="faq-search-card reveal" data-stagger="3">
+        <span class="lbl">— SEARCH</span>
+        <input type="search" class="faq-search-input" id="faqSearch" placeholder="Type a word — pets, lavatory, KTEB, deposit…" />
+        <div class="faq-search-tags">
+          <span class="faq-search-tag" onclick="document.getElementById('faqSearch').value='deposit'; runFilter();">— Deposit</span>
+          <span class="faq-search-tag" onclick="document.getElementById('faqSearch').value='pets'; runFilter();">— Pets</span>
+          <span class="faq-search-tag" onclick="document.getElementById('faqSearch').value='wifi'; runFilter();">— Wi-Fi</span>
+          <span class="faq-search-tag" onclick="document.getElementById('faqSearch').value='cancel'; runFilter();">— Cancellation</span>
+          <span class="faq-search-tag" onclick="document.getElementById('faqSearch').value='catering'; runFilter();">— Catering</span>
+          <span class="faq-search-tag" onclick="document.getElementById('faqSearch').value='customs'; runFilter();">— Customs</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<section class="faq-body">
+  <div class="container">
+    <div class="faq-grid">
+      <aside class="faq-toc">
+        <div class="toc-head">— CONTENTS</div>
+        <a href="#booking" class="active"><span class="num">01</span><span>Booking &amp; quotes</span></a>
+        <a href="#pricing"><span class="num">02</span><span>Pricing &amp; payment</span></a>
+        <a href="#aircraft"><span class="num">03</span><span>Aircraft &amp; cabin</span></a>
+        <a href="#flight"><span class="num">04</span><span>The flight itself</span></a>
+        <a href="#international"><span class="num">05</span><span>International</span></a>
+        <a href="#changes"><span class="num">06</span><span>Changes &amp; cancellations</span></a>
+        <a href="#safety"><span class="num">07</span><span>Safety &amp; standards</span></a>
+        <a href="#members"><span class="num">08</span><span>Memberships</span></a>
+      </aside>
+
+      <main>
+        <!-- 01 -->
+        <section class="faq-cat" id="booking">
+          <div class="cat-head">
+            <span class="cat-num">— 01</span>
+            <h2 class="cat-name">Booking &amp; quotes.</h2>
+          </div>
+
+          <details class="faq-item" open>
+            <summary><span class="q-num">01</span><span>How fast can you actually get me a quote?</span><span class="q-icon"></span></summary>
+            <div class="answer">
+              <p>Inside thirty minutes during business hours. Often a lot faster — most domestic city pairs come back in under fifteen. International, multi-stop, or unusual routings can take up to two hours because the dispatcher is sourcing across multiple operators and checking permitting.</p>
+              <p>The quote you get is specific. Not a price band — three to five named airframes with tail numbers, photos, year of manufacture, operator, and an all-in price.</p>
+              <div class="pull">— P95 quote turnaround, last 12 months: 22 minutes.</div>
+            </div>
+          </details>
+
+          <details class="faq-item">
+            <summary><span class="q-num">02</span><span>What's the latest I can book before a flight?</span><span class="q-icon"></span></summary>
+            <div class="answer">
+              <p>Six hours wheels-up is reliable for most US city pairs, light jet to heavy. Three hours is achievable on busy lanes (KTEB ↔ KOPF, KVNY ↔ KSFO) where positioned aircraft and crews are abundant. International with customs adds two to four hours of overhead.</p>
+              <p>Below three hours we'll still pick up the phone and try — but the price premium climbs steeply and availability narrows.</p>
+            </div>
+          </details>
+
+          <details class="faq-item">
+            <summary><span class="q-num">03</span><span>Do I need an account to get a quote?</span><span class="q-icon"></span></summary>
+            <div class="answer">
+              <p>No. The quote form needs a name, contact, route and date — that's it. You'll only create an account if you decide to book, and the dispatcher can do that for you on the phone in two minutes.</p>
+            </div>
+          </details>
+
+          <details class="faq-item">
+            <summary><span class="q-num">04</span><span>Will my information get sent to operators?</span><span class="q-icon"></span></summary>
+            <div class="answer">
+              <p>No. Operators receive the route, date, passenger count, and category — never your name, contact, or any details that identify you. The dispatcher signs the contract on JetNine's paper, and you sign with us.</p>
+            </div>
+          </details>
+
+          <details class="faq-item">
+            <summary><span class="q-num">05</span><span>Can I book a one-way flight?</span><span class="q-icon"></span></summary>
+            <div class="answer">
+              <p>Yes — every flight is priced one-way. Most charters in our category are. You're not paying for the aircraft to come back unless you ask us to hold it for a return leg.</p>
+              <p>If your route happens to match an existing repositioning leg, you'll see significant savings on the <a href="empty-legs.html">empty legs board</a>.</p>
+            </div>
+          </details>
+        </section>
+
+        <!-- 02 -->
+        <section class="faq-cat" id="pricing">
+          <div class="cat-head">
+            <span class="cat-num">— 02</span>
+            <h2 class="cat-name">Pricing &amp; payment.</h2>
+          </div>
+
+          <details class="faq-item">
+            <summary><span class="q-num">06</span><span>What's actually included in the price?</span><span class="q-icon"></span></summary>
+            <div class="answer">
+              <p>Everything we can see in advance. Specifically:</p>
+              <ul>
+                <li>Aircraft &amp; crew time, fuel, all surcharges</li>
+                <li>Federal Excise Tax (7.5%)</li>
+                <li>Segment fees, landing fees, ramp &amp; FBO handling</li>
+                <li>International handling &amp; customs (where applicable)</li>
+                <li>Standard catering and onboard beverage stock</li>
+              </ul>
+              <p>What's not included: ground transport (we book it; passed through at cost), in-flight catering upgrades above standard, and de-icing if required day-of (rare; charged at operator cost). All of that is itemized on the trip sheet before you sign.</p>
+            </div>
+          </details>
+
+          <details class="faq-item">
+            <summary><span class="q-num">07</span><span>How do I pay?</span><span class="q-icon"></span></summary>
+            <div class="answer">
+              <p>Bank wire is the default. ACH and credit card are accepted for trips under $50,000 (cards add 3% to cover processor fees — we don't mark this up). Frequent clients can run on net-30 invoicing once a relationship is established.</p>
+              <p>Reserve members and Card holders pay against the deposit balance — the dispatcher debits the trip cost on confirmation, and you see the running balance on your account dashboard.</p>
+            </div>
+          </details>
+
+          <details class="faq-item">
+            <summary><span class="q-num">08</span><span>Do I pay a deposit, or the full amount?</span><span class="q-icon"></span></summary>
+            <div class="answer">
+              <p>Full payment is required before wheels-up. Industry standard. The dispatcher will give you a clear timeline on the trip sheet — typically wire received 24h before departure for domestic, 48h for international.</p>
+              <p>For larger or repeat clients we'll work with shorter windows. Just ask.</p>
+            </div>
+          </details>
+
+          <details class="faq-item">
+            <summary><span class="q-num">09</span><span>Why does the same route cost different amounts on different days?</span><span class="q-icon"></span></summary>
+            <div class="answer">
+              <p>Three things, mostly. (1) Demand — Friday afternoon out of KTEB is the most expensive slot in private aviation. (2) Aircraft positioning — if a midsize is finishing a charter and sitting at your departure airport, the price drops. (3) Operator availability — fewer operators willing to release on short notice means a higher floor.</p>
+              <p>The dispatcher will tell you, on the call, which of these is moving the price — and what flexibility on dates or airports would do to it.</p>
+            </div>
+          </details>
+
+          <details class="faq-item">
+            <summary><span class="q-num">10</span><span>Are quotes negotiable?</span><span class="q-icon"></span></summary>
+            <div class="answer">
+              <p>The quoted price is the operator's price plus our fixed markup. There isn't margin to negotiate down — the markup is the same on a $25,000 trip as on a $250,000 trip, and you can see it on the invoice.</p>
+              <p>What we <em>can</em> do: source again with different parameters. Different airframe, slightly different times, alternate airport pair. That's where price moves, and it's the dispatcher's job to find it.</p>
+            </div>
+          </details>
+        </section>
+
+        <!-- 03 -->
+        <section class="faq-cat" id="aircraft">
+          <div class="cat-head">
+            <span class="cat-num">— 03</span>
+            <h2 class="cat-name">Aircraft &amp; cabin.</h2>
+          </div>
+
+          <details class="faq-item">
+            <summary><span class="q-num">11</span><span>How do I know which category I need?</span><span class="q-icon"></span></summary>
+            <div class="answer">
+              <p>The dispatcher decides this with you on the call. Inputs: number of passengers, route distance, baggage, whether stand-up cabin matters, whether you need a lavatory or just a toilet. We'll quote across two categories if your trip sits on the boundary so you can see the price-vs-comfort tradeoff.</p>
+              <p>Or browse: <a href="aircraft.html">all six categories side-by-side</a>.</p>
+            </div>
+          </details>
+
+          <details class="faq-item">
+            <summary><span class="q-num">12</span><span>Can I see the specific aircraft before I book?</span><span class="q-icon"></span></summary>
+            <div class="answer">
+              <p>Yes. Every quote names specific tail numbers. You'll see year of manufacture, cabin photos, year of last refurb, and operator. If you have an aversion to a particular type or operator, the dispatcher will source around it.</p>
+            </div>
+          </details>
+
+          <details class="faq-item">
+            <summary><span class="q-num">13</span><span>Are pets allowed?</span><span class="q-icon"></span></summary>
+            <div class="answer">
+              <p>On almost every aircraft in our network, yes — and they sit in the cabin with you, not in cargo. Tell the dispatcher: species, weight, whether they're crated, and any handling notes. We source aircraft that allow pets and will note it on the trip sheet so the crew is prepared.</p>
+              <p>International pet travel needs paperwork (health certificates, EU pet passports). The dispatcher will tell you what you need and how far in advance to start.</p>
+            </div>
+          </details>
+
+          <details class="faq-item">
+            <summary><span class="q-num">14</span><span>Will there be Wi-Fi?</span><span class="q-icon"></span></summary>
+            <div class="answer">
+              <p>Most super-mid, heavy, and ultra-long-range aircraft have Wi-Fi installed. Many midsize do. Light jets and turboprops typically don't. The quote will tell you — and "Wi-Fi required" can be set as a preference and we'll only source aircraft that have it.</p>
+              <p>Speed varies. Domestic Ka-band on a heavy is genuinely good (50+ Mbps). Older Ku systems on transoceanic legs are usable for email, not video calls.</p>
+            </div>
+          </details>
+
+          <details class="faq-item">
+            <summary><span class="q-num">15</span><span>What about a flight attendant?</span><span class="q-icon"></span></summary>
+            <div class="answer">
+              <p>Standard on heavy and ultra-long-range. Optional on super-mid (often included on flights over 4 hours). Available on midsize for a flat add-on (~$1,800–2,500). Light jets and below: not typically.</p>
+            </div>
+          </details>
+        </section>
+
+        <!-- 04 -->
+        <section class="faq-cat" id="flight">
+          <div class="cat-head">
+            <span class="cat-num">— 04</span>
+            <h2 class="cat-name">The flight itself.</h2>
+          </div>
+
+          <details class="faq-item">
+            <summary><span class="q-num">16</span><span>How early do I need to arrive at the FBO?</span><span class="q-icon"></span></summary>
+            <div class="answer">
+              <p>Fifteen minutes is plenty for domestic. The crew is on board, the FBO has your details, you walk straight to the aircraft. International with customs: thirty minutes for departures, sometimes nothing on arrivals (cleared on the ramp).</p>
+            </div>
+          </details>
+
+          <details class="faq-item">
+            <summary><span class="q-num">17</span><span>Is there security screening?</span><span class="q-icon"></span></summary>
+            <div class="answer">
+              <p>Not in the TSA sense. Operators verify passenger identity (TSA Twelve-Five Standard Security Program for aircraft over 12,500 lbs) and may check ID at the FBO. No bag X-rays, no shoes off, no liquids restrictions. International outbound flights still go through customs &amp; immigration at the FBO.</p>
+            </div>
+          </details>
+
+          <details class="faq-item">
+            <summary><span class="q-num">18</span><span>Can I bring more bags than the published count?</span><span class="q-icon"></span></summary>
+            <div class="answer">
+              <p>Probably. Tell the dispatcher in advance and we'll confirm baggage volume on the specific airframe. If you're at the limit on a light jet, sometimes a midsize with a slightly larger hold is the same price.</p>
+            </div>
+          </details>
+
+          <details class="faq-item">
+            <summary><span class="q-num">19</span><span>Can I drive directly to the aircraft?</span><span class="q-icon"></span></summary>
+            <div class="answer">
+              <p>At most FBOs in our network: yes. Your car is escorted onto the ramp by FBO staff and you transfer at the aircraft. A handful of FBOs (mainly slot-restricted European airports) don't allow ramp access — the dispatcher will tell you on the trip sheet.</p>
+            </div>
+          </details>
+        </section>
+
+        <!-- 05 -->
+        <section class="faq-cat" id="international">
+          <div class="cat-head">
+            <span class="cat-num">— 05</span>
+            <h2 class="cat-name">International.</h2>
+          </div>
+
+          <details class="faq-item">
+            <summary><span class="q-num">20</span><span>What does customs look like on a private flight?</span><span class="q-icon"></span></summary>
+            <div class="answer">
+              <p>Departure: thirty minutes earlier at the FBO so a CBP officer can check passports. Arrival: usually faster than commercial — the officer comes to the aircraft or meets you in the FBO, stamps passports, and you're out the door.</p>
+              <p>Some airports require advance APIS filing (we handle it), some require the GenDec (we handle it), and some smaller fields don't have customs and route you to a nearby AOE first.</p>
+            </div>
+          </details>
+
+          <details class="faq-item">
+            <summary><span class="q-num">21</span><span>Are there destinations you don't fly to?</span><span class="q-icon"></span></summary>
+            <div class="answer">
+              <p>Sanctioned countries (US OFAC list), active conflict zones, and a handful of fields with structural issues we won't operate into. Everywhere else, we'll find an aircraft and operator. About 5,000 airports worldwide are reliably available; another 5,000 are case-by-case.</p>
+            </div>
+          </details>
+
+          <details class="faq-item">
+            <summary><span class="q-num">22</span><span>Do I need a visa for the crew's stops?</span><span class="q-icon"></span></summary>
+            <div class="answer">
+              <p>Crew permits are the operator's problem, not yours. Your visa requirements are based on your passport and destination — same as commercial. The dispatcher will flag visa requirements on the trip sheet but recommends checking with your travel attorney for anything non-routine.</p>
+            </div>
+          </details>
+        </section>
+
+        <!-- 06 -->
+        <section class="faq-cat" id="changes">
+          <div class="cat-head">
+            <span class="cat-num">— 06</span>
+            <h2 class="cat-name">Changes &amp; cancellations.</h2>
+          </div>
+
+          <details class="faq-item">
+            <summary><span class="q-num">23</span><span>Can I change times or airports after booking?</span><span class="q-icon"></span></summary>
+            <div class="answer">
+              <p>Yes. Inside 48 hours of departure: usually free for time shifts of a couple hours, sometimes a re-positioning fee for airport changes. Inside 24 hours: depends on the operator and aircraft availability; the dispatcher will quote you the delta before you commit.</p>
+              <p>Adding passengers, catering changes, baggage: free, just call.</p>
+            </div>
+          </details>
+
+          <details class="faq-item">
+            <summary><span class="q-num">24</span><span>What happens if I cancel?</span><span class="q-icon"></span></summary>
+            <div class="answer">
+              <p>Outside 72 hours: full refund minus a small admin fee.</p>
+              <p>Inside 72 hours: 25% of trip cost.</p>
+              <p>Inside 24 hours: 50% of trip cost.</p>
+              <p>Inside 6 hours: full charter cost.</p>
+              <p>Empty legs and one-off discounted flights have stricter terms — the dispatcher will tell you on the call. Reserve and Card members get more flexibility.</p>
+            </div>
+          </details>
+
+          <details class="faq-item">
+            <summary><span class="q-num">25</span><span>What if you cancel?</span><span class="q-icon"></span></summary>
+            <div class="answer">
+              <p>If we can't deliver the aircraft we quoted — mechanical, crew, or weather we should have caught — we re-source on our cost and get you in the air. The dispatcher works the phones for as long as it takes; we've put clients on backup aircraft within 90 minutes of a cancellation.</p>
+              <p>Weather no-go is a different beast. Safety calls we don't argue with. You get a full refund and we'll re-fly when the weather clears.</p>
+            </div>
+          </details>
+        </section>
+
+        <!-- 07 -->
+        <section class="faq-cat" id="safety">
+          <div class="cat-head">
+            <span class="cat-num">— 07</span>
+            <h2 class="cat-name">Safety &amp; standards.</h2>
+          </div>
+
+          <details class="faq-item">
+            <summary><span class="q-num">26</span><span>How do you vet operators?</span><span class="q-icon"></span></summary>
+            <div class="answer">
+              <p>Hard floor: ARG/US Gold Plus or Wyvern Wingman. Plus a JetNine review of the operator's last five years of FAA enforcement actions, insurance coverage ($300M minimum), and pilot experience minimums. Roughly 12% of US Part 135 carriers clear our floor.</p>
+              <p>Full standards: <a href="safety.html">safety page</a>.</p>
+            </div>
+          </details>
+
+          <details class="faq-item">
+            <summary><span class="q-num">27</span><span>Are there always two pilots?</span><span class="q-icon"></span></summary>
+            <div class="answer">
+              <p>Yes. Single-pilot operations exist in Part 135 — we don't allow them on JetNine flights regardless of the aircraft type. Both pilots type-rated on the airframe, both current, both meeting our duty-time standards.</p>
+            </div>
+          </details>
+
+          <details class="faq-item">
+            <summary><span class="q-num">28</span><span>What's your insurance coverage?</span><span class="q-icon"></span></summary>
+            <div class="answer">
+              <p>$300M combined single-limit liability minimum on every trip. Most heavy and ULR aircraft in our network carry $500M to $1B. Specifics on the trip sheet.</p>
+            </div>
+          </details>
+        </section>
+
+        <!-- 08 -->
+        <section class="faq-cat" id="members">
+          <div class="cat-head">
+            <span class="cat-num">— 08</span>
+            <h2 class="cat-name">Memberships.</h2>
+          </div>
+
+          <details class="faq-item">
+            <summary><span class="q-num">29</span><span>Should I join Reserve or Card?</span><span class="q-icon"></span></summary>
+            <div class="answer">
+              <p>Quick math. If you fly 25 hours a year and want price certainty: Card. If you fly 50+ hours and want guaranteed availability with shorter call-out windows: Reserve. If you fly under 25 hours: stay on-demand. Membership only pays back at volume.</p>
+              <p>Full breakdown: <a href="memberships.html">memberships page</a>.</p>
+            </div>
+          </details>
+
+          <details class="faq-item">
+            <summary><span class="q-num">30</span><span>Does the deposit expire?</span><span class="q-icon"></span></summary>
+            <div class="answer">
+              <p>No. Card balances roll forward indefinitely. If you fly less than expected one year, the balance is still there next year at the same locked rates.</p>
+            </div>
+          </details>
+
+          <details class="faq-item">
+            <summary><span class="q-num">31</span><span>Can I refund the unused deposit?</span><span class="q-icon"></span></summary>
+            <div class="answer">
+              <p>Yes, anytime, with 30 days' notice. We'll refund the unused balance minus an admin fee. No questions asked, no retention sequence.</p>
+            </div>
+          </details>
+        </section>
+      </main>
+    </div>
+  </div>
+</section>
+
+<section class="faq-stuck">
+  <div class="container">
+    <div class="reveal kicker"><span class="dash"></span> Still stuck?</div>
+    <h2 class="display-l reveal" data-stagger="1" style="max-width: 16ch;">Pick a channel.<br/>Real human, every one.</h2>
+
+    <div class="grid">
+      <a href="tel:+18188005678" class="stuck-card reveal" data-stagger="1">
+        <span class="num">— CHANNEL 01</span>
+        <span class="h">Call dispatch.</span>
+        <span class="d">Senior dispatcher answers, average pickup under 20 seconds.</span>
+        <span class="v">+1 (818) 800-5678</span>
+      </a>
+      <a href="mailto:dispatch@jetnine.com" class="stuck-card reveal" data-stagger="2">
+        <span class="num">— CHANNEL 02</span>
+        <span class="h">Email the desk.</span>
+        <span class="d">Same desk, in writing. Reply within 30 minutes during business hours.</span>
+        <span class="v">dispatch@jetnine.com</span>
+      </a>
+      <a href="quote-step1.html" class="stuck-card reveal" data-stagger="3">
+        <span class="num">— CHANNEL 03</span>
+        <span class="h">Start a quote.</span>
+        <span class="d">Four-step form. Specific aircraft and pricing back inside thirty minutes.</span>
+        <span class="v">Begin →</span>
+      </a>
+    </div>
+  </div>
+</section>
+
+<footer class="docfoot">
+  <div class="container">
+    <div class="footer-grid">
+      <div class="foot-col">
+        <div class="brand" style="font-size: 28px;">JetNine <span class="nine" style="font-size: 12px;">09</span></div>
+        <p class="body" style="margin-top: 16px; max-width: 320px;">Private jet charter, anywhere, anytime. Twenty thousand aircraft worldwide, one number to call.</p>
+        <div style="margin-top: 24px; display: flex; flex-direction: column; gap: 8px;">
+          <a class="phone-link" style="font-size:14px;" href="tel:+18188005678">+1 (818) 800-5678</a>
+          <a class="phone-link" style="font-size:14px;" href="mailto:dispatch@jetnine.com">dispatch@jetnine.com</a>
+        </div>
+      </div>
+      <div class="foot-col"><h4>Sitemap</h4><ul>
+        <li><a href="homepage.html">Home</a></li>
+        <li><a href="aircraft.html">Aircraft</a></li>
+        <li><a href="how-it-works.html">How it works</a></li>
+        <li><a href="memberships.html">Memberships</a></li>
+        <li><a href="empty-legs.html">Empty legs</a></li>
+        <li><a href="about.html">About</a></li>
+        <li><a href="contact.html">Contact</a></li>
+        <li><a href="faq.html">FAQ</a></li>
+      </ul></div>
+      <div class="foot-col"><h4>Categories</h4><ul>
+        <li><a href="aircraft.html">Turboprop</a></li>
+        <li><a href="aircraft-light.html">Light</a></li>
+        <li><a href="aircraft-midsize.html">Midsize</a></li>
+        <li><a href="aircraft-supermid.html">Super-mid</a></li>
+        <li><a href="aircraft-heavy.html">Heavy</a></li>
+        <li><a href="aircraft-ultra.html">Ultra long range</a></li>
+      </ul></div>
+      <div class="foot-col">
+        <h4>Legal</h4>
+        <ul style="gap: 8px;">
+          <li><a href="#">Privacy</a></li>
+          <li><a href="#">Terms</a></li>
+          <li><a href="#">Part 295 broker disclosure</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="foot-bottom">
+      <div>JETNINE © 2026 — LOS ANGELES</div>
+      <div style="display: flex; gap: 24px;">
+        <a href="#" style="color: var(--steel); text-decoration: none;">X</a>
+        <a href="#" style="color: var(--steel); text-decoration: none;">IG</a>
+        <a href="#" style="color: var(--steel); text-decoration: none;">LI</a>
+      </div>
+      <div style="max-width: 480px; text-align: right;">JetNine is an indirect air carrier — Part 295 broker. All flights operated by FAA Part 135 certified carriers.</div>
+    </div>
+  </div>
+</footer>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script type="text/babel" src="tweaks-panel.jsx"></script>
+<div id="tweaks-root"></div>
+<script type="text/babel" src="tweaks.jsx"></script>
+
+<script>
+  const nav = document.getElementById('nav');
+  function updateNav() { if (window.scrollY > 60) nav.classList.add('scrolled'); else nav.classList.remove('scrolled'); }
+  window.addEventListener('scroll', updateNav, { passive: true }); updateNav();
+
+  const reveals = document.querySelectorAll('.reveal');
+  const revObs = new IntersectionObserver((entries) => {
+    entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('in'); revObs.unobserve(e.target); } });
+  }, { threshold: 0.15 });
+  reveals.forEach(r => revObs.observe(r));
+
+  // TOC active state
+  const tocLinks = document.querySelectorAll('.faq-toc a');
+  const tocSections = document.querySelectorAll('.faq-cat');
+  const tocObs = new IntersectionObserver((entries) => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        const id = e.target.id;
+        tocLinks.forEach(l => l.classList.toggle('active', l.getAttribute('href') === '#' + id));
+      }
+    });
+  }, { rootMargin: '-30% 0px -60% 0px' });
+  tocSections.forEach(s => tocObs.observe(s));
+
+  // Search filter
+  const search = document.getElementById('faqSearch');
+  function runFilter() {
+    const q = search.value.trim().toLowerCase();
+    document.querySelectorAll('.faq-item').forEach(it => {
+      const text = it.textContent.toLowerCase();
+      const match = !q || text.includes(q);
+      it.style.display = match ? '' : 'none';
+      if (q && match) it.setAttribute('open', '');
+    });
+    document.querySelectorAll('.faq-cat').forEach(cat => {
+      const visible = [...cat.querySelectorAll('.faq-item')].some(it => it.style.display !== 'none');
+      cat.style.display = visible ? '' : 'none';
+    });
+  }
+  search.addEventListener('input', runFilter);
+  window.runFilter = runFilter;
+</script>
+</body>
+</html>

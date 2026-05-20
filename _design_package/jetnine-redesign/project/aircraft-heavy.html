@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>JetNine — Heavy Jets</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,500;9..144,600&family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="shared.css" />
+<style>
+  .cat-hero { position: relative; padding-top: 120px; display: grid; grid-template-columns: 1fr 1fr; min-height: 100vh; align-items: stretch; }
+  @media (max-width: 1024px) { .cat-hero { grid-template-columns: 1fr; min-height: auto; } }
+  .cat-hero-left { padding: 96px var(--pad-x) 96px; max-width: calc(var(--container) / 2 + 64px); margin-left: auto; }
+  @media (max-width: 1024px) { .cat-hero-left { padding: 48px var(--pad-x); margin: 0; max-width: 100%; } }
+  .cat-hero-left .kicker { display: inline-flex; align-items: center; gap: 12px; margin-bottom: 24px; }
+  .cat-hero-left .kicker .dash { width: 32px; height: 1px; background: var(--clearance); }
+  .cat-hero-left h1 { max-width: 12ch; }
+  .cat-hero-left .lead { font-size: 18px; color: var(--bone-2); max-width: 50ch; margin: 32px 0 48px; line-height: 1.55; }
+  .spec-card { background: var(--ink-2); border: 1px solid var(--ink-3); border-radius: 4px; padding: 32px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; margin-bottom: 48px; }
+  @media (max-width: 600px) { .spec-card { grid-template-columns: repeat(2, 1fr); } }
+  .spec-card .item { display: flex; flex-direction: column; gap: 8px; }
+  .spec-card .lbl { font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--steel); }
+  .spec-card .val { font-family: var(--serif); font-size: 28px; font-weight: 300; color: var(--bone); letter-spacing: -0.01em; line-height: 1; }
+  .spec-card .sub { font-family: var(--mono); font-size: 11px; color: var(--bone-2); letter-spacing: 0.06em; }
+  .cat-hero-right { position: relative; min-height: 600px; background: linear-gradient(135deg, #14181E, #07080B); overflow: hidden; }
+  @media (max-width: 1024px) { .cat-hero-right { min-height: 400px; } }
+  .cat-hero-right .placeholder { position: absolute; inset: 0; }
+
+  .cabin { padding: 160px 0; border-top: 1px solid var(--ink-3); }
+  @media (max-width: 900px) { .cabin { padding: 96px 0; } }
+  .cabin-head { display: grid; grid-template-columns: 1fr 1.6fr; gap: 64px; margin-bottom: 64px; align-items: end; }
+  @media (max-width: 900px) { .cabin-head { grid-template-columns: 1fr; gap: 24px; } }
+  .cabin-head .kicker { display: inline-flex; align-items: center; gap: 12px; }
+  .cabin-head .kicker .dash { width: 32px; height: 1px; background: var(--clearance); }
+  .cabin-grid { display: grid; grid-template-columns: 2fr 1fr; gap: 24px; grid-template-rows: 1fr 1fr; }
+  @media (max-width: 900px) { .cabin-grid { grid-template-columns: 1fr; grid-template-rows: auto; } }
+  .cabin-grid .a { grid-row: 1 / 3; aspect-ratio: 4/5; }
+  .cabin-grid .b { aspect-ratio: 4/3; }
+  .cabin-grid .c { aspect-ratio: 4/3; }
+  @media (max-width: 900px) { .cabin-grid .a { grid-row: auto; aspect-ratio: 16/10; } .cabin-grid .b, .cabin-grid .c { aspect-ratio: 16/10; } }
+  .cabin-grid > div { border-radius: 4px; border: 1px solid var(--ink-3); }
+  .cabin-caption { margin-top: 32px; max-width: 65ch; color: var(--bone-2); font-size: 16px; line-height: 1.7; }
+
+  .samples { padding: 160px 0; border-top: 1px solid var(--ink-3); }
+  @media (max-width: 900px) { .samples { padding: 96px 0; } }
+  .sample-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
+  @media (max-width: 1024px) { .sample-grid { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 700px) { .sample-grid { grid-template-columns: 1fr; } }
+  .sample-card { background: var(--ink-2); border: 1px solid var(--ink-3); border-radius: 4px; overflow: hidden; transition: border-color 240ms, transform 300ms var(--ease-out); }
+  .sample-card:hover { border-color: rgba(232,226,210,0.3); transform: translateY(-2px); }
+  .sample-card .ph { aspect-ratio: 16/10; }
+  .sample-card .body { padding: 24px; }
+  .sample-card .badge { display: inline-block; font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--clearance); border: 1px solid var(--ink-3); padding: 4px 8px; border-radius: 2px; margin-bottom: 16px; }
+  .sample-card h3 { font-family: var(--serif); font-size: 22px; font-weight: 400; margin-bottom: 8px; }
+  .sample-card .tail { font-family: var(--mono); font-size: 11px; color: var(--steel); letter-spacing: 0.06em; margin-bottom: 20px; }
+  .sample-card .specs { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; padding-top: 20px; border-top: 1px solid var(--ink-3); }
+  @media (max-width: 600px) { .sample-card .specs { grid-template-columns: repeat(2, 1fr); } }
+  .sample-card .specs > div { display: flex; flex-direction: column; gap: 4px; }
+  .sample-card .specs .lbl { font-family: var(--mono); font-size: 9px; letter-spacing: 0.12em; color: var(--steel); text-transform: uppercase; }
+  .sample-card .specs .val { font-family: var(--mono); font-size: 12px; color: var(--bone); }
+
+  .bestfor { padding: 160px 0; border-top: 1px solid var(--ink-3); }
+  @media (max-width: 900px) { .bestfor { padding: 96px 0; } }
+  .bestfor-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 24px; }
+  @media (max-width: 1024px) { .bestfor-grid { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 600px) { .bestfor-grid { grid-template-columns: 1fr; } }
+  .bestfor-tile { padding: 32px; background: var(--ink-2); border: 1px solid var(--ink-3); border-radius: 4px; display: flex; flex-direction: column; gap: 16px; transition: border-color 240ms; }
+  .bestfor-tile:hover { border-color: rgba(232,226,210,0.3); }
+  .bestfor-tile .icon { color: var(--clearance); }
+  .bestfor-tile h3 { font-family: var(--serif); font-size: 20px; font-weight: 400; line-height: 1.3; }
+  .bestfor-tile p { font-size: 14px; color: var(--bone-2); line-height: 1.6; }
+
+  .teaser { padding: 96px 0; border-top: 1px solid var(--ink-3); background: var(--ink-2); }
+  .teaser-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+  @media (max-width: 900px) { .teaser-grid { grid-template-columns: 1fr; } }
+  .teaser-card { padding: 40px; background: var(--ink); border: 1px solid var(--ink-3); border-radius: 4px; transition: border-color 240ms; text-decoration: none; color: inherit; display: block; }
+  .teaser-card:hover { border-color: rgba(232,226,210,0.3); }
+  .teaser-card .lbl { font-family: var(--mono); font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--steel); margin-bottom: 12px; }
+  .teaser-card h3 { font-family: var(--serif); font-size: 28px; font-weight: 400; margin-bottom: 12px; }
+  .teaser-card p { color: var(--bone-2); font-size: 14px; line-height: 1.6; }
+  .teaser-card .more { margin-top: 24px; font-family: var(--mono); font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--clearance); display: inline-flex; align-items: center; gap: 8px; }
+</style>
+</head>
+<body>
+
+<nav class="nav" id="nav" data-screen-label="03 Heavy Detail">
+  <div class="nav-inner">
+    <a href="homepage.html" class="brand" style="text-decoration: none;">JetNine <span class="nine">09</span></a>
+    <div class="nav-links">
+      <a href="homepage.html">Home</a>
+      <a href="aircraft.html" class="active">Aircraft</a>
+      <a href="#">Programs</a>
+      <a href="#">Why JetNine</a>
+      <a href="#">About</a>
+      <a href="#">Contact</a>
+    </div>
+    <div class="nav-cta">
+      <a class="phone-link" href="tel:+18188005678">+1 (818) 800-5678</a>
+      <a href="quote-step1.html" class="btn btn-primary btn-sm">Request quote <span class="arrow">→</span></a>
+    </div>
+  </div>
+</nav>
+
+<header class="cat-hero">
+  <div class="cat-hero-left">
+    <div class="kicker reveal"><span class="dash"></span> Heavy · category 05 of 06</div>
+    <h1 class="display-xl reveal" data-stagger="1">Heavy jets.</h1>
+    <p class="lead reveal" data-stagger="2">Two cabins, a galley a chef can work in, beds that are actually beds. Twelve to fourteen passengers transoceanic with crew rest. The category for full-night sectors and groups that need to arrive ready, not recovering.</p>
+    <div class="spec-card reveal" data-stagger="3">
+      <div class="item"><div class="lbl">PASSENGERS</div><div class="val">12–14</div><div class="sub">PAX</div></div>
+      <div class="item"><div class="lbl">RANGE</div><div class="val">6,000</div><div class="sub">NM</div></div>
+      <div class="item"><div class="lbl">SPEED</div><div class="val">488</div><div class="sub">KT</div></div>
+      <div class="item"><div class="lbl">ENDURANCE</div><div class="val">~13</div><div class="sub">HR</div></div>
+      <div class="item"><div class="lbl">CRUISE ALT</div><div class="val">51</div><div class="sub">FL510</div></div>
+      <div class="item"><div class="lbl">BAGGAGE</div><div class="val">195</div><div class="sub">CU FT</div></div>
+    </div>
+    <div class="reveal" data-stagger="4" style="display: flex; gap: 24px; align-items: center; flex-wrap: wrap;">
+      <a href="quote-step1.html" class="btn btn-primary">Request a quote <span class="arrow">→</span></a>
+      <a href="aircraft.html" class="btn btn-ghost">All categories <span class="arrow">→</span></a>
+    </div>
+  </div>
+  <div class="cat-hero-right">
+    <div class="placeholder">
+      <div class="ph-cap">— HEAVY, NIGHT TURN</div>
+      <div class="ph-glyph">9</div>
+    </div>
+  </div>
+</header>
+
+<section class="cabin">
+  <div class="container">
+    <div class="cabin-head">
+      <div class="reveal"><div class="kicker"><span class="dash"></span> Inside the cabin</div></div>
+      <div class="reveal" data-stagger="1"><h2 class="display-l">Two cabins.<br/>Real beds.</h2></div>
+    </div>
+    <div class="cabin-grid">
+      <div class="placeholder a reveal">
+        <div class="ph-cap">— FORWARD CLUB, AFT BERTH</div>
+        <div class="ph-glyph">9</div>
+      </div>
+      <div class="placeholder b reveal" data-stagger="1">
+        <div class="ph-cap">— DINING SETTING</div>
+        <div class="ph-glyph">9</div>
+      </div>
+      <div class="placeholder c reveal" data-stagger="2">
+        <div class="ph-cap">— STATEROOM</div>
+        <div class="ph-glyph">9</div>
+      </div>
+    </div>
+    <p class="cabin-caption reveal">A typical heavy cabin runs 35 to 42 feet, six-and-a-half feet of stand-up height, and divides into two or three zones — forward club, mid dining, aft berth or stateroom. Stand-up galley with full crew, dual lavatories, vanity room, full Wi-Fi with Ka-band streaming. Most types carry a flight attendant standard.</p>
+  </div>
+</section>
+
+<section class="samples">
+  <div class="container">
+    <div class="cabin-head">
+      <div class="reveal"><div class="kicker"><span class="dash"></span> Sample aircraft</div></div>
+      <div class="reveal" data-stagger="1">
+        <h2 class="display-l">In our network<br/>right now.</h2>
+        <p class="body-l" style="margin-top: 24px; max-width: 56ch;">A few representative airframes. Tail numbers masked. Real availability surfaces in the quote.</p>
+      </div>
+    </div>
+
+    <div class="sample-grid">
+      <div class="sample-card reveal">
+        <div class="ph placeholder">
+          <div class="ph-cap">— GULFSTREAM G450</div>
+          <div class="ph-glyph">9</div>
+        </div>
+        <div class="body">
+          <div class="badge">Available · Heavy</div>
+          <h3>Gulfstream G450</h3>
+          <div class="tail">N9●●GS · BASED KIAD</div>
+          <div class="specs">
+            <div><div class="lbl">PAX</div><div class="val">14</div></div>
+            <div><div class="lbl">RANGE</div><div class="val">4,350 NM</div></div>
+            <div><div class="lbl">SPEED</div><div class="val">476 KT</div></div>
+            <div><div class="lbl">YEAR</div><div class="val">2017</div></div>
+            <div><div class="lbl">WIFI</div><div class="val">KA</div></div>
+          </div>
+        </div>
+      </div>
+      <div class="sample-card reveal" data-stagger="1">
+        <div class="ph placeholder">
+          <div class="ph-cap">— CHALLENGER 605</div>
+          <div class="ph-glyph">9</div>
+        </div>
+        <div class="body">
+          <div class="badge">Available · Heavy</div>
+          <h3>Bombardier Challenger 605</h3>
+          <div class="tail">N9●●CH · BASED KFLL</div>
+          <div class="specs">
+            <div><div class="lbl">PAX</div><div class="val">12</div></div>
+            <div><div class="lbl">RANGE</div><div class="val">4,000 NM</div></div>
+            <div><div class="lbl">SPEED</div><div class="val">459 KT</div></div>
+            <div><div class="lbl">YEAR</div><div class="val">2018</div></div>
+            <div><div class="lbl">WIFI</div><div class="val">KA</div></div>
+          </div>
+        </div>
+      </div>
+      <div class="sample-card reveal" data-stagger="2">
+        <div class="ph placeholder">
+          <div class="ph-cap">— FALCON 2000LXS</div>
+          <div class="ph-glyph">9</div>
+        </div>
+        <div class="body">
+          <div class="badge">Available · Heavy</div>
+          <h3>Dassault Falcon 2000LXS</h3>
+          <div class="tail">N9●●FL · BASED KSFO</div>
+          <div class="specs">
+            <div><div class="lbl">PAX</div><div class="val">10</div></div>
+            <div><div class="lbl">RANGE</div><div class="val">4,000 NM</div></div>
+            <div><div class="lbl">SPEED</div><div class="val">482 KT</div></div>
+            <div><div class="lbl">YEAR</div><div class="val">2019</div></div>
+            <div><div class="lbl">WIFI</div><div class="val">KA</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="bestfor">
+  <div class="container">
+    <div class="cabin-head">
+      <div class="reveal"><div class="kicker"><span class="dash"></span> Best for</div></div>
+      <div class="reveal" data-stagger="1"><h2 class="display-l">The missions heavy<br/>does best.</h2></div>
+    </div>
+
+    <div class="bestfor-grid">
+      <div class="bestfor-tile reveal">
+        <div class="icon"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 3v18M3 12h18M5.6 5.6l12.8 12.8M18.4 5.6L5.6 18.4"/></svg></div>
+        <h3>Transcontinental Asia</h3>
+        <p>NYC to Tokyo or Shanghai non-stop. East-coast US to Dubai or Mumbai with reserves.</p>
+      </div>
+      <div class="bestfor-tile reveal" data-stagger="1">
+        <div class="icon"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 18l3-3 3 3 3-9 3 6 3-3 3 3"/></svg></div>
+        <h3>Full crew rest sectors</h3>
+        <p>Augmented crew, real beds, divided cabin. The plane that lets the dispatcher fly the longest legs legally.</p>
+      </div>
+      <div class="bestfor-tile reveal" data-stagger="2">
+        <div class="icon"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M5 21V8l7-5 7 5v13M9 21v-7h6v7"/><circle cx="9" cy="11" r="1"/><circle cx="15" cy="11" r="1"/></svg></div>
+        <h3>Family or board, larger group</h3>
+        <p>Twelve to fourteen passengers with luggage for a week. Two zones for sleep and work in parallel.</p>
+      </div>
+      <div class="bestfor-tile reveal" data-stagger="3">
+        <div class="icon"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></svg></div>
+        <h3>Multi-country tour</h3>
+        <p>Five cities, six days, every leg flown ready. The category most multi-stop European or Asian tours need.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="teaser">
+  <div class="container">
+    <div class="cabin-head" style="margin-bottom: 48px;">
+      <div class="reveal"><div class="kicker"><span class="dash"></span> Considering alternatives</div></div>
+      <div class="reveal" data-stagger="1"><h2 class="display-m">Compare the categories<br/>on either side.</h2></div>
+    </div>
+    <div class="teaser-grid">
+      <a href="aircraft-supermid.html" class="teaser-card reveal">
+        <div class="lbl">— STEP DOWN</div>
+        <h3>Super-midsize</h3>
+        <p>Lower hourly, similar transatlantic range. Trades a second cabin and stand-up galley for the smaller airframe.</p>
+        <div class="more">Compare super-mid <span class="arrow">→</span></div>
+      </a>
+      <a href="aircraft-ultra.html" class="teaser-card reveal" data-stagger="1">
+        <div class="lbl">— STEP UP</div>
+        <h3>Ultra long range</h3>
+        <p>Adds 1,500 NM and a third zone. Non-stop city-pairs that no other category can fly without a stop.</p>
+        <div class="more">Compare ultra <span class="arrow">→</span></div>
+      </a>
+    </div>
+  </div>
+</section>
+
+<section style="position: relative; padding: 200px 0; overflow: hidden; text-align: center; border-top: 1px solid var(--ink-3); background: var(--ink);">
+  <div class="container">
+    <h2 class="display-l reveal">Heavy, ready to go.</h2>
+    <p class="body-l reveal" data-stagger="1" style="margin: 24px auto 48px; max-width: 50ch;">Tell us the route. We'll surface three to five heavy airframes within minutes — all-in pricing, no surprises.</p>
+    <div style="display: flex; gap: 24px; justify-content: center; flex-wrap: wrap;" class="reveal" data-stagger="2">
+      <a href="quote-step1.html" class="btn btn-primary btn-lg">Request a quote <span class="arrow">→</span></a>
+      <a href="tel:+18188005678" class="btn btn-secondary btn-lg">Call dispatch · +1 (818) 800-5678</a>
+    </div>
+  </div>
+</section>
+
+<footer class="docfoot">
+  <div class="container">
+    <div class="footer-grid">
+      <div class="foot-col">
+        <div class="brand" style="font-size: 28px;">JetNine <span class="nine" style="font-size: 12px;">09</span></div>
+        <p class="body" style="margin-top: 16px; max-width: 320px;">Private jet charter, anywhere, anytime. Twenty thousand aircraft worldwide, one number to call.</p>
+        <div style="margin-top: 24px; display: flex; flex-direction: column; gap: 8px;">
+          <a class="phone-link" style="font-size:14px;" href="tel:+18188005678">+1 (818) 800-5678</a>
+          <a class="phone-link" style="font-size:14px;" href="mailto:info@jetnine.com">info@jetnine.com</a>
+          <div class="caption" style="margin-top: 4px;">2934 BEVERLY GLEN CIRCLE #123<br/>LOS ANGELES, CA 90077</div>
+        </div>
+      </div>
+      <div class="foot-col"><h4>Sitemap</h4><ul>
+        <li><a href="homepage.html">Home</a></li>
+        <li><a href="aircraft.html">Aircraft</a></li>
+        <li><a href="#">Programs</a></li>
+        <li><a href="#">About</a></li>
+      </ul></div>
+      <div class="foot-col"><h4>Categories</h4><ul>
+        <li><a href="aircraft.html">Turboprop</a></li>
+        <li><a href="aircraft-light.html">Light</a></li>
+        <li><a href="aircraft-midsize.html">Midsize</a></li>
+        <li><a href="aircraft-supermid.html">Super-mid</a></li>
+        <li><a href="aircraft-heavy.html">Heavy</a></li>
+        <li><a href="aircraft-ultra.html">Ultra long range</a></li>
+      </ul></div>
+      <div class="foot-col">
+        <h4>Legal</h4>
+        <ul style="gap: 8px;">
+          <li><a href="#">Privacy</a></li>
+          <li><a href="#">Terms</a></li>
+          <li><a href="#">Part 295 broker disclosure</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="foot-bottom">
+      <div>JETNINE © 2026 — LOS ANGELES</div>
+      <div style="display: flex; gap: 24px;">
+        <a href="#" style="color: var(--steel); text-decoration: none;">X</a>
+        <a href="#" style="color: var(--steel); text-decoration: none;">IG</a>
+        <a href="#" style="color: var(--steel); text-decoration: none;">LI</a>
+      </div>
+      <div style="max-width: 480px; text-align: right;">JetNine is an indirect air carrier — Part 295 broker. All flights operated by FAA Part 135 certified carriers.</div>
+    </div>
+  </div>
+</footer>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script type="text/babel" src="tweaks-panel.jsx"></script>
+<div id="tweaks-root"></div>
+<script type="text/babel" src="tweaks.jsx"></script>
+
+<script>
+  const nav = document.getElementById('nav');
+  function updateNav() { if (window.scrollY > 60) nav.classList.add('scrolled'); else nav.classList.remove('scrolled'); }
+  window.addEventListener('scroll', updateNav, { passive: true }); updateNav();
+  const reveals = document.querySelectorAll('.reveal');
+  const revObs = new IntersectionObserver((entries) => {
+    entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('in'); revObs.unobserve(e.target); } });
+  }, { threshold: 0.15 });
+  reveals.forEach(r => revObs.observe(r));
+</script>
+</body>
+</html>

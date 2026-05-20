@@ -1,0 +1,776 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>JetNine — Request a quote · Step 2 of 4</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,500;9..144,600&family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="shared.css" />
+<style>
+  body { background: var(--ink); }
+
+  /* Slim quote nav (matches step 1) */
+  .qnav { position: fixed; top: 0; left: 0; right: 0; z-index: 50; height: 72px; background: rgba(7,8,10,0.92); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); border-bottom: 1px solid var(--ink-3); }
+  .qnav-inner { height: 100%; display: flex; align-items: center; justify-content: space-between; max-width: 1440px; margin: 0 auto; padding: 0 var(--pad-x); }
+  .qnav .exit { font-family: var(--mono); font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--bone-2); text-decoration: none; display: inline-flex; align-items: center; gap: 10px; transition: color 200ms; }
+  .qnav .exit:hover { color: var(--bone); }
+  .qnav .exit svg { width: 12px; height: 12px; }
+  .qnav .help { font-family: var(--mono); font-size: 11px; color: var(--bone-2); letter-spacing: 0.06em; display: flex; align-items: center; gap: 12px; }
+  .qnav .help .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--success); box-shadow: 0 0 0 0 rgba(91,140,90,0.6); animation: pulse 2.4s var(--ease-out) infinite; }
+  @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(91,140,90,0.6); } 70% { box-shadow: 0 0 0 8px rgba(91,140,90,0); } 100% { box-shadow: 0 0 0 0 rgba(91,140,90,0); } }
+  .qnav .help a { color: var(--bone); text-decoration: none; }
+
+  /* Progress */
+  .progress-strip { margin-top: 72px; border-bottom: 1px solid var(--ink-3); background: var(--ink); }
+  .progress-inner { max-width: 1440px; margin: 0 auto; padding: 24px var(--pad-x); display: flex; align-items: center; gap: 0; }
+  .pstep { flex: 1; display: flex; align-items: center; gap: 14px; padding: 8px 0; min-width: 0; cursor: pointer; }
+  .pstep.disabled { cursor: default; }
+  .pstep .num { width: 28px; height: 28px; border-radius: 50%; background: var(--ink-3); color: var(--steel); font-family: var(--mono); font-size: 11px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: all 240ms; border: 1px solid var(--ink-3); }
+  .pstep.active .num { background: var(--clearance); color: var(--ink); border-color: var(--clearance); }
+  .pstep.done .num { background: var(--ink); color: var(--clearance); border-color: var(--clearance); }
+  .pstep.done .num::before { content: "✓"; font-size: 12px; }
+  .pstep.done .num span { display: none; }
+  .pstep .meta { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+  .pstep .lbl { font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em; color: var(--steel); text-transform: uppercase; }
+  .pstep.active .lbl, .pstep.done .lbl { color: var(--bone-2); }
+  .pstep .name { font-size: 14px; color: var(--bone-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .pstep.active .name { color: var(--bone); }
+  .pdiv { flex: 0 0 24px; height: 1px; background: var(--ink-3); }
+  .pdiv.done { background: var(--clearance); }
+  @media (max-width: 900px) { .pstep .meta { display: none; } .pstep { flex: 0 0 auto; } .pdiv { flex: 1; } }
+
+  /* Layout */
+  .qmain { max-width: 1440px; margin: 0 auto; padding: 64px var(--pad-x) 160px; display: grid; grid-template-columns: 1fr 380px; gap: 80px; align-items: start; }
+  @media (max-width: 1100px) { .qmain { grid-template-columns: 1fr; gap: 48px; } }
+
+  .step-head { margin-bottom: 56px; }
+  .step-head .kicker { display: inline-flex; align-items: center; gap: 12px; margin-bottom: 24px; font-family: var(--mono); font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--bone-2); }
+  .step-head .kicker .dash { width: 32px; height: 1px; background: var(--clearance); }
+  .step-head h1 { font-family: var(--serif); font-weight: 300; font-size: clamp(40px, 5vw, 64px); line-height: 1.05; letter-spacing: -0.015em; max-width: 16ch; }
+  .step-head p { color: var(--bone-2); font-size: 17px; line-height: 1.55; max-width: 56ch; margin-top: 24px; }
+
+  /* Section blocks */
+  .qsection { margin-bottom: 72px; }
+  .qsection-head { display: grid; grid-template-columns: 200px 1fr; gap: 32px; margin-bottom: 32px; align-items: baseline; }
+  @media (max-width: 700px) { .qsection-head { grid-template-columns: 1fr; gap: 8px; } }
+  .qsection-head .h { font-family: var(--mono); font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--bone-2); padding-top: 8px; }
+  .qsection-head .h .num { color: var(--clearance); margin-right: 8px; }
+  .qsection-head .lead { font-family: var(--serif); font-weight: 300; font-size: 28px; line-height: 1.2; letter-spacing: -0.005em; color: var(--bone); }
+  .qsection-head .sub { font-size: 14px; color: var(--steel); margin-top: 8px; }
+
+  /* Aircraft cards */
+  .ac-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+  @media (max-width: 1024px) { .ac-grid { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 600px) { .ac-grid { grid-template-columns: 1fr; } }
+  .ac-card {
+    background: var(--ink-2); border: 1px solid var(--ink-3); border-radius: 4px;
+    padding: 24px; cursor: pointer; transition: all 240ms var(--ease-out);
+    display: flex; flex-direction: column; gap: 16px;
+    position: relative; overflow: hidden;
+  }
+  .ac-card:hover { border-color: var(--ink-4); transform: translateY(-2px); }
+  .ac-card.on { border-color: var(--clearance); background: var(--ink-3); }
+  .ac-card.on::before {
+    content: ""; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+    background: var(--clearance);
+  }
+  .ac-card.disabled { opacity: 0.4; cursor: not-allowed; }
+  .ac-card.disabled:hover { transform: none; border-color: var(--ink-3); }
+  .ac-card .ac-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+  .ac-card .ac-name { font-family: var(--serif); font-size: 22px; font-weight: 400; line-height: 1.15; }
+  .ac-card .ac-num { font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em; color: var(--steel); }
+  .ac-card .ac-pax {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-family: var(--mono); font-size: 11px; color: var(--bone-2);
+    background: var(--ink); padding: 4px 8px; border-radius: 2px;
+    letter-spacing: 0.06em; flex-shrink: 0;
+  }
+  .ac-card .ac-pax.warn { color: var(--warn); border: 1px solid rgba(184,137,60,0.3); }
+  .ac-card .ac-bar {
+    height: 80px; border-radius: 2px;
+    background: var(--ink); position: relative; overflow: hidden;
+    margin: 4px 0;
+  }
+  .ac-card .ac-bar svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .ac-card .ac-stats {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px;
+    padding-top: 12px; border-top: 1px solid var(--ink-3);
+  }
+  .ac-card .ac-stats > div { display: flex; flex-direction: column; gap: 2px; }
+  .ac-card .ac-stats .l { font-family: var(--mono); font-size: 9px; letter-spacing: 0.12em; color: var(--steel); text-transform: uppercase; }
+  .ac-card .ac-stats .v { font-family: var(--mono); font-size: 12px; color: var(--bone); letter-spacing: 0.04em; }
+  .ac-card .ac-rec {
+    position: absolute; top: 12px; right: 12px;
+    font-family: var(--mono); font-size: 9px; letter-spacing: 0.14em;
+    text-transform: uppercase; color: var(--ink);
+    background: var(--clearance); padding: 4px 8px; border-radius: 2px;
+  }
+  .ac-card .ac-flag {
+    font-family: var(--mono); font-size: 10px; color: var(--warn);
+    letter-spacing: 0.06em;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .ac-card.on .check {
+    position: absolute; bottom: 16px; right: 16px;
+    width: 24px; height: 24px; border-radius: 50%;
+    background: var(--clearance); color: var(--ink);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px; font-weight: 600;
+  }
+
+  /* Toggles list */
+  .toggles { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+  @media (max-width: 700px) { .toggles { grid-template-columns: 1fr; } }
+  .toggle {
+    display: flex; align-items: center; justify-content: space-between; gap: 16px;
+    background: var(--ink-2); border: 1px solid var(--ink-3); border-radius: 4px;
+    padding: 20px 24px; cursor: pointer; transition: all 200ms;
+    user-select: none;
+  }
+  .toggle:hover { border-color: var(--ink-4); }
+  .toggle.on { border-color: rgba(232,226,210,0.4); background: var(--ink-3); }
+  .toggle .info { display: flex; gap: 16px; align-items: flex-start; }
+  .toggle .icon {
+    width: 36px; height: 36px; border-radius: 4px;
+    background: var(--ink-3); border: 1px solid var(--ink-4);
+    display: flex; align-items: center; justify-content: center;
+    color: var(--bone-2); flex-shrink: 0; transition: all 240ms;
+  }
+  .toggle.on .icon { background: var(--clearance); color: var(--ink); border-color: var(--clearance); }
+  .toggle .text { display: flex; flex-direction: column; gap: 2px; }
+  .toggle .name { font-size: 15px; color: var(--bone); }
+  .toggle .desc { font-size: 12px; color: var(--steel); line-height: 1.4; }
+  .toggle .switch {
+    width: 36px; height: 20px; background: var(--ink); border-radius: 10px;
+    position: relative; transition: background 200ms; flex-shrink: 0;
+    border: 1px solid var(--ink-4);
+  }
+  .toggle.on .switch { background: var(--clearance); border-color: var(--clearance); }
+  .toggle .switch::after {
+    content: ""; position: absolute; left: 2px; top: 50%; transform: translateY(-50%);
+    width: 14px; height: 14px; border-radius: 50%; background: var(--bone-2);
+    transition: all 200ms var(--ease-out);
+  }
+  .toggle.on .switch::after { left: calc(100% - 16px); background: var(--ink); }
+
+  /* Catering radios */
+  .radios { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+  @media (max-width: 900px) { .radios { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 500px) { .radios { grid-template-columns: 1fr; } }
+  .radio {
+    background: var(--ink-2); border: 1px solid var(--ink-3); border-radius: 4px;
+    padding: 24px; cursor: pointer; transition: all 200ms;
+    display: flex; flex-direction: column; gap: 8px;
+    position: relative;
+  }
+  .radio:hover { border-color: var(--ink-4); }
+  .radio.on { border-color: var(--clearance); background: var(--ink-3); }
+  .radio .name { font-family: var(--serif); font-size: 18px; font-weight: 400; }
+  .radio .price {
+    font-family: var(--mono); font-size: 11px; color: var(--clearance);
+    letter-spacing: 0.06em;
+  }
+  .radio .desc { font-size: 12px; color: var(--bone-2); line-height: 1.5; margin-top: 4px; }
+  .radio .dot {
+    position: absolute; top: 16px; right: 16px;
+    width: 16px; height: 16px; border-radius: 50%;
+    border: 1.5px solid var(--ink-4); background: transparent;
+    transition: all 200ms;
+  }
+  .radio.on .dot { border-color: var(--clearance); background: var(--clearance); box-shadow: inset 0 0 0 3px var(--ink-3); }
+
+  /* Ground transport */
+  .ground { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+  @media (max-width: 700px) { .ground { grid-template-columns: 1fr; } }
+
+  /* Notes textarea */
+  .notes-field {
+    background: var(--ink-2); border: 1px solid var(--ink-3); border-radius: 4px;
+    padding: 24px; transition: border-color 200ms;
+  }
+  .notes-field:focus-within { border-color: rgba(232,226,210,0.4); }
+  .notes-field label {
+    display: block; font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em;
+    text-transform: uppercase; color: var(--bone-2); margin-bottom: 12px;
+  }
+  .notes-field textarea {
+    width: 100%; background: transparent; border: none; outline: none; resize: vertical;
+    color: var(--bone); font-family: var(--sans); font-size: 15px;
+    line-height: 1.6; min-height: 100px;
+  }
+  .notes-field textarea::placeholder { color: var(--steel); }
+  .notes-meta {
+    margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--ink-3);
+    display: flex; justify-content: space-between;
+    font-family: var(--mono); font-size: 10px; letter-spacing: 0.06em; color: var(--steel);
+  }
+  .examples-row {
+    margin-top: 16px;
+    display: flex; gap: 8px; flex-wrap: wrap; align-items: center;
+  }
+  .examples-row .lbl {
+    font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em;
+    text-transform: uppercase; color: var(--steel); margin-right: 4px;
+  }
+  .examples-row .ex {
+    background: var(--ink-2); border: 1px solid var(--ink-3); color: var(--bone-2);
+    border-radius: 2px; padding: 8px 12px; cursor: pointer;
+    font-size: 12px; transition: all 200ms;
+  }
+  .examples-row .ex:hover { border-color: var(--clearance); color: var(--bone); }
+
+  /* Pets / kids inputs */
+  .extras { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+  @media (max-width: 700px) { .extras { grid-template-columns: 1fr; } }
+  .stepper {
+    background: var(--ink-2); border: 1px solid var(--ink-3); border-radius: 4px;
+    padding: 20px; display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  }
+  .stepper .info { display: flex; flex-direction: column; gap: 2px; }
+  .stepper .name { font-size: 15px; color: var(--bone); }
+  .stepper .desc { font-size: 11px; color: var(--steel); }
+  .stepper .ctrl { display: flex; align-items: center; gap: 12px; }
+  .stepper button {
+    width: 32px; height: 32px; border-radius: 50%;
+    background: var(--ink); color: var(--bone); border: 1px solid var(--ink-4);
+    font-size: 16px; line-height: 1; cursor: pointer;
+    transition: all 200ms;
+  }
+  .stepper button:hover:not(:disabled) { border-color: var(--clearance); color: var(--clearance); }
+  .stepper button:disabled { opacity: 0.3; cursor: not-allowed; }
+  .stepper .v { font-family: var(--mono); font-size: 16px; color: var(--bone); min-width: 20px; text-align: center; }
+
+  /* Step actions */
+  .step-actions { margin-top: 64px; padding-top: 32px; border-top: 1px solid var(--ink-3); display: flex; justify-content: space-between; align-items: center; gap: 24px; flex-wrap: wrap; }
+  .step-actions .left { display: flex; flex-direction: column; gap: 4px; }
+  .step-actions .step-of { font-family: var(--mono); font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--steel); }
+  .step-actions .saved { font-size: 12px; color: var(--bone-2); display: inline-flex; align-items: center; gap: 8px; }
+  .step-actions .saved .check { color: var(--success); }
+
+  /* Sidebar */
+  .sidebar { position: sticky; top: 120px; background: var(--ink-2); border: 1px solid var(--ink-3); border-radius: 4px; overflow: hidden; }
+  @media (max-width: 1100px) { .sidebar { position: static; } }
+  .sidebar-head { padding: 24px; border-bottom: 1px solid var(--ink-3); display: flex; align-items: center; justify-content: space-between; }
+  .sidebar-head .lbl { font-family: var(--mono); font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--bone-2); }
+  .sidebar-head .badge { font-family: var(--mono); font-size: 10px; letter-spacing: 0.06em; color: var(--clearance); background: var(--ink-3); padding: 4px 8px; border-radius: 2px; }
+  .sb-section { padding: 24px; border-bottom: 1px solid var(--ink-3); }
+  .sb-section:last-child { border-bottom: none; }
+  .sb-section .h { font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--steel); margin-bottom: 16px; }
+  .sb-leg { display: grid; grid-template-columns: 1fr auto 1fr; gap: 12px; align-items: center; margin-bottom: 12px; }
+  .sb-leg:last-child { margin-bottom: 0; }
+  .sb-leg .pt { display: flex; flex-direction: column; gap: 2px; }
+  .sb-leg .iata { font-family: var(--mono); font-size: 16px; color: var(--bone); letter-spacing: 0.04em; }
+  .sb-leg .city { font-size: 11px; color: var(--steel); }
+  .sb-leg .arrow { color: var(--clearance); font-size: 16px; display: flex; align-items: center; justify-content: center; }
+  .sb-meta { display: flex; flex-direction: column; gap: 12px; font-size: 13px; color: var(--bone-2); }
+  .sb-meta .row { display: flex; justify-content: space-between; gap: 12px; align-items: baseline; }
+  .sb-meta .k { color: var(--steel); font-family: var(--mono); font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; }
+  .sb-meta .v { color: var(--bone); font-family: var(--mono); font-size: 12px; text-align: right; }
+  .sb-prefs { display: flex; flex-direction: column; gap: 8px; }
+  .sb-pref {
+    font-size: 12px; color: var(--bone-2);
+    display: flex; align-items: center; gap: 8px;
+  }
+  .sb-pref::before {
+    content: ""; width: 4px; height: 4px; border-radius: 50%;
+    background: var(--clearance); flex-shrink: 0;
+  }
+  .sb-pref.empty { color: var(--steel); }
+  .sb-pref.empty::before { background: var(--steel); }
+
+  .sb-est { background: var(--ink); padding: 24px; border-top: 1px solid var(--ink-3); }
+  .sb-est .h { font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--steel); margin-bottom: 12px; }
+  .sb-est .range { font-family: var(--serif); font-size: 28px; font-weight: 300; line-height: 1; letter-spacing: -0.01em; color: var(--bone); }
+  .sb-est .range .dash { color: var(--steel); margin: 0 6px; }
+  .sb-est .note { margin-top: 8px; font-size: 11px; color: var(--steel); line-height: 1.5; }
+  .sb-est .arrow-down {
+    font-family: var(--mono); font-size: 10px; color: var(--success);
+    display: inline-flex; align-items: center; gap: 4px; margin-left: 8px;
+  }
+</style>
+</head>
+<body>
+
+<nav class="qnav" data-screen-label="Quote · 02 Aircraft">
+  <div class="qnav-inner">
+    <a href="homepage.html" class="exit">
+      <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 3L3 9M3 3l6 6"/></svg>
+      Save &amp; exit
+    </a>
+    <a href="homepage.html" class="brand" style="text-decoration: none;">JetNine <span class="nine">09</span></a>
+    <div class="help">
+      <span class="dot"></span>
+      Dispatch open · <a href="tel:+18188005678">+1 (818) 800-5678</a>
+    </div>
+  </div>
+</nav>
+
+<div class="progress-strip">
+  <div class="progress-inner">
+    <a href="quote-step1.html" class="pstep done" style="text-decoration: none;">
+      <div class="num"><span>01</span></div>
+      <div class="meta"><div class="lbl">Step 01</div><div class="name">Mission</div></div>
+    </a>
+    <div class="pdiv done"></div>
+    <div class="pstep active">
+      <div class="num">02</div>
+      <div class="meta"><div class="lbl">Step 02</div><div class="name">Aircraft &amp; preferences</div></div>
+    </div>
+    <div class="pdiv"></div>
+    <div class="pstep disabled">
+      <div class="num">03</div>
+      <div class="meta"><div class="lbl">Step 03</div><div class="name">Contact</div></div>
+    </div>
+    <div class="pdiv"></div>
+    <div class="pstep disabled">
+      <div class="num">04</div>
+      <div class="meta"><div class="lbl">Step 04</div><div class="name">Review</div></div>
+    </div>
+  </div>
+</div>
+
+<main class="qmain">
+  <div>
+    <header class="step-head">
+      <div class="kicker"><span class="dash"></span> Step 02 · Aircraft &amp; preferences</div>
+      <h1>The shape of the flight.</h1>
+      <p>Pick a category and tell us how you want it set up. Everything is optional except category — dispatch can fill in the rest. We've pre-recommended the right size for your route &amp; pax.</p>
+    </header>
+
+    <!-- Aircraft category -->
+    <section class="qsection">
+      <div class="qsection-head">
+        <div class="h"><span class="num">01</span> Category</div>
+        <div>
+          <div class="lead">Match the airframe to the mission.</div>
+          <div class="sub">Greyed-out categories don't fit your pax count or route distance — adjust either to unlock.</div>
+        </div>
+      </div>
+      <div class="ac-grid" id="acGrid"></div>
+    </section>
+
+    <!-- Cabin preferences -->
+    <section class="qsection">
+      <div class="qsection-head">
+        <div class="h"><span class="num">02</span> Cabin</div>
+        <div>
+          <div class="lead">Cabin preferences.</div>
+          <div class="sub">All standard on most airframes. We'll match to operators that have what you ask for.</div>
+        </div>
+      </div>
+      <div class="toggles" id="toggles"></div>
+    </section>
+
+    <!-- Catering -->
+    <section class="qsection">
+      <div class="qsection-head">
+        <div class="h"><span class="num">03</span> Catering</div>
+        <div>
+          <div class="lead">What's on board.</div>
+          <div class="sub">Curated menus from network providers. Custom requests &amp; dietary in notes below.</div>
+        </div>
+      </div>
+      <div class="radios" id="catering"></div>
+    </section>
+
+    <!-- Ground transport -->
+    <section class="qsection">
+      <div class="qsection-head">
+        <div class="h"><span class="num">04</span> Ground</div>
+        <div>
+          <div class="lead">Curb to cabin.</div>
+          <div class="sub">Black car or chauffeur to FBO at every leg. Independent of the air charter cost.</div>
+        </div>
+      </div>
+      <div class="ground" id="ground"></div>
+    </section>
+
+    <!-- Extras: pets, kids, bags -->
+    <section class="qsection">
+      <div class="qsection-head">
+        <div class="h"><span class="num">05</span> Extras</div>
+        <div>
+          <div class="lead">Anyone or anything else?</div>
+          <div class="sub">Pets fly in cabin on most airframes. Crew adjusts catering &amp; safety briefing for kids.</div>
+        </div>
+      </div>
+      <div class="extras">
+        <div class="stepper">
+          <div class="info"><div class="name">Children</div><div class="desc">Under 12, with car-seat as needed</div></div>
+          <div class="ctrl">
+            <button id="kidsMinus" type="button">−</button>
+            <div class="v" id="kidsVal">0</div>
+            <button id="kidsPlus" type="button">+</button>
+          </div>
+        </div>
+        <div class="stepper">
+          <div class="info"><div class="name">Pets</div><div class="desc">In cabin, no carrier required</div></div>
+          <div class="ctrl">
+            <button id="petsMinus" type="button">−</button>
+            <div class="v" id="petsVal">0</div>
+            <button id="petsPlus" type="button">+</button>
+          </div>
+        </div>
+        <div class="stepper">
+          <div class="info"><div class="name">Extra bags</div><div class="desc">Beyond 1 carry-on + 1 checked / pax</div></div>
+          <div class="ctrl">
+            <button id="bagsMinus" type="button">−</button>
+            <div class="v" id="bagsVal">0</div>
+            <button id="bagsPlus" type="button">+</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Notes -->
+    <section class="qsection">
+      <div class="qsection-head">
+        <div class="h"><span class="num">06</span> Notes</div>
+        <div>
+          <div class="lead">Anything else dispatch should know?</div>
+          <div class="sub">Special requests, mobility needs, time-sensitive details. Free-form.</div>
+        </div>
+      </div>
+      <div class="notes-field">
+        <label for="notes">Notes for dispatch</label>
+        <textarea id="notes" placeholder="e.g. Wedding party — need full recline seats and extra cabin baggage. One passenger uses a wheelchair, will need ground assist at both FBOs."></textarea>
+        <div class="notes-meta">
+          <span id="notesCount">0 / 800</span>
+          <span>Visible to dispatch &amp; operator only</span>
+        </div>
+      </div>
+      <div class="examples-row">
+        <span class="lbl">— Add common</span>
+        <button class="ex" data-ex="quiet" type="button">Quiet flight requested</button>
+        <button class="ex" data-ex="champagne" type="button">Champagne on arrival</button>
+        <button class="ex" data-ex="wheelchair" type="button">Wheelchair assist</button>
+        <button class="ex" data-ex="kosher" type="button">Kosher catering</button>
+        <button class="ex" data-ex="bedrest" type="button">Need bed/lie-flat seat</button>
+      </div>
+    </section>
+
+    <div class="step-actions">
+      <div class="left">
+        <div class="step-of">Step 02 of 04</div>
+        <div class="saved"><span class="check">✓</span> Saved automatically · just now</div>
+      </div>
+      <div style="display: flex; gap: 16px; align-items: center;">
+        <a href="quote-step1.html" class="btn btn-ghost">← Back</a>
+        <button class="btn btn-primary btn-lg" id="continueBtn" type="button">Continue to contact <span class="arrow">→</span></button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Sidebar -->
+  <aside class="sidebar" aria-label="Mission summary">
+    <div class="sidebar-head">
+      <div class="lbl">— Mission preview</div>
+      <div class="badge">ROUND TRIP</div>
+    </div>
+    <div class="sb-section">
+      <div class="h">Itinerary</div>
+      <div class="sb-leg">
+        <div class="pt"><div class="iata">VNY</div><div class="city">Los Angeles</div></div>
+        <div class="arrow">→</div>
+        <div class="pt"><div class="iata">JFK</div><div class="city">New York</div></div>
+      </div>
+      <div class="sb-leg">
+        <div class="pt"><div class="iata">JFK</div><div class="city">New York</div></div>
+        <div class="arrow">→</div>
+        <div class="pt"><div class="iata">VNY</div><div class="city">Los Angeles</div></div>
+      </div>
+    </div>
+    <div class="sb-section">
+      <div class="h">Details</div>
+      <div class="sb-meta">
+        <div class="row"><span class="k">Passengers</span><span class="v">4</span></div>
+        <div class="row"><span class="k">Distance</span><span class="v">4,286 NM</span></div>
+        <div class="row"><span class="k">Aircraft</span><span class="v" id="sbAc">—</span></div>
+        <div class="row"><span class="k">Catering</span><span class="v" id="sbCat">—</span></div>
+        <div class="row"><span class="k">Ground</span><span class="v" id="sbGr">—</span></div>
+      </div>
+    </div>
+    <div class="sb-section">
+      <div class="h">Preferences</div>
+      <div class="sb-prefs" id="sbPrefs">
+        <div class="sb-pref empty">No extras yet</div>
+      </div>
+    </div>
+    <div class="sb-est">
+      <div class="h">— Indicative range</div>
+      <div class="range" id="sbEst">$ — <span class="dash">–</span> $ —</div>
+      <div class="note" id="sbNote">Pick a category to refine the estimate. Final pricing comes with specific airframes in step 04.</div>
+    </div>
+  </aside>
+</main>
+
+<script>
+// --- Aircraft categories
+const CATEGORIES = [
+  { id: 'turboprop',  name: 'Turboprop', pax: 9, range: 1200, speed: 290, hourly: 4500, recommend: false, profile: [0.0, 0.4, 0.6, 0.5, 0.55, 0.5, 0.4, 0.0] },
+  { id: 'light',      name: 'Light jet', pax: 7, range: 1660, speed: 410, hourly: 5500, recommend: false, profile: [0.0, 0.3, 0.6, 0.7, 0.7, 0.65, 0.4, 0.0] },
+  { id: 'midsize',    name: 'Midsize', pax: 9, range: 2400, speed: 430, hourly: 7500, recommend: true,   profile: [0.0, 0.25, 0.55, 0.85, 0.9, 0.85, 0.55, 0.2] },
+  { id: 'supermid',   name: 'Super-mid', pax: 9, range: 3500, speed: 490, hourly: 9500, recommend: false, profile: [0.0, 0.3, 0.7, 0.95, 1.0, 0.95, 0.7, 0.3] },
+  { id: 'heavy',      name: 'Heavy', pax: 14, range: 4500, speed: 490, hourly: 12500, recommend: false, profile: [0.0, 0.3, 0.7, 0.95, 1.0, 1.0, 0.85, 0.5] },
+  { id: 'ulr',        name: 'Ultra long range', pax: 16, range: 7500, speed: 516, hourly: 18000, recommend: false, profile: [0.0, 0.3, 0.7, 0.95, 1.0, 1.0, 0.95, 0.7] },
+];
+
+// Mission constants (would come from step 1 in real impl — using VNY ↔ JFK round trip @ 4 pax)
+const MISSION = { distNM: 4286, pax: 4, legs: 2 };
+
+const TOGGLES = [
+  { id: 'wifi', name: 'Wi-Fi', desc: 'Gogo Avance L5 or better, on most cabins', icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 9a17 17 0 0 1 18 0"/><path d="M6 13a12 12 0 0 1 12 0"/><path d="M9 17a7 7 0 0 1 6 0"/><circle cx="12" cy="20" r="0.8" fill="currentColor"/></svg>', on: true },
+  { id: 'attendant', name: 'Flight attendant', desc: 'Standard on heavy & ULR, available on midsize+', icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="8" r="3"/><path d="M5 21a7 7 0 0 1 14 0"/></svg>', on: false },
+  { id: 'lavatory', name: 'Enclosed lavatory', desc: 'Standard on midsize+, optional on light', icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 8h6M9 12h6"/></svg>', on: true },
+  { id: 'standup', name: 'Stand-up cabin', desc: 'Midsize and larger only', icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 4v16M6 8h12M6 16h12"/></svg>', on: false },
+  { id: 'lieflat', name: 'Lie-flat seating', desc: 'Available on heavy & ULR airframes', icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="10" width="18" height="6" rx="2"/><path d="M3 16v3M21 16v3M7 10V7M17 10V7"/></svg>', on: false },
+  { id: 'pet', name: 'Pet-friendly', desc: 'In-cabin, no carrier — confirmed at booking', icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="6" cy="9" r="1.5"/><circle cx="10" cy="6" r="1.5"/><circle cx="14" cy="6" r="1.5"/><circle cx="18" cy="9" r="1.5"/><path d="M9 14c0-2 6-2 6 0 0 3-3 4-3 6-3 0-3-3-3-6z"/></svg>', on: false },
+];
+
+const CATERINGS = [
+  { id: 'standard', name: 'Standard', price: 'Included', desc: 'Cold platters, snacks, soft drinks, coffee & tea.' },
+  { id: 'plus', name: 'Plus', price: '+$180/leg', desc: 'Hot meal options, fresh fruit, premium snacks, full bar.' },
+  { id: 'premium', name: 'Premium', price: '+$450/leg', desc: 'Chef-prepared menu from a partner restaurant. Choice of 3 entrées.' },
+  { id: 'custom', name: 'Custom', price: 'Quoted', desc: 'Your own menu, your own caterer, your own dietary specs.' },
+];
+
+const GROUNDS = [
+  { id: 'none', name: 'None — I\'ve got it', desc: 'No ground transport at any leg.' },
+  { id: 'sedan', name: 'Black sedan', desc: 'One vehicle per leg, professional chauffeur. ~$180/leg.' },
+  { id: 'suv', name: 'SUV / Sprinter', desc: 'For groups or extra baggage. From ~$280/leg.' },
+];
+
+// --- State
+const state = {
+  category: 'midsize',
+  toggles: { wifi: true, attendant: false, lavatory: true, standup: false, lieflat: false, pet: false },
+  catering: 'standard',
+  ground: 'sedan',
+  kids: 0, pets: 0, bags: 0,
+  notes: '',
+};
+
+// --- Render aircraft cards
+function renderAircraft() {
+  const grid = document.getElementById('acGrid');
+  grid.innerHTML = '';
+  CATEGORIES.forEach(c => {
+    const tooSmall = c.pax < MISSION.pax;
+    const tooShort = c.range < MISSION.distNM / MISSION.legs;
+    const disabled = tooSmall || tooShort;
+    const card = document.createElement('div');
+    card.className = 'ac-card' + (state.category === c.id ? ' on' : '') + (disabled ? ' disabled' : '');
+    card.dataset.id = c.id;
+
+    // Build a sparkline-style range curve (visual flourish)
+    const points = c.profile.map((y, i) => {
+      const x = (i / (c.profile.length - 1)) * 100;
+      const yy = 100 - (y * 80 + 10);
+      return `${x},${yy}`;
+    }).join(' ');
+    const area = `0,100 ${points} 100,100`;
+
+    card.innerHTML = `
+      ${c.recommend ? '<div class="ac-rec">Recommended</div>' : ''}
+      <div class="ac-head">
+        <div>
+          <div class="ac-num">CAT 0${CATEGORIES.indexOf(c) + 1}</div>
+          <div class="ac-name">${c.name}</div>
+        </div>
+        <div class="ac-pax ${tooSmall ? 'warn' : ''}">${c.pax} PAX</div>
+      </div>
+      <div class="ac-bar">
+        <svg viewBox="0 0 100 100" preserveAspectRatio="none">
+          <polygon points="${area}" fill="rgba(232,226,210,0.06)"/>
+          <polyline points="${points}" fill="none" stroke="#E8E2D2" stroke-width="0.8" vector-effect="non-scaling-stroke"/>
+        </svg>
+      </div>
+      ${tooSmall ? `<div class="ac-flag">⚠ Too small for ${MISSION.pax} pax</div>` : ''}
+      ${!tooSmall && tooShort ? `<div class="ac-flag">⚠ Range under ${Math.round(MISSION.distNM / MISSION.legs).toLocaleString()} NM/leg</div>` : ''}
+      <div class="ac-stats">
+        <div><div class="l">RANGE</div><div class="v">${c.range.toLocaleString()} NM</div></div>
+        <div><div class="l">SPEED</div><div class="v">${c.speed} KT</div></div>
+        <div><div class="l">HOURLY</div><div class="v">$${(c.hourly/1000).toFixed(1)}k</div></div>
+      </div>
+      ${state.category === c.id ? '<div class="check">✓</div>' : ''}
+    `;
+    if (!disabled) {
+      card.addEventListener('click', () => { state.category = c.id; renderAircraft(); updateSidebar(); });
+    }
+    grid.appendChild(card);
+  });
+}
+
+// --- Render toggles
+function renderToggles() {
+  const wrap = document.getElementById('toggles');
+  wrap.innerHTML = '';
+  TOGGLES.forEach(t => {
+    const on = state.toggles[t.id];
+    const el = document.createElement('div');
+    el.className = 'toggle' + (on ? ' on' : '');
+    el.innerHTML = `
+      <div class="info">
+        <div class="icon">${t.icon}</div>
+        <div class="text"><div class="name">${t.name}</div><div class="desc">${t.desc}</div></div>
+      </div>
+      <div class="switch"></div>
+    `;
+    el.addEventListener('click', () => {
+      state.toggles[t.id] = !state.toggles[t.id];
+      renderToggles();
+      updateSidebar();
+    });
+    wrap.appendChild(el);
+  });
+}
+
+// --- Render catering
+function renderCatering() {
+  const wrap = document.getElementById('catering');
+  wrap.innerHTML = '';
+  CATERINGS.forEach(c => {
+    const el = document.createElement('div');
+    el.className = 'radio' + (state.catering === c.id ? ' on' : '');
+    el.innerHTML = `
+      <div class="dot"></div>
+      <div class="name">${c.name}</div>
+      <div class="price">${c.price}</div>
+      <div class="desc">${c.desc}</div>
+    `;
+    el.addEventListener('click', () => { state.catering = c.id; renderCatering(); updateSidebar(); });
+    wrap.appendChild(el);
+  });
+}
+
+// --- Render ground
+function renderGround() {
+  const wrap = document.getElementById('ground');
+  wrap.innerHTML = '';
+  GROUNDS.forEach(g => {
+    const el = document.createElement('div');
+    el.className = 'radio' + (state.ground === g.id ? ' on' : '');
+    el.innerHTML = `
+      <div class="dot"></div>
+      <div class="name">${g.name}</div>
+      <div class="desc">${g.desc}</div>
+    `;
+    el.addEventListener('click', () => { state.ground = g.id; renderGround(); updateSidebar(); });
+    wrap.appendChild(el);
+  });
+}
+
+// --- Steppers
+function bindStepper(key, minId, plusId, valId, max) {
+  const valEl = document.getElementById(valId);
+  const minBtn = document.getElementById(minId);
+  const plusBtn = document.getElementById(plusId);
+  function refresh() {
+    valEl.textContent = state[key];
+    minBtn.disabled = state[key] <= 0;
+    plusBtn.disabled = state[key] >= max;
+    updateSidebar();
+  }
+  minBtn.addEventListener('click', () => { if (state[key] > 0) { state[key]--; refresh(); } });
+  plusBtn.addEventListener('click', () => { if (state[key] < max) { state[key]++; refresh(); } });
+  refresh();
+}
+
+bindStepper('kids', 'kidsMinus', 'kidsPlus', 'kidsVal', 8);
+bindStepper('pets', 'petsMinus', 'petsPlus', 'petsVal', 4);
+bindStepper('bags', 'bagsMinus', 'bagsPlus', 'bagsVal', 12);
+
+// --- Notes
+const notes = document.getElementById('notes');
+const notesCount = document.getElementById('notesCount');
+notes.addEventListener('input', () => {
+  state.notes = notes.value.slice(0, 800);
+  notes.value = state.notes;
+  notesCount.textContent = `${state.notes.length} / 800`;
+  updateSidebar();
+});
+document.querySelectorAll('.examples-row .ex').forEach(btn => {
+  const text = {
+    quiet: 'Quiet flight requested — please limit cabin announcements.',
+    champagne: 'Champagne on arrival, chilled.',
+    wheelchair: 'One passenger needs wheelchair assist at both FBOs.',
+    kosher: 'Kosher meals please — strict.',
+    bedrest: 'Lie-flat / bed configuration required for one passenger.',
+  }[btn.dataset.ex];
+  btn.addEventListener('click', () => {
+    const sep = state.notes.trim() ? '\n' : '';
+    state.notes = (state.notes + sep + text).slice(0, 800);
+    notes.value = state.notes;
+    notesCount.textContent = `${state.notes.length} / 800`;
+    updateSidebar();
+  });
+});
+
+// --- Sidebar update
+function updateSidebar() {
+  const cat = CATEGORIES.find(c => c.id === state.category);
+  document.getElementById('sbAc').textContent = cat ? cat.name.toUpperCase() : '—';
+
+  const cater = CATERINGS.find(c => c.id === state.catering);
+  document.getElementById('sbCat').textContent = cater ? cater.name.toUpperCase() : '—';
+
+  const gr = GROUNDS.find(g => g.id === state.ground);
+  document.getElementById('sbGr').textContent = gr ? (gr.id === 'none' ? '—' : gr.name.split(' ')[0].toUpperCase() + (gr.id === 'sedan' ? ' SEDAN' : ' / SPRINTER')) : '—';
+
+  // Preferences list
+  const prefs = [];
+  Object.entries(state.toggles).forEach(([k, v]) => {
+    if (v) {
+      const t = TOGGLES.find(x => x.id === k);
+      if (t) prefs.push(t.name);
+    }
+  });
+  if (state.kids > 0) prefs.push(`${state.kids} ${state.kids === 1 ? 'child' : 'children'}`);
+  if (state.pets > 0) prefs.push(`${state.pets} ${state.pets === 1 ? 'pet' : 'pets'}`);
+  if (state.bags > 0) prefs.push(`${state.bags} extra bag${state.bags === 1 ? '' : 's'}`);
+  if (state.notes.trim()) prefs.push('Custom notes');
+
+  const prefsEl = document.getElementById('sbPrefs');
+  if (prefs.length === 0) {
+    prefsEl.innerHTML = '<div class="sb-pref empty">No extras yet</div>';
+  } else {
+    prefsEl.innerHTML = prefs.map(p => `<div class="sb-pref">${p}</div>`).join('');
+  }
+
+  // Estimate
+  if (cat) {
+    // Hours = distance / speed + ground/repos buffer per leg
+    const hours = Math.max(1.2, MISSION.distNM / cat.speed + 0.4 * MISSION.legs);
+    const cateringAdd = state.catering === 'plus' ? 180 * MISSION.legs : state.catering === 'premium' ? 450 * MISSION.legs : 0;
+    const groundAdd = state.ground === 'sedan' ? 180 * MISSION.legs : state.ground === 'suv' ? 280 * MISSION.legs : 0;
+    const mid = cat.hourly * hours + cateringAdd + groundAdd;
+    const lo = Math.round(mid * 0.85 / 500) * 500;
+    const hi = Math.round(mid * 1.20 / 500) * 500;
+    document.getElementById('sbEst').innerHTML = `$${lo.toLocaleString()} <span class="dash">–</span> $${hi.toLocaleString()}`;
+    document.getElementById('sbNote').textContent = `${cat.name} · ~${Math.floor(hours)}h ${Math.round((hours % 1) * 60)}m total flight time. Fuel, taxes, FET, repos & crew included.`;
+  }
+}
+
+// --- Continue
+document.getElementById('continueBtn').addEventListener('click', () => {
+  const btn = document.getElementById('continueBtn');
+  btn.style.opacity = '0.6';
+  btn.innerHTML = 'Saving · ✓';
+  setTimeout(() => {
+    btn.innerHTML = 'Continue to contact <span class="arrow">→</span>';
+    btn.style.opacity = '';
+    alert('Step 03 coming next — Contact.');
+  }, 700);
+});
+
+// --- Boot
+renderAircraft();
+renderToggles();
+renderCatering();
+renderGround();
+updateSidebar();
+</script>
+</body>
+</html>

@@ -1,0 +1,1359 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>JetNine — Design System</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,500;9..144,600&family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --ink: #07080A;
+    --ink-2: #0E1014;
+    --ink-3: #161A20;
+    --ink-4: #1E232B;
+    --bone: #F4F1EA;
+    --bone-2: #C9C4B8;
+    --steel: #6B7280;
+    --clearance: #E8E2D2;        /* default: monochrome */
+    --clearance-hover: #FFFFFF;
+    --clearance-soft: rgba(232, 226, 210, 0.12);
+    --success: #5B8C5A;
+    --warn: #B8893C;
+    --error: #A4453A;
+
+    --serif: "Fraunces", "Times New Roman", serif;
+    --sans: "Inter", system-ui, -apple-system, sans-serif;
+    --mono: "JetBrains Mono", ui-monospace, monospace;
+
+    --container: 1280px;
+    --pad-x: 64px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  body {
+    background: var(--ink);
+    color: var(--bone);
+    font-family: var(--sans);
+    font-size: 16px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    overflow-x: hidden;
+  }
+  ::selection { background: var(--clearance); color: var(--ink); }
+
+  .container {
+    max-width: var(--container);
+    margin: 0 auto;
+    padding: 0 var(--pad-x);
+  }
+
+  /* ---------- Typography utilities ---------- */
+  .display-xl { font-family: var(--serif); font-weight: 300; font-size: clamp(56px, 9vw, 96px); line-height: 1.0; letter-spacing: -0.02em; font-variation-settings: "opsz" 144, "SOFT" 0; }
+  .display-l  { font-family: var(--serif); font-weight: 300; font-size: clamp(44px, 6vw, 72px); line-height: 1.05; letter-spacing: -0.015em; font-variation-settings: "opsz" 144; }
+  .display-m  { font-family: var(--serif); font-weight: 300; font-size: clamp(36px, 4.5vw, 56px); line-height: 1.1; letter-spacing: -0.01em; font-variation-settings: "opsz" 144; }
+  .h1         { font-family: var(--serif); font-weight: 400; font-size: 44px; line-height: 1.15; letter-spacing: -0.005em; font-variation-settings: "opsz" 100; }
+  .h2         { font-family: var(--serif); font-weight: 400; font-size: 32px; line-height: 1.2; letter-spacing: -0.0025em; font-variation-settings: "opsz" 72; }
+  .h3         { font-family: var(--serif); font-weight: 400; font-size: 24px; line-height: 1.3; font-variation-settings: "opsz" 36; }
+  .body-l     { font-size: 18px; line-height: 1.55; color: var(--bone-2); }
+  .body       { font-size: 16px; line-height: 1.6; color: var(--bone-2); }
+  .caption    { font-family: var(--mono); font-size: 11px; line-height: 1.4; letter-spacing: 0.12em; text-transform: uppercase; color: var(--bone-2); }
+  .mono       { font-family: var(--mono); }
+
+  /* ---------- Top nav (sticky doc nav) ---------- */
+  .docnav {
+    position: sticky; top: 0; z-index: 50;
+    background: rgba(7,8,10,0.86);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border-bottom: 1px solid var(--ink-3);
+  }
+  .docnav-inner {
+    display: flex; align-items: center; justify-content: space-between;
+    height: 64px;
+    max-width: var(--container);
+    margin: 0 auto;
+    padding: 0 var(--pad-x);
+  }
+  .brand { display: flex; align-items: center; gap: 10px; font-family: var(--serif); font-size: 20px; font-weight: 500; letter-spacing: -0.01em; }
+  .brand .nine {
+    font-family: var(--mono); font-size: 11px; padding: 3px 6px;
+    border: 1px solid var(--ink-4); border-radius: 2px;
+    color: var(--clearance); letter-spacing: 0.12em;
+  }
+  .docnav-links { display: flex; gap: 32px; }
+  .docnav-links a {
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.12em;
+    text-transform: uppercase; color: var(--bone-2); text-decoration: none;
+    padding: 6px 0; transition: color 200ms cubic-bezier(0.16,1,0.3,1);
+  }
+  .docnav-links a:hover { color: var(--bone); }
+
+  /* ---------- Page header ---------- */
+  .page-header {
+    padding: 160px 0 96px;
+    border-bottom: 1px solid var(--ink-3);
+  }
+  .kicker {
+    display: inline-flex; align-items: center; gap: 12px;
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.16em;
+    text-transform: uppercase; color: var(--bone-2);
+    margin-bottom: 24px;
+  }
+  .kicker .dash { width: 32px; height: 1px; background: var(--clearance); }
+  .meta-row {
+    display: flex; gap: 48px; margin-top: 48px;
+    padding-top: 32px; border-top: 1px solid var(--ink-3);
+  }
+  .meta-item .meta-label { font-family: var(--mono); font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--steel); margin-bottom: 6px; }
+  .meta-item .meta-val { font-family: var(--mono); font-size: 13px; color: var(--bone); }
+
+  /* ---------- Section frame ---------- */
+  section.spec {
+    padding: 128px 0;
+    border-bottom: 1px solid var(--ink-3);
+  }
+  .section-head {
+    display: grid; grid-template-columns: 1fr 2fr; gap: 64px; margin-bottom: 64px;
+  }
+  @media (max-width: 900px) { .section-head { grid-template-columns: 1fr; } }
+  .section-num { font-family: var(--mono); font-size: 11px; letter-spacing: 0.16em; color: var(--steel); }
+  .section-title-stack .lbl { color: var(--clearance); margin-bottom: 12px; }
+
+  /* ---------- Color swatches ---------- */
+  .swatch-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--ink-3); border: 1px solid var(--ink-3); }
+  @media (max-width: 900px) { .swatch-grid { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 600px) { .swatch-grid { grid-template-columns: 1fr; } }
+  .swatch {
+    background: var(--ink-2);
+    padding: 24px;
+    display: flex; flex-direction: column; gap: 16px;
+    min-height: 200px;
+  }
+  .swatch .chip {
+    height: 96px; border-radius: 2px;
+    border: 1px solid rgba(255,255,255,0.04);
+    position: relative; overflow: hidden;
+  }
+  .swatch .chip::after {
+    content: ""; position: absolute; inset: 0;
+    background: linear-gradient(135deg, rgba(255,255,255,0.04), transparent 40%);
+  }
+  .swatch .name { font-family: var(--mono); font-size: 12px; color: var(--bone); }
+  .swatch .role { font-size: 13px; color: var(--bone-2); line-height: 1.5; }
+  .swatch .hex  { font-family: var(--mono); font-size: 11px; color: var(--steel); letter-spacing: 0.06em; margin-top: auto; display: flex; justify-content: space-between; }
+
+  /* ---------- Type scale rows ---------- */
+  .type-rows { display: flex; flex-direction: column; }
+  .type-row {
+    display: grid; grid-template-columns: 200px 1fr 220px;
+    gap: 32px; align-items: baseline;
+    padding: 32px 0;
+    border-top: 1px solid var(--ink-3);
+  }
+  .type-row:last-child { border-bottom: 1px solid var(--ink-3); }
+  @media (max-width: 900px) { .type-row { grid-template-columns: 1fr; gap: 12px; } }
+  .type-row .tag { font-family: var(--mono); font-size: 11px; letter-spacing: 0.12em; color: var(--bone-2); text-transform: uppercase; }
+  .type-row .specs { font-family: var(--mono); font-size: 11px; color: var(--steel); letter-spacing: 0.06em; line-height: 1.6; text-align: right; white-space: pre-line; }
+  @media (max-width: 900px) { .type-row .specs { text-align: left; } }
+
+  /* ---------- Buttons ---------- */
+  .btn {
+    display: inline-flex; align-items: center; gap: 12px;
+    font-family: var(--sans); font-weight: 500;
+    font-size: 13px; letter-spacing: 0.14em; text-transform: uppercase;
+    padding: 14px 28px; border-radius: 2px; border: none;
+    cursor: pointer; text-decoration: none;
+    transition: background 200ms cubic-bezier(0.16,1,0.3,1), color 200ms cubic-bezier(0.16,1,0.3,1), border-color 200ms;
+  }
+  .btn-primary { background: var(--clearance); color: var(--ink); }
+  .btn-primary:hover { background: var(--clearance-hover); }
+  .btn-secondary { background: transparent; color: var(--bone); border: 1px solid var(--bone); }
+  .btn-secondary:hover { background: rgba(244,241,234,0.08); }
+  .btn-ghost { background: transparent; color: var(--bone-2); padding: 14px 0; border: none; position: relative; }
+  .btn-ghost::after {
+    content: ""; position: absolute; left: 0; bottom: 8px; height: 1.5px; width: 0;
+    background: var(--clearance); transition: width 300ms cubic-bezier(0.16,1,0.3,1);
+  }
+  .btn-ghost:hover { color: var(--bone); }
+  .btn-ghost:hover::after { width: 100%; }
+  .btn-sm { font-size: 11px; padding: 10px 20px; }
+  .btn-lg { font-size: 15px; padding: 18px 40px; }
+  .btn:focus-visible { outline: 2px solid var(--clearance); outline-offset: 2px; }
+  .btn[disabled] { opacity: 0.4; cursor: not-allowed; }
+
+  .arrow { display: inline-block; transition: transform 240ms cubic-bezier(0.16,1,0.3,1); }
+  .btn:hover .arrow { transform: translateX(4px); }
+
+  /* ---------- Cards (showcase) ---------- */
+  .card {
+    background: var(--ink-2);
+    border: 1px solid var(--ink-3);
+    border-radius: 4px;
+    padding: 32px;
+    transition: border-color 240ms cubic-bezier(0.16,1,0.3,1), transform 300ms cubic-bezier(0.16,1,0.3,1);
+  }
+  .card:hover { border-color: rgba(107,114,128,0.5); transform: translateY(-2px); }
+
+  /* ---------- Inputs ---------- */
+  .field {
+    position: relative;
+    background: var(--ink-3);
+    border-radius: 2px;
+    padding: 22px 16px 12px;
+    border-bottom: 1px solid var(--steel);
+    transition: border-color 200ms;
+  }
+  .field input, .field select {
+    background: transparent; border: none; outline: none; width: 100%;
+    color: var(--bone); font-family: var(--sans); font-size: 15px;
+    appearance: none;
+  }
+  .field input::placeholder { color: var(--steel); }
+  .field label {
+    position: absolute; top: 8px; left: 16px;
+    font-family: var(--mono); font-size: 10px; letter-spacing: 0.12em;
+    text-transform: uppercase; color: var(--bone-2);
+    transition: color 200ms;
+    pointer-events: none;
+  }
+  .field:focus-within { border-color: var(--clearance); }
+  .field:focus-within label { color: var(--clearance); }
+  .field.error { border-color: var(--error); }
+  .field-error { font-size: 12px; color: var(--error); margin-top: 8px; font-family: var(--mono); letter-spacing: 0.04em; }
+
+  /* ---------- Spacing token row ---------- */
+  .spacing-row { display: flex; flex-direction: column; gap: 16px; }
+  .spacing-item { display: grid; grid-template-columns: 80px 1fr 80px; gap: 24px; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--ink-3); }
+  .spacing-bar { background: var(--clearance); height: 12px; border-radius: 2px; opacity: 0.85; }
+
+  /* ---------- Booking widget ---------- */
+  .booking {
+    background: var(--ink-2);
+    border: 1px solid var(--ink-3);
+    border-radius: 4px;
+    padding: 32px;
+  }
+  .booking-tabs {
+    display: flex; gap: 32px;
+    border-bottom: 1px solid var(--ink-3);
+    margin-bottom: 32px;
+  }
+  .booking-tab {
+    background: none; border: none; cursor: pointer;
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.14em;
+    text-transform: uppercase; color: var(--bone-2);
+    padding: 16px 0; position: relative;
+    transition: color 200ms;
+  }
+  .booking-tab:hover { color: var(--bone); }
+  .booking-tab.active { color: var(--bone); }
+  .booking-tab.active::after {
+    content: ""; position: absolute; left: 0; right: 0; bottom: -1px; height: 2px;
+    background: var(--clearance);
+  }
+  .booking-form {
+    display: grid; grid-template-columns: 1.2fr 1.2fr 1fr 1fr 0.7fr auto;
+    gap: 12px; align-items: stretch;
+  }
+  @media (max-width: 1100px) {
+    .booking-form { grid-template-columns: 1fr 1fr; }
+    .booking-form .btn-search { grid-column: 1 / -1; }
+  }
+  .booking-form .btn-search {
+    background: var(--clearance); color: var(--ink);
+    font-family: var(--sans); font-weight: 500; font-size: 12px;
+    letter-spacing: 0.14em; text-transform: uppercase;
+    border: none; cursor: pointer;
+    padding: 0 28px; border-radius: 2px;
+    display: inline-flex; align-items: center; gap: 10px; justify-content: center;
+    transition: background 200ms;
+  }
+  .booking-form .btn-search:hover { background: var(--clearance-hover); }
+  .helper-row {
+    display: flex; justify-content: flex-end; margin-top: 20px;
+  }
+
+  /* ---------- Trust bar ---------- */
+  .trust-bar {
+    background: var(--ink-2);
+    border-top: 1px solid var(--ink-3);
+    border-bottom: 1px solid var(--ink-3);
+    padding: 36px 0;
+  }
+  .trust-row {
+    display: flex; align-items: center; justify-content: space-between;
+    flex-wrap: wrap; gap: 32px;
+  }
+  .trust-item {
+    display: flex; flex-direction: column; gap: 6px; min-width: 0;
+    flex: 1;
+    padding: 0 24px;
+    border-right: 1px solid var(--ink-3);
+  }
+  .trust-item:last-child { border-right: none; }
+  .trust-item .num { font-family: var(--serif); font-weight: 300; font-size: 32px; color: var(--bone); letter-spacing: -0.01em; font-variation-settings: "opsz" 72; }
+  .trust-item .lbl { font-family: var(--mono); font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--bone-2); }
+
+  /* ---------- Aircraft card ---------- */
+  .ac-card {
+    background: var(--ink-2);
+    border: 1px solid var(--ink-3);
+    border-radius: 4px;
+    overflow: hidden;
+    transition: border-color 240ms, transform 300ms cubic-bezier(0.16,1,0.3,1);
+    cursor: pointer;
+  }
+  .ac-card:hover { border-color: rgba(232,226,210,0.3); transform: translateY(-2px); }
+  .ac-img {
+    aspect-ratio: 4 / 5;
+    background: linear-gradient(135deg, #161A20, #0E1014);
+    position: relative; overflow: hidden;
+  }
+  .ac-img::before {
+    /* placeholder stripes */
+    content: ""; position: absolute; inset: 0;
+    background-image: repeating-linear-gradient(
+      45deg,
+      rgba(255,255,255,0.012) 0,
+      rgba(255,255,255,0.012) 1px,
+      transparent 1px,
+      transparent 12px
+    );
+  }
+  .ac-img .ph-cap {
+    position: absolute; left: 16px; top: 16px;
+    font-family: var(--mono); font-size: 10px; letter-spacing: 0.16em;
+    color: var(--steel); text-transform: uppercase;
+  }
+  .ac-img .silhouette {
+    position: absolute; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    color: rgba(232,226,210,0.08);
+    font-family: var(--mono); font-size: 96px; font-weight: 300;
+  }
+  .ac-body { padding: 24px; }
+  .ac-name { font-family: var(--serif); font-size: 22px; margin-bottom: 12px; }
+  .ac-spec {
+    font-family: var(--mono); font-size: 11px; color: var(--bone-2);
+    letter-spacing: 0.08em; display: flex; gap: 8px; flex-wrap: wrap;
+  }
+  .ac-spec span { white-space: nowrap; }
+  .ac-spec .dot { color: var(--steel); }
+
+  /* ---------- 9-aperture mark (custom icon) ---------- */
+  .nine-mark { display: inline-block; }
+
+  /* ---------- footer ---------- */
+  footer.docfoot {
+    padding: 96px 0 64px;
+    background: var(--ink);
+    border-top: 1px solid var(--ink-3);
+  }
+  .footer-grid { display: grid; grid-template-columns: 2fr 1fr 1fr 1.5fr; gap: 48px; }
+  @media (max-width: 900px) { .footer-grid { grid-template-columns: 1fr 1fr; } }
+  @media (max-width: 600px) { .footer-grid { grid-template-columns: 1fr; } }
+  .foot-col h4 { font-family: var(--mono); font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--bone-2); margin-bottom: 24px; }
+  .foot-col ul { list-style: none; display: flex; flex-direction: column; gap: 12px; }
+  .foot-col a { color: var(--bone); text-decoration: none; font-size: 14px; transition: color 200ms; }
+  .foot-col a:hover { color: var(--clearance); }
+  .foot-bottom {
+    margin-top: 64px; padding-top: 32px; border-top: 1px solid var(--ink-3);
+    display: flex; justify-content: space-between; align-items: center;
+    font-family: var(--mono); font-size: 11px; color: var(--steel); letter-spacing: 0.08em;
+    flex-wrap: wrap; gap: 16px;
+  }
+
+  /* ---------- nav bar showcase ---------- */
+  .navshell {
+    height: 80px; background: rgba(7,8,10,0.95);
+    border-bottom: 1px solid var(--ink-3);
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 32px; border-radius: 4px;
+  }
+  .navshell-links { display: flex; gap: 32px; }
+  .navshell-links a {
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.14em;
+    text-transform: uppercase; color: var(--bone-2); text-decoration: none;
+    transition: color 200ms;
+  }
+  .navshell-links a:hover, .navshell-links a.active { color: var(--bone); }
+  .navshell-cta { display: flex; gap: 16px; align-items: center; }
+  .phone-link { font-family: var(--mono); font-size: 12px; color: var(--bone-2); text-decoration: none; }
+  .phone-link:hover { color: var(--bone); }
+
+  /* ---------- icon set display ---------- */
+  .icon-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 1px; background: var(--ink-3); border: 1px solid var(--ink-3); }
+  @media (max-width: 900px) { .icon-grid { grid-template-columns: repeat(3, 1fr); } }
+  .icon-tile {
+    background: var(--ink-2); padding: 32px 16px;
+    display: flex; flex-direction: column; align-items: center; gap: 12px;
+    aspect-ratio: 1 / 1;
+  }
+  .icon-tile svg { color: var(--bone); }
+  .icon-tile .lbl { font-family: var(--mono); font-size: 10px; letter-spacing: 0.1em; color: var(--bone-2); text-transform: uppercase; }
+
+  /* ---------- callouts / strip ---------- */
+  .strip {
+    display: flex; align-items: center; gap: 16px;
+    padding: 16px 24px;
+    background: var(--ink-2); border: 1px solid var(--ink-3);
+    border-radius: 4px;
+    font-family: var(--mono); font-size: 12px; letter-spacing: 0.08em;
+    color: var(--bone-2);
+  }
+  .strip .label { color: var(--clearance); }
+
+  /* ---------- divider with 9 mark ---------- */
+  .divider-9 {
+    display: flex; align-items: center; gap: 16px;
+    margin: 32px 0;
+    color: var(--steel);
+  }
+  .divider-9 .line { flex: 1; height: 1px; background: var(--ink-3); }
+  .divider-9 .nine-glyph {
+    width: 32px; height: 32px; border-radius: 50%;
+    border: 1px solid var(--clearance);
+    display: flex; align-items: center; justify-content: center;
+    font-family: var(--serif); color: var(--clearance); font-size: 14px;
+  }
+
+  /* ---------- tile (value prop) ---------- */
+  .vp-tile {
+    background: var(--ink-2); border: 1px solid var(--ink-3);
+    padding: 32px;
+    display: flex; flex-direction: column; gap: 16px;
+    transition: border-color 240ms;
+    border-radius: 4px;
+  }
+  .vp-tile:hover { border-color: rgba(232,226,210,0.3); }
+  .vp-tile .vp-icon { color: var(--clearance); }
+  .vp-tile h3 { font-family: var(--serif); font-size: 22px; line-height: 1.25; }
+  .vp-tile p { font-size: 14px; line-height: 1.6; color: var(--bone-2); }
+
+  /* ---------- callout banner ---------- */
+  .callout {
+    padding: 24px 32px; background: var(--ink-2);
+    border-left: 1px solid var(--clearance);
+    font-family: var(--serif); font-size: 20px; color: var(--bone);
+    line-height: 1.4; font-weight: 300;
+    font-variation-settings: "opsz" 36;
+  }
+
+  /* ---------- subgrid ---------- */
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+  .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
+  .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 24px; }
+  @media (max-width: 1024px) {
+    .grid-3 { grid-template-columns: repeat(2, 1fr); }
+    .grid-4 { grid-template-columns: repeat(2, 1fr); }
+  }
+  @media (max-width: 600px) {
+    .grid-2, .grid-3, .grid-4 { grid-template-columns: 1fr; }
+  }
+
+  /* ---------- subtle scroll reveal ---------- */
+  .reveal { opacity: 0; transform: translateY(16px); transition: opacity 700ms cubic-bezier(0.16,1,0.3,1), transform 700ms cubic-bezier(0.16,1,0.3,1); }
+  .reveal.in { opacity: 1; transform: none; }
+
+  /* ---------- progress steps in form ---------- */
+  .stepper { display: flex; gap: 24px; align-items: center; }
+  .step { display: flex; align-items: center; gap: 10px; font-family: var(--mono); font-size: 11px; letter-spacing: 0.12em; color: var(--steel); text-transform: uppercase; }
+  .step.active { color: var(--bone); }
+  .step .num { width: 22px; height: 22px; border-radius: 50%; border: 1px solid var(--steel); display: inline-flex; align-items: center; justify-content: center; font-size: 10px; }
+  .step.active .num { border-color: var(--clearance); color: var(--clearance); }
+
+  /* ---------- focus ring ---------- */
+  a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible {
+    outline: 2px solid var(--clearance);
+    outline-offset: 2px;
+  }
+
+  /* ---------- micro chrome: section anchor */
+  .anchor-target { scroll-margin-top: 96px; }
+
+</style>
+</head>
+<body>
+
+<!-- Sticky doc nav -->
+<nav class="docnav">
+  <div class="docnav-inner">
+    <div class="brand">
+      JetNine
+      <span class="nine">09</span>
+    </div>
+    <div class="docnav-links">
+      <a href="#color">Color</a>
+      <a href="#type">Type</a>
+      <a href="#spacing">Spacing</a>
+      <a href="#buttons">Buttons</a>
+      <a href="#inputs">Inputs</a>
+      <a href="#cards">Cards</a>
+      <a href="#nav">Nav</a>
+      <a href="#booking">Booking</a>
+      <a href="#trust">Trust bar</a>
+      <a href="#aircraft">Aircraft</a>
+      <a href="#footer">Footer</a>
+    </div>
+    <div class="brand" style="font-size:12px;color:var(--steel);font-family:var(--mono);letter-spacing:0.12em;">v0.1 — DESIGN SYSTEM</div>
+  </div>
+</nav>
+
+<!-- Page header -->
+<header class="page-header">
+  <div class="container">
+    <div class="kicker"><span class="dash"></span> JETNINE — DESIGN SYSTEM v0.1</div>
+    <h1 class="display-xl" style="max-width: 14ch;">The standard,<br/>every flight.</h1>
+    <p class="body-l" style="max-width: 56ch; margin-top: 32px;">
+      A precise, restrained system built for a private aviation broker. Aviator-instrument discipline.
+      Editorial composure. One accent, used sparingly. Every spec on this page is canonical — locking
+      this is step one before any page is built.
+    </p>
+    <div class="meta-row">
+      <div class="meta-item">
+        <div class="meta-label">Authored</div>
+        <div class="meta-val">2026.05.07 — LAX</div>
+      </div>
+      <div class="meta-item">
+        <div class="meta-label">Status</div>
+        <div class="meta-val" style="color: var(--clearance);">Cleared for review</div>
+      </div>
+      <div class="meta-item">
+        <div class="meta-label">Mode</div>
+        <div class="meta-val">Dark / primary</div>
+      </div>
+      <div class="meta-item">
+        <div class="meta-label">Grid</div>
+        <div class="meta-val">12 col · 1280 max</div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<!-- 01 COLOR -->
+<section class="spec anchor-target" id="color">
+  <div class="container">
+    <div class="section-head">
+      <div>
+        <div class="section-num">01 / 11</div>
+        <div class="kicker" style="margin-top:12px;">Color</div>
+      </div>
+      <div class="section-title-stack">
+        <h2 class="display-m">A near-black, an ivory, and a single signal.</h2>
+        <p class="body-l" style="margin-top: 16px;">Dark-first. Surfaces step in 14-point luminance increments. Bone is warmer than white. The accent appears no more than three or four times per viewport — it's the "cleared" signal, not decoration.</p>
+      </div>
+    </div>
+
+    <div class="kicker" style="margin: 48px 0 16px;"><span class="dash"></span> Core — dark</div>
+    <div class="swatch-grid">
+      <div class="swatch">
+        <div class="chip" style="background:#07080A;"></div>
+        <div><div class="name">--ink</div><div class="role">Primary background.</div></div>
+        <div class="hex"><span>#07080A</span><span>R7 G8 B10</span></div>
+      </div>
+      <div class="swatch">
+        <div class="chip" style="background:#0E1014;"></div>
+        <div><div class="name">--ink-2</div><div class="role">Surface elevation 1 — cards, modals.</div></div>
+        <div class="hex"><span>#0E1014</span><span>R14 G16 B20</span></div>
+      </div>
+      <div class="swatch">
+        <div class="chip" style="background:#161A20;"></div>
+        <div><div class="name">--ink-3</div><div class="role">Surface elevation 2 — input fields, hover states.</div></div>
+        <div class="hex"><span>#161A20</span><span>R22 G26 B32</span></div>
+      </div>
+      <div class="swatch">
+        <div class="chip" style="background:#F4F1EA;"></div>
+        <div><div class="name" style="color:var(--ink);">— bone</div><div class="role" style="color:rgba(7,8,10,0.6);">Primary text on dark, hero text.</div></div>
+        <div class="hex" style="color:rgba(7,8,10,0.5);"><span>#F4F1EA</span><span>R244 G241 B234</span></div>
+      </div>
+      <div class="swatch">
+        <div class="chip" style="background:#C9C4B8;"></div>
+        <div><div class="name">--bone-2</div><div class="role">Muted text, captions, labels.</div></div>
+        <div class="hex"><span>#C9C4B8</span><span>R201 G196 B184</span></div>
+      </div>
+      <div class="swatch">
+        <div class="chip" style="background:#6B7280;"></div>
+        <div><div class="name">--steel</div><div class="role">Tertiary text, dividers, disabled.</div></div>
+        <div class="hex"><span>#6B7280</span><span>R107 G114 B128</span></div>
+      </div>
+    </div>
+
+    <div class="kicker" style="margin: 48px 0 16px;"><span class="dash"></span> Accent — clearance signal</div>
+    <div class="swatch-grid" style="grid-template-columns: repeat(3, 1fr);">
+      <div class="swatch">
+        <div class="chip" id="accentChip" style="background:#E8E2D2;"></div>
+        <div><div class="name">--clearance</div><div class="role">CTA fills, the "9" motif, active states, focus rings, hover underlines. Use sparingly.</div></div>
+        <div class="hex"><span id="accentHex">#E8E2D2</span><span id="accentName">CLEARANCE WHITE</span></div>
+      </div>
+      <div class="swatch">
+        <div class="chip" style="background:#5B8C5A;"></div>
+        <div><div class="name">--success</div><div class="role">Form success.</div></div>
+        <div class="hex"><span>#5B8C5A</span><span>FUNCTIONAL</span></div>
+      </div>
+      <div class="swatch">
+        <div class="chip" style="background:#A4453A;"></div>
+        <div><div class="name">--error</div><div class="role">Form error.</div></div>
+        <div class="hex"><span>#A4453A</span><span>FUNCTIONAL</span></div>
+      </div>
+    </div>
+
+    <div class="callout" style="margin-top: 48px;">
+      The accent is the moment <em>maybe</em> becomes <em>cleared</em>. Treat every appearance as a
+      deliberate confirmation — not an emphasis tool.
+    </div>
+  </div>
+</section>
+
+<!-- 02 TYPE -->
+<section class="spec anchor-target" id="type">
+  <div class="container">
+    <div class="section-head">
+      <div>
+        <div class="section-num">02 / 11</div>
+        <div class="kicker" style="margin-top:12px;">Typography</div>
+      </div>
+      <div class="section-title-stack">
+        <h2 class="display-m">Editorial serif, technical sans, instrument mono.</h2>
+        <p class="body-l" style="margin-top: 16px;">Fraunces for display (variable, optical-size aware). Inter for UI and body. JetBrains Mono for flight codes, captions, and the "09" motif. Two weights of Inter per component — never more.</p>
+      </div>
+    </div>
+
+    <div class="type-rows">
+      <div class="type-row">
+        <div class="tag">DISPLAY · XL</div>
+        <div class="display-xl" style="font-size: 96px;">Cleared.</div>
+        <div class="specs">Fraunces · 96/100<br/>-2% tracking<br/>Hero only</div>
+      </div>
+      <div class="type-row">
+        <div class="tag">DISPLAY · L</div>
+        <div class="display-l" style="font-size: 72px;">Ready when you are.</div>
+        <div class="specs">Fraunces · 72/76<br/>-1.5% tracking<br/>Section openers</div>
+      </div>
+      <div class="type-row">
+        <div class="tag">DISPLAY · M</div>
+        <div class="display-m" style="font-size: 56px;">Built around how you fly.</div>
+        <div class="specs">Fraunces · 56/62<br/>-1% tracking</div>
+      </div>
+      <div class="type-row">
+        <div class="tag">H1</div>
+        <div class="h1">Choose your aircraft.</div>
+        <div class="specs">Fraunces · 44/50<br/>-0.5% tracking</div>
+      </div>
+      <div class="type-row">
+        <div class="tag">H2</div>
+        <div class="h2">From request to wheels-up.</div>
+        <div class="specs">Fraunces · 32/38<br/>-0.25% tracking</div>
+      </div>
+      <div class="type-row">
+        <div class="tag">H3</div>
+        <div class="h3">No hidden fees.</div>
+        <div class="specs">Fraunces · 24/32</div>
+      </div>
+      <div class="type-row">
+        <div class="tag">BODY · L</div>
+        <div class="body-l" style="max-width: 56ch;">A private jet charter broker based in Los Angeles. Access to twenty thousand aircraft worldwide, twenty-four hour concierge, transparent pricing, full discretion.</div>
+        <div class="specs">Inter 400 · 18/28<br/>1.55 lh · max 65ch</div>
+      </div>
+      <div class="type-row">
+        <div class="tag">BODY</div>
+        <div class="body" style="max-width: 65ch;">All-in pricing. No fuel surcharges, no last-minute aircraft swaps. Your dispatch advisor is a real human, average response under four minutes — at any hour, in any timezone.</div>
+        <div class="specs">Inter 400 · 16/26<br/>1.6 lh · max 65ch</div>
+      </div>
+      <div class="type-row">
+        <div class="tag">CAPTION · MONO</div>
+        <div class="caption">EST. 2025 — LOS ANGELES</div>
+        <div class="specs">JetBrains Mono · 11/15<br/>+12% tracking · uppercase</div>
+      </div>
+      <div class="type-row">
+        <div class="tag">FLIGHT MONO</div>
+        <div class="mono" style="font-size: 14px; color: var(--bone); letter-spacing: 0.04em;">N909JN · KLAX → KASE · 21:40 PDT</div>
+        <div class="specs">JetBrains Mono · 14/20<br/>flight codes, tail nos.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 03 SPACING & GRID -->
+<section class="spec anchor-target" id="spacing">
+  <div class="container">
+    <div class="section-head">
+      <div>
+        <div class="section-num">03 / 11</div>
+        <div class="kicker" style="margin-top:12px;">Spacing & grid</div>
+      </div>
+      <div class="section-title-stack">
+        <h2 class="display-m">Four-pixel base. Generous rhythm.</h2>
+        <p class="body-l" style="margin-top: 16px;">Every spacing token is a multiple of 4. Section vertical rhythm is 160 / 96 / 64 across desktop / tablet / mobile — don't compress it. Breathing room is the luxury.</p>
+      </div>
+    </div>
+
+    <div class="grid-2" style="gap: 64px;">
+      <div>
+        <div class="kicker" style="margin-bottom: 24px;"><span class="dash"></span> Spacing scale</div>
+        <div class="spacing-row">
+          <!-- generated rows below -->
+        </div>
+        <div class="spacing-row" id="spacingRows"></div>
+      </div>
+      <div>
+        <div class="kicker" style="margin-bottom: 24px;"><span class="dash"></span> Grid</div>
+        <div style="position: relative; padding: 24px; background: var(--ink-2); border: 1px solid var(--ink-3); border-radius: 4px;">
+          <div style="display:grid; grid-template-columns: repeat(12, 1fr); gap: 8px; height: 240px;">
+            <div style="background: var(--clearance); opacity: 0.06;"></div>
+            <div style="background: var(--clearance); opacity: 0.06;"></div>
+            <div style="background: var(--clearance); opacity: 0.06;"></div>
+            <div style="background: var(--clearance); opacity: 0.06;"></div>
+            <div style="background: var(--clearance); opacity: 0.06;"></div>
+            <div style="background: var(--clearance); opacity: 0.06;"></div>
+            <div style="background: var(--clearance); opacity: 0.06;"></div>
+            <div style="background: var(--clearance); opacity: 0.06;"></div>
+            <div style="background: var(--clearance); opacity: 0.06;"></div>
+            <div style="background: var(--clearance); opacity: 0.06;"></div>
+            <div style="background: var(--clearance); opacity: 0.06;"></div>
+            <div style="background: var(--clearance); opacity: 0.06;"></div>
+          </div>
+          <div class="caption" style="margin-top: 16px;">12 COL · 24PX GUTTER · 1280PX MAX</div>
+        </div>
+        <div style="margin-top: 24px; display: grid; grid-template-columns: repeat(3,1fr); gap: 12px;">
+          <div class="strip"><span class="label">XL</span> 1280+</div>
+          <div class="strip"><span class="label">LG</span> 1024 / 48px</div>
+          <div class="strip"><span class="label">MD</span> 768 / 24px</div>
+        </div>
+
+        <div class="kicker" style="margin: 48px 0 24px;"><span class="dash"></span> Section rhythm</div>
+        <div class="strip" style="display:flex; flex-direction:column; align-items:flex-start; gap: 12px;">
+          <div><span class="label">DESKTOP</span> &nbsp; 160px between major sections</div>
+          <div><span class="label">TABLET</span> &nbsp;&nbsp; 96px</div>
+          <div><span class="label">MOBILE</span> &nbsp;&nbsp; 64px</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 04 BUTTONS -->
+<section class="spec anchor-target" id="buttons">
+  <div class="container">
+    <div class="section-head">
+      <div>
+        <div class="section-num">04 / 11</div>
+        <div class="kicker" style="margin-top:12px;">Buttons</div>
+      </div>
+      <div class="section-title-stack">
+        <h2 class="display-m">Sharp, flat, declarative.</h2>
+        <p class="body-l" style="margin-top: 16px;">2px radius — not rounded. Inter 500, uppercase, 14% tracking. Action verbs only — Request, Explore, Talk to dispatch. The arrow nudges 4px on hover.</p>
+      </div>
+    </div>
+
+    <div class="grid-3">
+      <div class="card">
+        <div class="kicker" style="margin-bottom: 24px;">PRIMARY</div>
+        <div style="display:flex; flex-direction:column; gap: 16px; align-items: flex-start;">
+          <button class="btn btn-primary btn-sm">Request quote <span class="arrow">→</span></button>
+          <button class="btn btn-primary">Request quote <span class="arrow">→</span></button>
+          <button class="btn btn-primary btn-lg">Request quote <span class="arrow">→</span></button>
+          <button class="btn btn-primary" disabled>Disabled</button>
+        </div>
+        <p class="body" style="margin-top: 24px; font-size: 13px;">Clearance fill, ink text. Hover lifts to clearance-hover; never grows.</p>
+      </div>
+
+      <div class="card">
+        <div class="kicker" style="margin-bottom: 24px;">SECONDARY</div>
+        <div style="display:flex; flex-direction:column; gap: 16px; align-items: flex-start;">
+          <button class="btn btn-secondary btn-sm">Explore aircraft</button>
+          <button class="btn btn-secondary">Explore aircraft</button>
+          <button class="btn btn-secondary btn-lg">Explore aircraft</button>
+        </div>
+        <p class="body" style="margin-top: 24px; font-size: 13px;">1px bone border, transparent fill. Hover fills to 8% bone alpha.</p>
+      </div>
+
+      <div class="card">
+        <div class="kicker" style="margin-bottom: 24px;">GHOST</div>
+        <div style="display:flex; flex-direction:column; gap: 16px; align-items: flex-start;">
+          <button class="btn btn-ghost btn-sm">Talk to dispatch <span class="arrow">→</span></button>
+          <button class="btn btn-ghost">Talk to dispatch <span class="arrow">→</span></button>
+          <button class="btn btn-ghost btn-lg">Talk to dispatch <span class="arrow">→</span></button>
+        </div>
+        <p class="body" style="margin-top: 24px; font-size: 13px;">Text only, bone-2 default. Underline animates in on hover, 1.5px clearance.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 05 INPUTS -->
+<section class="spec anchor-target" id="inputs">
+  <div class="container">
+    <div class="section-head">
+      <div>
+        <div class="section-num">05 / 11</div>
+        <div class="kicker" style="margin-top:12px;">Inputs</div>
+      </div>
+      <div class="section-title-stack">
+        <h2 class="display-m">Quiet fields with a single bottom line.</h2>
+        <p class="body-l" style="margin-top: 16px;">No box borders. Ink-3 fill, 1px steel rule on the bottom that becomes clearance on focus. Caption labels float above. Sharp 2px corners.</p>
+      </div>
+    </div>
+
+    <div class="grid-2">
+      <div class="card">
+        <div class="kicker" style="margin-bottom: 24px;">DEFAULT · FOCUS · ERROR</div>
+        <div style="display: flex; flex-direction: column; gap: 16px;">
+          <div class="field">
+            <label>From</label>
+            <input type="text" value="KLAX — Los Angeles" />
+          </div>
+          <div class="field" style="border-color: var(--clearance);">
+            <label style="color: var(--clearance);">To</label>
+            <input type="text" placeholder="Destination" autofocus />
+          </div>
+          <div class="field error">
+            <label style="color: var(--error);">Email</label>
+            <input type="email" value="not-an-email" />
+            <div class="field-error">Enter a valid email — required.</div>
+          </div>
+          <div class="field">
+            <label>How did you hear</label>
+            <select>
+              <option>Referral</option>
+              <option>Search</option>
+              <option>Press</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="kicker" style="margin-bottom: 24px;">FORM · TRIP DETAILS — STEP 1 OF 3</div>
+        <form id="leadForm" novalidate style="display: flex; flex-direction: column; gap: 16px;">
+          <div class="stepper" style="margin-bottom: 8px;">
+            <div class="step active"><span class="num">1</span> Trip</div>
+            <div class="step"><span class="num">2</span> Contact</div>
+            <div class="step"><span class="num">3</span> Submit</div>
+          </div>
+          <div class="grid-2">
+            <div class="field"><label>From</label><input name="from" type="text" placeholder="Origin" required /></div>
+            <div class="field"><label>To</label><input name="to" type="text" placeholder="Destination" required /></div>
+          </div>
+          <div class="grid-2">
+            <div class="field"><label>Depart</label><input name="depart" type="date" required /></div>
+            <div class="field"><label>Passengers</label><input name="pax" type="number" min="1" max="19" placeholder="2" required /></div>
+          </div>
+          <div class="field"><label>Email</label><input name="email" type="email" placeholder="you@example.com" required /></div>
+          <div style="display: flex; gap: 16px; align-items: center; margin-top: 8px;">
+            <button class="btn btn-primary" type="submit">Continue <span class="arrow">→</span></button>
+            <span id="formStatus" class="caption" style="color: var(--steel);"></span>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 06 CARDS -->
+<section class="spec anchor-target" id="cards">
+  <div class="container">
+    <div class="section-head">
+      <div>
+        <div class="section-num">06 / 11</div>
+        <div class="kicker" style="margin-top:12px;">Cards & tiles</div>
+      </div>
+      <div class="section-title-stack">
+        <h2 class="display-m">Hairlines, never shadows.</h2>
+        <p class="body-l" style="margin-top: 16px;">Ink-2 fill, 1px ink-3 border, 4px radius. Hover lifts the border to 50% steel and translates the card up 2px. No drop shadows anywhere in the system.</p>
+      </div>
+    </div>
+
+    <div class="kicker" style="margin-bottom: 24px;"><span class="dash"></span> Value-prop tile · 6 used on homepage / why-jetnine</div>
+    <div class="grid-3">
+      <div class="vp-tile">
+        <div class="vp-icon">
+          <!-- shield icon -->
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6l8-3z"/></svg>
+        </div>
+        <h3>Safety, every flight.</h3>
+        <p>ARGUS Platinum and Wyvern Wingman vetting on every operator. No exceptions.</p>
+        <a class="btn btn-ghost btn-sm" style="padding:8px 0; align-self: flex-start;" href="#">Read protocol <span class="arrow">→</span></a>
+      </div>
+      <div class="vp-tile">
+        <div class="vp-icon">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>
+        </div>
+        <h3>24/7 dispatch.</h3>
+        <p>Real humans, real-time. Average response under four minutes, regardless of timezone.</p>
+        <a class="btn btn-ghost btn-sm" style="padding:8px 0; align-self: flex-start;" href="#">Talk to dispatch <span class="arrow">→</span></a>
+      </div>
+      <div class="vp-tile">
+        <div class="vp-icon">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="6" width="18" height="12" rx="1"/><path d="M3 10h18"/><path d="M8 14h2"/></svg>
+        </div>
+        <h3>No hidden fees.</h3>
+        <p>All-in pricing. No fuel surcharges. No last-minute aircraft swaps. Quoted is paid.</p>
+      </div>
+      <div class="vp-tile">
+        <div class="vp-icon">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 2v4M12 18v4M2 12h4M18 12h4M5 5l3 3M16 16l3 3M5 19l3-3M16 8l3-3"/></svg>
+        </div>
+        <h3>Absolute privacy.</h3>
+        <p>NDA-level discretion. Zero public flight visibility. Crew trained for full discretion.</p>
+      </div>
+      <div class="vp-tile">
+        <div class="vp-icon">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 17l6-6 4 4 8-8"/><path d="M14 7h7v7"/></svg>
+        </div>
+        <h3>Aircraft choice.</h3>
+        <p>Turboprops to ultra long-range. Six categories. You pick — we surface the right airframes.</p>
+      </div>
+      <div class="vp-tile">
+        <div class="vp-icon">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 12h16M4 6h16M4 18h16"/></svg>
+        </div>
+        <h3>One standard.</h3>
+        <p>First flight or fiftieth, identical execution. No tier-of-the-month.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 07 NAV -->
+<section class="spec anchor-target" id="nav">
+  <div class="container">
+    <div class="section-head">
+      <div>
+        <div class="section-num">07 / 11</div>
+        <div class="kicker" style="margin-top:12px;">Navigation</div>
+      </div>
+      <div class="section-title-stack">
+        <h2 class="display-m">Fixed top, hairline below the fold.</h2>
+        <p class="body-l" style="margin-top: 16px;">Transparent on hero, ink at scroll. Logo left, links center, phone + primary CTA right. 80px tall. Mobile: hamburger right opens a full-screen serif overlay.</p>
+      </div>
+    </div>
+
+    <div class="navshell" style="margin-bottom: 16px;">
+      <div class="brand">JetNine <span class="nine">09</span></div>
+      <div class="navshell-links">
+        <a href="#" class="active">Home</a>
+        <a href="#">Aircraft</a>
+        <a href="#">Programs</a>
+        <a href="#">Why JetNine</a>
+        <a href="#">About</a>
+        <a href="#">Contact</a>
+      </div>
+      <div class="navshell-cta">
+        <a class="phone-link" href="#">+1 (818) 800-5678</a>
+        <button class="btn btn-primary btn-sm">Request quote <span class="arrow">→</span></button>
+      </div>
+    </div>
+    <div class="caption" style="color: var(--steel); margin-top: 8px;">DEFAULT · SCROLLED STATE · 80PX HEIGHT</div>
+
+    <div style="height: 32px;"></div>
+
+    <!-- Mobile menu sketch -->
+    <div class="grid-2">
+      <div class="card" style="padding: 0;">
+        <div style="display:flex; justify-content: space-between; align-items: center; padding: 24px;">
+          <div class="brand" style="font-size:18px;">JetNine</div>
+          <button class="btn btn-ghost btn-sm" style="padding: 0;">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
+          </button>
+        </div>
+        <div class="caption" style="padding: 0 24px 24px;">MOBILE — COLLAPSED</div>
+      </div>
+      <div class="card" style="padding: 0; background: var(--ink); position: relative;">
+        <div style="display:flex; justify-content: space-between; align-items: center; padding: 24px;">
+          <div class="brand" style="font-size:18px;">JetNine</div>
+          <button class="btn btn-ghost btn-sm" style="padding: 0; color: var(--bone);">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 6l12 12M18 6L6 18"/></svg>
+          </button>
+        </div>
+        <div style="padding: 24px 24px 32px; display: flex; flex-direction: column; gap: 20px;">
+          <a class="h2" style="color: var(--bone); text-decoration: none;" href="#">Home</a>
+          <a class="h2" style="color: var(--bone); text-decoration: none;" href="#">Aircraft</a>
+          <a class="h2" style="color: var(--bone); text-decoration: none;" href="#">Programs</a>
+          <a class="h2" style="color: var(--bone); text-decoration: none;" href="#">About</a>
+          <a class="h2" style="color: var(--bone); text-decoration: none;" href="#">Contact</a>
+          <div class="caption" style="margin-top: 16px;">+1 (818) 800-5678 · 24/7</div>
+        </div>
+        <div class="caption" style="position: absolute; bottom: 16px; right: 16px; color: var(--steel);">MOBILE — OPEN</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 08 BOOKING WIDGET (interactive) -->
+<section class="spec anchor-target" id="booking">
+  <div class="container">
+    <div class="section-head">
+      <div>
+        <div class="section-num">08 / 11</div>
+        <div class="kicker" style="margin-top:12px;">Booking widget</div>
+      </div>
+      <div class="section-title-stack">
+        <h2 class="display-m">A single row. Tab to switch the mission.</h2>
+        <p class="body-l" style="margin-top: 16px;">Sits over the hero, overlapping by 80px. Tabs are mono caps; the active tab earns the only clearance underline on the page. Round trip / one way / multi-leg switches the field set.</p>
+      </div>
+    </div>
+
+    <div class="booking">
+      <div class="booking-tabs" role="tablist" id="bookingTabs">
+        <button class="booking-tab active" data-tab="round">Round trip</button>
+        <button class="booking-tab" data-tab="one">One way</button>
+        <button class="booking-tab" data-tab="multi">Multi-leg</button>
+      </div>
+      <form class="booking-form" id="bookingForm" novalidate>
+        <div class="field"><label>From</label><input name="from" placeholder="Origin · KLAX" required /></div>
+        <div class="field"><label>To</label><input name="to" placeholder="Destination · KASE" required /></div>
+        <div class="field"><label>Depart</label><input name="depart" type="date" required /></div>
+        <div class="field" data-return-field><label>Return</label><input name="return" type="date" required /></div>
+        <div class="field"><label>PAX</label><input name="pax" type="number" min="1" max="19" placeholder="2" required /></div>
+        <button type="submit" class="btn-search">Search <span class="arrow">→</span></button>
+      </form>
+      <div id="bookingMsg" class="caption" style="margin-top: 16px; color: var(--steel); min-height: 16px;"></div>
+      <div class="helper-row">
+        <a class="btn btn-ghost btn-sm" href="#" style="padding: 8px 0;">Need help choosing? Talk to a flight advisor <span class="arrow">→</span></a>
+      </div>
+    </div>
+
+    <div class="caption" style="margin-top: 16px;">TRY IT — TABS SWITCH FIELDS, FORM VALIDATES INLINE</div>
+  </div>
+</section>
+
+<!-- 09 TRUST BAR (count-up) -->
+<section class="spec anchor-target" id="trust">
+  <div class="container" style="padding-bottom: 0;">
+    <div class="section-head">
+      <div>
+        <div class="section-num">09 / 11</div>
+        <div class="kicker" style="margin-top:12px;">Trust bar</div>
+      </div>
+      <div class="section-title-stack">
+        <h2 class="display-m">Six numbers, six certifications.</h2>
+        <p class="body-l" style="margin-top: 16px;">Counts animate once on first scroll into view, then hold. No marquee, no loop. Hairline dividers separate items.</p>
+      </div>
+    </div>
+  </div>
+  <div class="trust-bar" id="trustBar">
+    <div class="container">
+      <div class="trust-row">
+        <div class="trust-item"><div class="num" data-count="20000" data-suffix="+">0</div><div class="lbl">Aircraft network</div></div>
+        <div class="trust-item"><div class="num" data-count="170" data-suffix="+">0</div><div class="lbl">Countries</div></div>
+        <div class="trust-item"><div class="num" data-count="24" data-suffix="/7">0</div><div class="lbl">Dispatch</div></div>
+        <div class="trust-item"><div class="num" data-count="4" data-suffix=" min">0</div><div class="lbl">Avg. response</div></div>
+        <div class="trust-item"><div class="num" data-static="ARGUS">0</div><div class="lbl">Wyvern vetted</div></div>
+        <div class="trust-item"><div class="num" data-static="295">0</div><div class="lbl">Part 295 broker</div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 10 AIRCRAFT CARDS -->
+<section class="spec anchor-target" id="aircraft">
+  <div class="container">
+    <div class="section-head">
+      <div>
+        <div class="section-num">10 / 11</div>
+        <div class="kicker" style="margin-top:12px;">Aircraft cards</div>
+      </div>
+      <div class="section-title-stack">
+        <h2 class="display-m">A category in one glance.</h2>
+        <p class="body-l" style="margin-top: 16px;">4:5 portrait image, category name in serif, mono spec strip below — pax, range, speed. On hover, the image zooms 4% and a "View specs →" affordance reveals.</p>
+      </div>
+    </div>
+
+    <div class="grid-4">
+      <div class="ac-card">
+        <div class="ac-img">
+          <div class="ph-cap">— TURBOPROP</div>
+          <div class="silhouette">9</div>
+        </div>
+        <div class="ac-body">
+          <div class="ac-name">Turboprop</div>
+          <div class="ac-spec"><span>9 PAX</span><span class="dot">·</span><span>1,200 NM</span><span class="dot">·</span><span>290 KT</span></div>
+        </div>
+      </div>
+      <div class="ac-card">
+        <div class="ac-img">
+          <div class="ph-cap">— LIGHT</div>
+          <div class="silhouette">9</div>
+        </div>
+        <div class="ac-body">
+          <div class="ac-name">Light jet</div>
+          <div class="ac-spec"><span>7 PAX</span><span class="dot">·</span><span>1,660 NM</span><span class="dot">·</span><span>410 KT</span></div>
+        </div>
+      </div>
+      <div class="ac-card">
+        <div class="ac-img">
+          <div class="ph-cap">— MIDSIZE</div>
+          <div class="silhouette">9</div>
+        </div>
+        <div class="ac-body">
+          <div class="ac-name">Midsize</div>
+          <div class="ac-spec"><span>9 PAX</span><span class="dot">·</span><span>2,400 NM</span><span class="dot">·</span><span>430 KT</span></div>
+        </div>
+      </div>
+      <div class="ac-card">
+        <div class="ac-img">
+          <div class="ph-cap">— ULTRA LONG RANGE</div>
+          <div class="silhouette">9</div>
+        </div>
+        <div class="ac-body">
+          <div class="ac-name">Ultra long range</div>
+          <div class="ac-spec"><span>16 PAX</span><span class="dot">·</span><span>7,500 NM</span><span class="dot">·</span><span>490 KT</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="caption" style="margin-top: 16px;">PLACEHOLDER IMAGERY — REAL CATEGORY PHOTOGRAPHY DROPS IN AT BUILD</div>
+
+    <div class="divider-9">
+      <div class="line"></div>
+      <div class="nine-glyph">9</div>
+      <div class="line"></div>
+    </div>
+
+    <div class="kicker" style="margin-bottom: 24px;"><span class="dash"></span> Iconography — Lucide, 1.5px stroke, never filled</div>
+    <div class="icon-grid">
+      <div class="icon-tile"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6l8-3z"/></svg><div class="lbl">Shield</div></div>
+      <div class="icon-tile"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg><div class="lbl">Clock</div></div>
+      <div class="icon-tile"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 12c4-7 14-7 18 0"/><path d="M3 12c4 7 14 7 18 0"/><circle cx="12" cy="12" r="3"/></svg><div class="lbl">Visibility</div></div>
+      <div class="icon-tile"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M22 16v3a2 2 0 0 1-2 2 18 18 0 0 1-16-16 2 2 0 0 1 2-2h3a1 1 0 0 1 1 1l1 4a1 1 0 0 1-.5 1L9 10a14 14 0 0 0 5 5l1-1a1 1 0 0 1 1-.5l4 1a1 1 0 0 1 1 1z"/></svg><div class="lbl">Phone</div></div>
+      <div class="icon-tile"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 17l6-6 4 4 8-8"/><path d="M14 7h7v7"/></svg><div class="lbl">Trend</div></div>
+      <div class="icon-tile">
+        <!-- 9-aperture custom -->
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <circle cx="12" cy="12" r="9"/>
+          <path d="M12 7a3 3 0 1 1 0 6c-1.7 0-3-1.3-3-3"/>
+          <path d="M9 13c0 2 1.3 4 3 4"/>
+        </svg>
+        <div class="lbl">9-aperture</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 11 FOOTER -->
+<section class="spec anchor-target" id="footer">
+  <div class="container">
+    <div class="section-head">
+      <div>
+        <div class="section-num">11 / 11</div>
+        <div class="kicker" style="margin-top:12px;">Footer</div>
+      </div>
+      <div class="section-title-stack">
+        <h2 class="display-m">Dense, organized, signed off.</h2>
+        <p class="body-l" style="margin-top: 16px;">Four columns: brand+contact, sitemap, programs, legal+newsletter. Bottom row carries the copyright, socials, and the Part 295 broker disclaimer in steel mono.</p>
+      </div>
+    </div>
+  </div>
+
+  <footer class="docfoot">
+    <div class="container">
+      <div class="footer-grid">
+        <div class="foot-col">
+          <div class="brand" style="font-size: 28px; font-family: var(--serif); font-weight: 400;">JetNine <span class="nine" style="font-size: 12px;">09</span></div>
+          <p class="body" style="margin-top: 16px; max-width: 320px;">Private jet charter, anywhere, anytime. Twenty thousand aircraft worldwide, one number to call.</p>
+          <div style="margin-top: 24px; display: flex; flex-direction: column; gap: 8px;">
+            <a class="phone-link" style="font-size:14px;" href="#">+1 (818) 800-5678</a>
+            <a class="phone-link" style="font-size:14px;" href="#">info@jetnine.com</a>
+            <div class="caption" style="margin-top: 4px;">2934 BEVERLY GLEN CIRCLE #123<br/>LOS ANGELES, CA 90077</div>
+          </div>
+        </div>
+        <div class="foot-col">
+          <h4>Sitemap</h4>
+          <ul>
+            <li><a href="#">Home</a></li>
+            <li><a href="#">Aircraft</a></li>
+            <li><a href="#">Programs</a></li>
+            <li><a href="#">Why JetNine</a></li>
+            <li><a href="#">About</a></li>
+            <li><a href="#">Contact</a></li>
+          </ul>
+        </div>
+        <div class="foot-col">
+          <h4>Programs</h4>
+          <ul>
+            <li><a href="#">On-demand charter</a></li>
+            <li><a href="#">JetNine Card</a></li>
+            <li><a href="#">Empty legs</a></li>
+            <li><a href="#">Group charter</a></li>
+          </ul>
+        </div>
+        <div class="foot-col">
+          <h4>Newsletter</h4>
+          <p class="body" style="font-size: 13px;">Mission updates and routes. No noise.</p>
+          <form id="newsForm" novalidate style="margin-top: 16px; display: flex; align-items: center; border-bottom: 1px solid var(--steel); padding-bottom: 8px;">
+            <input style="flex: 1; background: transparent; border: none; outline: none; color: var(--bone); font-family: var(--sans); font-size: 14px; padding: 8px 0;" type="email" placeholder="you@example.com" />
+            <button type="submit" style="background: none; border: none; color: var(--clearance); cursor: pointer; padding: 8px;">→</button>
+          </form>
+          <div id="newsMsg" class="caption" style="margin-top: 8px; color: var(--steel); min-height: 14px;"></div>
+          <h4 style="margin-top: 32px;">Legal</h4>
+          <ul style="gap: 8px;">
+            <li><a href="#">Privacy</a></li>
+            <li><a href="#">Terms</a></li>
+            <li><a href="#">Part 295 broker disclosure</a></li>
+          </ul>
+        </div>
+      </div>
+      <div class="foot-bottom">
+        <div>JETNINE © 2026 — LOS ANGELES</div>
+        <div style="display: flex; gap: 24px;">
+          <a href="#" style="color: var(--steel); text-decoration: none;">X</a>
+          <a href="#" style="color: var(--steel); text-decoration: none;">IG</a>
+          <a href="#" style="color: var(--steel); text-decoration: none;">LI</a>
+          <a href="#" style="color: var(--steel); text-decoration: none;">TT</a>
+        </div>
+        <div style="max-width: 480px; text-align: right;">JetNine is an indirect air carrier — Part 295 broker. All flights operated by FAA Part 135 certified carriers.</div>
+      </div>
+    </div>
+  </footer>
+</section>
+
+<!-- Tweaks panel React -->
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script type="text/babel" src="tweaks-panel.jsx"></script>
+<div id="tweaks-root"></div>
+<script type="text/babel" src="tweaks.jsx"></script>
+
+<!-- Vanilla interactivity -->
+<script>
+  // ---- Booking widget ----
+  const tabs = document.querySelectorAll('.booking-tab');
+  const returnField = document.querySelector('[data-return-field]');
+  const bookingForm = document.getElementById('bookingForm');
+  const bookingMsg = document.getElementById('bookingMsg');
+  let activeTab = 'round';
+  tabs.forEach(t => t.addEventListener('click', () => {
+    tabs.forEach(x => x.classList.remove('active'));
+    t.classList.add('active');
+    activeTab = t.dataset.tab;
+    if (activeTab === 'one') {
+      returnField.style.display = 'none';
+    } else if (activeTab === 'multi') {
+      returnField.style.display = 'none';
+      bookingMsg.textContent = 'MULTI-LEG — ADD UP TO 5 SECTORS AFTER SEARCH';
+      bookingMsg.style.color = 'var(--bone-2)';
+      return;
+    } else {
+      returnField.style.display = '';
+    }
+    bookingMsg.textContent = '';
+  }));
+
+  bookingForm.addEventListener('submit', e => {
+    e.preventDefault();
+    const data = new FormData(bookingForm);
+    const required = ['from','to','depart','pax'];
+    if (activeTab === 'round') required.push('return');
+    let missing = required.filter(k => !data.get(k));
+    bookingForm.querySelectorAll('.field').forEach(f => f.classList.remove('error'));
+    if (missing.length) {
+      missing.forEach(k => {
+        const inp = bookingForm.querySelector(`[name="${k}"]`);
+        if (inp && inp.closest('.field')) inp.closest('.field').classList.add('error');
+      });
+      bookingMsg.textContent = `MISSING — ${missing.join(', ').toUpperCase()}`;
+      bookingMsg.style.color = 'var(--error)';
+      return;
+    }
+    bookingMsg.style.color = 'var(--success)';
+    bookingMsg.textContent = `CLEARED — ${data.get('from')} → ${data.get('to')} · ${data.get('depart')} · ${data.get('pax')} PAX`;
+  });
+
+  // ---- Lead form ----
+  const leadForm = document.getElementById('leadForm');
+  const formStatus = document.getElementById('formStatus');
+  leadForm.addEventListener('submit', e => {
+    e.preventDefault();
+    const data = new FormData(leadForm);
+    let ok = true;
+    leadForm.querySelectorAll('.field').forEach(f => f.classList.remove('error'));
+    leadForm.querySelectorAll('[required]').forEach(inp => {
+      const val = (inp.value || '').trim();
+      if (!val) { inp.closest('.field').classList.add('error'); ok = false; }
+      if (inp.type === 'email' && val && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val)) {
+        inp.closest('.field').classList.add('error'); ok = false;
+      }
+    });
+    if (!ok) {
+      formStatus.textContent = 'CHECK FIELDS';
+      formStatus.style.color = 'var(--error)';
+    } else {
+      formStatus.textContent = 'STEP 1 CLEARED — CONTINUE TO CONTACT';
+      formStatus.style.color = 'var(--success)';
+    }
+  });
+
+  // ---- Newsletter ----
+  const newsForm = document.getElementById('newsForm');
+  const newsMsg = document.getElementById('newsMsg');
+  newsForm.addEventListener('submit', e => {
+    e.preventDefault();
+    const v = newsForm.querySelector('input').value.trim();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)) {
+      newsMsg.textContent = 'INVALID EMAIL';
+      newsMsg.style.color = 'var(--error)';
+    } else {
+      newsMsg.textContent = 'CLEARED — WELCOME ABOARD';
+      newsMsg.style.color = 'var(--success)';
+      newsForm.reset();
+    }
+  });
+
+  // ---- Spacing rows ----
+  const tokens = [
+    [4,'sm'], [8,'sm'], [12,'md'], [16,'md'], [24,'md'], [32,'lg'], [48,'lg'], [64,'lg'], [96,'xl'], [128,'xl'], [160,'xl']
+  ];
+  const sp = document.getElementById('spacingRows');
+  tokens.forEach(([n,bucket]) => {
+    const row = document.createElement('div');
+    row.className = 'spacing-item';
+    row.innerHTML = `
+      <div class="mono" style="font-size:11px; color: var(--bone-2); letter-spacing: 0.08em;">${n}px</div>
+      <div><div class="spacing-bar" style="width: ${Math.min(n, 240)}px;"></div></div>
+      <div class="mono" style="font-size:10px; color: var(--steel); letter-spacing: 0.08em; text-align: right;">${bucket.toUpperCase()}</div>
+    `;
+    sp.appendChild(row);
+  });
+
+  // ---- Trust bar count-up ----
+  const trustBar = document.getElementById('trustBar');
+  let trustAnimated = false;
+  function animateTrust() {
+    if (trustAnimated) return;
+    trustAnimated = true;
+    document.querySelectorAll('.trust-item .num').forEach(el => {
+      const stat = el.dataset.static;
+      if (stat) { el.textContent = stat; return; }
+      const target = parseInt(el.dataset.count, 10);
+      const suffix = el.dataset.suffix || '';
+      const dur = 1200;
+      const start = performance.now();
+      function tick(t) {
+        const p = Math.min(1, (t - start) / dur);
+        const eased = 1 - Math.pow(1 - p, 4);
+        const v = Math.round(target * eased);
+        el.textContent = (target >= 1000 ? v.toLocaleString() : v) + suffix;
+        if (p < 1) requestAnimationFrame(tick);
+      }
+      requestAnimationFrame(tick);
+    });
+  }
+  const trustObs = new IntersectionObserver((entries) => {
+    entries.forEach(e => { if (e.isIntersecting) animateTrust(); });
+  }, { threshold: 0.4 });
+  trustObs.observe(trustBar);
+
+  // ---- Reveal on scroll ----
+  const reveals = document.querySelectorAll('.reveal');
+  const revObs = new IntersectionObserver((entries) => {
+    entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('in'); });
+  }, { threshold: 0.15 });
+  reveals.forEach(r => revObs.observe(r));
+</script>
+
+</body>
+</html>

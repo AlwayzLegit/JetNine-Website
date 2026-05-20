@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>JetNine — Account · Preferences</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,500;9..144,600&family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="shared.css" />
+<style>
+  body { background: var(--ink); }
+
+  .acct-top { height: 64px; border-bottom: 1px solid var(--ink-3); display: flex; align-items: center; padding: 0 32px; gap: 32px; background: var(--ink); position: sticky; top: 0; z-index: 50; }
+  .acct-top .brand { font-family: var(--serif); font-weight: 400; font-size: 22px; letter-spacing: -0.005em; text-decoration: none; color: var(--bone); }
+  .acct-top .brand .nine { font-family: var(--mono); font-size: 10px; color: var(--clearance); letter-spacing: 0.1em; vertical-align: super; margin-left: 2px; }
+  .acct-top .crumbs { font-family: var(--mono); font-size: 11px; letter-spacing: 0.06em; color: var(--steel); display: flex; gap: 8px; }
+  .acct-top .crumbs .sep { color: var(--ink-4); }
+  .acct-top .crumbs .here { color: var(--bone); }
+  .acct-top .crumbs a { color: var(--bone-2); text-decoration: none; }
+  .acct-top .right { margin-left: auto; display: flex; align-items: center; gap: 16px; }
+  .acct-top .desk-status { display: inline-flex; align-items: center; gap: 8px; font-family: var(--mono); font-size: 10px; letter-spacing: 0.12em; color: var(--clearance); text-transform: uppercase; padding: 6px 10px; border: 1px solid var(--ink-3); border-radius: 2px; }
+  .acct-top .desk-status .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--clearance); box-shadow: 0 0 0 0 rgba(232,226,210,0.6); animation: dotPulse 1.8s infinite; }
+  @keyframes dotPulse { 0% { box-shadow: 0 0 0 0 rgba(232,226,210,0.5); } 70% { box-shadow: 0 0 0 8px rgba(232,226,210,0); } 100% { box-shadow: 0 0 0 0 rgba(232,226,210,0); } }
+  .acct-top .avatar { width: 32px; height: 32px; border-radius: 50%; background: var(--ink-4); border: 1px solid var(--ink-3); display: flex; align-items: center; justify-content: center; font-family: var(--mono); font-size: 11px; color: var(--clearance); }
+
+  .acct-layout { display: grid; grid-template-columns: 240px 1fr; min-height: calc(100vh - 64px); }
+  @media (max-width: 900px) { .acct-layout { grid-template-columns: 1fr; } }
+
+  .acct-side { border-right: 1px solid var(--ink-3); padding: 32px 0; background: var(--ink); position: sticky; top: 64px; height: calc(100vh - 64px); overflow-y: auto; }
+  @media (max-width: 900px) { .acct-side { position: static; height: auto; border-right: none; border-bottom: 1px solid var(--ink-3); } }
+  .acct-side .grp { padding: 0 24px; margin-bottom: 24px; }
+  .acct-side .lbl { font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em; color: var(--steel); text-transform: uppercase; margin-bottom: 12px; }
+  .acct-side a { display: grid; grid-template-columns: auto 1fr auto; gap: 12px; align-items: center; padding: 9px 12px; margin: 0 -12px; border-radius: 2px; color: var(--bone-2); text-decoration: none; font-size: 14px; transition: background 180ms, color 180ms; }
+  .acct-side a:hover { background: var(--ink-2); color: var(--bone); }
+  .acct-side a.active { background: var(--ink-2); color: var(--clearance); }
+  .acct-side a .num { font-family: var(--mono); font-size: 10px; color: var(--steel); letter-spacing: 0.06em; }
+  .acct-side a.active .num { color: var(--clearance); }
+  .acct-side a .badge { font-family: var(--mono); font-size: 9px; padding: 2px 6px; background: var(--clearance); color: var(--ink); border-radius: 2px; letter-spacing: 0.04em; }
+  .acct-dispatcher { margin: 32px 24px 0; padding: 16px; background: var(--ink-2); border: 1px solid var(--ink-3); border-radius: 4px; display: flex; flex-direction: column; gap: 8px; }
+  .acct-dispatcher .lbl { font-family: var(--mono); font-size: 9px; letter-spacing: 0.14em; color: var(--steel); text-transform: uppercase; }
+  .acct-dispatcher .name { font-family: var(--serif); font-size: 18px; color: var(--bone); }
+  .acct-dispatcher .meta { font-family: var(--mono); font-size: 10px; color: var(--bone-2); letter-spacing: 0.04em; }
+  .acct-dispatcher .actions { display: flex; gap: 6px; margin-top: 4px; }
+  .acct-dispatcher .actions a { flex: 1; padding: 6px; text-align: center; background: var(--ink); border: 1px solid var(--ink-3); border-radius: 2px; font-family: var(--mono); font-size: 9px; letter-spacing: 0.1em; color: var(--bone); text-decoration: none; text-transform: uppercase; }
+
+  .acct-main { padding: 48px; }
+  @media (max-width: 700px) { .acct-main { padding: 32px 20px; } }
+
+  .acct-h { display: flex; align-items: end; justify-content: space-between; gap: 32px; padding-bottom: 32px; margin-bottom: 32px; border-bottom: 1px solid var(--ink-3); flex-wrap: wrap; }
+  .acct-h .title { font-family: var(--serif); font-weight: 300; font-size: 48px; line-height: 1.05; letter-spacing: -0.015em; }
+  .acct-h .strap { color: var(--bone-2); font-size: 14px; max-width: 56ch; margin-top: 8px; line-height: 1.55; }
+  .acct-h .save-state { display: inline-flex; align-items: center; gap: 8px; font-family: var(--mono); font-size: 11px; letter-spacing: 0.1em; color: var(--success); text-transform: uppercase; }
+  .acct-h .save-state .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--success); }
+
+  /* Section */
+  .pref-grid { display: grid; grid-template-columns: 240px 1fr; gap: 64px; align-items: start; }
+  @media (max-width: 1000px) { .pref-grid { grid-template-columns: 1fr; gap: 32px; } }
+
+  .pref-toc { position: sticky; top: 96px; display: flex; flex-direction: column; gap: 4px; }
+  .pref-toc .h { font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em; color: var(--steel); text-transform: uppercase; padding-bottom: 12px; border-bottom: 1px solid var(--ink-3); margin-bottom: 12px; }
+  .pref-toc a { display: flex; gap: 12px; padding: 8px 0; color: var(--bone-2); text-decoration: none; font-size: 13px; transition: color 180ms; padding-left: 12px; margin-left: -12px; border-left: 1px solid transparent; }
+  .pref-toc a:hover { color: var(--bone); }
+  .pref-toc a.active { color: var(--clearance); border-left-color: var(--clearance); }
+  .pref-toc a .num { font-family: var(--mono); font-size: 10px; color: var(--steel); letter-spacing: 0.06em; min-width: 22px; }
+  .pref-toc a.active .num { color: var(--clearance); }
+
+  .pref-sec { margin-bottom: 64px; max-width: 720px; }
+  .pref-sec:last-child { margin-bottom: 0; }
+  .pref-sec .head { display: grid; grid-template-columns: auto 1fr; gap: 18px; align-items: baseline; padding-bottom: 18px; margin-bottom: 24px; border-bottom: 1px solid var(--ink-3); }
+  .pref-sec .head .num { font-family: var(--mono); font-size: 11px; letter-spacing: 0.14em; color: var(--clearance); }
+  .pref-sec .head h2 { font-family: var(--serif); font-size: 28px; font-weight: 400; line-height: 1.2; letter-spacing: -0.005em; }
+  .pref-sec .head p { font-family: var(--mono); font-size: 11px; letter-spacing: 0.04em; color: var(--bone-2); margin-top: 4px; line-height: 1.55; max-width: 56ch; text-transform: none; grid-column: 2; }
+
+  /* Field rows */
+  .row { display: grid; grid-template-columns: 200px 1fr; gap: 24px; padding: 18px 0; border-bottom: 1px solid var(--ink-3); align-items: start; }
+  .row:last-of-type { border-bottom: none; }
+  .row .l { font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em; color: var(--steel); text-transform: uppercase; padding-top: 10px; }
+  .row .ctrl { display: flex; flex-direction: column; gap: 8px; }
+  .row input[type=text], .row input[type=email], .row input[type=tel], .row select, .row textarea {
+    background: var(--ink-2); border: 1px solid var(--ink-3); border-radius: 2px;
+    padding: 10px 12px; color: var(--bone); font-family: var(--sans); font-size: 14px;
+    transition: border-color 180ms; width: 100%;
+  }
+  .row input:focus, .row select:focus, .row textarea:focus { outline: none; border-color: var(--clearance); }
+  .row textarea { min-height: 88px; resize: vertical; }
+  .row .help { font-family: var(--mono); font-size: 10px; letter-spacing: 0.04em; color: var(--steel); }
+
+  /* Toggle */
+  .toggle-row {
+    display: grid; grid-template-columns: 24px 1fr auto; gap: 16px; align-items: center;
+    padding: 14px 0; border-bottom: 1px solid var(--ink-3);
+  }
+  .toggle-row:last-child { border-bottom: none; }
+  .toggle-row .icon { width: 24px; height: 24px; border: 1px solid var(--ink-3); border-radius: 4px; display: flex; align-items: center; justify-content: center; color: var(--clearance); font-family: var(--mono); font-size: 11px; }
+  .toggle-row .copy { display: flex; flex-direction: column; gap: 3px; }
+  .toggle-row .copy .t { color: var(--bone); font-size: 14px; line-height: 1.3; }
+  .toggle-row .copy .d { font-family: var(--mono); font-size: 10px; color: var(--bone-2); letter-spacing: 0.04em; }
+  .switch { width: 44px; height: 24px; background: var(--ink-3); border-radius: 999px; position: relative; cursor: pointer; transition: background 200ms; flex-shrink: 0; }
+  .switch::after { content: ""; position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; background: var(--bone-2); border-radius: 50%; transition: transform 220ms var(--ease-out), background 200ms; }
+  .switch.on { background: var(--clearance); }
+  .switch.on::after { transform: translateX(20px); background: var(--ink); }
+
+  /* Radio cards */
+  .radio-row { display: flex; gap: 8px; flex-wrap: wrap; }
+  .rc {
+    flex: 1; min-width: 140px; padding: 14px 16px;
+    background: var(--ink-2); border: 1px solid var(--ink-3); border-radius: 2px;
+    cursor: pointer; transition: all 200ms;
+    display: flex; flex-direction: column; gap: 4px;
+  }
+  .rc:hover { border-color: var(--bone-2); }
+  .rc.active { border-color: var(--clearance); background: rgba(232,226,210,0.04); }
+  .rc .l { font-family: var(--mono); font-size: 9px; letter-spacing: 0.12em; color: var(--steel); text-transform: uppercase; }
+  .rc.active .l { color: var(--clearance); }
+  .rc .v { font-family: var(--sans); font-size: 14px; color: var(--bone); }
+  .rc .h { font-family: var(--mono); font-size: 10px; letter-spacing: 0.04em; color: var(--bone-2); }
+
+  /* Lanes */
+  .lane-list { display: flex; flex-direction: column; gap: 8px; }
+  .lane {
+    display: grid; grid-template-columns: auto 1fr auto auto; gap: 16px; align-items: center;
+    padding: 12px 16px; background: var(--ink-2); border: 1px solid var(--ink-3); border-radius: 2px;
+  }
+  .lane .icaos { font-family: var(--mono); font-size: 13px; color: var(--bone); letter-spacing: 0.06em; }
+  .lane .icaos .arr { color: var(--steel); margin: 0 8px; }
+  .lane .city { font-family: var(--serif); font-size: 14px; color: var(--bone-2); }
+  .lane .freq { font-family: var(--mono); font-size: 10px; color: var(--steel); letter-spacing: 0.06em; }
+  .lane .x { color: var(--steel); cursor: pointer; font-family: var(--mono); transition: color 180ms; }
+  .lane .x:hover { color: var(--clearance); }
+  .add-lane {
+    margin-top: 8px; padding: 12px 16px; border: 1px dashed var(--ink-4); border-radius: 2px;
+    color: var(--bone-2); font-family: var(--mono); font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase;
+    cursor: pointer; text-align: center; transition: border-color 180ms, color 180ms;
+  }
+  .add-lane:hover { border-color: var(--clearance); color: var(--clearance); }
+
+  /* Save bar */
+  .save-bar {
+    position: sticky; bottom: 0; background: linear-gradient(0deg, var(--ink) 60%, transparent);
+    padding: 32px 0 24px; margin-top: 64px;
+    display: flex; justify-content: flex-end; gap: 12px;
+  }
+</style>
+</head>
+<body>
+
+<header class="acct-top">
+  <a href="homepage.html" class="brand">JetNine <span class="nine">09</span></a>
+  <div class="crumbs">
+    <a href="account-dashboard.html">ACCOUNT</a>
+    <span class="sep">/</span>
+    <span class="here">PREFERENCES</span>
+  </div>
+  <div class="right">
+    <span class="desk-status"><span class="dot"></span> Dispatch · open</span>
+    <a href="quote-step1.html" class="btn btn-primary btn-sm">New trip <span class="arrow">→</span></a>
+    <div class="avatar">MA</div>
+  </div>
+</header>
+
+<div class="acct-layout" data-screen-label="14 Account · Preferences">
+  <aside class="acct-side">
+    <div class="grp">
+      <div class="lbl">— ACCOUNT</div>
+      <a href="account-dashboard.html"><span class="num">01</span><span>Dashboard</span><span></span></a>
+      <a href="account-trips.html"><span class="num">02</span><span>Trips</span><span class="badge">2</span></a>
+      <a href="account-invoices.html"><span class="num">03</span><span>Invoices</span><span class="badge">1</span></a>
+      <a href="account-preferences.html" class="active"><span class="num">04</span><span>Preferences</span><span></span></a>
+      <a href="account-members.html"><span class="num">05</span><span>Membership</span><span></span></a>
+    </div>
+    <div class="grp">
+      <div class="lbl">— TOOLS</div>
+      <a href="quote-step1.html"><span class="num">06</span><span>Request a quote</span><span></span></a>
+      <a href="empty-legs.html"><span class="num">07</span><span>Empty legs</span><span></span></a>
+      <a href="aircraft.html"><span class="num">08</span><span>Aircraft</span><span></span></a>
+    </div>
+    <div class="grp">
+      <div class="lbl">— SUPPORT</div>
+      <a href="contact.html"><span class="num">09</span><span>Contact dispatch</span><span></span></a>
+      <a href="faq.html"><span class="num">10</span><span>FAQ</span><span></span></a>
+      <a href="legal.html"><span class="num">11</span><span>Legal</span><span></span></a>
+    </div>
+    <div class="acct-dispatcher">
+      <span class="lbl">— YOUR DISPATCHER</span>
+      <span class="name">Catalina Vance</span>
+      <span class="meta">14 yrs · West-coast lanes</span>
+      <span class="meta">Reply &lt; 5 min · 24 / 7</span>
+      <div class="actions">
+        <a href="tel:+18188005678">Call</a>
+        <a href="sms:+18188005678">Text</a>
+        <a href="mailto:catalina@jetnine.com">Email</a>
+      </div>
+    </div>
+  </aside>
+
+  <main class="acct-main">
+    <div class="acct-h">
+      <div>
+        <h1 class="title">Preferences.</h1>
+        <p class="strap">Defaults that ride along on every quote, every trip sheet, every catering order. Catalina sees these every time you call.</p>
+      </div>
+      <span class="save-state"><span class="dot"></span> Saved · 14:08 PT</span>
+    </div>
+
+    <div class="pref-grid">
+      <aside class="pref-toc">
+        <div class="h">— SECTIONS</div>
+        <a href="#identity" class="active"><span class="num">01</span><span>Identity</span></a>
+        <a href="#travel"><span class="num">02</span><span>Travel docs</span></a>
+        <a href="#cabin"><span class="num">03</span><span>Cabin</span></a>
+        <a href="#catering"><span class="num">04</span><span>Catering</span></a>
+        <a href="#ground"><span class="num">05</span><span>Ground</span></a>
+        <a href="#lanes"><span class="num">06</span><span>Lanes &amp; alerts</span></a>
+        <a href="#comms"><span class="num">07</span><span>Communications</span></a>
+        <a href="#privacy"><span class="num">08</span><span>Privacy &amp; data</span></a>
+      </aside>
+
+      <div>
+        <!-- 01 Identity -->
+        <section class="pref-sec" id="identity">
+          <div class="head">
+            <div><span class="num">— 01</span></div>
+            <div>
+              <h2>Identity.</h2>
+              <p>Who you are, where to find you, and the name on the manifest.</p>
+            </div>
+          </div>
+          <div class="row"><span class="l">— LEGAL NAME</span><div class="ctrl"><input type="text" value="Marcus James Aldrich" /></div></div>
+          <div class="row"><span class="l">— PREFERRED NAME</span><div class="ctrl"><input type="text" value="Marcus" /><span class="help">— what Catalina calls you on the phone</span></div></div>
+          <div class="row"><span class="l">— EMAIL</span><div class="ctrl"><input type="email" value="m.aldrich@aldrichcapital.com" /></div></div>
+          <div class="row"><span class="l">— MOBILE</span><div class="ctrl"><input type="tel" value="+1 (310) 555-0188" /></div></div>
+          <div class="row"><span class="l">— BIRTH DATE</span><div class="ctrl"><input type="text" value="1976-04-22" /><span class="help">— required for international flights (APIS)</span></div></div>
+        </section>
+
+        <!-- 02 Travel docs -->
+        <section class="pref-sec" id="travel">
+          <div class="head">
+            <div><span class="num">— 02</span></div>
+            <div><h2>Travel documents.</h2><p>Stored encrypted; transmitted to operators only on confirmed international flights.</p></div>
+          </div>
+          <div class="row"><span class="l">— PRIMARY PASSPORT</span><div class="ctrl">
+            <input type="text" value="USA · 5••••••42 · exp 03 / 2031" />
+            <span class="help">— 6 yrs remaining · OK for all current routes</span>
+          </div></div>
+          <div class="row"><span class="l">— GLOBAL ENTRY</span><div class="ctrl"><input type="text" value="Yes · expires 11 / 2028" /></div></div>
+          <div class="row"><span class="l">— KNOWN TRAVELER</span><div class="ctrl"><input type="text" value="•••••2941" /></div></div>
+          <div class="row"><span class="l">— SECOND PASSPORT</span><div class="ctrl">
+            <input type="text" placeholder="None on file" />
+            <span class="help">— optional, useful for visa-conflict cases</span>
+          </div></div>
+        </section>
+
+        <!-- 03 Cabin -->
+        <section class="pref-sec" id="cabin">
+          <div class="head">
+            <div><span class="num">— 03</span></div>
+            <div><h2>Cabin.</h2><p>Defaults for every quote — the dispatcher only sources aircraft that match.</p></div>
+          </div>
+          <div class="toggle-row"><span class="icon">≋</span><div class="copy"><span class="t">Wi-Fi required</span><span class="d">— Source only Wi-Fi-equipped airframes</span></div><div class="switch on" onclick="this.classList.toggle('on')"></div></div>
+          <div class="toggle-row"><span class="icon">⌒</span><div class="copy"><span class="t">Stand-up cabin</span><span class="d">— Min 5'9" cabin height</span></div><div class="switch on" onclick="this.classList.toggle('on')"></div></div>
+          <div class="toggle-row"><span class="icon">▢</span><div class="copy"><span class="t">Enclosed lavatory</span><span class="d">— No belted toilets, even on light jets</span></div><div class="switch on" onclick="this.classList.toggle('on')"></div></div>
+          <div class="toggle-row"><span class="icon">↔</span><div class="copy"><span class="t">Lie-flat seating</span><span class="d">— Required for flights over 5 hours</span></div><div class="switch on" onclick="this.classList.toggle('on')"></div></div>
+          <div class="toggle-row"><span class="icon">✦</span><div class="copy"><span class="t">Flight attendant</span><span class="d">— Default to including on heavy / ULR; ask on midsize</span></div><div class="switch on" onclick="this.classList.toggle('on')"></div></div>
+          <div class="toggle-row"><span class="icon">◐</span><div class="copy"><span class="t">Pet-friendly</span><span class="d">— Cabin pets, not cargo</span></div><div class="switch on" onclick="this.classList.toggle('on')"></div></div>
+
+          <div class="row" style="margin-top: 16px;">
+            <span class="l">— DEFAULT CATEGORY</span>
+            <div class="ctrl">
+              <div class="radio-row">
+                <div class="rc"><span class="l">— OPT 01</span><span class="v">Light</span><span class="h">~$5,500/hr</span></div>
+                <div class="rc active"><span class="l">— DEFAULT</span><span class="v">Midsize</span><span class="h">~$7,800/hr</span></div>
+                <div class="rc"><span class="l">— OPT 03</span><span class="v">Super-mid</span><span class="h">~$9,800/hr</span></div>
+                <div class="rc"><span class="l">— OPT 04</span><span class="v">Heavy</span><span class="h">~$13,400/hr</span></div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- 04 Catering -->
+        <section class="pref-sec" id="catering">
+          <div class="head">
+            <div><span class="num">— 04</span></div>
+            <div><h2>Catering.</h2><p>Default tier and standing notes the dispatcher passes to the FBO catering desk.</p></div>
+          </div>
+          <div class="row">
+            <span class="l">— DEFAULT TIER</span>
+            <div class="ctrl">
+              <div class="radio-row">
+                <div class="rc"><span class="l">— TIER 01</span><span class="v">Standard</span><span class="h">Included</span></div>
+                <div class="rc active"><span class="l">— DEFAULT</span><span class="v">Plus</span><span class="h">+$220 / pax</span></div>
+                <div class="rc"><span class="l">— TIER 03</span><span class="v">Premium</span><span class="h">+$520 / pax</span></div>
+              </div>
+            </div>
+          </div>
+          <div class="row"><span class="l">— PREFERRED VENDOR</span><div class="ctrl"><input type="text" value="Air Culinaire (KVNY) · Lulu's (KTEB)" /></div></div>
+          <div class="row"><span class="l">— DIETARY</span><div class="ctrl">
+            <input type="text" value="Pescatarian · no shellfish · no dairy" />
+            <span class="help">— passed to caterer with every order</span>
+          </div></div>
+          <div class="row"><span class="l">— BAR</span><div class="ctrl">
+            <input type="text" value="Negroni kit · Hendrick's · Pellegrino · Topo Chico" />
+          </div></div>
+          <div class="row"><span class="l">— STANDING NOTES</span><div class="ctrl">
+            <textarea>Coffee setup ready before boarding (espresso machine on heavy / ULR). Cold-brew bottle in seat pocket. Fresh berries always.</textarea>
+          </div></div>
+        </section>
+
+        <!-- 05 Ground -->
+        <section class="pref-sec" id="ground">
+          <div class="head">
+            <div><span class="num">— 05</span></div>
+            <div><h2>Ground &amp; FBOs.</h2><p>Where you land, who picks you up, and how the dispatcher gets you to the aircraft.</p></div>
+          </div>
+          <div class="row">
+            <span class="l">— PREFERRED VEHICLE</span>
+            <div class="ctrl">
+              <div class="radio-row">
+                <div class="rc"><span class="l">— OPT 01</span><span class="v">None</span><span class="h">Self-drive</span></div>
+                <div class="rc active"><span class="l">— DEFAULT</span><span class="v">SUV</span><span class="h">~$220/leg</span></div>
+                <div class="rc"><span class="l">— OPT 03</span><span class="v">Sedan</span><span class="h">~$160/leg</span></div>
+              </div>
+            </div>
+          </div>
+          <div class="row"><span class="l">— GROUND VENDOR</span><div class="ctrl"><input type="text" value="Empire CLS — corporate account #4421" /></div></div>
+          <div class="row"><span class="l">— FBO · KVNY (HOME)</span><div class="ctrl"><input type="text" value="Signature Flight Support" /></div></div>
+          <div class="row"><span class="l">— FBO · KTEB</span><div class="ctrl"><input type="text" value="Meridian Teterboro" /></div></div>
+          <div class="row"><span class="l">— FBO · KSFO</span><div class="ctrl"><input type="text" value="Signature SFO" /></div></div>
+          <div class="row"><span class="l">— ARRIVAL WINDOW</span><div class="ctrl">
+            <input type="text" value="15 min before wheels-up · ramp access OK" />
+            <span class="help">— used to set ground &amp; FBO timing automatically</span>
+          </div></div>
+        </section>
+
+        <!-- 06 Lanes -->
+        <section class="pref-sec" id="lanes">
+          <div class="head">
+            <div><span class="num">— 06</span></div>
+            <div><h2>Lanes &amp; alerts.</h2><p>City pairs you fly often — used to surface matching empty legs and to pre-bake quotes.</p></div>
+          </div>
+
+          <div class="lane-list">
+            <div class="lane">
+              <span class="icaos">KVNY <span class="arr">→</span> KTEB</span>
+              <span class="city">Los Angeles → New York</span>
+              <span class="freq">— 14× / yr</span>
+              <span class="x">×</span>
+            </div>
+            <div class="lane">
+              <span class="icaos">KVNY <span class="arr">→</span> KSFO</span>
+              <span class="city">Los Angeles → Bay Area</span>
+              <span class="freq">— 22× / yr</span>
+              <span class="x">×</span>
+            </div>
+            <div class="lane">
+              <span class="icaos">KVNY <span class="arr">→</span> KOPF</span>
+              <span class="city">Los Angeles → Miami</span>
+              <span class="freq">— 6× / yr</span>
+              <span class="x">×</span>
+            </div>
+            <div class="lane">
+              <span class="icaos">KVNY <span class="arr">→</span> KASE</span>
+              <span class="city">Los Angeles → Aspen</span>
+              <span class="freq">— 4× / yr · seasonal</span>
+              <span class="x">×</span>
+            </div>
+            <div class="lane">
+              <span class="icaos">KVNY <span class="arr">→</span> EGGW</span>
+              <span class="city">Los Angeles → London</span>
+              <span class="freq">— 2× / yr</span>
+              <span class="x">×</span>
+            </div>
+            <div class="add-lane">+ Add a lane</div>
+          </div>
+
+          <div class="row" style="margin-top: 24px;">
+            <span class="l">— ALERT THRESHOLD</span>
+            <div class="ctrl">
+              <div class="radio-row">
+                <div class="rc"><span class="l">— OPT 01</span><span class="v">Any match</span><span class="h">No filter</span></div>
+                <div class="rc"><span class="l">— OPT 02</span><span class="v">≥ 30% off</span><span class="h">Default</span></div>
+                <div class="rc active"><span class="l">— DEFAULT</span><span class="v">≥ 40% off</span><span class="h">Yours</span></div>
+                <div class="rc"><span class="l">— OPT 04</span><span class="v">≥ 50% off</span><span class="h">Strict</span></div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- 07 Comms -->
+        <section class="pref-sec" id="comms">
+          <div class="head">
+            <div><span class="num">— 07</span></div>
+            <div><h2>Communications.</h2><p>How and when the dispatch desk reaches you. Promise: never marketing, only operational.</p></div>
+          </div>
+
+          <div class="toggle-row"><span class="icon">☎</span><div class="copy"><span class="t">Voice — quote ready</span><span class="d">— Catalina calls when a quote is back</span></div><div class="switch on" onclick="this.classList.toggle('on')"></div></div>
+          <div class="toggle-row"><span class="icon">✉</span><div class="copy"><span class="t">Email — trip sheet</span><span class="d">— PDF sent on confirmation &amp; on edits</span></div><div class="switch on" onclick="this.classList.toggle('on')"></div></div>
+          <div class="toggle-row"><span class="icon">⌖</span><div class="copy"><span class="t">SMS — wheels-up &amp; arrival</span><span class="d">— Two messages per leg, no more</span></div><div class="switch on" onclick="this.classList.toggle('on')"></div></div>
+          <div class="toggle-row"><span class="icon">⌥</span><div class="copy"><span class="t">SMS — empty-leg matches</span><span class="d">— Daily digest at 08:00 PT, only if matches found</span></div><div class="switch" onclick="this.classList.toggle('on')"></div></div>
+          <div class="toggle-row"><span class="icon">⊘</span><div class="copy"><span class="t">Quiet hours</span><span class="d">— Suppress non-urgent SMS 22:00–07:00 local</span></div><div class="switch on" onclick="this.classList.toggle('on')"></div></div>
+        </section>
+
+        <!-- 08 Privacy -->
+        <section class="pref-sec" id="privacy">
+          <div class="head">
+            <div><span class="num">— 08</span></div>
+            <div><h2>Privacy &amp; data.</h2><p>Tighten what we keep, who sees it, and how long we hold it.</p></div>
+          </div>
+          <div class="toggle-row"><span class="icon">⊕</span><div class="copy"><span class="t">Anonymize manifest to operator</span><span class="d">— Use traveler initials on operator manifest until check-in</span></div><div class="switch on" onclick="this.classList.toggle('on')"></div></div>
+          <div class="toggle-row"><span class="icon">⌕</span><div class="copy"><span class="t">Block flight tracking</span><span class="d">— Tail number suppressed on FlightAware / ADS-B Exchange where possible</span></div><div class="switch on" onclick="this.classList.toggle('on')"></div></div>
+          <div class="toggle-row"><span class="icon">⊞</span><div class="copy"><span class="t">Two-factor auth</span><span class="d">— Required for billing actions and trip changes</span></div><div class="switch on" onclick="this.classList.toggle('on')"></div></div>
+
+          <div class="row" style="margin-top: 16px;">
+            <span class="l">— DATA EXPORT</span>
+            <div class="ctrl">
+              <a href="#" class="btn btn-secondary btn-sm" style="align-self: start;">Request a copy of all my data</a>
+              <span class="help">— delivered as ZIP within 30 days, per CCPA / GDPR</span>
+            </div>
+          </div>
+          <div class="row">
+            <span class="l">— DELETE ACCOUNT</span>
+            <div class="ctrl">
+              <a href="#" class="btn btn-secondary btn-sm" style="align-self: start; border-color: var(--error); color: var(--error);">Begin closure</a>
+              <span class="help">— trips inside the 7-yr regulatory hold are retained; everything else deleted within 30 days</span>
+            </div>
+          </div>
+        </section>
+
+        <div class="save-bar">
+          <a href="#" class="btn btn-secondary btn-sm">Discard changes</a>
+          <a href="#" class="btn btn-primary btn-sm">Save preferences <span class="arrow">→</span></a>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script>
+  // TOC active
+  const links = document.querySelectorAll('.pref-toc a');
+  const secs = document.querySelectorAll('.pref-sec');
+  const obs = new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        const id = e.target.id;
+        links.forEach(l => l.classList.toggle('active', l.getAttribute('href') === '#' + id));
+      }
+    });
+  }, { rootMargin: '-30% 0px -60% 0px' });
+  secs.forEach(s => obs.observe(s));
+</script>
+
+</body>
+</html>

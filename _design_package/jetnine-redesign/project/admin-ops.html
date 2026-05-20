@@ -1,0 +1,679 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>JetNine — Admin · Live Ops Board</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,500;9..144,600&family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="shared.css" />
+<style>
+  body { background: var(--ink); overflow: hidden; height: 100vh; }
+
+  /* === Top admin bar (shared) === */
+  .adm-top { height: 56px; border-bottom: 1px solid var(--ink-3); display: grid; grid-template-columns: 240px 1fr auto; align-items: center; background: var(--ink); position: relative; z-index: 50; }
+  .adm-top .brand-cell { display: flex; align-items: center; gap: 12px; height: 100%; padding: 0 20px; border-right: 1px solid var(--ink-3); }
+  .adm-top .brand { font-family: var(--serif); font-weight: 400; font-size: 20px; letter-spacing: -0.005em; text-decoration: none; color: var(--bone); }
+  .adm-top .brand .nine { font-family: var(--mono); font-size: 9px; color: var(--clearance); letter-spacing: 0.1em; vertical-align: super; margin-left: 2px; }
+  .adm-top .env { font-family: var(--mono); font-size: 9px; padding: 3px 6px; background: var(--ink-3); color: var(--clearance); border-radius: 2px; letter-spacing: 0.14em; }
+  .adm-top .crumbs { padding: 0 24px; display: flex; gap: 14px; font-family: var(--mono); font-size: 10px; letter-spacing: 0.12em; color: var(--steel); text-transform: uppercase; }
+  .adm-top .crumbs .here { color: var(--bone); }
+  .adm-top .crumbs .sep { color: var(--ink-4); }
+  .adm-top .right { display: flex; align-items: center; gap: 16px; padding: 0 20px; height: 100%; border-left: 1px solid var(--ink-3); }
+  .adm-top .clk { font-family: var(--mono); font-size: 11px; color: var(--bone); letter-spacing: 0.06em; }
+  .adm-top .clk .z { color: var(--steel); margin-right: 4px; }
+  .adm-top .clk + .clk { padding-left: 14px; border-left: 1px solid var(--ink-3); }
+  .adm-top .me { display: flex; align-items: center; gap: 10px; padding: 4px 10px 4px 4px; background: var(--ink-3); border-radius: 999px; font-family: var(--mono); font-size: 10px; letter-spacing: 0.04em; color: var(--bone-2); }
+  .adm-top .me .av { width: 24px; height: 24px; border-radius: 50%; background: var(--ink-4); display: flex; align-items: center; justify-content: center; color: var(--clearance); font-size: 10px; }
+  .adm-top .me .stat { width: 6px; height: 6px; border-radius: 50%; background: var(--success); }
+
+  /* === Layout: rail + map + side panel === */
+  .ops-shell { display: grid; grid-template-columns: 200px 1fr 380px; height: calc(100vh - 56px); }
+  @media (max-width: 1280px) { .ops-shell { grid-template-columns: 180px 1fr 340px; } }
+  @media (max-width: 1024px) { .ops-shell { grid-template-columns: 1fr; } .ops-rail, .ops-side { display: none; } }
+
+  /* Left rail (compact) */
+  .ops-rail { border-right: 1px solid var(--ink-3); padding: 16px 0; background: var(--ink); overflow-y: auto; display: flex; flex-direction: column; }
+  .rg { padding: 0 12px 16px; }
+  .rg .h { font-family: var(--mono); font-size: 9px; letter-spacing: 0.16em; color: var(--steel); text-transform: uppercase; margin: 4px 8px 8px; }
+  .rg a { display: grid; grid-template-columns: 14px 1fr auto; gap: 10px; align-items: center; padding: 7px 10px; border-radius: 2px; color: var(--bone-2); text-decoration: none; font-size: 13px; transition: background 160ms, color 160ms; }
+  .rg a:hover { background: var(--ink-2); color: var(--bone); }
+  .rg a.active { background: var(--ink-2); color: var(--clearance); }
+  .rg a .gly { font-family: var(--mono); font-size: 10px; color: var(--steel); }
+  .rg a.active .gly { color: var(--clearance); }
+  .rg a .badge { font-family: var(--mono); font-size: 9px; padding: 1px 6px; border-radius: 2px; background: var(--ink-3); color: var(--bone-2); letter-spacing: 0.04em; }
+  .rg a .badge.hot { background: var(--clearance); color: var(--ink); }
+  .rg a .badge.warn { background: rgba(184,137,60,0.18); color: var(--warn); }
+
+  /* === Map area === */
+  .ops-map-wrap {
+    position: relative; overflow: hidden;
+    background: radial-gradient(ellipse at 50% 50%, #0b1116 0%, var(--ink) 70%);
+    display: flex; flex-direction: column;
+  }
+
+  /* Top toolbar over map */
+  .map-toolbar {
+    position: relative; z-index: 5;
+    display: grid; grid-template-columns: auto 1fr auto; gap: 20px; align-items: center;
+    padding: 18px 28px;
+    border-bottom: 1px solid var(--ink-3);
+    background: rgba(7,8,10,0.7); backdrop-filter: blur(8px);
+  }
+  .map-toolbar .ttl { font-family: var(--serif); font-weight: 300; font-size: 26px; letter-spacing: -0.005em; line-height: 1; }
+  .map-toolbar .strap { font-family: var(--mono); font-size: 10px; color: var(--bone-2); letter-spacing: 0.06em; margin-top: 6px; }
+  .map-toolbar .live {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-family: var(--mono); font-size: 9px; letter-spacing: 0.16em; color: var(--success); text-transform: uppercase;
+    padding: 3px 7px; background: rgba(91,140,90,0.12); border-radius: 2px;
+    margin-left: 12px;
+  }
+  .map-toolbar .live .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--success); box-shadow: 0 0 0 0 rgba(91,140,90,0.6); animation: pulse 1.5s infinite; }
+  @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(91,140,90,0.5); } 70% { box-shadow: 0 0 0 6px rgba(91,140,90,0); } 100% { box-shadow: 0 0 0 0 rgba(91,140,90,0); } }
+
+  .stats-row { display: grid; grid-template-columns: repeat(5, auto); gap: 0; justify-self: end; }
+  .stats-row > div { padding: 0 24px; border-left: 1px solid var(--ink-3); display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+  .stats-row > div:first-child { border-left: none; }
+  .stats-row .l { font-family: var(--mono); font-size: 9px; letter-spacing: 0.14em; color: var(--steel); text-transform: uppercase; }
+  .stats-row .v { font-family: var(--serif); font-weight: 300; font-size: 22px; line-height: 1; color: var(--bone); letter-spacing: -0.005em; }
+  .stats-row .v .u { font-family: var(--mono); font-size: 10px; color: var(--bone-2); margin-left: 3px; letter-spacing: 0.04em; }
+  .stats-row .v.warn { color: var(--warn); }
+  .stats-row .v.ok { color: var(--success); }
+
+  .map-tools { display: flex; gap: 6px; align-items: center; }
+  .mt-btn { font-family: var(--mono); font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; padding: 7px 10px; border: 1px solid var(--ink-3); background: var(--ink-2); color: var(--bone-2); border-radius: 2px; cursor: pointer; transition: all 160ms; }
+  .mt-btn.on { border-color: var(--clearance); color: var(--clearance); background: rgba(232,226,210,0.06); }
+  .mt-btn:hover { color: var(--bone); }
+
+  /* Map */
+  .map {
+    flex: 1; position: relative;
+    background-image:
+      linear-gradient(rgba(232,226,210,0.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(232,226,210,0.04) 1px, transparent 1px);
+    background-size: 64px 64px;
+    background-position: center;
+    overflow: hidden;
+  }
+  .map svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+
+  /* Map legend */
+  .legend {
+    position: absolute; bottom: 18px; left: 18px; z-index: 4;
+    background: rgba(14,16,20,0.92); border: 1px solid var(--ink-3); border-radius: 3px;
+    padding: 12px 14px;
+    display: flex; flex-direction: column; gap: 8px;
+    font-family: var(--mono); font-size: 10px; color: var(--bone-2); letter-spacing: 0.04em;
+    backdrop-filter: blur(6px);
+  }
+  .legend .h { font-size: 9px; color: var(--steel); letter-spacing: 0.16em; text-transform: uppercase; margin-bottom: 2px; }
+  .legend .row { display: flex; align-items: center; gap: 8px; }
+  .legend .swatch { width: 14px; height: 8px; border-radius: 1px; }
+  .legend .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .legend .dot.ok { background: var(--success); }
+  .legend .dot.warn { background: var(--warn); }
+  .legend .dot.crit { background: var(--error); }
+  .legend .dot.boarding { background: var(--clearance); }
+  .legend .dot.fbo { background: transparent; border: 1px solid var(--bone-2); }
+
+  /* Time scrubber (zulu) */
+  .scrubber {
+    position: absolute; bottom: 18px; right: 18px; z-index: 4;
+    background: rgba(14,16,20,0.92); border: 1px solid var(--ink-3); border-radius: 3px;
+    padding: 10px 14px;
+    display: flex; align-items: center; gap: 14px;
+    font-family: var(--mono); font-size: 10px; color: var(--bone-2);
+    backdrop-filter: blur(6px);
+  }
+  .scrubber .l { color: var(--steel); letter-spacing: 0.14em; text-transform: uppercase; font-size: 9px; }
+  .scrubber .t { color: var(--bone); letter-spacing: 0.06em; }
+  .scrubber .live-pill {
+    padding: 3px 8px; background: rgba(91,140,90,0.18); color: var(--success); border-radius: 2px;
+    letter-spacing: 0.14em; font-size: 9px; text-transform: uppercase;
+    display: inline-flex; align-items: center; gap: 6px;
+  }
+  .scrubber .live-pill .dot { width: 5px; height: 5px; border-radius: 50%; background: var(--success); animation: pulse 1.5s infinite; }
+
+  /* Flight callout on map */
+  .callout {
+    position: absolute;
+    background: rgba(7,8,10,0.95); border: 1px solid var(--ink-4); border-radius: 3px;
+    padding: 8px 10px; font-family: var(--mono); font-size: 9px; letter-spacing: 0.06em;
+    color: var(--bone); pointer-events: none; min-width: 140px;
+    backdrop-filter: blur(4px);
+  }
+  .callout.alert { border-color: rgba(184,137,60,0.6); }
+  .callout.crit { border-color: rgba(164,69,58,0.6); }
+  .callout .id { color: var(--clearance); }
+  .callout .pax { color: var(--bone); display: block; margin-top: 2px; font-size: 9px; }
+  .callout .meta { display: block; color: var(--bone-2); font-size: 8px; margin-top: 2px; letter-spacing: 0.06em; }
+  .callout .meta.warn { color: var(--warn); }
+
+  /* Aircraft icon (use a CSS triangle) */
+  .ac-marker { position: absolute; transform: translate(-50%, -50%); }
+  .ac-marker svg { display: block; }
+  .ac-marker .ring {
+    position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+    width: 18px; height: 18px; border-radius: 50%;
+    border: 1px solid var(--clearance); opacity: 0.4;
+    animation: ringExp 2.2s var(--ease-out) infinite;
+  }
+  @keyframes ringExp {
+    0% { transform: translate(-50%, -50%) scale(0.6); opacity: 0.7; }
+    100% { transform: translate(-50%, -50%) scale(2); opacity: 0; }
+  }
+  .ac-marker.warn .ring { border-color: var(--warn); }
+  .ac-marker.crit .ring { border-color: var(--error); animation-duration: 1.2s; }
+
+  /* FBO marker */
+  .fbo-marker {
+    position: absolute; transform: translate(-50%, -50%);
+    width: 8px; height: 8px; border-radius: 50%; border: 1px solid var(--bone-2);
+    background: var(--ink); pointer-events: none;
+  }
+  .fbo-marker.active { border-color: var(--clearance); background: var(--clearance); }
+  .fbo-marker .lbl {
+    position: absolute; left: 12px; top: -3px;
+    font-family: var(--mono); font-size: 9px; color: var(--bone-2); letter-spacing: 0.06em;
+    white-space: nowrap;
+  }
+  .fbo-marker.active .lbl { color: var(--bone); }
+
+  /* === Side panel === */
+  .ops-side {
+    border-left: 1px solid var(--ink-3); overflow-y: auto;
+    display: flex; flex-direction: column;
+    background: var(--ink);
+  }
+
+  .side-tabs {
+    display: grid; grid-template-columns: repeat(3, 1fr);
+    border-bottom: 1px solid var(--ink-3);
+  }
+  .side-tabs .tab {
+    padding: 14px 12px; text-align: center;
+    font-family: var(--mono); font-size: 10px; letter-spacing: 0.12em; color: var(--bone-2);
+    text-transform: uppercase; cursor: pointer; transition: color 160ms; border-bottom: 2px solid transparent;
+  }
+  .side-tabs .tab.on { color: var(--clearance); border-bottom-color: var(--clearance); }
+  .side-tabs .tab .ct { font-family: var(--mono); color: var(--steel); margin-left: 6px; font-size: 9px; }
+  .side-tabs .tab.on .ct { color: var(--clearance); }
+
+  /* Flight list cards (compact) */
+  .flight-list { display: flex; flex-direction: column; }
+  .fc {
+    padding: 14px 18px; border-bottom: 1px solid var(--ink-3); cursor: pointer;
+    display: flex; flex-direction: column; gap: 8px;
+    transition: background 160ms;
+  }
+  .fc:hover { background: rgba(232,226,210,0.025); }
+  .fc.selected { background: rgba(232,226,210,0.06); border-left: 2px solid var(--clearance); padding-left: 16px; }
+  .fc .head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .fc .id { font-family: var(--mono); font-size: 10px; color: var(--clearance); letter-spacing: 0.06em; }
+  .fc .tail { font-family: var(--mono); font-size: 10px; color: var(--bone-2); letter-spacing: 0.04em; }
+  .fc .status {
+    margin-left: auto;
+    font-family: var(--mono); font-size: 9px; padding: 2px 7px; border-radius: 2px;
+    letter-spacing: 0.12em; text-transform: uppercase;
+    display: inline-flex; align-items: center; gap: 5px;
+  }
+  .fc .status .d { width: 5px; height: 5px; border-radius: 50%; }
+  .fc .status.flying { background: rgba(91,140,90,0.16); color: var(--success); }
+  .fc .status.flying .d { background: var(--success); animation: pulse 1.5s infinite; }
+  .fc .status.taxi { background: rgba(232,226,210,0.1); color: var(--clearance); }
+  .fc .status.taxi .d { background: var(--clearance); }
+  .fc .status.hold { background: rgba(184,137,60,0.18); color: var(--warn); }
+  .fc .status.hold .d { background: var(--warn); animation: pulse 1s infinite; }
+  .fc .status.boarded { background: var(--ink-3); color: var(--bone-2); }
+  .fc .status.boarded .d { background: var(--bone-2); }
+  .fc .status.divert { background: rgba(164,69,58,0.2); color: var(--error); }
+  .fc .status.divert .d { background: var(--error); animation: pulse 0.9s infinite; }
+
+  .fc .pax { font-family: var(--serif); font-size: 15px; color: var(--bone); line-height: 1.2; letter-spacing: -0.005em; }
+  .fc .lane { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 8px; }
+  .fc .lane .e { font-family: var(--mono); font-size: 13px; color: var(--bone); letter-spacing: 0.06em; }
+  .fc .lane .e.r { text-align: right; }
+  .fc .lane .arr { color: var(--steel); font-family: var(--mono); font-size: 11px; }
+  .fc .meta { display: flex; gap: 12px; font-family: var(--mono); font-size: 9px; color: var(--bone-2); letter-spacing: 0.04em; flex-wrap: wrap; }
+  .fc .meta .s { color: var(--steel); }
+  .fc .progress {
+    height: 3px; background: var(--ink-3); border-radius: 2px; position: relative; overflow: hidden;
+  }
+  .fc .progress .fill {
+    height: 100%; background: var(--clearance);
+  }
+  .fc .alert-line {
+    font-family: var(--mono); font-size: 9px; color: var(--warn); letter-spacing: 0.04em;
+    padding: 6px 8px; background: rgba(184,137,60,0.08); border-left: 2px solid var(--warn);
+    border-radius: 0 2px 2px 0;
+  }
+
+  /* Event log */
+  .log { display: flex; flex-direction: column; }
+  .log .ev {
+    display: grid; grid-template-columns: 50px 1fr; gap: 12px;
+    padding: 10px 18px; border-bottom: 1px solid var(--ink-3);
+    font-family: var(--mono); font-size: 11px; color: var(--bone-2); letter-spacing: 0.04em;
+  }
+  .log .ev:last-child { border-bottom: none; }
+  .log .ev .t { color: var(--steel); }
+  .log .ev .what { color: var(--bone); line-height: 1.45; }
+  .log .ev .what .em { color: var(--clearance); }
+  .log .ev .what .ok { color: var(--success); }
+  .log .ev .what .warn { color: var(--warn); }
+  .log .ev .what .crit { color: var(--error); }
+</style>
+</head>
+<body data-screen-label="18 Admin · Live Ops Board">
+
+<header class="adm-top">
+  <div class="brand-cell">
+    <a href="homepage.html" class="brand">JetNine <span class="nine">09</span></a>
+    <span class="env">DISPATCH</span>
+  </div>
+  <div class="crumbs">
+    <a href="admin-dispatch.html" style="color: var(--bone-2); text-decoration: none;">DESK</a>
+    <span class="sep">/</span>
+    <span class="here">LIVE OPS BOARD</span>
+  </div>
+  <div class="right">
+    <span class="clk"><span class="z">PT</span><span id="clkPT">14:08</span></span>
+    <span class="clk"><span class="z">ET</span><span id="clkET">17:08</span></span>
+    <span class="clk"><span class="z">Z</span><span id="clkZ">22:08</span></span>
+    <span class="me"><span class="av">CV</span><span class="stat"></span><span>CATALINA · ON-DESK</span></span>
+  </div>
+</header>
+
+<div class="ops-shell">
+
+  <!-- LEFT RAIL -->
+  <aside class="ops-rail">
+    <div class="rg">
+      <div class="h">— DESK</div>
+      <a href="admin-dispatch.html"><span class="gly">⌂</span><span>Inbox</span><span class="badge hot">7</span></a>
+      <a href="admin-quote.html"><span class="gly">◐</span><span>Quote workbench</span><span class="badge">4</span></a>
+      <a href="admin-ops.html" class="active"><span class="gly">◉</span><span>Live ops board</span><span class="badge warn">3</span></a>
+      <a href="#"><span class="gly">⌖</span><span>Trips</span><span class="badge">22</span></a>
+      <a href="#"><span class="gly">✉</span><span>Messages</span><span class="badge hot">12</span></a>
+    </div>
+    <div class="rg">
+      <div class="h">— SUPPLY</div>
+      <a href="#"><span class="gly">⊞</span><span>Operators</span><span class="badge">148</span></a>
+      <a href="#"><span class="gly">✈</span><span>Aircraft</span><span class="badge">—</span></a>
+      <a href="#"><span class="gly">↻</span><span>Empty legs</span><span class="badge">6</span></a>
+      <a href="#"><span class="gly">⌬</span><span>Crew</span><span class="badge">—</span></a>
+    </div>
+    <div class="rg">
+      <div class="h">— ACCOUNTS</div>
+      <a href="#"><span class="gly">◯</span><span>Members</span><span class="badge">412</span></a>
+      <a href="#"><span class="gly">$</span><span>Invoices</span><span class="badge">—</span></a>
+      <a href="#"><span class="gly">▦</span><span>Reports</span><span class="badge">—</span></a>
+    </div>
+  </aside>
+
+  <!-- MAP -->
+  <section class="ops-map-wrap">
+    <div class="map-toolbar">
+      <div>
+        <h1 class="ttl">Live ops board <span class="live"><span class="dot"></span>LIVE</span></h1>
+        <div class="strap">— 14 flights today · 4 airborne · 3 IRR · ADS-B refresh 8s</div>
+      </div>
+      <div class="stats-row">
+        <div><span class="l">— AIRBORNE</span><span class="v">4<span class="u">of 14</span></span></div>
+        <div><span class="l">— BOARDING</span><span class="v">2</span></div>
+        <div><span class="l">— IRR · OPEN</span><span class="v warn">3</span></div>
+        <div><span class="l">— ON-TIME</span><span class="v ok">87<span class="u">%</span></span></div>
+        <div><span class="l">— SOULS · AIR</span><span class="v">19</span></div>
+      </div>
+      <div class="map-tools">
+        <button class="mt-btn on">FLIGHTS</button>
+        <button class="mt-btn">LANES</button>
+        <button class="mt-btn">WX</button>
+        <button class="mt-btn">FBOs</button>
+        <button class="mt-btn" title="Zoom out">−</button>
+        <button class="mt-btn" title="Zoom in">+</button>
+      </div>
+    </div>
+
+    <div class="map">
+      <!-- Continental map as abstracted vector -->
+      <svg viewBox="0 0 1200 700" preserveAspectRatio="xMidYMid meet">
+        <!-- subtle land mass (continental US + N. Atlantic + Atl. Canada) -->
+        <defs>
+          <linearGradient id="landFill" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="rgba(232,226,210,0.025)"/>
+            <stop offset="100%" stop-color="rgba(232,226,210,0.06)"/>
+          </linearGradient>
+        </defs>
+
+        <!-- Continental US silhouette (simplified) -->
+        <path d="M 100 360
+                 Q 130 280 220 270
+                 L 320 240 L 420 210 L 540 200
+                 Q 640 195 720 210
+                 L 820 225 L 920 240 L 1010 270
+                 L 1060 320 L 1080 380
+                 L 1060 450 L 990 510
+                 L 900 540 L 810 545 L 700 545
+                 L 600 540 L 500 555 L 410 540
+                 L 320 510 L 220 470 L 150 420 Z"
+          fill="url(#landFill)" stroke="rgba(232,226,210,0.18)" stroke-width="1"/>
+
+        <!-- Florida -->
+        <path d="M 920 510 L 940 555 L 945 600 L 925 615 L 905 580 L 910 530 Z"
+          fill="url(#landFill)" stroke="rgba(232,226,210,0.18)" stroke-width="1"/>
+
+        <!-- Baja peninsula sketch -->
+        <path d="M 180 470 L 165 530 L 175 580 L 195 600 L 200 540 Z"
+          fill="url(#landFill)" stroke="rgba(232,226,210,0.12)" stroke-width="1"/>
+
+        <!-- East coast Canada hint -->
+        <path d="M 900 220 L 980 195 L 1040 180 L 1090 200 L 1060 240 L 1000 245 Z"
+          fill="url(#landFill)" stroke="rgba(232,226,210,0.12)" stroke-width="1"/>
+
+        <!-- === FLIGHT PATHS (great-circle approximations) === -->
+
+        <!-- JN-0091 KVNY → KTEB · in cruise, ~32% complete -->
+        <path id="path-91" d="M 220 410 Q 540 280 920 320" fill="none" stroke="rgba(232,226,210,0.16)" stroke-width="1" stroke-dasharray="3 4"/>
+        <path d="M 220 410 Q 305 360 360 343" fill="none" stroke="var(--clearance)" stroke-width="1.4" />
+
+        <!-- JN-0089 KOPF → KTEB · 84% complete -->
+        <path id="path-89" d="M 920 580 Q 920 480 920 320" fill="none" stroke="rgba(232,226,210,0.16)" stroke-width="1" stroke-dasharray="3 4"/>
+        <path d="M 920 580 Q 920 480 920 360" fill="none" stroke="var(--clearance)" stroke-width="1.4" />
+
+        <!-- JN-0086 holding KASE -->
+        <path id="path-86" d="M 380 360 Q 290 380 220 410" fill="none" stroke="rgba(184,137,60,0.4)" stroke-width="1" stroke-dasharray="3 4"/>
+
+        <!-- JN-0084 KSFO → KSAF · just departed -->
+        <path id="path-84" d="M 170 380 Q 290 410 430 470" fill="none" stroke="rgba(232,226,210,0.16)" stroke-width="1" stroke-dasharray="3 4"/>
+        <path d="M 170 380 Q 200 390 215 395" fill="none" stroke="var(--clearance)" stroke-width="1.4" />
+
+        <!-- === FBO MARKERS (drawn as small group) === -->
+      </svg>
+
+      <!-- FBO markers absolutely positioned -->
+      <div class="fbo-marker" style="left: 18.3%; top: 58.5%;"><span class="lbl">KVNY</span></div>
+      <div class="fbo-marker" style="left: 14.2%; top: 54.3%;"><span class="lbl">KSFO</span></div>
+      <div class="fbo-marker active" style="left: 76.7%; top: 45.7%;"><span class="lbl">KTEB</span></div>
+      <div class="fbo-marker active" style="left: 76.7%; top: 82.8%;"><span class="lbl">KOPF</span></div>
+      <div class="fbo-marker active" style="left: 31.7%; top: 51.4%;"><span class="lbl">KASE</span></div>
+      <div class="fbo-marker active" style="left: 35.8%; top: 67.1%;"><span class="lbl">KSAF</span></div>
+      <div class="fbo-marker" style="left: 50%; top: 47%;"><span class="lbl">KDFW</span></div>
+      <div class="fbo-marker" style="left: 60%; top: 35%;"><span class="lbl">KORD</span></div>
+
+      <!-- Aircraft markers -->
+
+      <!-- JN-0091 KVNY → KTEB · cruise · ~30% along arc -->
+      <div class="ac-marker" style="left: 30%; top: 49%; transform: translate(-50%, -50%) rotate(62deg);">
+        <span class="ring"></span>
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="var(--clearance)">
+          <path d="M12 2 L14 13 L22 16 L22 18 L14 17 L13.2 21 L15 22 L15 23 L11 22.5 L7 23 L7 22 L8.8 21 L8 17 L0 18 L0 16 L8 13 Z" />
+        </svg>
+      </div>
+      <div class="callout" style="left: 33%; top: 42%;">
+        <span class="id">JN-0091</span> · <span>FL410 · 462KT</span>
+        <span class="pax">Aldrich / Latitude</span>
+        <span class="meta">— ETA KTEB 21:54 ET · on plan</span>
+      </div>
+
+      <!-- JN-0089 KOPF → KTEB · 84% -->
+      <div class="ac-marker" style="left: 76.7%; top: 52%; transform: translate(-50%, -50%) rotate(0deg);">
+        <span class="ring"></span>
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="var(--clearance)">
+          <path d="M12 2 L14 13 L22 16 L22 18 L14 17 L13.2 21 L15 22 L15 23 L11 22.5 L7 23 L7 22 L8.8 21 L8 17 L0 18 L0 16 L8 13 Z" />
+        </svg>
+      </div>
+      <div class="callout" style="left: 65%; top: 53%;">
+        <span class="id">JN-0089</span> · <span>FL370 · 481KT</span>
+        <span class="pax">Halberd Group / CL350</span>
+        <span class="meta">— ETA KTEB 14:48 · 6 min early</span>
+      </div>
+
+      <!-- JN-0086 holding KASE -->
+      <div class="ac-marker warn" style="left: 32%; top: 50%; transform: translate(-50%, -50%) rotate(310deg);">
+        <span class="ring"></span>
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="var(--warn)">
+          <path d="M12 2 L14 13 L22 16 L22 18 L14 17 L13.2 21 L15 22 L15 23 L11 22.5 L7 23 L7 22 L8.8 21 L8 17 L0 18 L0 16 L8 13 Z" />
+        </svg>
+      </div>
+      <div class="callout alert" style="left: 35%; top: 56%;">
+        <span class="id">JN-0086</span> · <span style="color: var(--warn);">HOLDING · KASE</span>
+        <span class="pax">Schwartz / PC-24</span>
+        <span class="meta warn">— OVC008 · diversion KEGE staged</span>
+      </div>
+
+      <!-- JN-0084 KSFO → KSAF · climbing out -->
+      <div class="ac-marker" style="left: 17%; top: 55.5%; transform: translate(-50%, -50%) rotate(115deg);">
+        <span class="ring"></span>
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="var(--clearance)">
+          <path d="M12 2 L14 13 L22 16 L22 18 L14 17 L13.2 21 L15 22 L15 23 L11 22.5 L7 23 L7 22 L8.8 21 L8 17 L0 18 L0 16 L8 13 Z" />
+        </svg>
+      </div>
+      <div class="callout" style="left: 6%; top: 47%;">
+        <span class="id">JN-0084</span> · <span>CLIMB · FL280</span>
+        <span class="pax">Pham / Phenom 300</span>
+        <span class="meta">— ETA KSAF 17:18 MT</span>
+      </div>
+
+      <!-- Legend -->
+      <div class="legend">
+        <div class="h">— STATUS</div>
+        <div class="row"><span class="dot ok"></span>Airborne · on plan</div>
+        <div class="row"><span class="dot boarding"></span>Boarding / taxi</div>
+        <div class="row"><span class="dot warn"></span>Hold / delayed</div>
+        <div class="row"><span class="dot crit"></span>Divert / critical</div>
+        <div class="row" style="margin-top: 4px; padding-top: 4px; border-top: 1px solid var(--ink-3);"><span class="dot fbo"></span>FBO · scheduled</div>
+        <div class="row"><span class="dot" style="background: var(--clearance);"></span>FBO · active today</div>
+      </div>
+
+      <!-- Scrubber -->
+      <div class="scrubber">
+        <span class="l">— TIME</span>
+        <span class="t" id="scrubT">22:08:42 Z</span>
+        <span class="live-pill"><span class="dot"></span>LIVE</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- SIDE PANEL -->
+  <aside class="ops-side">
+    <div class="side-tabs">
+      <div class="tab on">Flights<span class="ct">14</span></div>
+      <div class="tab">Events<span class="ct">42</span></div>
+      <div class="tab">IRR<span class="ct">3</span></div>
+    </div>
+
+    <div class="flight-list">
+
+      <!-- Selected: JN-0091 Aldrich -->
+      <div class="fc selected">
+        <div class="head">
+          <span class="id">JN-0091</span>
+          <span class="tail">N814QX</span>
+          <span class="status flying"><span class="d"></span>FL410 CRUISE</span>
+        </div>
+        <div class="pax">Aldrich · Citation Latitude</div>
+        <div class="lane">
+          <span class="e">KVNY</span>
+          <span class="arr">→ 4h 38m</span>
+          <span class="e r">KTEB</span>
+        </div>
+        <div class="progress"><div class="fill" style="width: 32%;"></div></div>
+        <div class="meta">
+          <span><span class="s">OUT</span> 13:42 PT</span>
+          <span><span class="s">ETA</span> 21:54 ET</span>
+          <span><span class="s">GS</span> 462 KT</span>
+          <span><span class="s">PAX</span> 4</span>
+        </div>
+      </div>
+
+      <!-- JN-0089 Halberd -->
+      <div class="fc">
+        <div class="head">
+          <span class="id">JN-0089</span>
+          <span class="tail">N445SR</span>
+          <span class="status flying"><span class="d"></span>FL370 CRUISE</span>
+        </div>
+        <div class="pax">Halberd Group · Challenger 350</div>
+        <div class="lane">
+          <span class="e">KOPF</span>
+          <span class="arr">→ 3h 20m</span>
+          <span class="e r">KTEB</span>
+        </div>
+        <div class="progress"><div class="fill" style="width: 84%;"></div></div>
+        <div class="meta">
+          <span><span class="s">ETA</span> 14:48 ET</span>
+          <span><span class="s">GS</span> 481 KT</span>
+          <span style="color: var(--success);">— 6 min early</span>
+        </div>
+      </div>
+
+      <!-- JN-0086 Schwartz hold -->
+      <div class="fc">
+        <div class="head">
+          <span class="id">JN-0086</span>
+          <span class="tail">N224SP</span>
+          <span class="status hold"><span class="d"></span>HOLD · KASE</span>
+        </div>
+        <div class="pax">Schwartz family · PC-24</div>
+        <div class="lane">
+          <span class="e">KASE</span>
+          <span class="arr">→ HOLD</span>
+          <span class="e r">KVNY</span>
+        </div>
+        <div class="alert-line">— OVC008 · 38m fuel · KEGE divert prepped</div>
+        <div class="meta">
+          <span><span class="s">PAX</span> 4 + 2 dogs</span>
+          <span><span class="s">DESK</span> CV ack 13:58</span>
+        </div>
+      </div>
+
+      <!-- JN-0084 Pham -->
+      <div class="fc">
+        <div class="head">
+          <span class="id">JN-0084</span>
+          <span class="tail">N812EX</span>
+          <span class="status flying"><span class="d"></span>CLIMB FL280</span>
+        </div>
+        <div class="pax">Pham · Phenom 300E</div>
+        <div class="lane">
+          <span class="e">KSFO</span>
+          <span class="arr">→ 2h 15m</span>
+          <span class="e r">KSAF</span>
+        </div>
+        <div class="progress"><div class="fill" style="width: 8%;"></div></div>
+        <div class="meta">
+          <span><span class="s">OUT</span> 14:35 PT</span>
+          <span><span class="s">ETA</span> 17:18 MT</span>
+          <span><span class="s">PAX</span> 3</span>
+        </div>
+      </div>
+
+      <!-- JN-0085 boarding -->
+      <div class="fc">
+        <div class="head">
+          <span class="id">JN-0085</span>
+          <span class="tail">N655GL</span>
+          <span class="status taxi"><span class="d"></span>BOARDING</span>
+        </div>
+        <div class="pax">Kallio · Global 6500</div>
+        <div class="lane">
+          <span class="e">KTEB</span>
+          <span class="arr">→ EGGW</span>
+          <span class="e r">7h 20m</span>
+        </div>
+        <div class="meta">
+          <span><span class="s">DEP</span> 15:30 ET</span>
+          <span><span class="s">PAX</span> 8</span>
+          <span><span class="s">FBO</span> Meridian · gate 4</span>
+        </div>
+      </div>
+
+      <!-- JN-0083 boarded -->
+      <div class="fc">
+        <div class="head">
+          <span class="id">JN-0083</span>
+          <span class="tail">N919AB</span>
+          <span class="status boarded"><span class="d"></span>RAMP HOLD</span>
+        </div>
+        <div class="pax">Yates · Falcon 7X</div>
+        <div class="lane">
+          <span class="e">KBED</span>
+          <span class="arr">→ TFFJ</span>
+          <span class="e r">5h 02m</span>
+        </div>
+        <div class="alert-line" style="background: rgba(232,226,210,0.06); border-left-color: var(--clearance); color: var(--clearance);">
+          — KTEB ground stop 17:00–17:45 ET · rebook out KMVY proposed
+        </div>
+        <div class="meta">
+          <span><span class="s">DEP</span> 16:00 ET → 17:55 ET</span>
+          <span><span class="s">PAX</span> 2</span>
+        </div>
+      </div>
+
+      <!-- JN-0082 completed -->
+      <div class="fc">
+        <div class="head">
+          <span class="id">JN-0082</span>
+          <span class="tail">N221TS</span>
+          <span class="status boarded"><span class="d"></span>WHEELS-DOWN</span>
+        </div>
+        <div class="pax">Mireles · Citation XLS+</div>
+        <div class="lane">
+          <span class="e">KSDL</span>
+          <span class="arr">→ KASE</span>
+          <span class="e r">DONE</span>
+        </div>
+        <div class="meta">
+          <span><span class="s">IN</span> 11:08 MT</span>
+          <span style="color: var(--success);">— on time · invoice cleared</span>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Event log inline below -->
+    <div class="side-tabs" style="border-top: 1px solid var(--ink-3); margin-top: 0;">
+      <div class="tab on" style="grid-column: 1 / 4;">Event log · last 30 min</div>
+    </div>
+    <div class="log">
+      <div class="ev"><span class="t">14:08</span><span class="what"><span class="em">JN-0086</span> KASE METAR: OVC008 · 1¾SM · <span class="warn">below mins</span></span></div>
+      <div class="ev"><span class="t">14:06</span><span class="what"><span class="em">JN-0091</span> N814QX squawk 4521 · climb to FL410 <span class="ok">complete</span></span></div>
+      <div class="ev"><span class="t">14:04</span><span class="what"><span class="em">JN-0089</span> Atlantic Center coord · descent FL370 → FL240 cleared</span></div>
+      <div class="ev"><span class="t">14:02</span><span class="what"><span class="em">JN-0083</span> KTEB GROUND STOP 17:00–17:45 · <span class="warn">delay propagating</span></span></div>
+      <div class="ev"><span class="t">14:01</span><span class="what"><span class="em">JN-0084</span> N812EX wheels-up KSFO RWY 28R</span></div>
+      <div class="ev"><span class="t">13:58</span><span class="what"><span class="em">JN-0086</span> Hold call · CV acknowledged · diversion KEGE prepped</span></div>
+      <div class="ev"><span class="t">13:54</span><span class="what"><span class="em">JN-0086</span> KASE TWR: <span class="warn">extended hold · ceiling lowering</span></span></div>
+      <div class="ev"><span class="t">13:50</span><span class="what"><span class="em">JN-0085</span> N655GL pax boarding · 8 souls · catering loaded</span></div>
+      <div class="ev"><span class="t">13:42</span><span class="what"><span class="em">JN-0091</span> N814QX wheels-up KVNY RWY 16R</span></div>
+      <div class="ev"><span class="t">13:38</span><span class="what"><span class="em">JN-0082</span> N221TS wheels-down KASE · trip closed</span></div>
+    </div>
+  </aside>
+</div>
+
+<script>
+  // Clocks tick
+  function tick() {
+    const d = new Date();
+    const fmt = (tz) => d.toLocaleTimeString('en-GB', { timeZone: tz, hour: '2-digit', minute: '2-digit' });
+    const fmtZ = d.toLocaleTimeString('en-GB', { timeZone: 'UTC', hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    document.getElementById('clkPT').textContent = fmt('America/Los_Angeles');
+    document.getElementById('clkET').textContent = fmt('America/New_York');
+    document.getElementById('clkZ').textContent = fmt('UTC');
+    document.getElementById('scrubT').textContent = fmtZ + ' Z';
+  }
+  tick();
+  setInterval(tick, 1000);
+
+  // Click flights to "select"
+  document.querySelectorAll('.fc').forEach(fc => {
+    fc.addEventListener('click', () => {
+      document.querySelectorAll('.fc').forEach(x => x.classList.remove('selected'));
+      fc.classList.add('selected');
+    });
+  });
+</script>
+
+</body>
+</html>

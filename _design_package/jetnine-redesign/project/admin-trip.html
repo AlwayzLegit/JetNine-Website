@@ -1,0 +1,724 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>JetNine — Admin · Trip Sheet · JN-0091</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,500;9..144,600&family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="shared.css" />
+<style>
+  body { background: var(--ink); }
+
+  /* === Top admin bar === */
+  .adm-top { height: 56px; border-bottom: 1px solid var(--ink-3); display: grid; grid-template-columns: 240px 1fr auto; align-items: center; background: var(--ink); position: sticky; top: 0; z-index: 60; }
+  .adm-top .brand-cell { display: flex; align-items: center; gap: 12px; height: 100%; padding: 0 20px; border-right: 1px solid var(--ink-3); }
+  .adm-top .brand { font-family: var(--serif); font-weight: 400; font-size: 20px; color: var(--bone); text-decoration: none; }
+  .adm-top .brand .nine { font-family: var(--mono); font-size: 9px; color: var(--clearance); letter-spacing: 0.1em; vertical-align: super; margin-left: 2px; }
+  .adm-top .env { font-family: var(--mono); font-size: 9px; padding: 3px 6px; background: var(--ink-3); color: var(--clearance); border-radius: 2px; letter-spacing: 0.14em; }
+  .adm-top .crumbs { padding: 0 24px; display: flex; gap: 14px; font-family: var(--mono); font-size: 10px; letter-spacing: 0.12em; color: var(--steel); text-transform: uppercase; }
+  .adm-top .crumbs a { color: var(--bone-2); text-decoration: none; }
+  .adm-top .crumbs .here { color: var(--bone); }
+  .adm-top .crumbs .sep { color: var(--ink-4); }
+  .adm-top .right { display: flex; align-items: center; gap: 16px; padding: 0 20px; height: 100%; border-left: 1px solid var(--ink-3); }
+  .adm-top .clk { font-family: var(--mono); font-size: 11px; color: var(--bone); letter-spacing: 0.06em; }
+  .adm-top .clk .z { color: var(--steel); margin-right: 4px; }
+  .adm-top .clk + .clk { padding-left: 14px; border-left: 1px solid var(--ink-3); }
+  .adm-top .me { display: flex; align-items: center; gap: 10px; padding: 4px 10px 4px 4px; background: var(--ink-3); border-radius: 999px; font-family: var(--mono); font-size: 10px; color: var(--bone-2); }
+  .adm-top .me .av { width: 24px; height: 24px; border-radius: 50%; background: var(--ink-4); display: flex; align-items: center; justify-content: center; color: var(--clearance); font-size: 10px; }
+  .adm-top .me .stat { width: 6px; height: 6px; border-radius: 50%; background: var(--success); }
+
+  /* === Layout: rail + main + audit === */
+  .ts-shell { display: grid; grid-template-columns: 200px 1fr 320px; min-height: calc(100vh - 56px); }
+  @media (max-width: 1280px) { .ts-shell { grid-template-columns: 180px 1fr 300px; } }
+  @media (max-width: 1024px) { .ts-shell { grid-template-columns: 1fr; } .ts-rail, .ts-audit { display: none; } }
+
+  /* Rail */
+  .ts-rail { border-right: 1px solid var(--ink-3); padding: 16px 0; background: var(--ink); }
+  .rg { padding: 0 12px 16px; }
+  .rg .h { font-family: var(--mono); font-size: 9px; letter-spacing: 0.16em; color: var(--steel); text-transform: uppercase; margin: 4px 8px 8px; }
+  .rg a { display: grid; grid-template-columns: 14px 1fr auto; gap: 10px; align-items: center; padding: 7px 10px; border-radius: 2px; color: var(--bone-2); text-decoration: none; font-size: 13px; transition: background 160ms, color 160ms; }
+  .rg a:hover { background: var(--ink-2); color: var(--bone); }
+  .rg a.active { background: var(--ink-2); color: var(--clearance); }
+  .rg a .gly { font-family: var(--mono); font-size: 10px; color: var(--steel); }
+  .rg a.active .gly { color: var(--clearance); }
+  .rg a .badge { font-family: var(--mono); font-size: 9px; padding: 1px 6px; border-radius: 2px; background: var(--ink-3); color: var(--bone-2); }
+
+  /* Main */
+  .ts-main { padding: 28px 36px 60px; min-width: 0; }
+  @media (max-width: 700px) { .ts-main { padding: 20px 16px; } }
+
+  /* Header */
+  .ts-head {
+    display: grid; grid-template-columns: 1fr auto; gap: 32px; align-items: end;
+    padding-bottom: 20px; margin-bottom: 24px; border-bottom: 1px solid var(--ink-3);
+  }
+  .ts-head .id-line { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .ts-head .id { font-family: var(--mono); font-size: 12px; color: var(--clearance); letter-spacing: 0.08em; }
+  .ts-head .ver { font-family: var(--mono); font-size: 9px; color: var(--bone-2); padding: 3px 7px; background: var(--ink-3); border-radius: 2px; letter-spacing: 0.08em; }
+  .ts-head .stamp {
+    font-family: var(--mono); font-size: 9px; letter-spacing: 0.16em; text-transform: uppercase;
+    padding: 3px 8px; border-radius: 2px;
+    display: inline-flex; align-items: center; gap: 6px;
+  }
+  .ts-head .stamp .dot { width: 5px; height: 5px; border-radius: 50%; }
+  .ts-head .stamp.flying { background: rgba(91,140,90,0.16); color: var(--success); }
+  .ts-head .stamp.flying .dot { background: var(--success); animation: pulse 1.4s infinite; }
+  @keyframes pulse { 0% { box-shadow: 0 0 0 0 currentColor; opacity: 1; } 70% { box-shadow: 0 0 0 6px transparent; opacity: 0.5; } 100% { box-shadow: 0 0 0 0 transparent; opacity: 1; } }
+  .ts-head h1 { font-family: var(--serif); font-weight: 300; font-size: 42px; line-height: 1.05; letter-spacing: -0.015em; margin-top: 10px; max-width: 22ch; }
+  .ts-head .strap { font-family: var(--mono); font-size: 11px; color: var(--bone-2); margin-top: 8px; letter-spacing: 0.04em; }
+  .ts-head .actions { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+  .btn-mini { font-family: var(--mono); font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; padding: 8px 12px; border-radius: 2px; text-decoration: none; background: var(--ink-2); border: 1px solid var(--ink-3); color: var(--bone); transition: all 160ms; cursor: pointer; }
+  .btn-mini:hover { border-color: var(--clearance); color: var(--clearance); }
+  .btn-mini.primary { background: var(--clearance); color: var(--ink); border-color: var(--clearance); }
+  .btn-mini.danger { color: var(--error); }
+  .btn-mini.danger:hover { border-color: var(--error); }
+
+  /* Status strip */
+  .strip {
+    display: grid; grid-template-columns: repeat(6, 1fr);
+    background: var(--ink-2); border: 1px solid var(--ink-3); border-radius: 4px;
+    margin-bottom: 28px;
+  }
+  @media (max-width: 1100px) { .strip { grid-template-columns: repeat(3, 1fr); } }
+  @media (max-width: 600px) { .strip { grid-template-columns: repeat(2, 1fr); } }
+  .strip .cell { padding: 16px 18px; border-right: 1px solid var(--ink-3); }
+  .strip .cell:last-child { border-right: none; }
+  .strip .l { font-family: var(--mono); font-size: 9px; letter-spacing: 0.14em; color: var(--steel); text-transform: uppercase; }
+  .strip .v { font-family: var(--serif); font-weight: 300; font-size: 22px; color: var(--bone); margin-top: 6px; letter-spacing: -0.005em; line-height: 1; }
+  .strip .v .u { font-family: var(--mono); font-size: 10px; color: var(--bone-2); margin-left: 4px; }
+  .strip .d { font-family: var(--mono); font-size: 9px; color: var(--bone-2); margin-top: 4px; letter-spacing: 0.04em; }
+  .strip .d.ok { color: var(--success); }
+  .strip .d.warn { color: var(--warn); }
+
+  /* Tabs */
+  .ts-tabs {
+    display: flex; gap: 0; border-bottom: 1px solid var(--ink-3); margin-bottom: 24px;
+    overflow-x: auto;
+  }
+  .ts-tabs a {
+    padding: 12px 18px; font-family: var(--mono); font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase;
+    color: var(--bone-2); text-decoration: none; border-bottom: 2px solid transparent;
+    transition: color 160ms, border-color 160ms; white-space: nowrap;
+  }
+  .ts-tabs a:hover { color: var(--bone); }
+  .ts-tabs a.on { color: var(--clearance); border-bottom-color: var(--clearance); }
+  .ts-tabs a .ct { color: var(--steel); margin-left: 6px; }
+  .ts-tabs a.on .ct { color: var(--clearance); }
+
+  /* Section card */
+  .sec {
+    background: var(--ink-2); border: 1px solid var(--ink-3); border-radius: 4px;
+    margin-bottom: 20px; overflow: hidden;
+  }
+  .sec .sh {
+    display: grid; grid-template-columns: auto 1fr auto; gap: 16px; align-items: center;
+    padding: 14px 20px; border-bottom: 1px solid var(--ink-3); background: var(--ink);
+  }
+  .sec .sh .num { font-family: var(--mono); font-size: 10px; color: var(--clearance); letter-spacing: 0.12em; }
+  .sec .sh h2 { font-family: var(--serif); font-weight: 400; font-size: 18px; letter-spacing: -0.005em; color: var(--bone); }
+  .sec .sh .right { font-family: var(--mono); font-size: 10px; color: var(--bone-2); letter-spacing: 0.06em; display: flex; gap: 12px; align-items: center; }
+  .sec .sh .edit { color: var(--clearance); cursor: pointer; }
+  .sec .sh .edit:hover { color: var(--bone); }
+  .sec .body { padding: 18px 20px; }
+
+  /* Field grid */
+  .fg { display: grid; grid-template-columns: 160px 1fr; gap: 8px 20px; }
+  @media (max-width: 700px) { .fg { grid-template-columns: 1fr; gap: 4px 0; } .fg > .l { padding-top: 8px; } }
+  .fg > .l { font-family: var(--mono); font-size: 10px; color: var(--steel); letter-spacing: 0.12em; text-transform: uppercase; padding-top: 4px; }
+  .fg > .v { font-family: var(--sans); font-size: 14px; color: var(--bone); line-height: 1.5; padding: 4px 0; border-bottom: 1px dashed var(--ink-3); display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .fg > .v:last-child { border-bottom: none; }
+  .fg > .v .mono { font-family: var(--mono); font-size: 12px; letter-spacing: 0.04em; color: var(--bone); }
+  .fg > .v .tag { font-family: var(--mono); font-size: 9px; padding: 2px 6px; background: rgba(232,226,210,0.08); color: var(--clearance); border-radius: 2px; letter-spacing: 0.06em; text-transform: uppercase; }
+  .fg > .v .ok { color: var(--success); }
+  .fg > .v .warn { color: var(--warn); }
+  .fg > .v .lock { color: var(--bone-2); font-family: var(--mono); font-size: 11px; }
+  .fg > .v .edit-trigger { margin-left: auto; font-family: var(--mono); font-size: 10px; color: var(--bone-2); cursor: pointer; }
+  .fg > .v .edit-trigger:hover { color: var(--clearance); }
+
+  /* Leg cards */
+  .leg-stack { display: flex; flex-direction: column; gap: 16px; }
+  .leg {
+    background: var(--ink); border: 1px solid var(--ink-3); border-radius: 3px;
+    padding: 18px 20px; display: flex; flex-direction: column; gap: 14px;
+  }
+  .leg.live { border-left: 2px solid var(--clearance); }
+  .leg .lh { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+  .leg .lh .num { font-family: var(--mono); font-size: 10px; color: var(--clearance); letter-spacing: 0.1em; }
+  .leg .lh .date { font-family: var(--mono); font-size: 11px; color: var(--bone); letter-spacing: 0.06em; }
+  .leg .lh .badge {
+    font-family: var(--mono); font-size: 9px; padding: 2px 6px; border-radius: 2px; letter-spacing: 0.12em; text-transform: uppercase;
+    margin-left: auto;
+  }
+  .leg .lh .badge.live { background: rgba(91,140,90,0.16); color: var(--success); }
+  .leg .lh .badge.scheduled { background: var(--ink-3); color: var(--bone-2); }
+
+  .route {
+    display: grid; grid-template-columns: 1fr auto 1fr; gap: 16px; align-items: center;
+    padding: 12px 0 4px;
+  }
+  .route .end { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+  .route .end.r { text-align: right; }
+  .route .end .icao { font-family: var(--mono); font-size: 16px; color: var(--bone); letter-spacing: 0.06em; }
+  .route .end .city { font-family: var(--serif); font-size: 14px; color: var(--bone-2); }
+  .route .end .t { font-family: var(--mono); font-size: 11px; color: var(--steel); letter-spacing: 0.06em; margin-top: 2px; }
+  .route .end .t .ok { color: var(--success); }
+  .route .arc { min-width: 100px; display: flex; flex-direction: column; align-items: center; gap: 2px; }
+  .route .arc svg { width: 100%; height: 20px; overflow: visible; }
+  .route .arc .d { font-family: var(--mono); font-size: 10px; color: var(--bone-2); letter-spacing: 0.04em; }
+
+  .leg-meta { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; padding-top: 14px; border-top: 1px solid var(--ink-3); }
+  @media (max-width: 700px) { .leg-meta { grid-template-columns: repeat(2, 1fr); } }
+  .leg-meta > div { display: flex; flex-direction: column; gap: 3px; }
+  .leg-meta .l { font-family: var(--mono); font-size: 9px; color: var(--steel); letter-spacing: 0.14em; text-transform: uppercase; }
+  .leg-meta .v { font-family: var(--mono); font-size: 11px; color: var(--bone); letter-spacing: 0.04em; }
+
+  /* Two col layout for pricing + checklist */
+  .two-col { display: grid; grid-template-columns: 1.4fr 1fr; gap: 20px; }
+  @media (max-width: 1100px) { .two-col { grid-template-columns: 1fr; } }
+
+  /* Line items */
+  .li {
+    display: grid; grid-template-columns: 1fr 80px 90px 100px;
+    gap: 12px; align-items: center;
+    padding: 10px 0; border-bottom: 1px dashed var(--ink-3);
+    font-family: var(--mono); font-size: 11px; color: var(--bone-2); letter-spacing: 0.04em;
+  }
+  .li .desc { color: var(--bone); font-family: var(--sans); font-size: 13px; line-height: 1.4; }
+  .li .desc .s { color: var(--steel); font-family: var(--mono); font-size: 9px; display: block; margin-top: 2px; letter-spacing: 0.06em; }
+  .li .qty, .li .rate { color: var(--steel); }
+  .li .v { color: var(--bone); text-align: right; }
+
+  .li-totals { padding-top: 12px; margin-top: 6px; border-top: 1px solid var(--ink-3); }
+  .li-tot { display: grid; grid-template-columns: 1fr 100px; padding: 5px 0; font-family: var(--mono); font-size: 11px; color: var(--bone-2); letter-spacing: 0.04em; }
+  .li-tot .v { color: var(--bone); text-align: right; }
+  .li-grand { display: grid; grid-template-columns: 1fr auto; padding: 12px 0 0; border-top: 1px solid var(--bone-2); margin-top: 8px; }
+  .li-grand .l { font-family: var(--mono); font-size: 10px; color: var(--clearance); letter-spacing: 0.14em; text-transform: uppercase; padding-top: 6px; }
+  .li-grand .v { font-family: var(--serif); font-weight: 300; font-size: 30px; color: var(--bone); letter-spacing: -0.005em; line-height: 1; }
+
+  /* Checklist */
+  .check-list { display: flex; flex-direction: column; }
+  .ck {
+    display: grid; grid-template-columns: 18px 1fr auto; gap: 10px; align-items: center;
+    padding: 9px 0; border-bottom: 1px solid var(--ink-3);
+    font-size: 13px; color: var(--bone-2);
+  }
+  .ck:last-child { border-bottom: none; }
+  .ck .b { width: 14px; height: 14px; border: 1px solid var(--ink-4); border-radius: 2px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .ck.done .b { background: var(--clearance); border-color: var(--clearance); }
+  .ck.done .b::after { content: "✓"; color: var(--ink); font-family: var(--mono); font-size: 9px; }
+  .ck.done .t { color: var(--bone); }
+  .ck.alert .b { border-color: var(--warn); }
+  .ck.alert .t { color: var(--warn); }
+  .ck .meta { font-family: var(--mono); font-size: 9px; color: var(--steel); letter-spacing: 0.06em; }
+
+  /* People */
+  .ppl-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; }
+  @media (max-width: 700px) { .ppl-grid { grid-template-columns: 1fr; } }
+  .ppl {
+    background: var(--ink); border: 1px solid var(--ink-3); border-radius: 3px;
+    padding: 14px 16px; display: grid; grid-template-columns: 36px 1fr auto; gap: 12px; align-items: center;
+  }
+  .ppl .av { width: 36px; height: 36px; border-radius: 50%; background: var(--ink-4); border: 1px solid var(--ink-3); display: flex; align-items: center; justify-content: center; font-family: var(--mono); font-size: 11px; color: var(--clearance); }
+  .ppl .info { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+  .ppl .info .nm { font-family: var(--serif); font-size: 15px; color: var(--bone); }
+  .ppl .info .role { font-family: var(--mono); font-size: 9px; color: var(--steel); letter-spacing: 0.12em; text-transform: uppercase; }
+  .ppl .info .meta { font-family: var(--mono); font-size: 10px; color: var(--bone-2); letter-spacing: 0.04em; }
+  .ppl .pill { font-family: var(--mono); font-size: 9px; color: var(--clearance); border: 1px solid var(--clearance); padding: 2px 6px; border-radius: 2px; letter-spacing: 0.06em; }
+  .ppl .pill.tail { color: var(--bone-2); border-color: var(--ink-3); }
+
+  /* === Audit rail === */
+  .ts-audit { border-left: 1px solid var(--ink-3); background: var(--ink); padding: 16px 16px 24px; overflow-y: auto; }
+  .ts-audit .h { font-family: var(--mono); font-size: 9px; color: var(--steel); letter-spacing: 0.16em; text-transform: uppercase; padding-bottom: 10px; border-bottom: 1px solid var(--ink-3); margin-bottom: 12px; display: flex; justify-content: space-between; }
+  .ts-audit .h .live-dot { color: var(--success); display: inline-flex; align-items: center; gap: 5px; }
+  .ts-audit .h .live-dot .d { width: 6px; height: 6px; border-radius: 50%; background: var(--success); animation: pulse 1.4s infinite; }
+
+  .audit { display: flex; flex-direction: column; }
+  .ae {
+    display: grid; grid-template-columns: 60px 1fr; gap: 10px;
+    padding: 9px 0; border-bottom: 1px solid var(--ink-3);
+  }
+  .ae:last-child { border-bottom: none; }
+  .ae .t { font-family: var(--mono); font-size: 9px; color: var(--steel); letter-spacing: 0.06em; padding-top: 2px; }
+  .ae .what { font-family: var(--sans); font-size: 12px; color: var(--bone-2); line-height: 1.5; }
+  .ae .what .em { color: var(--clearance); font-family: var(--mono); font-size: 10px; letter-spacing: 0.04em; }
+  .ae .what .who { color: var(--bone); }
+  .ae .what .ok { color: var(--success); }
+  .ae .what .warn { color: var(--warn); }
+
+  /* Comments */
+  .comments { margin-top: 16px; display: flex; flex-direction: column; gap: 10px; }
+  .comment {
+    background: var(--ink-2); border: 1px solid var(--ink-3); border-radius: 3px;
+    padding: 10px 12px; display: flex; flex-direction: column; gap: 6px;
+  }
+  .comment .top { display: flex; align-items: center; gap: 8px; }
+  .comment .top .who { font-family: var(--mono); font-size: 10px; color: var(--clearance); letter-spacing: 0.06em; }
+  .comment .top .t { font-family: var(--mono); font-size: 9px; color: var(--steel); margin-left: auto; }
+  .comment .body { font-size: 12px; color: var(--bone-2); line-height: 1.5; }
+  .comment .body .em { color: var(--bone); }
+
+  .comment-add {
+    margin-top: 10px; background: var(--ink-2); border: 1px solid var(--ink-3); border-radius: 3px;
+    padding: 8px;
+  }
+  .comment-add textarea {
+    width: 100%; background: transparent; border: none; outline: none; resize: none;
+    color: var(--bone); font-family: var(--sans); font-size: 12px; min-height: 50px;
+  }
+  .comment-add textarea::placeholder { color: var(--steel); }
+  .comment-add .row { display: flex; justify-content: space-between; align-items: center; padding-top: 6px; border-top: 1px solid var(--ink-3); }
+  .comment-add .row .meta { font-family: var(--mono); font-size: 9px; color: var(--steel); letter-spacing: 0.06em; }
+</style>
+</head>
+<body data-screen-label="19 Admin · Trip Sheet">
+
+<header class="adm-top">
+  <div class="brand-cell">
+    <a href="homepage.html" class="brand">JetNine <span class="nine">09</span></a>
+    <span class="env">DISPATCH</span>
+  </div>
+  <div class="crumbs">
+    <a href="admin-dispatch.html">DESK</a>
+    <span class="sep">/</span>
+    <a href="admin-ops.html">LIVE OPS</a>
+    <span class="sep">/</span>
+    <span class="here">TRIP · JN-0091</span>
+  </div>
+  <div class="right">
+    <span class="clk"><span class="z">PT</span><span id="clkPT">14:08</span></span>
+    <span class="clk"><span class="z">ET</span><span id="clkET">17:08</span></span>
+    <span class="me"><span class="av">CV</span><span class="stat"></span><span>CATALINA · ON-DESK</span></span>
+  </div>
+</header>
+
+<div class="ts-shell">
+
+  <!-- RAIL -->
+  <aside class="ts-rail">
+    <div class="rg">
+      <div class="h">— DESK</div>
+      <a href="admin-dispatch.html"><span class="gly">⌂</span><span>Inbox</span><span class="badge">7</span></a>
+      <a href="admin-quote.html"><span class="gly">◐</span><span>Quote workbench</span><span class="badge">4</span></a>
+      <a href="admin-ops.html"><span class="gly">◉</span><span>Live ops board</span><span class="badge">3</span></a>
+      <a href="admin-trip.html" class="active"><span class="gly">⌖</span><span>Trip sheet</span></a>
+      <a href="#"><span class="gly">✉</span><span>Messages</span><span class="badge">12</span></a>
+    </div>
+    <div class="rg">
+      <div class="h">— SUPPLY</div>
+      <a href="#"><span class="gly">⊞</span><span>Operators</span></a>
+      <a href="#"><span class="gly">✈</span><span>Aircraft</span></a>
+      <a href="#"><span class="gly">↻</span><span>Empty legs</span></a>
+    </div>
+    <div class="rg">
+      <div class="h">— ACCOUNTS</div>
+      <a href="#"><span class="gly">◯</span><span>Members</span></a>
+      <a href="#"><span class="gly">$</span><span>Invoices</span></a>
+      <a href="#"><span class="gly">▦</span><span>Reports</span></a>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <main class="ts-main">
+
+    <!-- Header -->
+    <div class="ts-head">
+      <div>
+        <div class="id-line">
+          <span class="id">JN-2026-0091</span>
+          <span class="ver">v3 · current</span>
+          <span class="stamp flying"><span class="dot"></span>AIRBORNE · FL410</span>
+        </div>
+        <h1>Aldrich · KVNY → KTEB · 11 Nov 2026</h1>
+        <div class="strap">— Wheels-up 13:42 PT · ETA 21:54 ET · 4 souls + 1 FA · Citation Latitude N814QX (FlexJet)</div>
+      </div>
+      <div class="actions">
+        <button class="btn-mini">Print sheet</button>
+        <button class="btn-mini">Export PDF</button>
+        <button class="btn-mini">Duplicate</button>
+        <button class="btn-mini">Message member</button>
+        <button class="btn-mini primary">Save changes</button>
+      </div>
+    </div>
+
+    <!-- Status strip -->
+    <div class="strip">
+      <div class="cell">
+        <div class="l">— STATUS</div>
+        <div class="v" style="color: var(--success);">Airborne</div>
+        <div class="d ok">— 32% into route · 2,141 NM total</div>
+      </div>
+      <div class="cell">
+        <div class="l">— OUT / IN</div>
+        <div class="v">13:42<span class="u">/ 21:54</span></div>
+        <div class="d">— PT · ET</div>
+      </div>
+      <div class="cell">
+        <div class="l">— PAX · SOULS</div>
+        <div class="v">4<span class="u">+ 3 crew</span></div>
+        <div class="d">— + 2 FA · 1 jumpseat</div>
+      </div>
+      <div class="cell">
+        <div class="l">— OPERATOR</div>
+        <div class="v">FlexJet</div>
+        <div class="d">— ARG/US PLATINUM</div>
+      </div>
+      <div class="cell">
+        <div class="l">— REVENUE</div>
+        <div class="v">$58,400</div>
+        <div class="d ok">— invoiced · cleared</div>
+      </div>
+      <div class="cell">
+        <div class="l">— MARGIN</div>
+        <div class="v">11.2<span class="u">%</span></div>
+        <div class="d">— $6,540 gross</div>
+      </div>
+    </div>
+
+    <!-- Tabs -->
+    <div class="ts-tabs">
+      <a href="#" class="on">Overview</a>
+      <a href="#">Legs <span class="ct">1</span></a>
+      <a href="#">Manifest <span class="ct">4</span></a>
+      <a href="#">Crew <span class="ct">3</span></a>
+      <a href="#">Catering &amp; ground</a>
+      <a href="#">Pricing</a>
+      <a href="#">Documents <span class="ct">8</span></a>
+      <a href="#">Audit log</a>
+    </div>
+
+    <!-- 01 — Member + Mission -->
+    <div class="sec">
+      <div class="sh">
+        <span class="num">— 01</span>
+        <h2>Member &amp; mission</h2>
+        <span class="right">
+          <span>Reserve 100 · $62,400 bal</span>
+          <span class="edit">EDIT</span>
+        </span>
+      </div>
+      <div class="body">
+        <div class="fg">
+          <div class="l">— MEMBER</div>
+          <div class="v">Marcus Aldrich <span class="tag">RESERVE 100</span> <span class="lock">· 11 yr · 62 trips</span></div>
+          <div class="l">— CONTACT</div>
+          <div class="v"><span class="mono">m.aldrich@aldrichcapital.com</span> · <span class="mono">+1 (310) 555-0188</span></div>
+          <div class="l">— DISPATCHER</div>
+          <div class="v">Catalina Vance <span class="lock">— west desk · primary</span> <span class="edit-trigger">reassign →</span></div>
+          <div class="l">— MISSION TYPE</div>
+          <div class="v">One-way charter <span class="tag">DOMESTIC</span></div>
+          <div class="l">— BILL TO</div>
+          <div class="v">Aldrich Capital LLC <span class="lock">· EIN ••-•••3081 · NET-30 invoice</span></div>
+          <div class="l">— TRIP NOTES</div>
+          <div class="v" style="border-bottom: none;">— Need to be in NYC for a 19:00 ET dinner. Berries, cold brew, no shellfish (allergy). Same Latitude as last trip (N814QX) preferred.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 02 — Legs -->
+    <div class="sec">
+      <div class="sh">
+        <span class="num">— 02</span>
+        <h2>Legs <span style="font-family: var(--mono); font-size: 11px; color: var(--steel); margin-left: 8px; letter-spacing: 0.06em;">/ 1 leg · 2,141 NM</span></h2>
+        <span class="right"><span class="edit">+ ADD LEG</span></span>
+      </div>
+      <div class="body">
+        <div class="leg-stack">
+          <div class="leg live">
+            <div class="lh">
+              <span class="num">— LEG 01</span>
+              <span class="date">FRI 14 NOV 2026 · 09:30 PT departure</span>
+              <span class="badge live">— AIRBORNE</span>
+            </div>
+            <div class="route">
+              <div class="end">
+                <div class="icao">KVNY</div>
+                <div class="city">Van Nuys, Los Angeles</div>
+                <div class="t">— OUT 13:42 PT <span class="ok">(on time)</span> · Signature FBO</div>
+              </div>
+              <div class="arc">
+                <svg viewBox="0 0 100 20" preserveAspectRatio="none">
+                  <path d="M2 18 Q 50 -2 98 18" fill="none" stroke="rgba(232,226,210,0.18)" stroke-width="1" stroke-dasharray="2 2"/>
+                  <path d="M2 18 Q 24 8 36 6" fill="none" stroke="var(--clearance)" stroke-width="1.4"/>
+                  <circle cx="36" cy="6" r="2.5" fill="var(--clearance)"/>
+                </svg>
+                <span class="d">4h 38m · 2,141 NM</span>
+              </div>
+              <div class="end r">
+                <div class="icao">KTEB</div>
+                <div class="city">Teterboro, New York</div>
+                <div class="t">— ETA 21:54 ET · Meridian Teterboro</div>
+              </div>
+            </div>
+            <div class="leg-meta">
+              <div><span class="l">— SQUAWK</span><span class="v">4521</span></div>
+              <div><span class="l">— GS / WIND</span><span class="v">462 KT · 248°/38</span></div>
+              <div><span class="l">— ROUTE</span><span class="v">DCT BLD J100 EMI ELDEE</span></div>
+              <div><span class="l">— FUEL ON</span><span class="v">11,400 lb</span></div>
+              <div><span class="l">— SLOT · ARR</span><span class="v">KTEB 22:00 ET ✓</span></div>
+              <div><span class="l">— TFR</span><span class="v">KTEB 23:00–01:00 (after arr)</span></div>
+              <div><span class="l">— ALTERNATE</span><span class="v">KMMU · KHPN</span></div>
+              <div><span class="l">— PAX MANIFEST</span><span class="v">4 souls · 5 bags + 2 golf</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 03 — Aircraft + Crew -->
+    <div class="sec">
+      <div class="sh">
+        <span class="num">— 03</span>
+        <h2>Aircraft &amp; crew</h2>
+        <span class="right">
+          <span>FlexJet · ARG/US PLATINUM · WYV Wingman</span>
+          <span class="edit">EDIT</span>
+        </span>
+      </div>
+      <div class="body">
+        <div class="fg" style="margin-bottom: 16px;">
+          <div class="l">— AIRFRAME</div>
+          <div class="v">Citation Latitude <span class="lock">· 2019 · 9 seats · stand-up · Wi-Fi Gogo 5G</span></div>
+          <div class="l">— TAIL</div>
+          <div class="v"><span class="mono">N814QX</span> <span class="lock">· hours 1,840 · last C-check Sep 2025</span></div>
+          <div class="l">— OPERATOR</div>
+          <div class="v">FlexJet West <span class="tag">ARG/US PLATINUM</span> <span class="tag">WYVERN</span></div>
+          <div class="l">— OPS CONTACT</div>
+          <div class="v">Renée Acosta <span class="lock">· West dispatch · +1 (216) 555-0102</span></div>
+        </div>
+
+        <div class="ppl-grid">
+          <div class="ppl">
+            <span class="av">JM</span>
+            <div class="info">
+              <span class="nm">Capt. Jason Mendoza</span>
+              <span class="role">— PIC · ATP · TYPE: LR45/55, CE-680</span>
+              <span class="meta">11,200 hrs · 1,820 in-type · current</span>
+            </div>
+            <span class="pill">PIC</span>
+          </div>
+          <div class="ppl">
+            <span class="av">RT</span>
+            <div class="info">
+              <span class="nm">FO Ryan Tanaka</span>
+              <span class="role">— SIC · ATP · TYPE: CE-680</span>
+              <span class="meta">4,610 hrs · 940 in-type · current</span>
+            </div>
+            <span class="pill">SIC</span>
+          </div>
+          <div class="ppl" style="grid-column: 1 / -1;">
+            <span class="av">EL</span>
+            <div class="info">
+              <span class="nm">Elena Larsson</span>
+              <span class="role">— FLIGHT ATTENDANT · CABIN SAFETY · FACTS · MEDAIRE</span>
+              <span class="meta">8 yr cabin · trained on member dietary protocols</span>
+            </div>
+            <span class="pill">FA</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 04 — Manifest + Ground/catering -->
+    <div class="two-col">
+      <!-- Manifest -->
+      <div class="sec">
+        <div class="sh">
+          <span class="num">— 04</span>
+          <h2>Manifest <span style="font-family: var(--mono); font-size: 11px; color: var(--steel); margin-left: 8px; letter-spacing: 0.06em;">/ 4 souls</span></h2>
+          <span class="right"><span class="edit">VIEW APIS</span></span>
+        </div>
+        <div class="body">
+          <div class="fg">
+            <div class="l">— PAX 1</div>
+            <div class="v">Marcus Aldrich <span class="lock">· DOB 1968-04-12 · KTN ✓</span></div>
+            <div class="l">— PAX 2</div>
+            <div class="v">Helena Aldrich <span class="lock">· DOB 1971-11-03 · KTN ✓</span></div>
+            <div class="l">— PAX 3</div>
+            <div class="v">David Wei <span class="lock">· DOB 1984-02-19 · KTN ✓</span></div>
+            <div class="l">— PAX 4</div>
+            <div class="v">Sarah Brennan <span class="lock">· DOB 1989-07-22 · KTN —</span></div>
+            <div class="l">— BAGGAGE</div>
+            <div class="v">5 standard + 2 golf <span class="lock">· 220 lb · within W&amp;B</span></div>
+            <div class="l">— W&amp;B</div>
+            <div class="v"><span class="ok">CG within limits</span> <span class="lock">· LOC FWD · TOW 28,420 lb</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Catering + ground -->
+      <div class="sec">
+        <div class="sh">
+          <span class="num">— 05</span>
+          <h2>Catering &amp; ground</h2>
+          <span class="right"><span class="edit">EDIT</span></span>
+        </div>
+        <div class="body">
+          <div class="fg">
+            <div class="l">— CATERING TIER</div>
+            <div class="v">Plus <span class="tag">PESCATARIAN</span> <span class="tag">NO SHELLFISH</span></div>
+            <div class="l">— VENDOR · OUT</div>
+            <div class="v">Air Culinaire <span class="lock">· loaded 13:10 PT ✓</span></div>
+            <div class="l">— ORDER</div>
+            <div class="v">Berries · cold brew · negroni kit · 2 hot meals</div>
+            <div class="l">— GROUND · OUT</div>
+            <div class="v">Empire CLS — Cadillac Escalade <span class="lock">· FBO pickup 09:00 PT ✓</span></div>
+            <div class="l">— GROUND · IN</div>
+            <div class="v">Empire CLS — Escalade <span class="lock">· FBO meet 21:55 ET</span></div>
+            <div class="l">— SPECIAL</div>
+            <div class="v">— Pickup at home address · 06:30 PT · driver Jorge ✓</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 06 — Pricing + Checklist two col -->
+    <div class="two-col" style="margin-top: 20px;">
+      <!-- Pricing -->
+      <div class="sec">
+        <div class="sh">
+          <span class="num">— 06</span>
+          <h2>Pricing</h2>
+          <span class="right">— LOCKED · INV-1056 · paid</span>
+        </div>
+        <div class="body">
+          <div class="li">
+            <div class="desc">Charter time<span class="s">— 5.0 hrs @ $7,800 · midsize locked</span></div>
+            <div class="qty">5.0 hrs</div>
+            <div class="rate">$7,800</div>
+            <div class="v">$39,000</div>
+          </div>
+          <div class="li">
+            <div class="desc">Crew + FA<span class="s">— 2 ATP + 1 FA · per FlexJet</span></div>
+            <div class="qty">incl.</div>
+            <div class="rate">—</div>
+            <div class="v">$0</div>
+          </div>
+          <div class="li">
+            <div class="desc">Catering Plus<span class="s">— 4 pax · pescatarian · negroni kit</span></div>
+            <div class="qty">4</div>
+            <div class="rate">$220</div>
+            <div class="v">$880</div>
+          </div>
+          <div class="li">
+            <div class="desc">Ground transport<span class="s">— Empire CLS · both ends</span></div>
+            <div class="qty">2</div>
+            <div class="rate">$220</div>
+            <div class="v">$440</div>
+          </div>
+          <div class="li">
+            <div class="desc">FBO &amp; ramp<span class="s">— Signature · Meridian · pass-thru</span></div>
+            <div class="qty">2</div>
+            <div class="rate">—</div>
+            <div class="v">$680</div>
+          </div>
+          <div class="li">
+            <div class="desc">Federal excise tax<span class="s">— 7.5% on transport</span></div>
+            <div class="qty">—</div>
+            <div class="rate">7.5%</div>
+            <div class="v">$2,925</div>
+          </div>
+          <div class="li">
+            <div class="desc">Segment fee<span class="s">— 4 pax @ $5.20</span></div>
+            <div class="qty">4</div>
+            <div class="rate">$5.20</div>
+            <div class="v">$21</div>
+          </div>
+          <div class="li-totals">
+            <div class="li-tot"><span>— Operator cost (FlexJet)</span><span class="v">$43,946</span></div>
+            <div class="li-tot"><span>— JetNine margin (11.2%)</span><span class="v">$5,494</span></div>
+            <div class="li-tot"><span>— Card processor</span><span class="v">$960</span></div>
+          </div>
+          <div class="li-grand">
+            <span class="l">— TOTAL · ALL-IN</span>
+            <span class="v">$50,400</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Checklist -->
+      <div class="sec">
+        <div class="sh">
+          <span class="num">— 07</span>
+          <h2>Trip checklist</h2>
+          <span class="right" style="color: var(--success);">— 11 / 14 complete</span>
+        </div>
+        <div class="body">
+          <div class="check-list">
+            <div class="ck done"><span class="b"></span><span class="t">Quote sent &amp; accepted</span><span class="meta">11:42 11/07</span></div>
+            <div class="ck done"><span class="b"></span><span class="t">Operator confirmed N814QX</span><span class="meta">14:06 11/07</span></div>
+            <div class="ck done"><span class="b"></span><span class="t">KTEB slot reserved · 22:00 ET</span><span class="meta">14:06 11/07</span></div>
+            <div class="ck done"><span class="b"></span><span class="t">Invoice issued · INV-1056</span><span class="meta">15:00 11/07</span></div>
+            <div class="ck done"><span class="b"></span><span class="t">Payment cleared (wire)</span><span class="meta">11:24 11/08</span></div>
+            <div class="ck done"><span class="b"></span><span class="t">Catering ordered (Air Culinaire)</span><span class="meta">11/08</span></div>
+            <div class="ck done"><span class="b"></span><span class="t">Ground confirmed both ends</span><span class="meta">11/09</span></div>
+            <div class="ck done"><span class="b"></span><span class="t">Manifest filed · APIS sent</span><span class="meta">11/13</span></div>
+            <div class="ck done"><span class="b"></span><span class="t">Trip sheet sent to member</span><span class="meta">11/13</span></div>
+            <div class="ck done"><span class="b"></span><span class="t">Crew briefed</span><span class="meta">11/13</span></div>
+            <div class="ck done"><span class="b"></span><span class="t">Wheels-up confirmed</span><span class="meta">13:42 PT</span></div>
+            <div class="ck"><span class="b"></span><span class="t">Wheels-down report</span><span class="meta">— ETA 21:54</span></div>
+            <div class="ck"><span class="b"></span><span class="t">Post-flight survey sent</span><span class="meta">— T+30 min</span></div>
+            <div class="ck"><span class="b"></span><span class="t">Reserve credit applied (4%)</span><span class="meta">— T+24 hr</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- AUDIT RAIL -->
+  <aside class="ts-audit">
+    <div class="h">
+      <span>— AUDIT LOG</span>
+      <span class="live-dot"><span class="d"></span>LIVE</span>
+    </div>
+    <div class="audit">
+      <div class="ae"><span class="t">14:06</span><span class="what"><span class="em">JN-0091</span> N814QX squawk 4521 · cleared to FL410 by ZLA</span></div>
+      <div class="ae"><span class="t">13:58</span><span class="what"><span class="em">JN-0091</span> climb to FL370 · groundspeed 462 KT</span></div>
+      <div class="ae"><span class="t">13:42</span><span class="what"><span class="em">JN-0091</span> <span class="ok">wheels-up KVNY RWY 16R</span></span></div>
+      <div class="ae"><span class="t">13:35</span><span class="what"><span class="who">Capt. Mendoza</span> taxi from gate 4</span></div>
+      <div class="ae"><span class="t">13:20</span><span class="what"><span class="who">Catalina</span> pax boarded · 4 souls + 1 FA</span></div>
+      <div class="ae"><span class="t">13:10</span><span class="what">Catering loaded · Air Culinaire ✓</span></div>
+      <div class="ae"><span class="t">12:50</span><span class="what"><span class="who">Empire CLS</span> dropoff Signature</span></div>
+      <div class="ae"><span class="t">06:30</span><span class="what">Ground pickup · home address · Jorge</span></div>
+      <div class="ae"><span class="t">11/13</span><span class="what"><span class="who">System</span> APIS filed · manifest locked</span></div>
+      <div class="ae"><span class="t">11/13</span><span class="what"><span class="who">Catalina</span> sent trip sheet v3 to member</span></div>
+      <div class="ae"><span class="t">11/09</span><span class="what">Trip sheet v2 · catering upgraded to Plus</span></div>
+      <div class="ae"><span class="t">11/08</span><span class="what"><span class="who">Marcus</span> <span class="ok">wired $50,400</span></span></div>
+      <div class="ae"><span class="t">11/07</span><span class="what"><span class="who">FlexJet</span> confirmed N814QX · trip sheet v1</span></div>
+      <div class="ae"><span class="t">11/07</span><span class="what"><span class="who">Marcus</span> accepted quote · Q-2026-0418</span></div>
+    </div>
+
+    <div class="comments">
+      <div class="h" style="border: none; padding: 16px 0 8px;">— DESK NOTES</div>
+      <div class="comment">
+        <div class="top"><span class="who">Catalina · 13:42</span><span class="t">just now</span></div>
+        <div class="body">— <span class="em">Marcus on board with Helena, David and Sarah</span> · KTEB ground stop 23:00 is well after our arrival, no impact. FA Elena briefed on shellfish allergy.</div>
+      </div>
+      <div class="comment">
+        <div class="top"><span class="who">Catalina · 11/13</span><span class="t">2d ago</span></div>
+        <div class="body">— Confirmed pickup address for Sarah Brennan (new pax) with Empire · second car for her if pickup time spreads more than 30 min.</div>
+      </div>
+      <div class="comment-add">
+        <textarea placeholder="Add a desk note · visible to dispatchers only…"></textarea>
+        <div class="row">
+          <span class="meta">— @ to mention · ENTER to post</span>
+          <button class="btn-mini primary">Post</button>
+        </div>
+      </div>
+    </div>
+  </aside>
+</div>
+
+<script>
+  function tick() {
+    const d = new Date();
+    const fmt = (tz) => d.toLocaleTimeString('en-GB', { timeZone: tz, hour: '2-digit', minute: '2-digit' });
+    document.getElementById('clkPT').textContent = fmt('America/Los_Angeles');
+    document.getElementById('clkET').textContent = fmt('America/New_York');
+  }
+  tick(); setInterval(tick, 30000);
+</script>
+</body>
+</html>

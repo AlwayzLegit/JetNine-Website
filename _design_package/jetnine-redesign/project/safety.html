@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>JetNine — Safety Standards</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,500;9..144,600&family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="shared.css" />
+<style>
+  /* Hero */
+  .safe-hero {
+    padding: 200px 0 96px; border-bottom: 1px solid var(--ink-3);
+    position: relative; overflow: hidden;
+  }
+  .safe-hero .kicker { display: inline-flex; align-items: center; gap: 12px; margin-bottom: 32px; }
+  .safe-hero .kicker .dash { width: 32px; height: 1px; background: var(--clearance); }
+  .safe-hero h1 { max-width: 16ch; }
+  .safe-hero .lead { font-size: 20px; color: var(--bone-2); max-width: 60ch; margin-top: 32px; line-height: 1.55; }
+
+  .accreditation-row {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 32px;
+    margin-top: 96px; padding-top: 48px; border-top: 1px solid var(--ink-3);
+  }
+  @media (max-width: 900px) { .accreditation-row { grid-template-columns: repeat(2, 1fr); gap: 32px 16px; } }
+  .accred {
+    display: flex; flex-direction: column; gap: 16px; padding: 24px 0;
+  }
+  .accred .badge {
+    width: 48px; height: 48px; border-radius: 50%;
+    background: var(--ink-2); border: 1px solid var(--clearance);
+    display: flex; align-items: center; justify-content: center;
+    color: var(--clearance); font-family: var(--mono); font-size: 12px; letter-spacing: 0.06em;
+  }
+  .accred .name { font-family: var(--serif); font-size: 22px; font-weight: 400; line-height: 1.25; }
+  .accred .role { font-family: var(--mono); font-size: 11px; letter-spacing: 0.06em; color: var(--bone-2); }
+  .accred .desc { font-size: 13px; color: var(--bone-2); line-height: 1.55; }
+
+  /* Floor & Preferred */
+  .floor { padding: 160px 0; border-bottom: 1px solid var(--ink-3); }
+  .floor-head { display: grid; grid-template-columns: 1fr 1.4fr; gap: 64px; margin-bottom: 64px; align-items: end; }
+  @media (max-width: 900px) { .floor-head { grid-template-columns: 1fr; gap: 24px; } }
+  .floor-head .kicker { display: inline-flex; align-items: center; gap: 12px; }
+  .floor-head .kicker .dash { width: 32px; height: 1px; background: var(--clearance); }
+
+  .req-stack {
+    background: var(--ink-2); border: 1px solid var(--ink-3); border-radius: 4px; overflow: hidden;
+  }
+  .req-row {
+    display: grid; grid-template-columns: 60px 240px 1fr; gap: 32px;
+    padding: 32px; border-bottom: 1px solid var(--ink-3); align-items: start;
+  }
+  @media (max-width: 900px) { .req-row { grid-template-columns: 40px 1fr; } .req-row .req-rule { grid-column: 1 / -1; padding-top: 8px; } }
+  .req-row:last-child { border-bottom: none; }
+  .req-row .num { font-family: var(--mono); font-size: 11px; color: var(--clearance); letter-spacing: 0.06em; padding-top: 6px; }
+  .req-row .area { font-family: var(--serif); font-size: 22px; font-weight: 400; line-height: 1.2; color: var(--bone); }
+  .req-row .rule { color: var(--bone-2); font-size: 14px; line-height: 1.65; }
+  .req-row .rule strong { color: var(--bone); font-weight: 500; }
+  .req-row .rule .pref { display: block; margin-top: 8px; font-family: var(--mono); font-size: 11px; color: var(--clearance); letter-spacing: 0.06em; text-transform: uppercase; }
+
+  /* Audit cycle */
+  .audit { padding: 160px 0; border-bottom: 1px solid var(--ink-3); background: var(--ink-2); }
+  .audit-head { display: grid; grid-template-columns: 1fr 1.4fr; gap: 64px; margin-bottom: 64px; align-items: end; }
+  @media (max-width: 900px) { .audit-head { grid-template-columns: 1fr; gap: 24px; } }
+  .audit-head .kicker { display: inline-flex; align-items: center; gap: 12px; }
+  .audit-head .kicker .dash { width: 32px; height: 1px; background: var(--clearance); }
+
+  .cycle-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 24px; position: relative; }
+  @media (max-width: 900px) { .cycle-grid { grid-template-columns: 1fr; } }
+  .cycle-step {
+    padding: 32px; background: var(--ink); border: 1px solid var(--ink-3); border-radius: 4px;
+    display: flex; flex-direction: column; gap: 16px; position: relative;
+  }
+  .cycle-step .head-line { display: flex; align-items: center; justify-content: space-between; }
+  .cycle-step .num { font-family: var(--mono); font-size: 11px; color: var(--clearance); letter-spacing: 0.14em; }
+  .cycle-step .freq { font-family: var(--mono); font-size: 10px; color: var(--steel); letter-spacing: 0.06em; }
+  .cycle-step h3 { font-family: var(--serif); font-size: 22px; font-weight: 400; line-height: 1.3; }
+  .cycle-step p { color: var(--bone-2); font-size: 14px; line-height: 1.6; }
+
+  /* Numbers strip */
+  .numbers { padding: 160px 0; border-bottom: 1px solid var(--ink-3); }
+  .numbers-head { display: grid; grid-template-columns: 1fr 1.4fr; gap: 64px; margin-bottom: 64px; align-items: end; }
+  @media (max-width: 900px) { .numbers-head { grid-template-columns: 1fr; gap: 24px; } }
+  .numbers-head .kicker { display: inline-flex; align-items: center; gap: 12px; }
+  .numbers-head .kicker .dash { width: 32px; height: 1px; background: var(--clearance); }
+  .num-grid {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 32px;
+    border-top: 1px solid var(--ink-3); padding-top: 48px;
+  }
+  @media (max-width: 900px) { .num-grid { grid-template-columns: repeat(2, 1fr); gap: 32px 16px; } }
+  .num-cell { display: flex; flex-direction: column; gap: 12px; padding-right: 24px; border-right: 1px solid var(--ink-3); }
+  .num-cell:last-child { border-right: none; padding-right: 0; }
+  @media (max-width: 900px) { .num-cell { border-right: none; } .num-cell:nth-child(odd) { border-right: 1px solid var(--ink-3); } }
+  .num-cell .lbl { font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em; color: var(--steel); text-transform: uppercase; }
+  .num-cell .val { font-family: var(--serif); font-weight: 300; font-size: 56px; line-height: 1; letter-spacing: -0.02em; color: var(--bone); }
+  .num-cell .desc { font-size: 13px; color: var(--bone-2); line-height: 1.55; }
+
+  /* Vetting flow — 3-pane */
+  .vetting { padding: 160px 0; border-bottom: 1px solid var(--ink-3); }
+  .vetting-head { display: grid; grid-template-columns: 1fr 1.4fr; gap: 64px; margin-bottom: 64px; align-items: end; }
+  @media (max-width: 900px) { .vetting-head { grid-template-columns: 1fr; gap: 24px; } }
+  .vetting-head .kicker { display: inline-flex; align-items: center; gap: 12px; }
+  .vetting-head .kicker .dash { width: 32px; height: 1px; background: var(--clearance); }
+
+  .funnel {
+    background: var(--ink-2); border: 1px solid var(--ink-3); border-radius: 4px; padding: 48px;
+  }
+  .funnel-row {
+    display: grid; grid-template-columns: 280px 1fr auto; gap: 32px;
+    padding: 32px 0; border-bottom: 1px solid var(--ink-3); align-items: center;
+  }
+  .funnel-row:last-child { border-bottom: none; }
+  @media (max-width: 800px) { .funnel-row { grid-template-columns: 1fr auto; } .funnel-row .desc { grid-column: 1 / -1; } }
+  .funnel-row .stage { display: flex; flex-direction: column; gap: 6px; }
+  .funnel-row .num { font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em; color: var(--clearance); }
+  .funnel-row .name { font-family: var(--serif); font-size: 22px; font-weight: 400; line-height: 1.2; color: var(--bone); }
+  .funnel-row .desc { color: var(--bone-2); font-size: 14px; line-height: 1.6; max-width: 56ch; }
+  .funnel-row .count {
+    font-family: var(--serif); font-weight: 300; font-size: 40px; letter-spacing: -0.01em;
+    color: var(--bone); line-height: 1; text-align: right; white-space: nowrap;
+  }
+  .funnel-row .count .unit { font-family: var(--mono); font-size: 11px; color: var(--steel); display: block; margin-top: 4px; letter-spacing: 0.08em; }
+  .funnel-row.kept .count { color: var(--clearance); }
+
+  /* Insurance */
+  .ins-grid {
+    margin-top: 48px;
+    display: grid; grid-template-columns: 1fr 1fr; gap: 24px;
+  }
+  @media (max-width: 800px) { .ins-grid { grid-template-columns: 1fr; } }
+  .ins-card {
+    padding: 32px; background: var(--ink-2); border: 1px solid var(--ink-3); border-radius: 4px;
+  }
+  .ins-card .lbl { font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em; color: var(--steel); text-transform: uppercase; margin-bottom: 16px; }
+  .ins-card .val { font-family: var(--serif); font-weight: 300; font-size: 56px; line-height: 1; letter-spacing: -0.02em; color: var(--bone); margin-bottom: 16px; }
+  .ins-card .val .currency { font-size: 28px; vertical-align: super; color: var(--clearance); }
+  .ins-card .desc { color: var(--bone-2); font-size: 14px; line-height: 1.6; }
+
+  /* Disclosure */
+  .disclosure {
+    padding: 96px 0; border-bottom: 1px solid var(--ink-3); background: var(--ink-2);
+  }
+  .disc-card {
+    background: var(--ink); border: 1px solid var(--ink-3); border-radius: 4px;
+    padding: 48px; max-width: 920px;
+  }
+  .disc-card .kicker { font-family: var(--mono); font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--clearance); margin-bottom: 16px; display: inline-flex; align-items: center; gap: 12px; }
+  .disc-card .kicker .dash { width: 24px; height: 1px; background: var(--clearance); }
+  .disc-card h2 { font-family: var(--serif); font-weight: 300; font-size: 36px; letter-spacing: -0.01em; line-height: 1.15; margin-bottom: 24px; }
+  .disc-card p { color: var(--bone-2); font-size: 15px; line-height: 1.7; margin-bottom: 16px; }
+  .disc-card p:last-child { margin-bottom: 0; }
+  .disc-card .footer-links {
+    margin-top: 32px; padding-top: 24px; border-top: 1px solid var(--ink-3);
+    display: flex; gap: 24px; flex-wrap: wrap;
+  }
+  .disc-card .footer-links a {
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--clearance); text-decoration: none; display: inline-flex; align-items: center; gap: 8px;
+    transition: opacity 200ms;
+  }
+  .disc-card .footer-links a:hover { opacity: 0.7; }
+</style>
+</head>
+<body>
+
+<nav class="nav" id="nav" data-screen-label="04 Safety">
+  <div class="nav-inner">
+    <a href="homepage.html" class="brand" style="text-decoration: none;">JetNine <span class="nine">09</span></a>
+    <div class="nav-links">
+      <a href="homepage.html">Home</a>
+      <a href="aircraft.html">Aircraft</a>
+      <a href="how-it-works.html">How it works</a>
+      <a href="safety.html" class="active">Safety</a>
+      <a href="#">About</a>
+      <a href="#">Contact</a>
+    </div>
+    <div class="nav-cta">
+      <a class="phone-link" href="tel:+18188005678">+1 (818) 800-5678</a>
+      <a href="quote-step1.html" class="btn btn-primary btn-sm">Request quote <span class="arrow">→</span></a>
+    </div>
+  </div>
+</nav>
+
+<header class="safe-hero">
+  <div class="container">
+    <div class="reveal kicker"><span class="dash"></span> Safety · standards &amp; vetting</div>
+    <h1 class="display-xl reveal" data-stagger="1">The floor is high.<br/>The ceiling is mandatory.</h1>
+    <p class="lead reveal" data-stagger="2">Every operator in our network meets a written safety floor before they're eligible for a single flight. We re-audit every twelve months. The protocol is below — the same one our chief pilot uses to vet his own family's flights.</p>
+    <div class="accreditation-row">
+      <div class="accred reveal">
+        <div class="badge">A/G</div>
+        <div>
+          <div class="name">ARG/US Gold</div>
+          <div class="role">— FLOOR · ALL OPERATORS</div>
+        </div>
+        <div class="desc">Aviation Research Group. The standard accreditation for serious charter — historical safety audit and operator profile.</div>
+      </div>
+      <div class="accred reveal" data-stagger="1">
+        <div class="badge">A/P</div>
+        <div>
+          <div class="name">ARG/US Platinum</div>
+          <div class="role">— PREFERRED · 78% OF FLIGHTS</div>
+        </div>
+        <div class="desc">Highest ARG/US tier. On-site audit plus emergency-response, ground-handling and security review.</div>
+      </div>
+      <div class="accred reveal" data-stagger="2">
+        <div class="badge">WW</div>
+        <div>
+          <div class="name">Wyvern Wingman</div>
+          <div class="role">— REQUIRED · INTL &amp; ULTRA</div>
+        </div>
+        <div class="desc">Pilot-specific qualifications, trip-level safety review, real-time risk assessment for every leg.</div>
+      </div>
+      <div class="accred reveal" data-stagger="3">
+        <div class="badge">IS-2</div>
+        <div>
+          <div class="name">IS-BAO Stage 2</div>
+          <div class="role">— PREFERRED · LARGE-CABIN</div>
+        </div>
+        <div class="desc">International Standard for Business Aircraft Operations. SMS implemented, audited, and demonstrated in operation.</div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<section class="floor">
+  <div class="container">
+    <div class="floor-head">
+      <div class="reveal"><div class="kicker"><span class="dash"></span> The floor</div></div>
+      <div class="reveal" data-stagger="1">
+        <h2 class="display-l">The non-negotiables.<br/>Every operator. Every flight.</h2>
+        <p class="body-l" style="margin-top: 24px; max-width: 56ch;">Below this line, an operator does not enter the network. There is no exception process, no client request that overrides it, no rate that justifies a waiver.</p>
+      </div>
+    </div>
+
+    <div class="req-stack reveal">
+      <div class="req-row">
+        <div class="num">— 01</div>
+        <div class="area">Certification</div>
+        <div class="rule"><strong>FAA Part 135 certificate, current and unblemished.</strong> No suspensions, no enforcement actions, no certificate amendments under review in the last 24 months. Foreign equivalents must be verified by recognized aviation authority.<span class="pref">Preferred: ICAO Annex 6 Part II compliance for cross-border missions.</span></div>
+      </div>
+      <div class="req-row">
+        <div class="num">— 02</div>
+        <div class="area">Audit standing</div>
+        <div class="rule"><strong>ARG/US Gold or higher; current.</strong> Audit cannot have lapsed. Wyvern Wingman or IS-BAO Stage 2 required for international, transoceanic, and ultra-long-range missions.<span class="pref">Preferred: ARG/US Platinum + Wyvern Wingman dual rating.</span></div>
+      </div>
+      <div class="req-row">
+        <div class="num">— 03</div>
+        <div class="area">Pilot qualification</div>
+        <div class="rule"><strong>Two ATP-rated pilots, in-type, on every flight.</strong> Pilot-in-command minimum 3,500 total hours, 1,500 hours in-type. SIC minimum 2,500 total hours. Both current on aircraft within 90 days. No exceptions for daylight, short-leg, or VFR conditions.<span class="pref">Preferred: PIC 5,000+ hours, augmented crew on legs &gt;8 hours block-time.</span></div>
+      </div>
+      <div class="req-row">
+        <div class="num">— 04</div>
+        <div class="area">Insurance</div>
+        <div class="rule"><strong>$300M minimum hull-and-liability for light through midsize.</strong> $500M minimum for super-mid through ultra. Policy must be primary, not contingent on a fractional or fleet umbrella. Certificate provided to JetNine in advance of every booking.<span class="pref">Preferred: $500M+ across the board, AM Best A or higher carrier.</span></div>
+      </div>
+      <div class="req-row">
+        <div class="num">— 05</div>
+        <div class="area">Maintenance</div>
+        <div class="rule"><strong>Continuous Airworthiness Maintenance Program (CAMP) or equivalent.</strong> No deferred maintenance items at dispatch. All inspections current within manufacturer-recommended intervals (not regulatory minimums). Aircraft must have completed a full Phase inspection within the last 12 months.<span class="pref">Preferred: factory-authorized service center, single-fleet operator.</span></div>
+      </div>
+      <div class="req-row">
+        <div class="num">— 06</div>
+        <div class="area">Safety record</div>
+        <div class="rule"><strong>No event-of-significance in the last 24 months.</strong> No fatal accidents in the last 60 months. No NTSB-reportable incidents under review. FAA enforcement history reviewed back five years; any enforcement action is grounds for rejection unless cleared by our chief pilot.<span class="pref">Preferred: zero NTSB-reportable events lifetime, fleet-wide.</span></div>
+      </div>
+      <div class="req-row">
+        <div class="num">— 07</div>
+        <div class="area">Operator stability</div>
+        <div class="rule"><strong>Minimum 5 years in continuous Part 135 operation.</strong> Verified financial standing — no bankruptcy, receivership, or aircraft repossession events in the last 36 months. Single-fleet operators preferred over fragmented charter brokers re-selling under their certificate.<span class="pref">Preferred: founder-owned, &gt;15 years operation, single-flag-carrier.</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="audit">
+  <div class="container">
+    <div class="audit-head">
+      <div class="reveal"><div class="kicker"><span class="dash"></span> The audit cycle</div></div>
+      <div class="reveal" data-stagger="1">
+        <h2 class="display-l">A standard isn't a standard<br/>unless it's enforced.</h2>
+        <p class="body-l" style="margin-top: 24px; max-width: 56ch;">Approval isn't a ribbon to be cut and forgotten. Every operator runs through this four-stage cycle, every twelve months, with spot-checks in between. The grading is binary: stay in network, or out.</p>
+      </div>
+    </div>
+
+    <div class="cycle-grid">
+      <div class="cycle-step reveal">
+        <div class="head-line">
+          <div class="num">— 01</div>
+          <div class="freq">EVERY 12 MO</div>
+        </div>
+        <h3>Document review</h3>
+        <p>Insurance certificate, ARG/US or Wyvern audit, current rosters, training records, type-rating proofs, AD/SB compliance.</p>
+      </div>
+      <div class="cycle-step reveal" data-stagger="1">
+        <div class="head-line">
+          <div class="num">— 02</div>
+          <div class="freq">EVERY 12 MO</div>
+        </div>
+        <h3>On-site visit</h3>
+        <p>Our chief pilot or a qualified third party — JetNine standards must be observed in operation. Maintenance hangar, training facility, dispatch operations.</p>
+      </div>
+      <div class="cycle-step reveal" data-stagger="2">
+        <div class="head-line">
+          <div class="num">— 03</div>
+          <div class="freq">PER FLIGHT</div>
+        </div>
+        <h3>Trip-level review</h3>
+        <p>Before every booking — current pilot duty time, aircraft maintenance status, weather, route alternates. Wyvern Wingman runs this automatically.</p>
+      </div>
+      <div class="cycle-step reveal" data-stagger="3">
+        <div class="head-line">
+          <div class="num">— 04</div>
+          <div class="freq">CONTINUOUS</div>
+        </div>
+        <h3>Spot-check &amp; debrief</h3>
+        <p>Random flight-by-flight crew checks, post-flight client surveys, anonymous tip line for crew &amp; FBO staff. One strike on safety — out.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="vetting">
+  <div class="container">
+    <div class="vetting-head">
+      <div class="reveal"><div class="kicker"><span class="dash"></span> The funnel</div></div>
+      <div class="reveal" data-stagger="1">
+        <h2 class="display-l">From 5,000 operators<br/>to 380 in network.</h2>
+        <p class="body-l" style="margin-top: 24px; max-width: 56ch;">There are roughly five thousand FAA Part 135 charter certificates active in the United States. Most are excellent. Some are not. Our job is to know which is which — and we are aggressive about saying no.</p>
+      </div>
+    </div>
+
+    <div class="funnel reveal">
+      <div class="funnel-row">
+        <div class="stage">
+          <div class="num">— STAGE 01</div>
+          <div class="name">All US Part 135 operators</div>
+        </div>
+        <div class="desc">Every certificated charter operator in the country. The starting universe before any filter.</div>
+        <div class="count">~5,000<span class="unit">CERTIFICATES</span></div>
+      </div>
+      <div class="funnel-row">
+        <div class="stage">
+          <div class="num">— STAGE 02</div>
+          <div class="name">After certification &amp; insurance filter</div>
+        </div>
+        <div class="desc">Drop operators with certificate amendments, insurance below threshold, or fewer than five years continuous operation.</div>
+        <div class="count">~2,100<span class="unit">REMAINING</span></div>
+      </div>
+      <div class="funnel-row">
+        <div class="stage">
+          <div class="num">— STAGE 03</div>
+          <div class="name">After audit-standing filter</div>
+        </div>
+        <div class="desc">Drop operators below ARG/US Gold or with lapsed audits. Drop any operator with an NTSB-reportable event in the last 24 months.</div>
+        <div class="count">~880<span class="unit">REMAINING</span></div>
+      </div>
+      <div class="funnel-row">
+        <div class="stage">
+          <div class="num">— STAGE 04</div>
+          <div class="name">After on-site visit &amp; chief-pilot review</div>
+        </div>
+        <div class="desc">In-person hangar &amp; ops walk-through. Roughly half the operators that look good on paper don't survive a site visit.</div>
+        <div class="count">~410<span class="unit">REMAINING</span></div>
+      </div>
+      <div class="funnel-row kept">
+        <div class="stage">
+          <div class="num">— STAGE 05 · IN NETWORK</div>
+          <div class="name">JetNine approved operators</div>
+        </div>
+        <div class="desc">Operators currently flying for our clients. Re-audited every 12 months, spot-checked continuously, with a one-strike policy on safety events.</div>
+        <div class="count">380<span class="unit">CURRENT</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="numbers">
+  <div class="container">
+    <div class="numbers-head">
+      <div class="reveal"><div class="kicker"><span class="dash"></span> By the numbers</div></div>
+      <div class="reveal" data-stagger="1">
+        <h2 class="display-l">Safety is a metric.<br/>Here are ours.</h2>
+        <p class="body-l" style="margin-top: 24px; max-width: 56ch;">Reported quarterly, audited annually, available on request from any client.</p>
+      </div>
+    </div>
+
+    <div class="num-grid">
+      <div class="num-cell reveal">
+        <div class="lbl">— Lifetime</div>
+        <div class="val">0</div>
+        <div class="desc">NTSB-reportable accidents on JetNine-arranged flights since founding (2014).</div>
+      </div>
+      <div class="num-cell reveal" data-stagger="1">
+        <div class="lbl">— Last 12 months</div>
+        <div class="val">14,800</div>
+        <div class="desc">Hours flown, network-wide. Zero significant events.</div>
+      </div>
+      <div class="num-cell reveal" data-stagger="2">
+        <div class="lbl">— Operator turnover</div>
+        <div class="val">~6%</div>
+        <div class="desc">Annual rate at which approved operators drop out of the network. About half are voluntary, half are removed.</div>
+      </div>
+      <div class="num-cell reveal" data-stagger="3">
+        <div class="lbl">— Audit pass rate</div>
+        <div class="val">62%</div>
+        <div class="desc">Of operators that submit for re-audit, the percentage that pass on the first attempt.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="floor" style="background: var(--ink-2);">
+  <div class="container">
+    <div class="floor-head">
+      <div class="reveal"><div class="kicker"><span class="dash"></span> Insurance</div></div>
+      <div class="reveal" data-stagger="1">
+        <h2 class="display-l">Hull-and-liability,<br/>at the levels above.</h2>
+        <p class="body-l" style="margin-top: 24px; max-width: 56ch;">Operator-level coverage — primary, not contingent. JetNine carries an additional $50M umbrella as broker. Certificates verified before every booking; clients can request a copy on confirmation.</p>
+      </div>
+    </div>
+
+    <div class="ins-grid">
+      <div class="ins-card reveal">
+        <div class="lbl">— LIGHT &amp; MIDSIZE FLOOR</div>
+        <div class="val"><span class="currency">$</span>300M</div>
+        <div class="desc">Per-occurrence hull-and-liability minimum. Most operators in this category carry $500M; we publish the floor, not the average.</div>
+      </div>
+      <div class="ins-card reveal" data-stagger="1">
+        <div class="lbl">— SUPER-MID THROUGH ULTRA</div>
+        <div class="val"><span class="currency">$</span>500M</div>
+        <div class="desc">Per-occurrence hull-and-liability minimum. Higher floor reflects passenger count, transoceanic exposure, and airframe replacement cost.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="disclosure">
+  <div class="container">
+    <div class="disc-card reveal">
+      <div class="kicker"><span class="dash"></span> Part 295 broker disclosure</div>
+      <h2>What "we are a broker" actually means.</h2>
+      <p>JetNine LLC is an indirect air carrier registered under <strong style="color: var(--bone);">14 CFR Part 295</strong> with the United States Department of Transportation. We are not a direct air carrier — we do not operate aircraft, and we do not hold an FAA Part 135 certificate.</p>
+      <p>For every flight, we arrange charter on behalf of our clients with a <strong style="color: var(--bone);">third-party FAA Part 135 certificated direct air carrier</strong>. The Part 135 carrier is the operator of record, holds operational control of the aircraft, employs the pilots, holds the maintenance program, and carries the insurance.</p>
+      <p>The identity of the operator, their FAA certificate number, their insurance carrier, and the operating-control documentation is provided to every client at the time of booking and is included in the charter agreement. The trip is operated under the Part 135 carrier's certificate and operating specifications. Our role is to source, vet, contract, and coordinate — not to fly.</p>
+      <p>This is the standard, regulated structure for premium charter brokerage in the United States. It is the same structure used by every reputable broker in the industry. The Part 295 disclosure on the agreement makes liability and responsibility unambiguous, in plain language.</p>
+      <div class="footer-links">
+        <a href="#">Read the full Part 295 disclosure <span style="color: var(--clearance);">→</span></a>
+        <a href="#">Sample charter agreement <span style="color: var(--clearance);">→</span></a>
+        <a href="#">DOT registration on file <span style="color: var(--clearance);">→</span></a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section style="position: relative; padding: 200px 0; overflow: hidden; text-align: center; border-top: 1px solid var(--ink-3); background: var(--ink);">
+  <div class="container">
+    <h2 class="display-l reveal">Questions about the protocol?</h2>
+    <p class="body-l reveal" data-stagger="1" style="margin: 24px auto 48px; max-width: 56ch;">Our chief pilot will take your call. The vetting documents for any specific operator are available on request.</p>
+    <div style="display: flex; gap: 24px; justify-content: center; flex-wrap: wrap;" class="reveal" data-stagger="2">
+      <a href="tel:+18188005678" class="btn btn-primary btn-lg">Call dispatch · +1 (818) 800-5678</a>
+      <a href="quote-step1.html" class="btn btn-secondary btn-lg">Request a quote <span class="arrow">→</span></a>
+    </div>
+  </div>
+</section>
+
+<footer class="docfoot">
+  <div class="container">
+    <div class="footer-grid">
+      <div class="foot-col">
+        <div class="brand" style="font-size: 28px;">JetNine <span class="nine" style="font-size: 12px;">09</span></div>
+        <p class="body" style="margin-top: 16px; max-width: 320px;">Private jet charter, anywhere, anytime. Twenty thousand aircraft worldwide, one number to call.</p>
+        <div style="margin-top: 24px; display: flex; flex-direction: column; gap: 8px;">
+          <a class="phone-link" style="font-size:14px;" href="tel:+18188005678">+1 (818) 800-5678</a>
+          <a class="phone-link" style="font-size:14px;" href="mailto:info@jetnine.com">info@jetnine.com</a>
+          <div class="caption" style="margin-top: 4px;">2934 BEVERLY GLEN CIRCLE #123<br/>LOS ANGELES, CA 90077</div>
+        </div>
+      </div>
+      <div class="foot-col"><h4>Sitemap</h4><ul>
+        <li><a href="homepage.html">Home</a></li>
+        <li><a href="aircraft.html">Aircraft</a></li>
+        <li><a href="how-it-works.html">How it works</a></li>
+        <li><a href="safety.html">Safety</a></li>
+        <li><a href="#">About</a></li>
+      </ul></div>
+      <div class="foot-col"><h4>Categories</h4><ul>
+        <li><a href="aircraft.html">Turboprop</a></li>
+        <li><a href="aircraft-light.html">Light</a></li>
+        <li><a href="aircraft-midsize.html">Midsize</a></li>
+        <li><a href="aircraft-supermid.html">Super-mid</a></li>
+        <li><a href="aircraft-heavy.html">Heavy</a></li>
+        <li><a href="aircraft-ultra.html">Ultra long range</a></li>
+      </ul></div>
+      <div class="foot-col">
+        <h4>Legal</h4>
+        <ul style="gap: 8px;">
+          <li><a href="#">Privacy</a></li>
+          <li><a href="#">Terms</a></li>
+          <li><a href="#">Part 295 broker disclosure</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="foot-bottom">
+      <div>JETNINE © 2026 — LOS ANGELES</div>
+      <div style="display: flex; gap: 24px;">
+        <a href="#" style="color: var(--steel); text-decoration: none;">X</a>
+        <a href="#" style="color: var(--steel); text-decoration: none;">IG</a>
+        <a href="#" style="color: var(--steel); text-decoration: none;">LI</a>
+      </div>
+      <div style="max-width: 480px; text-align: right;">JetNine is an indirect air carrier — Part 295 broker. All flights operated by FAA Part 135 certified carriers.</div>
+    </div>
+  </div>
+</footer>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script type="text/babel" src="tweaks-panel.jsx"></script>
+<div id="tweaks-root"></div>
+<script type="text/babel" src="tweaks.jsx"></script>
+
+<script>
+  const nav = document.getElementById('nav');
+  function updateNav() { if (window.scrollY > 60) nav.classList.add('scrolled'); else nav.classList.remove('scrolled'); }
+  window.addEventListener('scroll', updateNav, { passive: true }); updateNav();
+  const reveals = document.querySelectorAll('.reveal');
+  const revObs = new IntersectionObserver((entries) => {
+    entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('in'); revObs.unobserve(e.target); } });
+  }, { threshold: 0.15 });
+  reveals.forEach(r => revObs.observe(r));
+</script>
+</body>
+</html>

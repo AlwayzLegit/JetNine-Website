@@ -1,0 +1,753 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>JetNine — Admin · Operators</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,500;9..144,600&family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="shared.css" />
+<style>
+  body { background: var(--ink); }
+
+  /* === Top admin bar === */
+  .adm-top { height: 56px; border-bottom: 1px solid var(--ink-3); display: grid; grid-template-columns: 240px 1fr auto; align-items: center; background: var(--ink); position: sticky; top: 0; z-index: 60; }
+  .adm-top .brand-cell { display: flex; align-items: center; gap: 12px; height: 100%; padding: 0 20px; border-right: 1px solid var(--ink-3); }
+  .adm-top .brand { font-family: var(--serif); font-weight: 400; font-size: 20px; color: var(--bone); text-decoration: none; }
+  .adm-top .brand .nine { font-family: var(--mono); font-size: 9px; color: var(--clearance); letter-spacing: 0.1em; vertical-align: super; margin-left: 2px; }
+  .adm-top .env { font-family: var(--mono); font-size: 9px; padding: 3px 6px; background: var(--ink-3); color: var(--clearance); border-radius: 2px; letter-spacing: 0.14em; }
+  .adm-top .crumbs { padding: 0 24px; display: flex; gap: 14px; font-family: var(--mono); font-size: 10px; letter-spacing: 0.12em; color: var(--steel); text-transform: uppercase; }
+  .adm-top .crumbs a { color: var(--bone-2); text-decoration: none; }
+  .adm-top .crumbs .here { color: var(--bone); }
+  .adm-top .crumbs .sep { color: var(--ink-4); }
+  .adm-top .right { display: flex; align-items: center; gap: 16px; padding: 0 20px; height: 100%; border-left: 1px solid var(--ink-3); }
+  .adm-top .clk { font-family: var(--mono); font-size: 11px; color: var(--bone); letter-spacing: 0.06em; }
+  .adm-top .clk .z { color: var(--steel); margin-right: 4px; }
+  .adm-top .me { display: flex; align-items: center; gap: 10px; padding: 4px 10px 4px 4px; background: var(--ink-3); border-radius: 999px; font-family: var(--mono); font-size: 10px; color: var(--bone-2); }
+  .adm-top .me .av { width: 24px; height: 24px; border-radius: 50%; background: var(--ink-4); display: flex; align-items: center; justify-content: center; color: var(--clearance); font-size: 10px; }
+  .adm-top .me .stat { width: 6px; height: 6px; border-radius: 50%; background: var(--success); }
+
+  /* === Layout === */
+  .op-shell { display: grid; grid-template-columns: 200px 1fr 360px; min-height: calc(100vh - 56px); }
+  @media (max-width: 1280px) { .op-shell { grid-template-columns: 180px 1fr 320px; } }
+  @media (max-width: 1024px) { .op-shell { grid-template-columns: 1fr; } .op-rail, .op-detail { display: none; } }
+
+  /* Rail */
+  .op-rail { border-right: 1px solid var(--ink-3); padding: 16px 0; background: var(--ink); }
+  .rg { padding: 0 12px 16px; }
+  .rg .h { font-family: var(--mono); font-size: 9px; letter-spacing: 0.16em; color: var(--steel); text-transform: uppercase; margin: 4px 8px 8px; }
+  .rg a { display: grid; grid-template-columns: 14px 1fr auto; gap: 10px; align-items: center; padding: 7px 10px; border-radius: 2px; color: var(--bone-2); text-decoration: none; font-size: 13px; transition: background 160ms, color 160ms; }
+  .rg a:hover { background: var(--ink-2); color: var(--bone); }
+  .rg a.active { background: var(--ink-2); color: var(--clearance); }
+  .rg a .gly { font-family: var(--mono); font-size: 10px; color: var(--steel); }
+  .rg a.active .gly { color: var(--clearance); }
+  .rg a .badge { font-family: var(--mono); font-size: 9px; padding: 1px 6px; border-radius: 2px; background: var(--ink-3); color: var(--bone-2); }
+
+  /* Main */
+  .op-main { padding: 24px 32px 60px; min-width: 0; display: flex; flex-direction: column; }
+  @media (max-width: 700px) { .op-main { padding: 18px 16px; } }
+
+  /* Header */
+  .op-h { display: flex; align-items: end; justify-content: space-between; gap: 24px; flex-wrap: wrap; padding-bottom: 16px; margin-bottom: 18px; border-bottom: 1px solid var(--ink-3); }
+  .op-h h1 { font-family: var(--serif); font-weight: 300; font-size: 36px; line-height: 1; letter-spacing: -0.015em; }
+  .op-h .strap { font-family: var(--mono); font-size: 11px; color: var(--bone-2); margin-top: 6px; letter-spacing: 0.04em; }
+  .op-h .actions { display: flex; gap: 8px; flex-wrap: wrap; }
+  .btn-mini { font-family: var(--mono); font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; padding: 8px 12px; border-radius: 2px; text-decoration: none; background: var(--ink-2); border: 1px solid var(--ink-3); color: var(--bone); transition: all 160ms; cursor: pointer; }
+  .btn-mini:hover { border-color: var(--clearance); color: var(--clearance); }
+  .btn-mini.primary { background: var(--clearance); color: var(--ink); border-color: var(--clearance); }
+
+  /* KPI strip */
+  .strip { display: grid; grid-template-columns: repeat(5, 1fr); background: var(--ink-2); border: 1px solid var(--ink-3); border-radius: 4px; margin-bottom: 20px; }
+  @media (max-width: 1100px) { .strip { grid-template-columns: repeat(3, 1fr); } }
+  @media (max-width: 600px) { .strip { grid-template-columns: repeat(2, 1fr); } }
+  .strip .cell { padding: 16px 18px; border-right: 1px solid var(--ink-3); }
+  .strip .cell:last-child { border-right: none; }
+  .strip .l { font-family: var(--mono); font-size: 9px; letter-spacing: 0.14em; color: var(--steel); text-transform: uppercase; }
+  .strip .v { font-family: var(--serif); font-weight: 300; font-size: 26px; color: var(--bone); margin-top: 6px; letter-spacing: -0.005em; line-height: 1; }
+  .strip .v .u { font-family: var(--mono); font-size: 10px; color: var(--bone-2); margin-left: 4px; }
+  .strip .d { font-family: var(--mono); font-size: 9px; color: var(--bone-2); margin-top: 4px; letter-spacing: 0.04em; }
+  .strip .d.ok { color: var(--success); }
+  .strip .d.warn { color: var(--warn); }
+
+  /* Toolbar (search + chip filters) */
+  .toolbar { display: grid; grid-template-columns: 1fr auto; gap: 16px; align-items: center; padding-bottom: 14px; border-bottom: 1px solid var(--ink-3); margin-bottom: 14px; }
+  .search { display: flex; align-items: center; gap: 10px; padding: 9px 14px; background: var(--ink-2); border: 1px solid var(--ink-3); border-radius: 2px; max-width: 420px; }
+  .search input { background: transparent; border: none; outline: none; color: var(--bone); font-family: var(--mono); font-size: 12px; flex: 1; letter-spacing: 0.04em; }
+  .search input::placeholder { color: var(--steel); }
+  .search .sl { font-family: var(--mono); font-size: 9px; color: var(--steel); letter-spacing: 0.12em; }
+  .search .kbd { font-family: var(--mono); font-size: 9px; color: var(--steel); padding: 2px 5px; border: 1px solid var(--ink-3); border-radius: 2px; letter-spacing: 0.04em; }
+
+  .filters { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 14px; }
+  .chip { font-family: var(--mono); font-size: 10px; padding: 5px 9px; border-radius: 2px; border: 1px solid var(--ink-3); color: var(--bone-2); letter-spacing: 0.08em; text-transform: uppercase; cursor: pointer; transition: all 160ms; }
+  .chip:hover { border-color: var(--bone-2); color: var(--bone); }
+  .chip.on { background: rgba(232,226,210,0.08); border-color: var(--clearance); color: var(--bone); }
+  .chip.on::before { content: "—"; color: var(--clearance); margin-right: 4px; }
+
+  /* Operator table */
+  .op-table { background: var(--ink-2); border: 1px solid var(--ink-3); border-radius: 4px; overflow: hidden; flex: 1; }
+  .op-thead, .op-row {
+    display: grid;
+    grid-template-columns: 24px 1.4fr 1fr 130px 100px 110px 100px 100px;
+    gap: 12px; align-items: center; padding: 12px 18px;
+    border-bottom: 1px solid var(--ink-3);
+  }
+  @media (max-width: 1200px) {
+    .op-thead, .op-row { grid-template-columns: 24px 1.4fr 1fr 100px 100px; gap: 10px; }
+    .op-thead .fleet, .op-row .fleet, .op-thead .hubs, .op-row .hubs, .op-thead .spent, .op-row .spent { display: none; }
+  }
+  .op-thead { background: var(--ink); padding: 11px 18px; font-family: var(--mono); font-size: 9px; letter-spacing: 0.14em; color: var(--steel); text-transform: uppercase; }
+  .op-thead .sorting { color: var(--clearance); }
+  .op-row { color: var(--bone); transition: background 160ms; cursor: pointer; text-decoration: none; }
+  .op-row:hover { background: rgba(232,226,210,0.03); }
+  .op-row:last-child { border-bottom: none; }
+  .op-row.selected { background: rgba(232,226,210,0.06); }
+  .op-row.selected .sel-marker { background: var(--clearance); }
+
+  .sel-marker { width: 4px; height: 32px; border-radius: 2px; background: transparent; }
+  .op-row .op-name { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+  .op-row .op-name .n { font-family: var(--serif); font-size: 15px; color: var(--bone); line-height: 1.2; letter-spacing: -0.005em; }
+  .op-row .op-name .m { font-family: var(--mono); font-size: 10px; color: var(--bone-2); letter-spacing: 0.04em; }
+  .op-row .op-name .preferred { color: var(--clearance); }
+
+  .op-row .ratings { display: flex; gap: 4px; flex-wrap: wrap; }
+  .op-row .r {
+    font-family: var(--mono); font-size: 9px; padding: 2px 6px; border-radius: 2px;
+    letter-spacing: 0.08em; text-transform: uppercase;
+  }
+  .op-row .r.argp { background: rgba(91,140,90,0.16); color: var(--success); }
+  .op-row .r.argg { background: rgba(91,140,90,0.08); color: var(--success); }
+  .op-row .r.wyv { background: rgba(74,158,240,0.14); color: #6FB6F0; }
+  .op-row .r.is3 { background: rgba(232,226,210,0.08); color: var(--clearance); }
+  .op-row .r.warn { background: rgba(184,137,60,0.16); color: var(--warn); }
+  .op-row .r.fail { background: rgba(164,69,58,0.16); color: var(--error); }
+
+  .op-row .fleet, .op-row .hubs, .op-row .ytd, .op-row .spent { font-family: var(--mono); font-size: 11px; color: var(--bone); letter-spacing: 0.04em; text-align: right; }
+  .op-row .ytd .u, .op-row .spent .u { color: var(--steel); font-size: 9px; margin-left: 2px; }
+  .op-row .hubs { text-align: left; color: var(--bone-2); }
+  .op-row .ontime {
+    font-family: var(--mono); font-size: 11px; color: var(--bone); letter-spacing: 0.04em; text-align: right;
+    display: flex; align-items: center; justify-content: flex-end; gap: 8px;
+  }
+  .op-row .ontime .pct { color: var(--bone); }
+  .op-row .ontime .pct.high { color: var(--success); }
+  .op-row .ontime .pct.mid { color: var(--warn); }
+
+  /* Status pill */
+  .op-row .stat {
+    font-family: var(--mono); font-size: 9px; padding: 3px 7px; border-radius: 2px;
+    letter-spacing: 0.12em; text-transform: uppercase; text-align: center; width: fit-content;
+    display: inline-flex; align-items: center; gap: 5px;
+  }
+  .op-row .stat .d { width: 5px; height: 5px; border-radius: 50%; }
+  .op-row .stat.ok { background: rgba(91,140,90,0.16); color: var(--success); }
+  .op-row .stat.ok .d { background: var(--success); }
+  .op-row .stat.hold { background: rgba(184,137,60,0.16); color: var(--warn); }
+  .op-row .stat.hold .d { background: var(--warn); }
+  .op-row .stat.review { background: var(--ink-3); color: var(--bone-2); }
+  .op-row .stat.review .d { background: var(--bone-2); }
+  .op-row .stat.banned { background: rgba(164,69,58,0.16); color: var(--error); }
+  .op-row .stat.banned .d { background: var(--error); }
+
+  /* Pagination */
+  .pages { display: flex; align-items: center; justify-content: space-between; padding-top: 16px; font-family: var(--mono); font-size: 10px; color: var(--bone-2); letter-spacing: 0.06em; }
+  .pages .nav { display: flex; gap: 4px; }
+  .pages .pg { padding: 6px 10px; border: 1px solid var(--ink-3); border-radius: 2px; cursor: pointer; color: var(--bone-2); text-decoration: none; transition: all 160ms; }
+  .pages .pg:hover { border-color: var(--clearance); color: var(--clearance); }
+  .pages .pg.on { border-color: var(--clearance); color: var(--clearance); background: rgba(232,226,210,0.06); }
+
+  /* === Detail panel === */
+  .op-detail { border-left: 1px solid var(--ink-3); background: var(--ink); overflow-y: auto; }
+
+  .det-h {
+    padding: 18px 20px; border-bottom: 1px solid var(--ink-3);
+    display: flex; flex-direction: column; gap: 8px;
+  }
+  .det-h .pin { font-family: var(--mono); font-size: 9px; color: var(--clearance); letter-spacing: 0.14em; }
+  .det-h h2 { font-family: var(--serif); font-weight: 400; font-size: 22px; line-height: 1.15; letter-spacing: -0.005em; }
+  .det-h .meta { font-family: var(--mono); font-size: 10px; color: var(--bone-2); letter-spacing: 0.04em; }
+  .det-h .stat-row { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 4px; }
+  .det-h .r {
+    font-family: var(--mono); font-size: 9px; padding: 2px 6px; border-radius: 2px;
+    letter-spacing: 0.08em; text-transform: uppercase;
+  }
+  .det-h .r.argp { background: rgba(91,140,90,0.16); color: var(--success); }
+  .det-h .r.wyv { background: rgba(74,158,240,0.14); color: #6FB6F0; }
+  .det-h .r.is3 { background: rgba(232,226,210,0.08); color: var(--clearance); }
+
+  .det-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; padding: 12px 20px; border-bottom: 1px solid var(--ink-3); }
+  .det-actions a {
+    text-align: center; padding: 8px; background: var(--ink-2); border: 1px solid var(--ink-3); border-radius: 2px;
+    font-family: var(--mono); font-size: 9px; color: var(--bone-2); letter-spacing: 0.1em; text-decoration: none; text-transform: uppercase;
+    transition: border-color 160ms, color 160ms;
+  }
+  .det-actions a:hover { border-color: var(--clearance); color: var(--clearance); }
+  .det-actions a.primary { grid-column: 1 / -1; background: var(--clearance); color: var(--ink); border-color: var(--clearance); }
+
+  .det-blk { padding: 16px 20px; border-bottom: 1px solid var(--ink-3); }
+  .det-blk .h {
+    font-family: var(--mono); font-size: 9px; letter-spacing: 0.16em;
+    color: var(--steel); text-transform: uppercase; margin-bottom: 10px;
+    display: flex; justify-content: space-between;
+  }
+  .det-blk .h .more { color: var(--clearance); cursor: pointer; }
+
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .grid-2 .blk { display: flex; flex-direction: column; gap: 3px; }
+  .grid-2 .l { font-family: var(--mono); font-size: 9px; color: var(--steel); letter-spacing: 0.12em; text-transform: uppercase; }
+  .grid-2 .v { font-family: var(--mono); font-size: 13px; color: var(--bone); letter-spacing: 0.04em; }
+  .grid-2 .v.ok { color: var(--success); }
+  .grid-2 .v.warn { color: var(--warn); }
+
+  /* Fleet mini-grid */
+  .fleet-mini { display: flex; flex-direction: column; gap: 6px; }
+  .fm-row { display: grid; grid-template-columns: auto 1fr auto; gap: 10px; padding: 6px 0; border-bottom: 1px solid var(--ink-3); align-items: center; }
+  .fm-row:last-child { border-bottom: none; }
+  .fm-row .tail { font-family: var(--mono); font-size: 11px; color: var(--clearance); letter-spacing: 0.04em; }
+  .fm-row .typ { font-family: var(--serif); font-size: 13px; color: var(--bone); }
+  .fm-row .base { font-family: var(--mono); font-size: 10px; color: var(--bone-2); letter-spacing: 0.04em; text-align: right; }
+
+  /* Contacts */
+  .ct { display: flex; flex-direction: column; gap: 8px; }
+  .ct-row { display: grid; grid-template-columns: 32px 1fr; gap: 10px; align-items: center; padding: 4px 0; }
+  .ct-row .av { width: 32px; height: 32px; border-radius: 50%; background: var(--ink-3); display: flex; align-items: center; justify-content: center; font-family: var(--mono); font-size: 10px; color: var(--clearance); }
+  .ct-row .info { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+  .ct-row .nm { font-family: var(--serif); font-size: 13px; color: var(--bone); line-height: 1.2; }
+  .ct-row .role { font-family: var(--mono); font-size: 9px; color: var(--steel); letter-spacing: 0.12em; text-transform: uppercase; }
+  .ct-row .meta { font-family: var(--mono); font-size: 10px; color: var(--bone-2); letter-spacing: 0.04em; }
+
+  /* Audit timeline */
+  .audit { display: flex; flex-direction: column; }
+  .ae { display: grid; grid-template-columns: 64px 1fr; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--ink-3); }
+  .ae:last-child { border-bottom: none; }
+  .ae .t { font-family: var(--mono); font-size: 9px; color: var(--steel); letter-spacing: 0.06em; padding-top: 2px; }
+  .ae .what { font-family: var(--sans); font-size: 12px; color: var(--bone-2); line-height: 1.5; }
+  .ae .what .em { color: var(--clearance); font-family: var(--mono); font-size: 10px; letter-spacing: 0.04em; }
+  .ae .what .who { color: var(--bone); }
+  .ae .what .ok { color: var(--success); }
+  .ae .what .warn { color: var(--warn); }
+
+  /* Mini bars */
+  .perf { display: flex; flex-direction: column; gap: 10px; padding-top: 4px; }
+  .perf .row { display: grid; grid-template-columns: 120px 1fr auto; gap: 12px; align-items: center; }
+  .perf .l { font-family: var(--mono); font-size: 10px; color: var(--bone-2); letter-spacing: 0.06em; }
+  .perf .v { font-family: var(--mono); font-size: 10px; color: var(--bone); letter-spacing: 0.04em; }
+  .perf .bar { height: 4px; background: var(--ink-3); border-radius: 2px; overflow: hidden; }
+  .perf .bar .fill { height: 100%; background: var(--clearance); }
+  .perf .bar .fill.warn { background: var(--warn); }
+  .perf .bar .fill.success { background: var(--success); }
+</style>
+</head>
+<body data-screen-label="21 Admin · Operator Directory">
+
+<header class="adm-top">
+  <div class="brand-cell">
+    <a href="homepage.html" class="brand">JetNine <span class="nine">09</span></a>
+    <span class="env">DISPATCH</span>
+  </div>
+  <div class="crumbs">
+    <a href="admin-dispatch.html">DESK</a>
+    <span class="sep">/</span>
+    <span>SUPPLY</span>
+    <span class="sep">/</span>
+    <span class="here">OPERATORS</span>
+  </div>
+  <div class="right">
+    <span class="clk"><span class="z">PT</span><span id="clkPT">14:08</span></span>
+    <span class="me"><span class="av">CV</span><span class="stat"></span><span>CATALINA · ON-DESK</span></span>
+  </div>
+</header>
+
+<div class="op-shell">
+
+  <!-- RAIL -->
+  <aside class="op-rail">
+    <div class="rg">
+      <div class="h">— DESK</div>
+      <a href="admin-dispatch.html"><span class="gly">⌂</span><span>Inbox</span><span class="badge">7</span></a>
+      <a href="admin-quote.html"><span class="gly">◐</span><span>Quote workbench</span></a>
+      <a href="admin-ops.html"><span class="gly">◉</span><span>Live ops board</span></a>
+      <a href="admin-trip.html"><span class="gly">⌖</span><span>Trip sheets</span></a>
+    </div>
+    <div class="rg">
+      <div class="h">— SUPPLY</div>
+      <a href="admin-operators.html" class="active"><span class="gly">⊞</span><span>Operators</span><span class="badge">148</span></a>
+      <a href="#"><span class="gly">✈</span><span>Aircraft</span><span class="badge">412</span></a>
+      <a href="#"><span class="gly">↻</span><span>Empty legs</span><span class="badge">6</span></a>
+      <a href="#"><span class="gly">⌬</span><span>Crew</span></a>
+    </div>
+    <div class="rg">
+      <div class="h">— ACCOUNTS</div>
+      <a href="admin-member.html"><span class="gly">◯</span><span>Members</span></a>
+      <a href="#"><span class="gly">$</span><span>Invoices</span></a>
+      <a href="#"><span class="gly">▦</span><span>Reports</span></a>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <main class="op-main">
+    <div class="op-h">
+      <div>
+        <h1>Operators</h1>
+        <div class="strap">— 148 active certs · 412 airframes · 7 in renewal review · last canvass 14:06 PT</div>
+      </div>
+      <div class="actions">
+        <button class="btn-mini">Import roster</button>
+        <button class="btn-mini">Audit due (12)</button>
+        <button class="btn-mini">Export CSV</button>
+        <button class="btn-mini primary">+ Add operator</button>
+      </div>
+    </div>
+
+    <!-- KPI -->
+    <div class="strip">
+      <div class="cell">
+        <div class="l">— ACTIVE OPERATORS</div>
+        <div class="v">148</div>
+        <div class="d ok">— +3 this quarter</div>
+      </div>
+      <div class="cell">
+        <div class="l">— PREFERRED</div>
+        <div class="v">22</div>
+        <div class="d">— Tier-1 routing partners</div>
+      </div>
+      <div class="cell">
+        <div class="l">— ARG/US PLAT.</div>
+        <div class="v">94<span class="u">%</span></div>
+        <div class="d ok">— above floor of 90%</div>
+      </div>
+      <div class="cell">
+        <div class="l">— ON HOLD</div>
+        <div class="v" style="color: var(--warn);">5</div>
+        <div class="d warn">— audit / cert review</div>
+      </div>
+      <div class="cell">
+        <div class="l">— YTD SPEND</div>
+        <div class="v">$48.2M</div>
+        <div class="d">— $0.32M / op avg</div>
+      </div>
+    </div>
+
+    <!-- Toolbar -->
+    <div class="toolbar">
+      <div class="search">
+        <span class="sl">— SEARCH</span>
+        <input type="search" placeholder="Operator name · tail · ICAO · contact…" />
+        <span class="kbd">⌘K</span>
+      </div>
+      <div class="actions">
+        <button class="btn-mini">Saved views ▾</button>
+        <button class="btn-mini">Sort: PERFORMANCE ▾</button>
+      </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="filters">
+      <span class="chip on">ALL · 148</span>
+      <span class="chip">PREFERRED · 22</span>
+      <span class="chip">ARG/US PLAT</span>
+      <span class="chip">ARG/US GOLD</span>
+      <span class="chip">WYVERN WINGMAN</span>
+      <span class="chip">IS-BAO 3</span>
+      <span class="chip">— ON HOLD</span>
+      <span class="chip">— AUDIT DUE</span>
+      <span class="chip">+ ADD FILTER</span>
+    </div>
+
+    <!-- Table -->
+    <div class="op-table">
+      <div class="op-thead">
+        <span></span>
+        <span class="sorting">— OPERATOR ↓</span>
+        <span>RATINGS</span>
+        <span class="fleet">FLEET</span>
+        <span class="hubs">PRIMARY HUBS</span>
+        <span style="text-align: right;">ON-TIME 12M</span>
+        <span class="ytd" style="text-align: right;">YTD TRIPS</span>
+        <span>STATUS</span>
+      </div>
+
+      <!-- Selected row -->
+      <a class="op-row selected" href="#">
+        <div class="sel-marker"></div>
+        <div class="op-name">
+          <span class="n">FlexJet West</span>
+          <span class="m preferred">— PREFERRED · 9-yr partner · Cert OF-12842</span>
+        </div>
+        <div class="ratings">
+          <span class="r argp">ARG/US PLAT</span>
+          <span class="r wyv">WYVERN</span>
+          <span class="r is3">IS-BAO 3</span>
+        </div>
+        <span class="fleet">194 ac</span>
+        <span class="hubs">KVNY · KSDL · KTEB</span>
+        <span class="ontime"><span class="pct high">98.7%</span></span>
+        <span class="ytd">42<span class="u">/yr</span></span>
+        <span class="stat ok"><span class="d"></span>ACTIVE</span>
+      </a>
+
+      <a class="op-row" href="#">
+        <div class="sel-marker"></div>
+        <div class="op-name">
+          <span class="n">Solairus Aviation</span>
+          <span class="m preferred">— PREFERRED · 7-yr partner · Cert SAI-09810</span>
+        </div>
+        <div class="ratings">
+          <span class="r argp">ARG/US PLAT</span>
+          <span class="r wyv">WYVERN</span>
+        </div>
+        <span class="fleet">82 ac</span>
+        <span class="hubs">KSFO · KOPF · KSAF</span>
+        <span class="ontime"><span class="pct high">97.4%</span></span>
+        <span class="ytd">38<span class="u">/yr</span></span>
+        <span class="stat ok"><span class="d"></span>ACTIVE</span>
+      </a>
+
+      <a class="op-row" href="#">
+        <div class="sel-marker"></div>
+        <div class="op-name">
+          <span class="n">VistaJet US</span>
+          <span class="m">— Operator · 5-yr partner · Cert VJ-31109</span>
+        </div>
+        <div class="ratings">
+          <span class="r argp">ARG/US PLAT</span>
+          <span class="r wyv">WYVERN</span>
+          <span class="r is3">IS-BAO 3</span>
+        </div>
+        <span class="fleet">71 ac</span>
+        <span class="hubs">KTEB · KOPF · EGGW</span>
+        <span class="ontime"><span class="pct high">96.8%</span></span>
+        <span class="ytd">29<span class="u">/yr</span></span>
+        <span class="stat ok"><span class="d"></span>ACTIVE</span>
+      </a>
+
+      <a class="op-row" href="#">
+        <div class="sel-marker"></div>
+        <div class="op-name">
+          <span class="n">NetJets · Charter</span>
+          <span class="m">— Operator · 3-yr partner · Cert NJI-42007</span>
+        </div>
+        <div class="ratings">
+          <span class="r argp">ARG/US PLAT</span>
+          <span class="r wyv">WYVERN</span>
+        </div>
+        <span class="fleet">680 ac</span>
+        <span class="hubs">KCMH · KTEB · KVNY</span>
+        <span class="ontime"><span class="pct high">95.2%</span></span>
+        <span class="ytd">26<span class="u">/yr</span></span>
+        <span class="stat ok"><span class="d"></span>ACTIVE</span>
+      </a>
+
+      <a class="op-row" href="#">
+        <div class="sel-marker"></div>
+        <div class="op-name">
+          <span class="n">Travel Management Company</span>
+          <span class="m">— Operator · 6-yr partner · Cert TMC-22418</span>
+        </div>
+        <div class="ratings">
+          <span class="r argp">ARG/US PLAT</span>
+          <span class="r is3">IS-BAO 2</span>
+        </div>
+        <span class="fleet">38 ac</span>
+        <span class="hubs">KBJC · KAPA · KSDL</span>
+        <span class="ontime"><span class="pct high">94.8%</span></span>
+        <span class="ytd">21<span class="u">/yr</span></span>
+        <span class="stat ok"><span class="d"></span>ACTIVE</span>
+      </a>
+
+      <a class="op-row" href="#">
+        <div class="sel-marker"></div>
+        <div class="op-name">
+          <span class="n">Clay Lacy Aviation</span>
+          <span class="m">— Operator · 4-yr partner · Cert CLA-08801</span>
+        </div>
+        <div class="ratings">
+          <span class="r argp">ARG/US PLAT</span>
+          <span class="r is3">IS-BAO 3</span>
+        </div>
+        <span class="fleet">62 ac</span>
+        <span class="hubs">KVNY · KBOI · KSEA</span>
+        <span class="ontime"><span class="pct mid">91.2%</span></span>
+        <span class="ytd">18<span class="u">/yr</span></span>
+        <span class="stat ok"><span class="d"></span>ACTIVE</span>
+      </a>
+
+      <a class="op-row" href="#">
+        <div class="sel-marker"></div>
+        <div class="op-name">
+          <span class="n">Jet Aviation Business Jets</span>
+          <span class="m">— Operator · Cert JAB-44190</span>
+        </div>
+        <div class="ratings">
+          <span class="r argp">ARG/US PLAT</span>
+          <span class="r wyv">WYVERN</span>
+        </div>
+        <span class="fleet">52 ac</span>
+        <span class="hubs">KTEB · KBOS · LSZH</span>
+        <span class="ontime"><span class="pct high">96.1%</span></span>
+        <span class="ytd">14<span class="u">/yr</span></span>
+        <span class="stat ok"><span class="d"></span>ACTIVE</span>
+      </a>
+
+      <a class="op-row" href="#">
+        <div class="sel-marker"></div>
+        <div class="op-name">
+          <span class="n">Boutsen Aviation</span>
+          <span class="m">— Operator · Cert FB-50012</span>
+        </div>
+        <div class="ratings">
+          <span class="r argg">ARG/US GOLD</span>
+          <span class="r warn">AUDIT 11/30</span>
+        </div>
+        <span class="fleet">28 ac</span>
+        <span class="hubs">LFMN · EGGW · LIMC</span>
+        <span class="ontime"><span class="pct mid">92.4%</span></span>
+        <span class="ytd">9<span class="u">/yr</span></span>
+        <span class="stat hold"><span class="d"></span>AUDIT DUE</span>
+      </a>
+
+      <a class="op-row" href="#">
+        <div class="sel-marker"></div>
+        <div class="op-name">
+          <span class="n">Aero Air LLC</span>
+          <span class="m">— Operator · Cert AA-14012</span>
+        </div>
+        <div class="ratings">
+          <span class="r argg">ARG/US GOLD</span>
+        </div>
+        <span class="fleet">14 ac</span>
+        <span class="hubs">KHIO · KBFI</span>
+        <span class="ontime"><span class="pct mid">90.1%</span></span>
+        <span class="ytd">5<span class="u">/yr</span></span>
+        <span class="stat ok"><span class="d"></span>ACTIVE</span>
+      </a>
+
+      <a class="op-row" href="#">
+        <div class="sel-marker"></div>
+        <div class="op-name">
+          <span class="n">Westwind Air Charter</span>
+          <span class="m">— Under review · Cert WW-11502</span>
+        </div>
+        <div class="ratings">
+          <span class="r argg">ARG/US GOLD</span>
+          <span class="r warn">CERT REVIEW</span>
+        </div>
+        <span class="fleet">8 ac</span>
+        <span class="hubs">KSGU · KBJC</span>
+        <span class="ontime"><span class="pct" style="color: var(--error);">86.3%</span></span>
+        <span class="ytd">2<span class="u">/yr</span></span>
+        <span class="stat hold"><span class="d"></span>HOLD</span>
+      </a>
+
+      <a class="op-row" href="#">
+        <div class="sel-marker"></div>
+        <div class="op-name">
+          <span class="n">Highline Jets LLC</span>
+          <span class="m">— Banned 04/2025 · post-incident review</span>
+        </div>
+        <div class="ratings">
+          <span class="r fail">SUSPENDED</span>
+        </div>
+        <span class="fleet">— 6 ac</span>
+        <span class="hubs">— KAPA</span>
+        <span class="ontime"><span class="pct" style="color: var(--steel);">—</span></span>
+        <span class="ytd" style="color: var(--steel);">0</span>
+        <span class="stat banned"><span class="d"></span>BANNED</span>
+      </a>
+    </div>
+
+    <div class="pages">
+      <span>— Showing 1–11 of 148 operators · sorted by performance</span>
+      <div class="nav">
+        <a class="pg" href="#">←</a>
+        <a class="pg on" href="#">1</a>
+        <a class="pg" href="#">2</a>
+        <a class="pg" href="#">3</a>
+        <a class="pg" href="#">…</a>
+        <a class="pg" href="#">14</a>
+        <a class="pg" href="#">→</a>
+      </div>
+    </div>
+  </main>
+
+  <!-- DETAIL PANEL -->
+  <aside class="op-detail">
+    <div class="det-h">
+      <span class="pin">— SELECTED · PREFERRED · 9-YR PARTNER</span>
+      <h2>FlexJet West</h2>
+      <div class="meta">Cert OF-12842 · Cleveland, OH · Renée Acosta, ops</div>
+      <div class="stat-row">
+        <span class="r argp">ARG/US PLAT</span>
+        <span class="r wyv">WYVERN WINGMAN</span>
+        <span class="r is3">IS-BAO STG-3</span>
+      </div>
+    </div>
+
+    <div class="det-actions">
+      <a class="primary" href="#">— OPEN SOURCING WORKBENCH</a>
+      <a href="#">Call ops</a>
+      <a href="#">Email</a>
+      <a href="#">View contract</a>
+      <a href="#">Audit packet</a>
+    </div>
+
+    <div class="det-blk">
+      <div class="h">— PERFORMANCE · 12 MO <span class="more">DETAILS →</span></div>
+      <div class="perf">
+        <div class="row">
+          <span class="l">On-time arr</span>
+          <div class="bar"><div class="fill success" style="width: 99%;"></div></div>
+          <span class="v">98.7%</span>
+        </div>
+        <div class="row">
+          <span class="l">On-time dep</span>
+          <div class="bar"><div class="fill success" style="width: 97%;"></div></div>
+          <span class="v">97.4%</span>
+        </div>
+        <div class="row">
+          <span class="l">Aircraft swaps</span>
+          <div class="bar"><div class="fill success" style="width: 12%;"></div></div>
+          <span class="v">2.4%</span>
+        </div>
+        <div class="row">
+          <span class="l">Mech cancel</span>
+          <div class="bar"><div class="fill success" style="width: 8%;"></div></div>
+          <span class="v">1.6%</span>
+        </div>
+        <div class="row">
+          <span class="l">CSAT (avg)</span>
+          <div class="bar"><div class="fill success" style="width: 96%;"></div></div>
+          <span class="v">4.83 / 5</span>
+        </div>
+        <div class="row">
+          <span class="l">Catering miss</span>
+          <div class="bar"><div class="fill warn" style="width: 22%;"></div></div>
+          <span class="v">1 / 42</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="det-blk">
+      <div class="h">— COMMERCIAL</div>
+      <div class="grid-2">
+        <div class="blk"><span class="l">— YTD TRIPS</span><span class="v">42</span></div>
+        <div class="blk"><span class="l">— YTD SPEND</span><span class="v">$3.84M</span></div>
+        <div class="blk"><span class="l">— AVG TRIP</span><span class="v">$91.4k</span></div>
+        <div class="blk"><span class="l">— PAYMENT</span><span class="v">NET-30</span></div>
+        <div class="blk"><span class="l">— RATE LOCK</span><span class="v ok">YES · YR</span></div>
+        <div class="blk"><span class="l">— DISCOUNT</span><span class="v">— 4.5% vol</span></div>
+      </div>
+    </div>
+
+    <div class="det-blk">
+      <div class="h">— FLEET · 6 OF 194 <span class="more">ALL →</span></div>
+      <div class="fleet-mini">
+        <div class="fm-row">
+          <span class="tail">N814QX</span>
+          <span class="typ">Citation Latitude</span>
+          <span class="base">— KVNY</span>
+        </div>
+        <div class="fm-row">
+          <span class="tail">N722QX</span>
+          <span class="typ">Citation Sovereign+</span>
+          <span class="base">— KVNY</span>
+        </div>
+        <div class="fm-row">
+          <span class="tail">N905QX</span>
+          <span class="typ">Phenom 300E</span>
+          <span class="base">— KSDL</span>
+        </div>
+        <div class="fm-row">
+          <span class="tail">N611QX</span>
+          <span class="typ">Challenger 350</span>
+          <span class="base">— KTEB</span>
+        </div>
+        <div class="fm-row">
+          <span class="tail">N502QX</span>
+          <span class="typ">Praetor 500</span>
+          <span class="base">— KSAN</span>
+        </div>
+        <div class="fm-row">
+          <span class="tail">N655QX</span>
+          <span class="typ">Global 6500</span>
+          <span class="base">— KTEB</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="det-blk">
+      <div class="h">— CERTIFICATIONS</div>
+      <div class="grid-2">
+        <div class="blk"><span class="l">— FAA PART 135</span><span class="v ok">CURRENT · 09/2027</span></div>
+        <div class="blk"><span class="l">— ARG/US PLAT</span><span class="v ok">RENEW 03/2027</span></div>
+        <div class="blk"><span class="l">— WYVERN</span><span class="v ok">RENEW 11/2026</span></div>
+        <div class="blk"><span class="l">— IS-BAO</span><span class="v ok">STG-3 · 06/2028</span></div>
+        <div class="blk"><span class="l">— INSURANCE</span><span class="v ok">$300M LIAB</span></div>
+        <div class="blk"><span class="l">— NEXT AUDIT</span><span class="v">JN · 02/2027</span></div>
+      </div>
+    </div>
+
+    <div class="det-blk">
+      <div class="h">— CONTACTS</div>
+      <div class="ct">
+        <div class="ct-row">
+          <div class="av">RA</div>
+          <div class="info">
+            <span class="nm">Renée Acosta</span>
+            <span class="role">— WEST DISPATCH</span>
+            <span class="meta">+1 (216) 555-0102 · racosta@flexjet.com</span>
+          </div>
+        </div>
+        <div class="ct-row">
+          <div class="av">DT</div>
+          <div class="info">
+            <span class="nm">Derek Tatum</span>
+            <span class="role">— EAST DISPATCH</span>
+            <span class="meta">+1 (216) 555-0188 · dtatum@flexjet.com</span>
+          </div>
+        </div>
+        <div class="ct-row">
+          <div class="av">SK</div>
+          <div class="info">
+            <span class="nm">Saira Khan</span>
+            <span class="role">— CHIEF OF OPS</span>
+            <span class="meta">— escalation only · +1 (216) 555-0091</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="det-blk">
+      <div class="h">— AUDIT LOG</div>
+      <div class="audit">
+        <div class="ae"><span class="t">11/07</span><span class="what"><span class="em">JN-0091</span> confirmed N814QX, slot KTEB · <span class="who">Renée A.</span></span></div>
+        <div class="ae"><span class="t">11/02</span><span class="what">Monthly invoice INV-FX-1142 · <span class="ok">paid on time</span></span></div>
+        <div class="ae"><span class="t">10/14</span><span class="what">CSAT 5/5 received for JN-0084 · "Capt. Mendoza, again."</span></div>
+        <div class="ae"><span class="t">10/02</span><span class="what">Rate-lock review — held at $7,800/hr midsize · <span class="who">L. Okonkwo</span></span></div>
+        <div class="ae"><span class="t">08/14</span><span class="what"><span class="warn">Mech cancel</span> · N722QX swapped to Praetor 500 same day</span></div>
+        <div class="ae"><span class="t">06/22</span><span class="what">ARG/US Plat. renewal verified · cert on file</span></div>
+        <div class="ae"><span class="t">03/10</span><span class="what">Audit · on-site walk-around · <span class="who">M. Aldrich (chief pilot)</span></span></div>
+      </div>
+    </div>
+
+    <div class="det-blk" style="border-bottom: none;">
+      <div class="h">— PINNED NOTES</div>
+      <div class="audit">
+        <div class="ae"><span class="t">RULE</span><span class="what">— First call for any KVNY-departing midsize. Renée is fastest in the network.</span></div>
+        <div class="ae"><span class="t">RULE</span><span class="what">— N814QX is reserved-feel for Marcus Aldrich; if available, default to it.</span></div>
+        <div class="ae"><span class="t">NOTE</span><span class="what">— FlexJet ramps in Aug/Dec; quote turnaround can stretch to 22 min. Acceptable.</span></div>
+      </div>
+    </div>
+  </aside>
+</div>
+
+<script>
+  function tick() {
+    const d = new Date();
+    const fmt = (tz) => d.toLocaleTimeString('en-GB', { timeZone: tz, hour: '2-digit', minute: '2-digit' });
+    document.getElementById('clkPT').textContent = fmt('America/Los_Angeles');
+  }
+  tick(); setInterval(tick, 30000);
+</script>
+</body>
+</html>

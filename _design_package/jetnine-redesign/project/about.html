@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>JetNine — About</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,500;9..144,600&family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="shared.css" />
+<style>
+  /* Hero */
+  .ab-hero { padding: 200px 0 96px; border-bottom: 1px solid var(--ink-3); }
+  .ab-hero .kicker { display: inline-flex; align-items: center; gap: 12px; margin-bottom: 32px; }
+  .ab-hero .kicker .dash { width: 32px; height: 1px; background: var(--clearance); }
+  .ab-hero h1 { max-width: 18ch; }
+  .ab-hero .lead-grid {
+    margin-top: 64px; display: grid; grid-template-columns: 1.1fr 1fr; gap: 96px; align-items: start;
+  }
+  @media (max-width: 900px) { .ab-hero .lead-grid { grid-template-columns: 1fr; gap: 32px; } }
+  .ab-hero .lead { font-size: 19px; color: var(--bone-2); line-height: 1.65; max-width: 56ch; }
+  .ab-hero .lead p + p { margin-top: 20px; }
+
+  .stats-row {
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 32px;
+    background: var(--ink-2); border: 1px solid var(--ink-3); border-radius: 4px; padding: 40px;
+  }
+  .stats-row .stat .lbl { font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em; color: var(--steel); text-transform: uppercase; }
+  .stats-row .stat .val { font-family: var(--serif); font-weight: 300; font-size: 56px; line-height: 1; letter-spacing: -0.02em; color: var(--bone); margin-top: 12px; }
+  .stats-row .stat .sub { font-family: var(--mono); font-size: 11px; color: var(--bone-2); letter-spacing: 0.04em; margin-top: 8px; }
+
+  /* Beliefs */
+  .beliefs { padding: 160px 0; border-bottom: 1px solid var(--ink-3); background: var(--ink-2); }
+  .beliefs-head { display: grid; grid-template-columns: 1fr 1.4fr; gap: 64px; margin-bottom: 64px; align-items: end; }
+  @media (max-width: 900px) { .beliefs-head { grid-template-columns: 1fr; gap: 24px; } }
+  .beliefs-head .kicker { display: inline-flex; align-items: center; gap: 12px; }
+  .beliefs-head .kicker .dash { width: 32px; height: 1px; background: var(--clearance); }
+
+  .belief-list { border-top: 1px solid var(--ink-3); }
+  .belief {
+    display: grid; grid-template-columns: 80px 1.4fr 1fr; gap: 48px;
+    padding: 56px 0; border-bottom: 1px solid var(--ink-3); align-items: start;
+  }
+  @media (max-width: 900px) { .belief { grid-template-columns: 60px 1fr; } .belief .why { grid-column: 1 / -1; } }
+  .belief .num {
+    font-family: var(--mono); font-size: 11px; color: var(--clearance); letter-spacing: 0.14em;
+  }
+  .belief h3 { font-family: var(--serif); font-size: 36px; font-weight: 300; line-height: 1.15; letter-spacing: -0.01em; max-width: 18ch; }
+  .belief .why { color: var(--bone-2); font-size: 15px; line-height: 1.7; max-width: 50ch; padding-top: 12px; }
+  .belief .why p + p { margin-top: 12px; }
+
+  /* Founders */
+  .founders { padding: 160px 0; border-bottom: 1px solid var(--ink-3); }
+  .founders-head { display: grid; grid-template-columns: 1fr 1.4fr; gap: 64px; margin-bottom: 64px; align-items: end; }
+  @media (max-width: 900px) { .founders-head { grid-template-columns: 1fr; gap: 24px; } }
+  .founders-head .kicker { display: inline-flex; align-items: center; gap: 12px; }
+  .founders-head .kicker .dash { width: 32px; height: 1px; background: var(--clearance); }
+
+  .founders-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 48px; }
+  @media (max-width: 900px) { .founders-grid { grid-template-columns: 1fr; gap: 32px; } }
+
+  .founder {
+    background: var(--ink-2); border: 1px solid var(--ink-3); border-radius: 4px; overflow: hidden;
+    display: flex; flex-direction: column;
+  }
+  .founder .portrait {
+    aspect-ratio: 4 / 3;
+    background: linear-gradient(135deg, #2a2a26 0%, #16161a 60%);
+    position: relative; overflow: hidden;
+    display: flex; align-items: center; justify-content: center;
+    border-bottom: 1px solid var(--ink-3);
+  }
+  .founder .portrait .placeholder {
+    width: 96px; height: 96px; border-radius: 50%;
+    background: var(--ink); border: 1px solid var(--ink-3);
+    display: flex; align-items: center; justify-content: center;
+    font-family: var(--serif); font-weight: 300; font-size: 36px; color: var(--bone-2); letter-spacing: -0.02em;
+  }
+  .founder .portrait::before {
+    content: ""; position: absolute; inset: 0;
+    background-image:
+      linear-gradient(rgba(232,226,210,0.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(232,226,210,0.04) 1px, transparent 1px);
+    background-size: 40px 40px;
+  }
+  .founder .body {
+    padding: 32px; display: flex; flex-direction: column; gap: 16px;
+  }
+  .founder .role-row {
+    display: flex; justify-content: space-between; align-items: center;
+    font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--steel);
+  }
+  .founder .role-row .role { color: var(--clearance); }
+  .founder h3 { font-family: var(--serif); font-size: 36px; font-weight: 300; line-height: 1.1; letter-spacing: -0.01em; }
+  .founder .bio { color: var(--bone-2); font-size: 14px; line-height: 1.65; }
+  .founder .bio p + p { margin-top: 12px; }
+  .founder .meta-grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 16px;
+    padding-top: 16px; border-top: 1px solid var(--ink-3); margin-top: 8px;
+  }
+  .founder .meta-grid > div { display: flex; flex-direction: column; gap: 4px; }
+  .founder .meta-grid .lbl { font-family: var(--mono); font-size: 9px; letter-spacing: 0.12em; color: var(--steel); text-transform: uppercase; }
+  .founder .meta-grid .val { font-family: var(--mono); font-size: 12px; color: var(--bone); letter-spacing: 0.04em; }
+
+  /* Team grid */
+  .team { padding: 160px 0; border-bottom: 1px solid var(--ink-3); background: var(--ink-2); }
+  .team-head { display: grid; grid-template-columns: 1fr 1.4fr; gap: 64px; margin-bottom: 64px; align-items: end; }
+  @media (max-width: 900px) { .team-head { grid-template-columns: 1fr; gap: 24px; } }
+  .team-head .kicker { display: inline-flex; align-items: center; gap: 12px; }
+  .team-head .kicker .dash { width: 32px; height: 1px; background: var(--clearance); }
+
+  .team-grid {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px;
+  }
+  @media (max-width: 1100px) { .team-grid { grid-template-columns: repeat(3, 1fr); } }
+  @media (max-width: 800px) { .team-grid { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 480px) { .team-grid { grid-template-columns: 1fr; } }
+
+  .team-card {
+    background: var(--ink); border: 1px solid var(--ink-3); border-radius: 4px;
+    overflow: hidden; transition: all 200ms;
+  }
+  .team-card:hover { border-color: var(--clearance); transform: translateY(-2px); }
+  .team-card .portrait {
+    aspect-ratio: 1 / 1;
+    background: linear-gradient(135deg, #2a2a26 0%, #16161a 70%);
+    position: relative; overflow: hidden;
+    display: flex; align-items: center; justify-content: center;
+    border-bottom: 1px solid var(--ink-3);
+  }
+  .team-card .portrait::before {
+    content: ""; position: absolute; inset: 0;
+    background-image:
+      linear-gradient(rgba(232,226,210,0.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(232,226,210,0.04) 1px, transparent 1px);
+    background-size: 32px 32px;
+  }
+  .team-card .placeholder {
+    width: 64px; height: 64px; border-radius: 50%;
+    background: var(--ink-2); border: 1px solid var(--ink-3);
+    display: flex; align-items: center; justify-content: center;
+    font-family: var(--serif); font-weight: 300; font-size: 22px; color: var(--bone-2); position: relative; z-index: 1;
+  }
+  .team-card .body { padding: 20px; display: flex; flex-direction: column; gap: 8px; }
+  .team-card .name { font-family: var(--serif); font-size: 20px; font-weight: 400; line-height: 1.2; }
+  .team-card .role { font-family: var(--mono); font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--clearance); }
+  .team-card .meta { font-family: var(--mono); font-size: 11px; color: var(--bone-2); letter-spacing: 0.04em; }
+
+  /* HQ block */
+  .hq { padding: 160px 0; border-bottom: 1px solid var(--ink-3); }
+  .hq-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 64px; align-items: center; }
+  @media (max-width: 900px) { .hq-grid { grid-template-columns: 1fr; gap: 32px; } }
+  .hq .kicker { display: inline-flex; align-items: center; gap: 12px; margin-bottom: 32px; }
+  .hq .kicker .dash { width: 32px; height: 1px; background: var(--clearance); }
+  .hq h2 { max-width: 14ch; }
+  .hq .lead { font-size: 17px; color: var(--bone-2); margin-top: 24px; line-height: 1.7; max-width: 50ch; }
+  .hq .lead p + p { margin-top: 16px; }
+
+  .hq .visual {
+    aspect-ratio: 5 / 4;
+    background: linear-gradient(135deg, #1f1f1c 0%, #14141a 60%);
+    border: 1px solid var(--ink-3); border-radius: 4px; position: relative; overflow: hidden;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .hq .visual::before {
+    content: ""; position: absolute; inset: 0;
+    background-image:
+      linear-gradient(rgba(232,226,210,0.05) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(232,226,210,0.05) 1px, transparent 1px);
+    background-size: 48px 48px;
+  }
+  .hq .visual .label {
+    position: relative; z-index: 1;
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.16em; color: var(--steel);
+    text-transform: uppercase;
+  }
+
+  .hq .address {
+    margin-top: 32px;
+    background: var(--ink-2); border: 1px solid var(--ink-3); border-radius: 4px;
+    padding: 24px;
+    display: grid; grid-template-columns: auto 1fr auto; gap: 24px; align-items: center;
+  }
+  @media (max-width: 600px) { .hq .address { grid-template-columns: 1fr; gap: 12px; } }
+  .hq .address .lbl { font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em; color: var(--steel); text-transform: uppercase; }
+  .hq .address .val { font-family: var(--serif); font-size: 18px; line-height: 1.4; color: var(--bone); }
+  .hq .address .nav-link {
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase;
+    color: var(--clearance); text-decoration: none;
+  }
+
+  /* Press / numbers */
+  .press { padding: 160px 0; border-bottom: 1px solid var(--ink-3); background: var(--ink-2); }
+  .press-head { display: grid; grid-template-columns: 1fr 1.4fr; gap: 64px; margin-bottom: 64px; align-items: end; }
+  @media (max-width: 900px) { .press-head { grid-template-columns: 1fr; gap: 24px; } }
+  .press-head .kicker { display: inline-flex; align-items: center; gap: 12px; }
+  .press-head .kicker .dash { width: 32px; height: 1px; background: var(--clearance); }
+  .press-row {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px;
+    background: var(--ink-3); border: 1px solid var(--ink-3); border-radius: 4px; overflow: hidden;
+  }
+  @media (max-width: 800px) { .press-row { grid-template-columns: repeat(2, 1fr); } }
+  .press-cell {
+    background: var(--ink); padding: 40px 32px;
+    display: flex; flex-direction: column; gap: 12px;
+  }
+  .press-cell .src { font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em; color: var(--steel); text-transform: uppercase; }
+  .press-cell .quote { font-family: var(--serif); font-size: 18px; line-height: 1.45; color: var(--bone); font-weight: 400; }
+</style>
+</head>
+<body>
+
+<nav class="nav" id="nav" data-screen-label="07 About">
+  <div class="nav-inner">
+    <a href="homepage.html" class="brand" style="text-decoration: none;">JetNine <span class="nine">09</span></a>
+    <div class="nav-links">
+      <a href="homepage.html">Home</a>
+      <a href="aircraft.html">Aircraft</a>
+      <a href="how-it-works.html">How it works</a>
+      <a href="memberships.html">Memberships</a>
+      <a href="empty-legs.html">Empty legs</a>
+      <a href="about.html" class="active">About</a>
+    </div>
+    <div class="nav-cta">
+      <a class="phone-link" href="tel:+18188005678">+1 (818) 800-5678</a>
+      <a href="quote-step1.html" class="btn btn-primary btn-sm">Request quote <span class="arrow">→</span></a>
+    </div>
+  </div>
+</nav>
+
+<header class="ab-hero">
+  <div class="container">
+    <div class="reveal kicker"><span class="dash"></span> About JetNine · est. 2014</div>
+    <h1 class="display-xl reveal" data-stagger="1">A small company<br/>built on the old idea<br/>of one phone number.</h1>
+    <div class="lead-grid">
+      <div class="lead reveal" data-stagger="2">
+        <p>JetNine is a senior-dispatcher charter brokerage in Los Angeles. We arrange between four and eight thousand flights a year, almost all of them by referral. We don't run a marketing engine. We don't run a marketplace. We don't sell memberships unless you actually need one.</p>
+        <p>Most of what we do, on most days, looks the same as it did in 1998 — pick up the phone, listen, work the operators, send back specific airframes with all-in pricing. That part is the work. Everything else is decoration.</p>
+        <p>We started with three principals and seventeen routes. Today the dispatch desk is twelve, with another nine on the operations and account side. The company has been profitable every year since 2016.</p>
+      </div>
+      <div class="reveal stats-row" data-stagger="3">
+        <div class="stat"><div class="lbl">— FOUNDED</div><div class="val">2014</div><div class="sub">LOS ANGELES, CALIFORNIA</div></div>
+        <div class="stat"><div class="lbl">— FLIGHTS / YR</div><div class="val">~6,200</div><div class="sub">REFERRAL-LED, 2025</div></div>
+        <div class="stat"><div class="lbl">— TEAM</div><div class="val">21</div><div class="sub">12 DISPATCH · 9 OPS</div></div>
+        <div class="stat"><div class="lbl">— TENURE</div><div class="val">14 yr</div><div class="sub">AVG ON DISPATCH DESK</div></div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<section class="beliefs">
+  <div class="container">
+    <div class="beliefs-head">
+      <div class="reveal"><div class="kicker"><span class="dash"></span> What we believe</div></div>
+      <div class="reveal" data-stagger="1">
+        <h2 class="display-l">Five things we<br/>refuse to compromise on.</h2>
+        <p class="body-l" style="margin-top: 24px; max-width: 56ch;">The shape of the company comes from these. They've cost us business, on multiple occasions. They've also kept us on the desks we still want to be on, fifteen years from now.</p>
+      </div>
+    </div>
+
+    <div class="belief-list reveal">
+      <div class="belief">
+        <div class="num">— 01</div>
+        <h3>A senior dispatcher beats software, every time.</h3>
+        <div class="why">
+          <p>Apps quote stale fleet data in seconds. We quote real airframes in thirty minutes. The thirty minutes are because someone is on the phone with the operator, confirming pilot duty, confirming maintenance status, confirming whether the airframe will actually be available on the day. The app is faster — but the app is also wrong, sometimes, and the wrong-rate is sticker shock when you land.</p>
+        </div>
+      </div>
+      <div class="belief">
+        <div class="num">— 02</div>
+        <h3>The price you accept is the price you pay.</h3>
+        <div class="why">
+          <p>If fuel jumps 15% between acceptance and departure, that's our problem. If a Part 135 operator changes a fee, our problem. If we have to reposition because of a weather divert, our problem. We've absorbed roughly $400,000 in cost variance in the last 18 months. The number doesn't move once you accept it. Period.</p>
+        </div>
+      </div>
+      <div class="belief">
+        <div class="num">— 03</div>
+        <h3>We say no to operators a lot.</h3>
+        <div class="why">
+          <p>Our chief pilot rejects roughly 60% of operators that pass paper screening once he visits the hangar. That's a hard number to hold to when the client wants to fly tomorrow and the rejected operator has the only available airframe. The right answer is to ask the client to wait or fly commercial — and we say it, every time. Twice in the last 18 months we've refunded an entire trip rather than fly an airframe we weren't comfortable with.</p>
+        </div>
+      </div>
+      <div class="belief">
+        <div class="num">— 04</div>
+        <h3>You should not have to fight us on a refund.</h3>
+        <div class="why">
+          <p>The hardest version of this work is when something goes sideways — operator backs out, weather forces a divert, family emergency on the client side. Our policy is to err on the client's side, every time, and to write the refund the same day. We've had two clients in twelve years go to chargebacks. Both were our fault.</p>
+        </div>
+      </div>
+      <div class="belief">
+        <div class="num">— 05</div>
+        <h3>We don't market our way out of bad operations.</h3>
+        <div class="why">
+          <p>The fastest way to grow a charter brokerage is to spend on lead-gen and trade ops quality for booking volume. We've watched two competitors do exactly that, both bigger than us at the start of 2020, neither still in business. Our growth has been by referral; our headcount has tracked our flight volume; our ops staff have always outnumbered our sales staff. None of that is a strategy — it's just the only honest way to run the company.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="founders">
+  <div class="container">
+    <div class="founders-head">
+      <div class="reveal"><div class="kicker"><span class="dash"></span> Founders</div></div>
+      <div class="reveal" data-stagger="1">
+        <h2 class="display-l">Two people you can<br/>talk to, on day one.</h2>
+        <p class="body-l" style="margin-top: 24px; max-width: 56ch;">Marcus and Lena have been running the company together since 2014. Marcus came out of Part 135 dispatch; Lena came out of operations. They still answer their own phones.</p>
+      </div>
+    </div>
+
+    <div class="founders-grid">
+      <div class="founder reveal">
+        <div class="portrait"><div class="placeholder">MA</div></div>
+        <div class="body">
+          <div class="role-row">
+            <span>— FOUNDER, CEO</span>
+            <span class="role">DISPATCH LEAD</span>
+          </div>
+          <h3>Marcus Aldrich</h3>
+          <div class="bio">
+            <p>Twenty-one years on the dispatch desk before founding JetNine. Started at a fractional out of high school, moved to a Part 135 dispatch operation in Van Nuys at twenty-three, ran their dispatch desk for a decade. Type-rated CL-604, Phenom 300, Citation Latitude.</p>
+            <p>His view of the business is unromantic — show up early, work the phones, vet every operator personally, refund without arguing. The dispatch culture comes from him.</p>
+          </div>
+          <div class="meta-grid">
+            <div><span class="lbl">— ON THE DESK</span><span class="val">21 years</span></div>
+            <div><span class="lbl">— BASED</span><span class="val">Van Nuys, CA</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="founder reveal" data-stagger="1">
+        <div class="portrait"><div class="placeholder">LO</div></div>
+        <div class="body">
+          <div class="role-row">
+            <span>— CO-FOUNDER, COO</span>
+            <span class="role">OPERATIONS LEAD</span>
+          </div>
+          <h3>Lena Okonkwo</h3>
+          <div class="bio">
+            <p>Twelve years in flight operations before co-founding JetNine — Part 121 carrier in operations control, then a fractional in operator vetting. Built the audit protocol the company runs on. Holds an MBA from Anderson and an A&amp;P certificate.</p>
+            <p>Lena owns the back end of the operation: operator network, audit cycle, finance, regulatory. She is the reason the Part 295 disclosure on every contract is in plain English.</p>
+          </div>
+          <div class="meta-grid">
+            <div><span class="lbl">— OPERATIONS</span><span class="val">19 years</span></div>
+            <div><span class="lbl">— BASED</span><span class="val">Los Angeles, CA</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="team">
+  <div class="container">
+    <div class="team-head">
+      <div class="reveal"><div class="kicker"><span class="dash"></span> The dispatch desk</div></div>
+      <div class="reveal" data-stagger="1">
+        <h2 class="display-l">Twelve dispatchers,<br/>fourteen-year average tenure.</h2>
+        <p class="body-l" style="margin-top: 24px; max-width: 56ch;">When you call, one of these people picks up. Most clients end up working with the same dispatcher across years — a few have been with the same dispatcher since the company started.</p>
+      </div>
+    </div>
+
+    <div class="team-grid">
+      <div class="team-card reveal">
+        <div class="portrait"><div class="placeholder">DH</div></div>
+        <div class="body">
+          <div class="name">Daniel Hsieh</div>
+          <div class="role">— SENIOR DISPATCHER</div>
+          <div class="meta">17 yrs · East &amp; Mid-Atl.</div>
+        </div>
+      </div>
+      <div class="team-card reveal" data-stagger="1">
+        <div class="portrait"><div class="placeholder">RP</div></div>
+        <div class="body">
+          <div class="name">Renata Padilla</div>
+          <div class="role">— SENIOR DISPATCHER</div>
+          <div class="meta">15 yrs · Latin Amer.</div>
+        </div>
+      </div>
+      <div class="team-card reveal" data-stagger="2">
+        <div class="portrait"><div class="placeholder">JK</div></div>
+        <div class="body">
+          <div class="name">James Kowalski</div>
+          <div class="role">— SENIOR DISPATCHER</div>
+          <div class="meta">22 yrs · Europe</div>
+        </div>
+      </div>
+      <div class="team-card reveal" data-stagger="3">
+        <div class="portrait"><div class="placeholder">SW</div></div>
+        <div class="body">
+          <div class="name">Sarah Whitlock</div>
+          <div class="role">— DISPATCHER</div>
+          <div class="meta">9 yrs · Pacific NW</div>
+        </div>
+      </div>
+      <div class="team-card reveal">
+        <div class="portrait"><div class="placeholder">AT</div></div>
+        <div class="body">
+          <div class="name">Aamir Talwar</div>
+          <div class="role">— DISPATCHER</div>
+          <div class="meta">11 yrs · Asia &amp; M.E.</div>
+        </div>
+      </div>
+      <div class="team-card reveal" data-stagger="1">
+        <div class="portrait"><div class="placeholder">CV</div></div>
+        <div class="body">
+          <div class="name">Catalina Vance</div>
+          <div class="role">— SENIOR DISPATCHER</div>
+          <div class="meta">14 yrs · West Coast</div>
+        </div>
+      </div>
+      <div class="team-card reveal" data-stagger="2">
+        <div class="portrait"><div class="placeholder">EM</div></div>
+        <div class="body">
+          <div class="name">Eli Marchetti</div>
+          <div class="role">— DISPATCHER · NIGHTS</div>
+          <div class="meta">8 yrs · 24h desk</div>
+        </div>
+      </div>
+      <div class="team-card reveal" data-stagger="3">
+        <div class="portrait"><div class="placeholder">PF</div></div>
+        <div class="body">
+          <div class="name">Patrice Fontaine</div>
+          <div class="role">— CHIEF PILOT</div>
+          <div class="meta">28 yrs · operator vetting</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="hq">
+  <div class="container">
+    <div class="hq-grid">
+      <div>
+        <div class="reveal kicker"><span class="dash"></span> Headquarters</div>
+        <h2 class="display-l reveal" data-stagger="1">One office.<br/>One dispatch desk.<br/>Open 24 / 7 / 365.</h2>
+        <div class="lead reveal" data-stagger="2">
+          <p>The dispatch desk is in Van Nuys, ten minutes from the FBO row at KVNY. We deliberately don't have satellite offices — when something needs to be solved at three in the morning, we want everyone in the same room.</p>
+          <p>The office is staffed every hour of every day. The night desk handles overseas dispatch, weather diversions, and the small but annoying number of clients whose calendars only allow them to think about a flight at 1 a.m.</p>
+        </div>
+        <div class="reveal address" data-stagger="3">
+          <div>
+            <div class="lbl">— ADDRESS</div>
+            <div class="val">2934 Beverly Glen Cir #123<br/>Los Angeles, CA 90077</div>
+          </div>
+          <div></div>
+          <div><a class="nav-link" href="#">Directions →</a></div>
+        </div>
+      </div>
+      <div class="visual reveal" data-stagger="2">
+        <span class="label">[ HQ — DISPATCH ROOM PLACEHOLDER ]</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="press">
+  <div class="container">
+    <div class="press-head">
+      <div class="reveal"><div class="kicker"><span class="dash"></span> The record</div></div>
+      <div class="reveal" data-stagger="1">
+        <h2 class="display-l">What people<br/>have said about us.</h2>
+        <p class="body-l" style="margin-top: 24px; max-width: 56ch;">A short selection. We don't pay for placement and we don't court press; the press finds us when something interesting happens in the industry.</p>
+      </div>
+    </div>
+    <div class="press-row reveal">
+      <div class="press-cell">
+        <div class="src">— BUSINESS TRAVELLER · 2024</div>
+        <div class="quote">"The most operationally serious charter broker on the West Coast."</div>
+      </div>
+      <div class="press-cell">
+        <div class="src">— PRIVATE JET CARD · 2023</div>
+        <div class="quote">"All-in pricing that actually means all-in."</div>
+      </div>
+      <div class="press-cell">
+        <div class="src">— ROBB REPORT · 2023</div>
+        <div class="quote">"A holdover of how this trade used to work — and possibly still should."</div>
+      </div>
+      <div class="press-cell">
+        <div class="src">— FLIGHTGLOBAL · 2022</div>
+        <div class="quote">"Tighter operator vetting than most direct Part 135 carriers."</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section style="position: relative; padding: 200px 0; overflow: hidden; text-align: center; border-top: 1px solid var(--ink-3); background: var(--ink);">
+  <div class="container">
+    <h2 class="display-l reveal">Talk to a dispatcher.<br/>Same one, every flight.</h2>
+    <p class="body-l reveal" data-stagger="1" style="margin: 24px auto 48px; max-width: 56ch;">Tell us the route. We'll be in touch within thirty minutes.</p>
+    <div style="display: flex; gap: 24px; justify-content: center; flex-wrap: wrap;" class="reveal" data-stagger="2">
+      <a href="tel:+18188005678" class="btn btn-primary btn-lg">Call dispatch · +1 (818) 800-5678</a>
+      <a href="quote-step1.html" class="btn btn-secondary btn-lg">Request a quote <span class="arrow">→</span></a>
+    </div>
+  </div>
+</section>
+
+<footer class="docfoot">
+  <div class="container">
+    <div class="footer-grid">
+      <div class="foot-col">
+        <div class="brand" style="font-size: 28px;">JetNine <span class="nine" style="font-size: 12px;">09</span></div>
+        <p class="body" style="margin-top: 16px; max-width: 320px;">Private jet charter, anywhere, anytime. Twenty thousand aircraft worldwide, one number to call.</p>
+        <div style="margin-top: 24px; display: flex; flex-direction: column; gap: 8px;">
+          <a class="phone-link" style="font-size:14px;" href="tel:+18188005678">+1 (818) 800-5678</a>
+          <a class="phone-link" style="font-size:14px;" href="mailto:info@jetnine.com">info@jetnine.com</a>
+          <div class="caption" style="margin-top: 4px;">2934 BEVERLY GLEN CIRCLE #123<br/>LOS ANGELES, CA 90077</div>
+        </div>
+      </div>
+      <div class="foot-col"><h4>Sitemap</h4><ul>
+        <li><a href="homepage.html">Home</a></li>
+        <li><a href="aircraft.html">Aircraft</a></li>
+        <li><a href="how-it-works.html">How it works</a></li>
+        <li><a href="memberships.html">Memberships</a></li>
+        <li><a href="empty-legs.html">Empty legs</a></li>
+        <li><a href="about.html">About</a></li>
+      </ul></div>
+      <div class="foot-col"><h4>Categories</h4><ul>
+        <li><a href="aircraft.html">Turboprop</a></li>
+        <li><a href="aircraft-light.html">Light</a></li>
+        <li><a href="aircraft-midsize.html">Midsize</a></li>
+        <li><a href="aircraft-supermid.html">Super-mid</a></li>
+        <li><a href="aircraft-heavy.html">Heavy</a></li>
+        <li><a href="aircraft-ultra.html">Ultra long range</a></li>
+      </ul></div>
+      <div class="foot-col">
+        <h4>Legal</h4>
+        <ul style="gap: 8px;">
+          <li><a href="#">Privacy</a></li>
+          <li><a href="#">Terms</a></li>
+          <li><a href="#">Part 295 broker disclosure</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="foot-bottom">
+      <div>JETNINE © 2026 — LOS ANGELES</div>
+      <div style="display: flex; gap: 24px;">
+        <a href="#" style="color: var(--steel); text-decoration: none;">X</a>
+        <a href="#" style="color: var(--steel); text-decoration: none;">IG</a>
+        <a href="#" style="color: var(--steel); text-decoration: none;">LI</a>
+      </div>
+      <div style="max-width: 480px; text-align: right;">JetNine is an indirect air carrier — Part 295 broker. All flights operated by FAA Part 135 certified carriers.</div>
+    </div>
+  </div>
+</footer>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script type="text/babel" src="tweaks-panel.jsx"></script>
+<div id="tweaks-root"></div>
+<script type="text/babel" src="tweaks.jsx"></script>
+
+<script>
+  const nav = document.getElementById('nav');
+  function updateNav() { if (window.scrollY > 60) nav.classList.add('scrolled'); else nav.classList.remove('scrolled'); }
+  window.addEventListener('scroll', updateNav, { passive: true }); updateNav();
+  const reveals = document.querySelectorAll('.reveal');
+  const revObs = new IntersectionObserver((entries) => {
+    entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('in'); revObs.unobserve(e.target); } });
+  }, { threshold: 0.15 });
+  reveals.forEach(r => revObs.observe(r));
+</script>
+</body>
+</html>

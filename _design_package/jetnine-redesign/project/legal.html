@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>JetNine — Legal</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,500;9..144,600&family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="shared.css" />
+<style>
+  /* Hero */
+  .lg-hero { padding: 200px 0 80px; border-bottom: 1px solid var(--ink-3); }
+  .lg-hero .grid { display: grid; grid-template-columns: 1.4fr 1fr; gap: 64px; align-items: end; }
+  @media (max-width: 900px) { .lg-hero .grid { grid-template-columns: 1fr; gap: 32px; } }
+  .lg-hero .kicker { display: inline-flex; align-items: center; gap: 12px; margin-bottom: 32px; }
+  .lg-hero .kicker .dash { width: 32px; height: 1px; background: var(--clearance); }
+  .lg-hero h1 { max-width: 14ch; }
+  .lg-hero .lead { font-size: 18px; color: var(--bone-2); margin-top: 24px; line-height: 1.6; max-width: 56ch; }
+
+  .lg-meta {
+    background: var(--ink-2); border: 1px solid var(--ink-3); border-radius: 4px;
+    padding: 24px 28px;
+  }
+  .lg-meta-row { display: grid; grid-template-columns: 140px 1fr; padding: 10px 0; gap: 16px; align-items: baseline; border-bottom: 1px solid var(--ink-3); }
+  .lg-meta-row:last-child { border-bottom: none; }
+  .lg-meta-row .lbl { font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em; color: var(--steel); text-transform: uppercase; }
+  .lg-meta-row .val { font-family: var(--mono); font-size: 12px; color: var(--bone); letter-spacing: 0.04em; }
+
+  /* Body */
+  .lg-body { padding: 96px 0 160px; }
+  .lg-grid { display: grid; grid-template-columns: 240px 1fr; gap: 96px; align-items: start; }
+  @media (max-width: 900px) { .lg-grid { grid-template-columns: 1fr; gap: 48px; } }
+
+  .lg-toc {
+    position: sticky; top: 120px;
+    display: flex; flex-direction: column; gap: 4px;
+    max-height: calc(100vh - 140px); overflow-y: auto;
+  }
+  .lg-toc .toc-head {
+    font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em; color: var(--steel);
+    text-transform: uppercase; padding-bottom: 14px; border-bottom: 1px solid var(--ink-3); margin-bottom: 14px;
+  }
+  .lg-toc .toc-doc {
+    font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em; color: var(--clearance);
+    text-transform: uppercase; padding: 18px 0 8px;
+  }
+  .lg-toc .toc-doc:first-child { padding-top: 0; }
+  .lg-toc a {
+    display: flex; gap: 12px; align-items: baseline;
+    padding: 6px 0; color: var(--bone-2); text-decoration: none;
+    font-size: 13px; transition: color 180ms;
+    border-left: 1px solid transparent; padding-left: 12px; margin-left: -12px;
+  }
+  .lg-toc a:hover { color: var(--bone); }
+  .lg-toc a.active { color: var(--clearance); border-left-color: var(--clearance); }
+  .lg-toc a .num {
+    font-family: var(--mono); font-size: 10px; color: var(--steel); letter-spacing: 0.06em;
+    min-width: 22px;
+  }
+  .lg-toc a.active .num { color: var(--clearance); }
+
+  /* Document */
+  .lg-doc { margin-bottom: 128px; }
+  .lg-doc:last-child { margin-bottom: 0; }
+  .lg-doc-head {
+    display: grid; grid-template-columns: auto 1fr; gap: 24px; align-items: baseline;
+    padding-bottom: 32px; margin-bottom: 48px; border-bottom: 1px solid var(--ink-3);
+  }
+  .lg-doc-num {
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.14em; color: var(--clearance);
+  }
+  .lg-doc-name {
+    font-family: var(--serif); font-size: 56px; font-weight: 300; line-height: 1.05; letter-spacing: -0.015em;
+  }
+  @media (max-width: 600px) { .lg-doc-name { font-size: 40px; } }
+
+  .lg-doc .lead {
+    font-family: var(--serif); font-weight: 300; font-size: 22px; line-height: 1.55;
+    color: var(--bone); max-width: 60ch; margin-bottom: 56px; letter-spacing: -0.005em;
+  }
+
+  /* Section */
+  .lg-sec { margin-bottom: 56px; max-width: 64ch; }
+  .lg-sec-head {
+    display: grid; grid-template-columns: auto 1fr; gap: 18px; align-items: baseline;
+    margin-bottom: 20px;
+  }
+  .lg-sec-num { font-family: var(--mono); font-size: 11px; letter-spacing: 0.1em; color: var(--steel); }
+  .lg-sec h3 {
+    font-family: var(--serif); font-size: 24px; font-weight: 400; line-height: 1.25; letter-spacing: -0.005em;
+    color: var(--bone);
+  }
+  .lg-sec p, .lg-sec li { color: var(--bone-2); font-size: 15px; line-height: 1.75; }
+  .lg-sec p + p { margin-top: 16px; }
+  .lg-sec ul, .lg-sec ol { margin-top: 14px; padding-left: 0; list-style: none; }
+  .lg-sec ul li, .lg-sec ol li { padding-left: 26px; position: relative; }
+  .lg-sec ul li + li, .lg-sec ol li + li { margin-top: 10px; }
+  .lg-sec ul li::before { content: "—"; position: absolute; left: 0; color: var(--clearance); font-family: var(--mono); }
+  .lg-sec ol { counter-reset: olc; }
+  .lg-sec ol li { counter-increment: olc; }
+  .lg-sec ol li::before { content: counter(olc, decimal-leading-zero); position: absolute; left: 0; color: var(--clearance); font-family: var(--mono); font-size: 11px; top: 4px; }
+  .lg-sec strong { color: var(--bone); font-weight: 500; }
+  .lg-sec a { color: var(--clearance); text-decoration: none; border-bottom: 1px solid var(--ink-4); transition: border-color 180ms; }
+  .lg-sec a:hover { border-bottom-color: var(--clearance); }
+
+  .lg-callout {
+    margin: 24px 0; padding: 20px 24px;
+    background: var(--ink-2); border-left: 2px solid var(--clearance); border-radius: 0 2px 2px 0;
+  }
+  .lg-callout .lbl { font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em; color: var(--clearance); text-transform: uppercase; margin-bottom: 8px; display: block; }
+  .lg-callout p { color: var(--bone); font-size: 14px; line-height: 1.65; }
+
+  .lg-defs {
+    background: var(--ink-2); border: 1px solid var(--ink-3); border-radius: 4px;
+    margin-top: 16px;
+  }
+  .lg-def-row {
+    display: grid; grid-template-columns: 200px 1fr;
+    padding: 14px 20px; border-bottom: 1px solid var(--ink-3); gap: 16px;
+  }
+  @media (max-width: 600px) { .lg-def-row { grid-template-columns: 1fr; gap: 4px; } }
+  .lg-def-row:last-child { border-bottom: none; }
+  .lg-def-row .term { font-family: var(--mono); font-size: 11px; color: var(--clearance); letter-spacing: 0.06em; text-transform: uppercase; padding-top: 4px; }
+  .lg-def-row .def { color: var(--bone); font-size: 14px; line-height: 1.6; }
+
+  /* Disclosure highlight strip */
+  .lg-disclosure-strip {
+    padding: 80px 0; background: var(--ink-2); border-top: 1px solid var(--ink-3); border-bottom: 1px solid var(--ink-3);
+  }
+  .lg-disclosure-strip .container { display: grid; grid-template-columns: auto 1fr; gap: 48px; align-items: center; }
+  @media (max-width: 700px) { .lg-disclosure-strip .container { grid-template-columns: 1fr; gap: 24px; } }
+  .lg-disclosure-strip .stamp {
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.18em; color: var(--clearance); text-transform: uppercase;
+    padding: 10px 16px; border: 1px solid var(--clearance); border-radius: 2px; white-space: nowrap;
+  }
+  .lg-disclosure-strip p {
+    font-family: var(--serif); font-weight: 300; font-size: 22px; line-height: 1.5; color: var(--bone);
+    letter-spacing: -0.005em;
+  }
+</style>
+</head>
+<body>
+
+<nav class="nav" id="nav" data-screen-label="10 Legal">
+  <div class="nav-inner">
+    <a href="homepage.html" class="brand" style="text-decoration: none;">JetNine <span class="nine">09</span></a>
+    <div class="nav-links">
+      <a href="homepage.html">Home</a>
+      <a href="aircraft.html">Aircraft</a>
+      <a href="how-it-works.html">How it works</a>
+      <a href="memberships.html">Memberships</a>
+      <a href="empty-legs.html">Empty legs</a>
+      <a href="about.html">About</a>
+      <a href="contact.html">Contact</a>
+    </div>
+    <div class="nav-cta">
+      <a class="phone-link" href="tel:+18188005678">+1 (818) 800-5678</a>
+      <a href="quote-step1.html" class="btn btn-primary btn-sm">Request quote <span class="arrow">→</span></a>
+    </div>
+  </div>
+</nav>
+
+<header class="lg-hero">
+  <div class="container">
+    <div class="grid">
+      <div>
+        <div class="reveal kicker"><span class="dash"></span> Legal &amp; disclosures</div>
+        <h1 class="display-xl reveal" data-stagger="1">The fine print,<br/>large enough to read.</h1>
+        <p class="lead reveal" data-stagger="2">Three documents that govern the JetNine relationship: how we handle your data, what you and we agree to when you book, and the broker disclosure required by US DOT Part 295. Written plainly. Reviewed by counsel. Updated whenever they change — never quietly.</p>
+      </div>
+      <div class="lg-meta reveal" data-stagger="3">
+        <div class="lg-meta-row"><span class="lbl">— EFFECTIVE</span><span class="val">07 MAY 2026</span></div>
+        <div class="lg-meta-row"><span class="lbl">— LAST EDITED</span><span class="val">12 APR 2026</span></div>
+        <div class="lg-meta-row"><span class="lbl">— GOVERNING LAW</span><span class="val">CALIFORNIA, USA</span></div>
+        <div class="lg-meta-row"><span class="lbl">— DISPATCH LEGAL</span><span class="val">legal@jetnine.com</span></div>
+        <div class="lg-meta-row"><span class="lbl">— PART 295</span><span class="val">REGISTERED · DOT</span></div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<section class="lg-disclosure-strip">
+  <div class="container">
+    <span class="stamp">— Required disclosure</span>
+    <p>JetNine is an indirect air carrier &mdash; a Part 295 broker. Every flight is operated by an independent FAA Part 135 certified carrier. We are not the operator of your aircraft.</p>
+  </div>
+</section>
+
+<section class="lg-body">
+  <div class="container">
+    <div class="lg-grid">
+      <aside class="lg-toc">
+        <div class="toc-head">— CONTENTS</div>
+
+        <div class="toc-doc">— I · Privacy</div>
+        <a href="#priv-1" class="active"><span class="num">1.1</span><span>What we collect</span></a>
+        <a href="#priv-2"><span class="num">1.2</span><span>How we use it</span></a>
+        <a href="#priv-3"><span class="num">1.3</span><span>What we don't do</span></a>
+        <a href="#priv-4"><span class="num">1.4</span><span>Sharing &amp; subprocessors</span></a>
+        <a href="#priv-5"><span class="num">1.5</span><span>Retention</span></a>
+        <a href="#priv-6"><span class="num">1.6</span><span>Your rights</span></a>
+
+        <div class="toc-doc">— II · Terms of service</div>
+        <a href="#terms-1"><span class="num">2.1</span><span>The agreement</span></a>
+        <a href="#terms-2"><span class="num">2.2</span><span>Quotes &amp; bookings</span></a>
+        <a href="#terms-3"><span class="num">2.3</span><span>Payment</span></a>
+        <a href="#terms-4"><span class="num">2.4</span><span>Cancellation &amp; changes</span></a>
+        <a href="#terms-5"><span class="num">2.5</span><span>Operator relationship</span></a>
+        <a href="#terms-6"><span class="num">2.6</span><span>Limitation of liability</span></a>
+        <a href="#terms-7"><span class="num">2.7</span><span>Disputes</span></a>
+
+        <div class="toc-doc">— III · Part 295 disclosure</div>
+        <a href="#p295-1"><span class="num">3.1</span><span>Broker status</span></a>
+        <a href="#p295-2"><span class="num">3.2</span><span>The operator</span></a>
+        <a href="#p295-3"><span class="num">3.3</span><span>Your rights</span></a>
+        <a href="#p295-4"><span class="num">3.4</span><span>Definitions</span></a>
+      </aside>
+
+      <main>
+        <!-- I · Privacy -->
+        <article class="lg-doc" id="doc-privacy">
+          <div class="lg-doc-head">
+            <span class="lg-doc-num">— DOCUMENT I</span>
+            <h2 class="lg-doc-name">Privacy policy.</h2>
+          </div>
+          <p class="lead">Privacy is structural at JetNine. The inquiry desk and the dispatch desk are the only people inside the company who see your trip details &mdash; and operators only ever see a route, not a name.</p>
+
+          <section class="lg-sec" id="priv-1">
+            <div class="lg-sec-head"><span class="lg-sec-num">— 1.1</span><h3>What we collect.</h3></div>
+            <p>We collect the minimum needed to quote and run flights. That breaks down into three buckets:</p>
+            <ul>
+              <li><strong>Identity &amp; contact.</strong> Name, email, phone, and (for international flights) passport details and date of birth as required by APIS &amp; CBP.</li>
+              <li><strong>Trip details.</strong> Route, dates, passenger count, baggage, preferences (Wi-Fi, catering, pets, ground transport), and any notes you provide.</li>
+              <li><strong>Payment.</strong> Bank routing for wires, or a tokenized card reference held by our PCI-compliant payment processor. We do not store full card numbers on our servers.</li>
+            </ul>
+            <p>We use minimal analytics &mdash; first-party only, no ad networks, no behavioral tracking. Cookies are limited to session and preference state.</p>
+          </section>
+
+          <section class="lg-sec" id="priv-2">
+            <div class="lg-sec-head"><span class="lg-sec-num">— 1.2</span><h3>How we use it.</h3></div>
+            <ol>
+              <li>To produce a quote and source aircraft for your trip.</li>
+              <li>To execute the trip &mdash; coordinate with the operator, FBO, and ground.</li>
+              <li>To bill, account, and meet our tax and audit obligations.</li>
+              <li>To remember your preferences if you ask us to (account holders only).</li>
+              <li>To send you trip-specific status updates (never marketing without consent).</li>
+            </ol>
+          </section>
+
+          <section class="lg-sec" id="priv-3">
+            <div class="lg-sec-head"><span class="lg-sec-num">— 1.3</span><h3>What we don't do.</h3></div>
+            <div class="lg-callout">
+              <span class="lbl">— THE LIST</span>
+              <p>We do not sell your data. We do not share it with marketing networks. We do not use it to train external models. We do not retarget you. We do not pass your name to operators competing for your trip. We do not run a referral or affiliate program that exposes your identity.</p>
+            </div>
+          </section>
+
+          <section class="lg-sec" id="priv-4">
+            <div class="lg-sec-head"><span class="lg-sec-num">— 1.4</span><h3>Sharing &amp; subprocessors.</h3></div>
+            <p>The only third parties that touch your data, and the reason:</p>
+            <ul>
+              <li><strong>The operating carrier &mdash;</strong> route, date, pax count, baggage, special requests. Not your name or contact unless you authorize.</li>
+              <li><strong>FBO &amp; ground &mdash;</strong> arrival window, vehicle preference, your name on the manifest at the FBO desk.</li>
+              <li><strong>Payment processor &mdash;</strong> Stripe, for card transactions. PCI-DSS Level 1.</li>
+              <li><strong>Customs &amp; immigration &mdash;</strong> passport &amp; APIS data submitted to CBP and equivalents on international flights, as required by law.</li>
+              <li><strong>Cloud infrastructure &mdash;</strong> AWS US-West-2 for primary storage; encrypted at rest and in transit.</li>
+            </ul>
+            <p>Full subprocessor list is available on request to <a href="mailto:legal@jetnine.com">legal@jetnine.com</a>.</p>
+          </section>
+
+          <section class="lg-sec" id="priv-5">
+            <div class="lg-sec-head"><span class="lg-sec-num">— 1.5</span><h3>Retention.</h3></div>
+            <p>Trip records: <strong>seven years</strong> after the flight, to satisfy IRS &amp; FAA recordkeeping. Quote requests that don't book: <strong>180 days</strong>, then deleted unless you've opted into ongoing service. Account preferences: kept while your account is active, deleted within 30 days of account closure.</p>
+          </section>
+
+          <section class="lg-sec" id="priv-6">
+            <div class="lg-sec-head"><span class="lg-sec-num">— 1.6</span><h3>Your rights.</h3></div>
+            <p>You can ask us, at any time and at no charge, to:</p>
+            <ul>
+              <li>Show you everything we have on file (within 30 days).</li>
+              <li>Correct anything that's wrong.</li>
+              <li>Delete data not subject to a regulatory hold (trips inside the seven-year window stay; everything else can go).</li>
+              <li>Export a copy in machine-readable form.</li>
+            </ul>
+            <p>Email <a href="mailto:legal@jetnine.com">legal@jetnine.com</a>. California residents (CCPA), EU residents (GDPR), and Virginia residents (CDPA) have additional statutory rights mirrored in this policy.</p>
+          </section>
+        </article>
+
+        <!-- II · Terms -->
+        <article class="lg-doc" id="doc-terms">
+          <div class="lg-doc-head">
+            <span class="lg-doc-num">— DOCUMENT II</span>
+            <h2 class="lg-doc-name">Terms of service.</h2>
+          </div>
+          <p class="lead">When you book a flight through JetNine, you and we agree to the terms below. Plain English where we can, defined terms where the law requires precision.</p>
+
+          <section class="lg-sec" id="terms-1">
+            <div class="lg-sec-head"><span class="lg-sec-num">— 2.1</span><h3>The agreement.</h3></div>
+            <p>"<strong>JetNine</strong>" means JetNine LLC, a California limited liability company. "<strong>You</strong>" means the individual or entity that requests, books, or pays for a flight. "<strong>Operator</strong>" means the FAA Part 135 certified air carrier that operates the aircraft. "<strong>Flight</strong>" means the on-demand charter flight booked through JetNine.</p>
+            <p>By submitting a booking request, you accept these Terms. If you book on behalf of a company, you represent that you have authority to bind that company.</p>
+          </section>
+
+          <section class="lg-sec" id="terms-2">
+            <div class="lg-sec-head"><span class="lg-sec-num">— 2.2</span><h3>Quotes &amp; bookings.</h3></div>
+            <p>Quotes are valid for the time period stated on the quote (typically 24&ndash;72 hours, shorter inside 48 hours of departure). A quote is an offer; a booking exists only when both you and JetNine sign the trip sheet.</p>
+            <p>The trip sheet supersedes the quote and lists: the operating carrier, registered tail number, crew composition, fuel and surcharge breakdown, FBO of departure and arrival, and any agreed special arrangements.</p>
+          </section>
+
+          <section class="lg-sec" id="terms-3">
+            <div class="lg-sec-head"><span class="lg-sec-num">— 2.3</span><h3>Payment.</h3></div>
+            <p>Full payment is due before wheels-up. Domestic: cleared funds by <strong>24 hours</strong> before scheduled departure. International: <strong>48 hours</strong>. Wire is the default; ACH and card are accepted within stated limits.</p>
+            <p>Reserve and Card members: trip cost is debited against your deposit balance on confirmation; operator and pass-through expenses are reconciled within 48 hours of trip completion.</p>
+          </section>
+
+          <section class="lg-sec" id="terms-4">
+            <div class="lg-sec-head"><span class="lg-sec-num">— 2.4</span><h3>Cancellation &amp; changes.</h3></div>
+            <p>Cancellation by you, applied to total trip cost:</p>
+            <ul>
+              <li><strong>&gt; 72 hours before departure:</strong> full refund minus a $250 admin fee.</li>
+              <li><strong>72&ndash;24 hours:</strong> 25% retained.</li>
+              <li><strong>24&ndash;6 hours:</strong> 50% retained.</li>
+              <li><strong>&lt; 6 hours:</strong> 100% retained.</li>
+            </ul>
+            <p>Cancellation by JetNine or the operator (mechanical, crew, weather): full refund, plus best efforts to re-source aircraft at no incremental cost. Empty legs and discounted one-off flights have stricter terms stated on the trip sheet.</p>
+          </section>
+
+          <section class="lg-sec" id="terms-5">
+            <div class="lg-sec-head"><span class="lg-sec-num">— 2.5</span><h3>Operator relationship.</h3></div>
+            <div class="lg-callout">
+              <span class="lbl">— PART 295 NOTICE</span>
+              <p>JetNine is an indirect air carrier (broker). The Operator is the direct air carrier and exercises operational control of the flight. JetNine does not own, operate, or maintain the aircraft, and does not employ flight or cabin crew.</p>
+            </div>
+            <p>Vetting: every Operator on the JetNine network meets ARG/US Gold Plus or Wyvern Wingman standard at minimum, carries a $300M combined single-limit liability minimum, and passes a JetNine review of safety record and pilot experience.</p>
+          </section>
+
+          <section class="lg-sec" id="terms-6">
+            <div class="lg-sec-head"><span class="lg-sec-num">— 2.6</span><h3>Limitation of liability.</h3></div>
+            <p>To the maximum extent permitted by law, JetNine's aggregate liability arising from any single trip is limited to the amount paid by you for that trip. JetNine is not liable for the Operator's acts or omissions, including operational decisions made by the Pilot in Command.</p>
+            <p>Nothing in these Terms limits liability that cannot be excluded by law &mdash; including death or personal injury caused by negligence, fraud, or fraudulent misrepresentation.</p>
+          </section>
+
+          <section class="lg-sec" id="terms-7">
+            <div class="lg-sec-head"><span class="lg-sec-num">— 2.7</span><h3>Disputes.</h3></div>
+            <p>Governing law: California, without regard to conflict-of-laws principles. Venue: state and federal courts located in Los Angeles County, California. Both parties waive jury trial.</p>
+            <p>Before filing, both parties agree to a 30-day good-faith negotiation period and, if requested by either party, mediation through JAMS in Los Angeles.</p>
+          </section>
+        </article>
+
+        <!-- III · Part 295 -->
+        <article class="lg-doc" id="doc-p295">
+          <div class="lg-doc-head">
+            <span class="lg-doc-num">— DOCUMENT III</span>
+            <h2 class="lg-doc-name">Part 295 broker disclosure.</h2>
+          </div>
+          <p class="lead">Required by 14 CFR Part 295 and reproduced here in plain English. The short version: JetNine arranges your flight; an independent FAA Part 135 carrier flies it.</p>
+
+          <section class="lg-sec" id="p295-1">
+            <div class="lg-sec-head"><span class="lg-sec-num">— 3.1</span><h3>Broker status.</h3></div>
+            <p>JetNine LLC operates as an <strong>indirect air carrier</strong> &mdash; specifically, an air charter broker registered with the U.S. Department of Transportation under 14 CFR Part 295.</p>
+            <p>An indirect air carrier holds out, sells, or arranges air transportation but does not directly operate aircraft. JetNine sources, contracts, and sells charter air transportation provided by independent FAA-certificated direct air carriers.</p>
+          </section>
+
+          <section class="lg-sec" id="p295-2">
+            <div class="lg-sec-head"><span class="lg-sec-num">— 3.2</span><h3>The operator.</h3></div>
+            <p>Every JetNine flight is operated by an independent direct air carrier holding an FAA Part 135 air-carrier certificate. The carrier &mdash; not JetNine &mdash; exercises operational control, including:</p>
+            <ul>
+              <li>Crew composition, qualifications, and duty time</li>
+              <li>Aircraft airworthiness and maintenance</li>
+              <li>Routing, dispatch, and fuel planning</li>
+              <li>The go/no-go decision for weather, mechanical, or any safety-of-flight reason</li>
+              <li>All required reporting to the FAA, NTSB, and TSA</li>
+            </ul>
+            <p>The operating carrier and tail number for your flight are stated on your trip sheet before you sign. You may verify any operator's Part 135 certificate status on the FAA's <a href="https://www.faa.gov/licenses_certificates" target="_blank" rel="noopener">certificate-holder lookup</a>.</p>
+          </section>
+
+          <section class="lg-sec" id="p295-3">
+            <div class="lg-sec-head"><span class="lg-sec-num">— 3.3</span><h3>Your rights as the customer.</h3></div>
+            <p>Under Part 295 you are entitled to:</p>
+            <ul>
+              <li>Written disclosure of the broker relationship before booking. (This document, plus the trip sheet.)</li>
+              <li>The identity of the operating carrier in writing before you pay.</li>
+              <li>A clear breakdown of the price, including the broker fee.</li>
+              <li>Access to the operator's FAA Part 135 certificate number.</li>
+              <li>Refund of advance payments if the flight is not provided as agreed and JetNine is unable to substitute equivalent transportation.</li>
+            </ul>
+            <p>Complaints concerning Part 295 broker conduct may be filed with the U.S. DOT Office of Aviation Consumer Protection: 1-202-366-2220, <a href="https://www.transportation.gov/airconsumer" target="_blank" rel="noopener">transportation.gov/airconsumer</a>.</p>
+          </section>
+
+          <section class="lg-sec" id="p295-4">
+            <div class="lg-sec-head"><span class="lg-sec-num">— 3.4</span><h3>Definitions.</h3></div>
+            <p>Terms used in this document:</p>
+            <div class="lg-defs">
+              <div class="lg-def-row">
+                <span class="term">— DIRECT AIR CARRIER</span>
+                <span class="def">An entity holding an FAA Part 135 air-carrier certificate that directly operates aircraft for compensation.</span>
+              </div>
+              <div class="lg-def-row">
+                <span class="term">— INDIRECT AIR CARRIER</span>
+                <span class="def">An entity that arranges air transportation but does not operate aircraft. Air charter brokers under Part 295 are indirect air carriers.</span>
+              </div>
+              <div class="lg-def-row">
+                <span class="term">— OPERATIONAL CONTROL</span>
+                <span class="def">Authority over initiating, conducting, or terminating a flight. Held exclusively by the direct air carrier.</span>
+              </div>
+              <div class="lg-def-row">
+                <span class="term">— PART 295</span>
+                <span class="def">14 CFR Part 295 &mdash; U.S. DOT regulation governing air charter brokers.</span>
+              </div>
+              <div class="lg-def-row">
+                <span class="term">— PART 135</span>
+                <span class="def">14 CFR Part 135 &mdash; FAA regulation governing on-demand commuter and charter operations.</span>
+              </div>
+              <div class="lg-def-row">
+                <span class="term">— TRIP SHEET</span>
+                <span class="def">The written confirmation issued by JetNine before each flight stating operating carrier, tail number, crew, FBOs, and itemized pricing.</span>
+              </div>
+            </div>
+          </section>
+        </article>
+      </main>
+    </div>
+  </div>
+</section>
+
+<footer class="docfoot">
+  <div class="container">
+    <div class="footer-grid">
+      <div class="foot-col">
+        <div class="brand" style="font-size: 28px;">JetNine <span class="nine" style="font-size: 12px;">09</span></div>
+        <p class="body" style="margin-top: 16px; max-width: 320px;">Private jet charter, anywhere, anytime. Twenty thousand aircraft worldwide, one number to call.</p>
+        <div style="margin-top: 24px; display: flex; flex-direction: column; gap: 8px;">
+          <a class="phone-link" style="font-size:14px;" href="tel:+18188005678">+1 (818) 800-5678</a>
+          <a class="phone-link" style="font-size:14px;" href="mailto:dispatch@jetnine.com">dispatch@jetnine.com</a>
+        </div>
+      </div>
+      <div class="foot-col"><h4>Sitemap</h4><ul>
+        <li><a href="homepage.html">Home</a></li>
+        <li><a href="aircraft.html">Aircraft</a></li>
+        <li><a href="how-it-works.html">How it works</a></li>
+        <li><a href="memberships.html">Memberships</a></li>
+        <li><a href="empty-legs.html">Empty legs</a></li>
+        <li><a href="about.html">About</a></li>
+        <li><a href="contact.html">Contact</a></li>
+        <li><a href="faq.html">FAQ</a></li>
+      </ul></div>
+      <div class="foot-col"><h4>Categories</h4><ul>
+        <li><a href="aircraft.html">Turboprop</a></li>
+        <li><a href="aircraft-light.html">Light</a></li>
+        <li><a href="aircraft-midsize.html">Midsize</a></li>
+        <li><a href="aircraft-supermid.html">Super-mid</a></li>
+        <li><a href="aircraft-heavy.html">Heavy</a></li>
+        <li><a href="aircraft-ultra.html">Ultra long range</a></li>
+      </ul></div>
+      <div class="foot-col">
+        <h4>Legal</h4>
+        <ul style="gap: 8px;">
+          <li><a href="legal.html#doc-privacy">Privacy</a></li>
+          <li><a href="legal.html#doc-terms">Terms</a></li>
+          <li><a href="legal.html#doc-p295">Part 295 broker disclosure</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="foot-bottom">
+      <div>JETNINE © 2026 — LOS ANGELES</div>
+      <div style="display: flex; gap: 24px;">
+        <a href="#" style="color: var(--steel); text-decoration: none;">X</a>
+        <a href="#" style="color: var(--steel); text-decoration: none;">IG</a>
+        <a href="#" style="color: var(--steel); text-decoration: none;">LI</a>
+      </div>
+      <div style="max-width: 480px; text-align: right;">JetNine is an indirect air carrier — Part 295 broker. All flights operated by FAA Part 135 certified carriers.</div>
+    </div>
+  </div>
+</footer>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script type="text/babel" src="tweaks-panel.jsx"></script>
+<div id="tweaks-root"></div>
+<script type="text/babel" src="tweaks.jsx"></script>
+
+<script>
+  const nav = document.getElementById('nav');
+  function updateNav() { if (window.scrollY > 60) nav.classList.add('scrolled'); else nav.classList.remove('scrolled'); }
+  window.addEventListener('scroll', updateNav, { passive: true }); updateNav();
+
+  const reveals = document.querySelectorAll('.reveal');
+  const revObs = new IntersectionObserver((entries) => {
+    entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('in'); revObs.unobserve(e.target); } });
+  }, { threshold: 0.15 });
+  reveals.forEach(r => revObs.observe(r));
+
+  // TOC active
+  const tocLinks = document.querySelectorAll('.lg-toc a');
+  const tocSections = document.querySelectorAll('.lg-sec');
+  const tocObs = new IntersectionObserver((entries) => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        const id = e.target.id;
+        tocLinks.forEach(l => l.classList.toggle('active', l.getAttribute('href') === '#' + id));
+      }
+    });
+  }, { rootMargin: '-30% 0px -60% 0px' });
+  tocSections.forEach(s => tocObs.observe(s));
+</script>
+</body>
+</html>

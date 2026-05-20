@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>JetNine — Redesign · Index</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,500;9..144,600&family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="shared.css" />
+<style>
+  body { background: var(--ink); }
+
+  .idx-top {
+    position: sticky; top: 0; z-index: 50;
+    background: rgba(7,8,10,0.92); backdrop-filter: blur(14px);
+    border-bottom: 1px solid var(--ink-3);
+    padding: 18px 32px;
+    display: flex; align-items: center; gap: 24px; justify-content: space-between; flex-wrap: wrap;
+  }
+  .idx-top .brand { font-family: var(--serif); font-weight: 400; font-size: 22px; color: var(--bone); text-decoration: none; }
+  .idx-top .brand .nine { font-family: var(--mono); font-size: 10px; color: var(--clearance); letter-spacing: 0.1em; vertical-align: super; margin-left: 2px; }
+  .idx-top .crumbs { font-family: var(--mono); font-size: 11px; letter-spacing: 0.12em; color: var(--bone-2); text-transform: uppercase; }
+  .idx-top .crumbs .here { color: var(--bone); }
+  .idx-top .meta { font-family: var(--mono); font-size: 11px; color: var(--steel); letter-spacing: 0.04em; display: flex; gap: 18px; }
+  .idx-top .meta .em { color: var(--clearance); }
+
+  /* Hero */
+  .idx-hero { padding: 96px 32px 64px; max-width: 1280px; margin: 0 auto; border-bottom: 1px solid var(--ink-3); }
+  .idx-hero .kicker { font-family: var(--mono); font-size: 11px; letter-spacing: 0.16em; color: var(--bone-2); text-transform: uppercase; display: inline-flex; align-items: center; gap: 12px; margin-bottom: 24px; }
+  .idx-hero .kicker .dash { width: 32px; height: 1px; background: var(--clearance); }
+  .idx-hero h1 { font-family: var(--serif); font-weight: 300; font-size: clamp(48px, 7vw, 84px); line-height: 1.02; letter-spacing: -0.02em; max-width: 18ch; }
+  .idx-hero .lead { font-size: 19px; color: var(--bone-2); line-height: 1.6; max-width: 60ch; margin-top: 28px; }
+  .idx-hero .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 32px; margin-top: 64px; padding-top: 32px; border-top: 1px solid var(--ink-3); }
+  @media (max-width: 900px) { .idx-hero .stats { grid-template-columns: repeat(2, 1fr); gap: 24px; } }
+  .idx-hero .stat .l { font-family: var(--mono); font-size: 10px; color: var(--steel); letter-spacing: 0.14em; text-transform: uppercase; }
+  .idx-hero .stat .v { font-family: var(--serif); font-weight: 300; font-size: 44px; color: var(--bone); letter-spacing: -0.01em; line-height: 1; margin-top: 8px; }
+  .idx-hero .stat .v .u { font-family: var(--mono); font-size: 13px; color: var(--bone-2); margin-left: 4px; }
+  .idx-hero .stat .d { font-family: var(--mono); font-size: 10px; color: var(--bone-2); letter-spacing: 0.04em; margin-top: 6px; }
+
+  /* Sections */
+  .idx-body { max-width: 1280px; margin: 0 auto; padding: 64px 32px 96px; }
+  .grp { margin-bottom: 56px; }
+  .grp .gh { display: grid; grid-template-columns: auto 1fr auto; gap: 18px; align-items: baseline; padding-bottom: 16px; margin-bottom: 20px; border-bottom: 1px solid var(--ink-3); }
+  .grp .gh .num { font-family: var(--mono); font-size: 11px; color: var(--clearance); letter-spacing: 0.14em; }
+  .grp .gh h2 { font-family: var(--serif); font-weight: 400; font-size: 30px; letter-spacing: -0.01em; }
+  .grp .gh .meta { font-family: var(--mono); font-size: 11px; color: var(--steel); letter-spacing: 0.06em; text-align: right; }
+
+  .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+  @media (max-width: 1100px) { .grid { grid-template-columns: repeat(3, 1fr); } }
+  @media (max-width: 800px) { .grid { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 500px) { .grid { grid-template-columns: 1fr; } }
+
+  .tile {
+    background: var(--ink-2); border: 1px solid var(--ink-3); border-radius: 4px;
+    overflow: hidden; text-decoration: none; color: inherit;
+    transition: border-color 200ms, transform 200ms;
+    display: flex; flex-direction: column;
+  }
+  .tile:hover { border-color: var(--clearance); transform: translateY(-2px); }
+  .tile .thumb {
+    aspect-ratio: 16 / 10;
+    background: var(--ink); border-bottom: 1px solid var(--ink-3);
+    position: relative; overflow: hidden;
+  }
+  .tile .thumb::before {
+    content: ""; position: absolute; inset: 0;
+    background-image:
+      linear-gradient(rgba(232,226,210,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(232,226,210,0.03) 1px, transparent 1px);
+    background-size: 22px 22px;
+  }
+  .tile .thumb .corner-id {
+    position: absolute; top: 10px; left: 12px;
+    font-family: var(--mono); font-size: 9px; letter-spacing: 0.14em;
+    color: var(--steel); text-transform: uppercase;
+  }
+  .tile .thumb .corner-tag {
+    position: absolute; top: 10px; right: 12px;
+    font-family: var(--mono); font-size: 9px; letter-spacing: 0.1em;
+    color: var(--clearance); padding: 2px 6px; background: rgba(232,226,210,0.06); border-radius: 2px;
+  }
+  .tile .thumb .glyph {
+    position: absolute; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-family: var(--serif); font-weight: 300; color: rgba(232,226,210,0.16);
+    letter-spacing: -0.02em;
+  }
+  .tile .thumb .glyph.serif-num { font-size: 80px; line-height: 1; }
+  .tile .thumb .glyph.mono { font-family: var(--mono); font-size: 22px; letter-spacing: 0.06em; color: rgba(232,226,210,0.22); }
+
+  .tile .body { padding: 14px 16px; display: flex; flex-direction: column; gap: 4px; min-height: 78px; }
+  .tile .body .t { font-family: var(--serif); font-size: 17px; color: var(--bone); line-height: 1.2; letter-spacing: -0.005em; }
+  .tile .body .d { font-family: var(--mono); font-size: 10px; color: var(--bone-2); letter-spacing: 0.04em; }
+
+  /* Special thumb treatments to suggest each screen */
+  .th-mosaic {
+    background: var(--ink);
+  }
+  .th-mosaic .bar { position: absolute; }
+  .th-mosaic .bar.a { left: 8%; top: 22%; width: 36%; height: 6%; background: rgba(232,226,210,0.35); }
+  .th-mosaic .bar.b { left: 8%; top: 34%; width: 52%; height: 4%; background: rgba(232,226,210,0.18); }
+  .th-mosaic .bar.c { left: 8%; top: 42%; width: 44%; height: 4%; background: rgba(232,226,210,0.18); }
+  .th-mosaic .bar.d { left: 8%; top: 60%; width: 22%; height: 18%; background: rgba(232,226,210,0.1); }
+  .th-mosaic .bar.e { left: 34%; top: 60%; width: 22%; height: 18%; background: rgba(232,226,210,0.1); }
+  .th-mosaic .bar.f { left: 60%; top: 60%; width: 22%; height: 18%; background: rgba(232,226,210,0.1); }
+  .th-mosaic .bar.g { left: 60%; top: 22%; width: 30%; height: 26%; background: rgba(232,226,210,0.08); border-left: 2px solid var(--clearance); }
+
+  .th-table .row { position: absolute; left: 6%; right: 6%; height: 6%; background: rgba(232,226,210,0.08); border-bottom: 1px solid var(--ink-3); }
+  .th-table .row.h { background: rgba(232,226,210,0.14); top: 14%; }
+  .th-table .row.r1 { top: 26%; }
+  .th-table .row.r2 { top: 36%; }
+  .th-table .row.r3 { top: 46%; background: rgba(232,226,210,0.16); border-left: 2px solid var(--clearance); }
+  .th-table .row.r4 { top: 56%; }
+  .th-table .row.r5 { top: 66%; }
+  .th-table .row.r6 { top: 76%; }
+
+  .th-map svg { width: 100%; height: 100%; }
+
+  .th-cards { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; padding: 16% 8%; }
+  .th-cards .c { background: rgba(232,226,210,0.07); border-radius: 2px; aspect-ratio: 3/4; }
+  .th-cards .c:nth-child(2) { background: rgba(232,226,210,0.18); }
+
+  .th-chart svg { width: 100%; height: 100%; }
+
+  .th-form .field { position: absolute; left: 8%; right: 8%; height: 10%; background: rgba(232,226,210,0.06); border-radius: 2px; }
+  .th-form .field.f1 { top: 18%; }
+  .th-form .field.f2 { top: 32%; }
+  .th-form .field.f3 { top: 46%; }
+  .th-form .btn { position: absolute; right: 8%; top: 70%; width: 30%; height: 12%; background: var(--clearance); border-radius: 2px; }
+
+  .th-hero .head { position: absolute; left: 8%; top: 22%; right: 30%; height: 24%; background: rgba(232,226,210,0.16); border-radius: 2px; }
+  .th-hero .sub { position: absolute; left: 8%; top: 52%; right: 50%; height: 4%; background: rgba(232,226,210,0.08); }
+  .th-hero .sub2 { position: absolute; left: 8%; top: 58%; right: 56%; height: 4%; background: rgba(232,226,210,0.08); }
+  .th-hero .cta { position: absolute; left: 8%; top: 70%; width: 30%; height: 12%; background: var(--clearance); border-radius: 2px; }
+
+  .th-grid .cell { position: absolute; background: rgba(232,226,210,0.08); border-radius: 2px; }
+  .th-grid .cell.a { left: 8%; top: 18%; width: 42%; height: 36%; }
+  .th-grid .cell.b { left: 52%; top: 18%; width: 40%; height: 18%; background: rgba(232,226,210,0.16); border-left: 2px solid var(--clearance); }
+  .th-grid .cell.c { left: 52%; top: 38%; width: 40%; height: 16%; }
+  .th-grid .cell.d { left: 8%; top: 58%; width: 84%; height: 24%; }
+
+  .th-board .row { position: absolute; height: 10%; left: 6%; right: 6%; background: rgba(232,226,210,0.06); border-radius: 2px; }
+  .th-board .row.r1 { top: 14%; }
+  .th-board .row.r2 { top: 26%; background: rgba(232,226,210,0.16); border-left: 2px solid var(--clearance); }
+  .th-board .row.r3 { top: 38%; }
+  .th-board .row.r4 { top: 50%; }
+  .th-board .row.r5 { top: 62%; background: rgba(212,98,42,0.16); border-left: 2px solid #D4622A; }
+  .th-board .row.r6 { top: 74%; }
+
+  .th-pill .pill { position: absolute; height: 22%; background: rgba(232,226,210,0.08); border-radius: 999px; border: 1px solid var(--ink-3); }
+  .th-pill .pill.a { left: 8%; top: 14%; width: 28%; }
+  .th-pill .pill.b { left: 38%; top: 14%; width: 22%; background: rgba(232,226,210,0.22); border-color: var(--clearance); }
+  .th-pill .pill.c { left: 62%; top: 14%; width: 28%; }
+  .th-pill .total { position: absolute; left: 8%; top: 50%; width: 50%; height: 18%; background: rgba(232,226,210,0.16); }
+  .th-pill .x { position: absolute; left: 8%; top: 74%; width: 30%; height: 8%; background: rgba(232,226,210,0.08); }
+  .th-pill .y { position: absolute; left: 42%; top: 74%; width: 30%; height: 8%; background: rgba(232,226,210,0.08); }
+
+  .th-graph svg { width: 100%; height: 100%; }
+</style>
+</head>
+<body data-screen-label="00 Index">
+
+<header class="idx-top">
+  <a href="homepage.html" class="brand">JetNine <span class="nine">09</span></a>
+  <div class="crumbs">
+    REDESIGN <span style="color: var(--ink-4); margin: 0 6px;">/</span>
+    <span class="here">SITE INDEX</span>
+  </div>
+  <div class="meta">
+    <span><span class="em">31</span> screens</span>
+    <span><span class="em">v0.9</span> draft</span>
+    <span>May 16, 2026</span>
+  </div>
+</header>
+
+<section class="idx-hero">
+  <div class="kicker"><span class="dash"></span> JetNine · v0.9 redesign · system map</div>
+  <h1>One number, one desk,<br/>thirty-one screens.</h1>
+  <p class="lead">A full redesign of jetnine.com — the marketing site, the member account, the four-step quote flow, and the dispatcher-side admin app. Designed as a single editorial system: dark surfaces, monospace operations type, one accent used sparingly. Every screen below is built, linked, and live in the prototype.</p>
+
+  <div class="stats">
+    <div class="stat"><div class="l">— PUBLIC PAGES</div><div class="v">17</div><div class="d">Marketing + quote flow</div></div>
+    <div class="stat"><div class="l">— MEMBER ACCOUNT</div><div class="v">5</div><div class="d">Logged-in shell</div></div>
+    <div class="stat"><div class="l">— ADMIN / DISPATCH</div><div class="v">9</div><div class="d">Operational tools</div></div>
+    <div class="stat"><div class="l">— DESIGN SYSTEM</div><div class="v">v0.1</div><div class="d">Tokens · components</div></div>
+  </div>
+</section>
+
+<main class="idx-body">
+
+  <!-- 01 MARKETING -->
+  <section class="grp">
+    <div class="gh">
+      <span class="num">— 01</span>
+      <h2>Marketing site</h2>
+      <span class="meta">— jetnine.com · 12 pages</span>
+    </div>
+    <div class="grid">
+      <a class="tile" href="homepage.html">
+        <div class="thumb th-hero">
+          <span class="corner-id">— 01.01</span><span class="corner-tag">HOME</span>
+          <div class="head"></div><div class="sub"></div><div class="sub2"></div><div class="cta"></div>
+        </div>
+        <div class="body"><span class="t">Homepage</span><span class="d">— Hero, quote widget, value props</span></div>
+      </a>
+      <a class="tile" href="aircraft.html">
+        <div class="thumb th-cards">
+          <span class="corner-id">— 01.02</span><span class="corner-tag">FLEET</span>
+          <div class="c"></div><div class="c"></div><div class="c"></div>
+          <div class="c"></div><div class="c"></div><div class="c"></div>
+        </div>
+        <div class="body"><span class="t">Aircraft overview</span><span class="d">— Six categories side-by-side</span></div>
+      </a>
+      <a class="tile" href="aircraft-light.html">
+        <div class="thumb"><span class="corner-id">— 01.03</span><span class="corner-tag">CAT</span><span class="glyph mono">LIGHT</span></div>
+        <div class="body"><span class="t">Light jets</span><span class="d">— Category detail</span></div>
+      </a>
+      <a class="tile" href="aircraft-midsize.html">
+        <div class="thumb"><span class="corner-id">— 01.04</span><span class="corner-tag">CAT</span><span class="glyph mono">MIDSIZE</span></div>
+        <div class="body"><span class="t">Midsize jets</span><span class="d">— Category detail</span></div>
+      </a>
+      <a class="tile" href="aircraft-supermid.html">
+        <div class="thumb"><span class="corner-id">— 01.05</span><span class="corner-tag">CAT</span><span class="glyph mono">SUPER-MID</span></div>
+        <div class="body"><span class="t">Super-midsize</span><span class="d">— Category detail</span></div>
+      </a>
+      <a class="tile" href="aircraft-heavy.html">
+        <div class="thumb"><span class="corner-id">— 01.06</span><span class="corner-tag">CAT</span><span class="glyph mono">HEAVY</span></div>
+        <div class="body"><span class="t">Heavy jets</span><span class="d">— Category detail</span></div>
+      </a>
+      <a class="tile" href="aircraft-ultra.html">
+        <div class="thumb"><span class="corner-id">— 01.07</span><span class="corner-tag">CAT</span><span class="glyph mono">ULTRA</span></div>
+        <div class="body"><span class="t">Ultra long range</span><span class="d">— With reach map</span></div>
+      </a>
+      <a class="tile" href="how-it-works.html">
+        <div class="thumb th-mosaic">
+          <span class="corner-id">— 01.08</span><span class="corner-tag">OPS</span>
+          <div class="bar a"></div><div class="bar b"></div><div class="bar c"></div>
+          <div class="bar d"></div><div class="bar e"></div><div class="bar f"></div>
+          <div class="bar g"></div>
+        </div>
+        <div class="body"><span class="t">How it works</span><span class="d">— Process · dispatch · pricing</span></div>
+      </a>
+      <a class="tile" href="memberships.html">
+        <div class="thumb th-cards">
+          <span class="corner-id">— 01.09</span><span class="corner-tag">TIERS</span>
+          <div class="c"></div><div class="c"></div><div class="c"></div>
+        </div>
+        <div class="body"><span class="t">Memberships</span><span class="d">— Reserve 50 / 100 / 250</span></div>
+      </a>
+      <a class="tile" href="empty-legs.html">
+        <div class="thumb th-board">
+          <span class="corner-id">— 01.10</span><span class="corner-tag">LIVE</span>
+          <div class="row r1"></div><div class="row r2"></div><div class="row r3"></div>
+          <div class="row r4"></div><div class="row r5"></div><div class="row r6"></div>
+        </div>
+        <div class="body"><span class="t">Empty legs</span><span class="d">— Live board · 30–60% off</span></div>
+      </a>
+      <a class="tile" href="safety.html">
+        <div class="thumb"><span class="corner-id">— 01.11</span><span class="corner-tag">TRUST</span><span class="glyph mono">SAFETY</span></div>
+        <div class="body"><span class="t">Safety</span><span class="d">— Ratings · audits · standards</span></div>
+      </a>
+      <a class="tile" href="about.html">
+        <div class="thumb th-mosaic">
+          <span class="corner-id">— 01.12</span><span class="corner-tag">ABOUT</span>
+          <div class="bar a"></div><div class="bar b"></div><div class="bar d"></div>
+          <div class="bar e"></div><div class="bar f"></div>
+        </div>
+        <div class="body"><span class="t">About</span><span class="d">— Beliefs · founders · team</span></div>
+      </a>
+      <a class="tile" href="contact.html">
+        <div class="thumb th-hero">
+          <span class="corner-id">— 01.13</span><span class="corner-tag">CTA</span>
+          <div class="head"></div><div class="sub"></div><div class="cta"></div>
+        </div>
+        <div class="body"><span class="t">Contact</span><span class="d">— Channels · form · FBO list</span></div>
+      </a>
+      <a class="tile" href="faq.html">
+        <div class="thumb th-table">
+          <span class="corner-id">— 01.14</span><span class="corner-tag">DOC</span>
+          <div class="row h"></div><div class="row r1"></div><div class="row r2"></div>
+          <div class="row r3"></div><div class="row r4"></div><div class="row r5"></div>
+        </div>
+        <div class="body"><span class="t">FAQ</span><span class="d">— 31 Q&A · sticky TOC</span></div>
+      </a>
+      <a class="tile" href="legal.html">
+        <div class="thumb th-table">
+          <span class="corner-id">— 01.15</span><span class="corner-tag">LEGAL</span>
+          <div class="row h"></div><div class="row r1"></div><div class="row r2"></div>
+          <div class="row r4"></div><div class="row r5"></div>
+        </div>
+        <div class="body"><span class="t">Legal</span><span class="d">— Privacy · Terms · Part 295</span></div>
+      </a>
+      <a class="tile" href="design-system.html">
+        <div class="thumb th-cards">
+          <span class="corner-id">— 01.16</span><span class="corner-tag">SYSTEM</span>
+          <div class="c"></div><div class="c"></div><div class="c"></div>
+          <div class="c"></div><div class="c"></div><div class="c"></div>
+        </div>
+        <div class="body"><span class="t">Design system</span><span class="d">— Tokens · type · components</span></div>
+      </a>
+    </div>
+  </section>
+
+  <!-- 02 QUOTE FLOW -->
+  <section class="grp">
+    <div class="gh">
+      <span class="num">— 02</span>
+      <h2>Quote flow</h2>
+      <span class="meta">— public · 4-step wizard</span>
+    </div>
+    <div class="grid">
+      <a class="tile" href="quote-step1.html">
+        <div class="thumb th-form">
+          <span class="corner-id">— 02.01</span><span class="corner-tag">STEP 1</span>
+          <div class="field f1"></div><div class="field f2"></div><div class="field f3"></div>
+          <div class="btn"></div>
+        </div>
+        <div class="body"><span class="t">Step 1 · Mission</span><span class="d">— Legs · pax · dates</span></div>
+      </a>
+      <a class="tile" href="quote-step2.html">
+        <div class="thumb th-cards">
+          <span class="corner-id">— 02.02</span><span class="corner-tag">STEP 2</span>
+          <div class="c"></div><div class="c"></div><div class="c"></div>
+        </div>
+        <div class="body"><span class="t">Step 2 · Aircraft</span><span class="d">— Category · catering · ground</span></div>
+      </a>
+      <a class="tile" href="quote-step3.html">
+        <div class="thumb th-form">
+          <span class="corner-id">— 02.03</span><span class="corner-tag">STEP 3</span>
+          <div class="field f1"></div><div class="field f2"></div><div class="field f3"></div>
+          <div class="btn"></div>
+        </div>
+        <div class="body"><span class="t">Step 3 · Contact</span><span class="d">— Details · prefs · consent</span></div>
+      </a>
+      <a class="tile" href="quote-step4.html">
+        <div class="thumb th-pill">
+          <span class="corner-id">— 02.04</span><span class="corner-tag">STEP 4</span>
+          <div class="pill a"></div><div class="pill b"></div><div class="pill c"></div>
+          <div class="total"></div><div class="x"></div><div class="y"></div>
+        </div>
+        <div class="body"><span class="t">Step 4 · Review</span><span class="d">— Summary · price · submit</span></div>
+      </a>
+    </div>
+  </section>
+
+  <!-- 03 MEMBER ACCOUNT -->
+  <section class="grp">
+    <div class="gh">
+      <span class="num">— 03</span>
+      <h2>Member account</h2>
+      <span class="meta">— logged-in shell</span>
+    </div>
+    <div class="grid">
+      <a class="tile" href="account-dashboard.html">
+        <div class="thumb th-grid">
+          <span class="corner-id">— 03.01</span><span class="corner-tag">HOME</span>
+          <div class="cell a"></div><div class="cell b"></div><div class="cell c"></div><div class="cell d"></div>
+        </div>
+        <div class="body"><span class="t">Dashboard</span><span class="d">— Next trip · KPIs · balance</span></div>
+      </a>
+      <a class="tile" href="account-trips.html">
+        <div class="thumb th-table">
+          <span class="corner-id">— 03.02</span><span class="corner-tag">HISTORY</span>
+          <div class="row h"></div><div class="row r1"></div><div class="row r2"></div>
+          <div class="row r3"></div><div class="row r4"></div><div class="row r5"></div>
+        </div>
+        <div class="body"><span class="t">Trips</span><span class="d">— Full flight history</span></div>
+      </a>
+      <a class="tile" href="account-invoices.html">
+        <div class="thumb th-table">
+          <span class="corner-id">— 03.03</span><span class="corner-tag">$</span>
+          <div class="row h"></div><div class="row r1"></div><div class="row r2"></div>
+          <div class="row r3"></div><div class="row r4"></div>
+        </div>
+        <div class="body"><span class="t">Invoices</span><span class="d">— Outstanding · paid · methods</span></div>
+      </a>
+      <a class="tile" href="account-preferences.html">
+        <div class="thumb th-form">
+          <span class="corner-id">— 03.04</span><span class="corner-tag">PREFS</span>
+          <div class="field f1"></div><div class="field f2"></div><div class="field f3"></div>
+        </div>
+        <div class="body"><span class="t">Preferences</span><span class="d">— Cabin · catering · lanes</span></div>
+      </a>
+      <a class="tile" href="account-members.html">
+        <div class="thumb th-pill">
+          <span class="corner-id">— 03.05</span><span class="corner-tag">RESERVE</span>
+          <div class="pill a"></div><div class="pill b"></div><div class="pill c"></div>
+          <div class="total"></div>
+        </div>
+        <div class="body"><span class="t">Membership</span><span class="d">— Tier · balance · activity</span></div>
+      </a>
+    </div>
+  </section>
+
+  <!-- 04 ADMIN -->
+  <section class="grp">
+    <div class="gh">
+      <span class="num">— 04</span>
+      <h2>Admin · dispatch desk</h2>
+      <span class="meta">— internal · ops tools</span>
+    </div>
+    <div class="grid">
+      <a class="tile" href="admin-dispatch.html">
+        <div class="thumb th-mosaic">
+          <span class="corner-id">— 04.01</span><span class="corner-tag">INBOX</span>
+          <div class="bar a"></div><div class="bar b"></div><div class="bar c"></div>
+          <div class="bar d"></div><div class="bar e"></div><div class="bar f"></div><div class="bar g"></div>
+        </div>
+        <div class="body"><span class="t">Dispatch inbox</span><span class="d">— Quotes · in-flight · IRR</span></div>
+      </a>
+      <a class="tile" href="admin-quote.html">
+        <div class="thumb th-grid">
+          <span class="corner-id">— 04.02</span><span class="corner-tag">SOURCE</span>
+          <div class="cell a"></div><div class="cell b"></div><div class="cell c"></div><div class="cell d"></div>
+        </div>
+        <div class="body"><span class="t">Quote workbench</span><span class="d">— Sourcing · pricing · reply</span></div>
+      </a>
+      <a class="tile" href="admin-ops.html">
+        <div class="thumb th-map">
+          <span class="corner-id">— 04.03</span><span class="corner-tag">LIVE</span>
+          <svg viewBox="0 0 100 60" preserveAspectRatio="none">
+            <path d="M10 36 Q 50 18 90 38" stroke="rgba(232,226,210,0.3)" fill="none" stroke-width="1.5" stroke-dasharray="2 2"/>
+            <path d="M10 36 Q 26 28 40 24" stroke="var(--clearance)" fill="none" stroke-width="1.5"/>
+            <circle cx="40" cy="24" r="2.5" fill="var(--clearance)"/>
+            <circle cx="10" cy="36" r="2" fill="none" stroke="var(--bone-2)"/>
+            <circle cx="90" cy="38" r="2" fill="var(--clearance)"/>
+          </svg>
+        </div>
+        <div class="body"><span class="t">Live ops board</span><span class="d">— Aircraft in the air now</span></div>
+      </a>
+      <a class="tile" href="admin-trip.html">
+        <div class="thumb th-grid">
+          <span class="corner-id">— 04.04</span><span class="corner-tag">TRIP</span>
+          <div class="cell a"></div><div class="cell b"></div><div class="cell c"></div><div class="cell d"></div>
+        </div>
+        <div class="body"><span class="t">Trip sheet</span><span class="d">— Manifest · crew · audit</span></div>
+      </a>
+      <a class="tile" href="admin-member.html">
+        <div class="thumb th-grid">
+          <span class="corner-id">— 04.05</span><span class="corner-tag">CRM</span>
+          <div class="cell a"></div><div class="cell b"></div><div class="cell c"></div><div class="cell d"></div>
+        </div>
+        <div class="body"><span class="t">Member profile</span><span class="d">— 360° view · rules · notes</span></div>
+      </a>
+      <a class="tile" href="admin-operators.html">
+        <div class="thumb th-table">
+          <span class="corner-id">— 04.06</span><span class="corner-tag">SUPPLY</span>
+          <div class="row h"></div><div class="row r1"></div><div class="row r2"></div>
+          <div class="row r3"></div><div class="row r4"></div><div class="row r5"></div>
+        </div>
+        <div class="body"><span class="t">Operators</span><span class="d">— 148 directory · vetting</span></div>
+      </a>
+      <a class="tile" href="admin-aircraft.html">
+        <div class="thumb th-board">
+          <span class="corner-id">— 04.07</span><span class="corner-tag">FLEET</span>
+          <div class="row r1"></div><div class="row r2"></div><div class="row r3"></div>
+          <div class="row r4"></div><div class="row r5"></div><div class="row r6"></div>
+        </div>
+        <div class="body"><span class="t">Aircraft availability</span><span class="d">— 14-day fleet planner</span></div>
+      </a>
+      <a class="tile" href="admin-empty-leg.html">
+        <div class="thumb th-form">
+          <span class="corner-id">— 04.08</span><span class="corner-tag">AUTHOR</span>
+          <div class="field f1"></div><div class="field f2"></div><div class="field f3"></div>
+          <div class="btn"></div>
+        </div>
+        <div class="body"><span class="t">Empty-leg authoring</span><span class="d">— Publish · price · match</span></div>
+      </a>
+      <a class="tile" href="admin-reports.html">
+        <div class="thumb th-graph">
+          <span class="corner-id">— 04.09</span><span class="corner-tag">$</span>
+          <svg viewBox="0 0 100 60" preserveAspectRatio="none">
+            <polyline points="6,46 18,42 30,38 42,40 54,34 66,28 78,22 92,14" fill="none" stroke="var(--clearance)" stroke-width="1.5"/>
+            <polyline points="6,52 18,50 30,48 42,49 54,46 66,44 78,42 92,38" fill="none" stroke="#6FB6F0" stroke-width="1"/>
+            <polyline points="6,40 18,38 30,36 42,34 54,32 66,30 78,28 92,24" fill="none" stroke="var(--bone-2)" stroke-width="1" stroke-dasharray="2 2"/>
+            <circle cx="92" cy="14" r="3" fill="var(--clearance)"/>
+          </svg>
+        </div>
+        <div class="body"><span class="t">Reports</span><span class="d">— Revenue · ops · members</span></div>
+      </a>
+    </div>
+  </section>
+
+  <section style="padding: 64px 0 0; border-top: 1px solid var(--ink-3); margin-top: 32px;">
+    <div style="display: flex; align-items: baseline; gap: 24px; flex-wrap: wrap;">
+      <h2 style="font-family: var(--serif); font-weight: 300; font-size: 36px; letter-spacing: -0.01em; max-width: 22ch; line-height: 1.1;">A redesign in editorial sympathy with the trade it serves.</h2>
+      <p style="font-family: var(--mono); font-size: 11px; color: var(--bone-2); letter-spacing: 0.04em; max-width: 50ch; line-height: 1.7;">— Built page-by-page. Single accent. Operations type. Members &amp; the dispatch desk on opposite sides of the same system. Ready for review.</p>
+    </div>
+  </section>
+
+</main>
+
+</body>
+</html>

@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>JetNine — Empty Legs</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,500;9..144,600&family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="shared.css" />
+<style>
+  /* Hero */
+  .el-hero {
+    padding: 200px 0 80px; border-bottom: 1px solid var(--ink-3); position: relative;
+  }
+  .el-hero .container { display: grid; grid-template-columns: 1.4fr 1fr; gap: 64px; align-items: end; }
+  @media (max-width: 900px) { .el-hero .container { grid-template-columns: 1fr; gap: 32px; } }
+  .el-hero .kicker { display: inline-flex; align-items: center; gap: 12px; margin-bottom: 32px; }
+  .el-hero .kicker .dash { width: 32px; height: 1px; background: var(--clearance); }
+  .el-hero h1 { max-width: 14ch; }
+  .el-hero .lead { font-size: 18px; color: var(--bone-2); margin-top: 24px; line-height: 1.55; max-width: 56ch; }
+
+  .live-card {
+    background: var(--ink-2); border: 1px solid var(--ink-3); border-radius: 4px;
+    padding: 32px; display: flex; flex-direction: column; gap: 16px;
+  }
+  .live-row {
+    display: flex; align-items: center; gap: 12px;
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.14em; color: var(--clearance);
+    text-transform: uppercase;
+  }
+  .live-dot {
+    width: 8px; height: 8px; border-radius: 50%; background: var(--clearance);
+    box-shadow: 0 0 0 0 rgba(212,98,42,0.7); animation: pulse 1.8s infinite;
+  }
+  @keyframes pulse {
+    0% { box-shadow: 0 0 0 0 rgba(212,98,42,0.7); }
+    70% { box-shadow: 0 0 0 12px rgba(212,98,42,0); }
+    100% { box-shadow: 0 0 0 0 rgba(212,98,42,0); }
+  }
+  .live-card .big {
+    font-family: var(--serif); font-weight: 300; font-size: 80px; line-height: 0.95;
+    letter-spacing: -0.02em; color: var(--bone);
+  }
+  .live-card .desc {
+    color: var(--bone-2); font-size: 14px; line-height: 1.55; max-width: 36ch;
+  }
+  .live-card .meta {
+    display: flex; gap: 32px; padding-top: 16px; border-top: 1px solid var(--ink-3);
+    margin-top: 8px;
+  }
+  .live-card .meta div { display: flex; flex-direction: column; gap: 4px; }
+  .live-card .meta .lbl { font-family: var(--mono); font-size: 9px; letter-spacing: 0.12em; color: var(--steel); text-transform: uppercase; }
+  .live-card .meta .val { font-family: var(--mono); font-size: 13px; color: var(--bone); }
+
+  /* Filter bar (sticky) */
+  .filters {
+    position: sticky; top: 64px; z-index: 50;
+    background: var(--ink); border-bottom: 1px solid var(--ink-3);
+    padding: 20px 0;
+    backdrop-filter: blur(8px); background: rgba(13,13,12,0.95);
+  }
+  .filter-row {
+    display: flex; gap: 12px; align-items: center; flex-wrap: wrap;
+  }
+  .filter-label {
+    font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em; color: var(--steel);
+    text-transform: uppercase; margin-right: 8px;
+  }
+  .chip {
+    padding: 8px 14px; background: transparent; border: 1px solid var(--ink-3);
+    border-radius: 999px; font-family: var(--mono); font-size: 11px; letter-spacing: 0.06em;
+    color: var(--bone-2); cursor: pointer; transition: all 200ms;
+    display: inline-flex; align-items: center; gap: 8px; white-space: nowrap;
+  }
+  .chip:hover { border-color: var(--bone-2); color: var(--bone); }
+  .chip.active {
+    background: var(--clearance); border-color: var(--clearance); color: white;
+  }
+  .chip .count {
+    font-size: 10px; padding: 2px 6px; background: rgba(255,255,255,0.15);
+    border-radius: 4px;
+  }
+  .chip:not(.active) .count { background: var(--ink-3); }
+  .filter-divider { width: 1px; height: 20px; background: var(--ink-3); margin: 0 8px; }
+  .filter-spacer { flex: 1; }
+  .filter-results { font-family: var(--mono); font-size: 11px; color: var(--bone-2); letter-spacing: 0.06em; }
+  .filter-results .num { color: var(--clearance); font-weight: 500; }
+
+  /* Legs grid */
+  .legs { padding: 64px 0 160px; border-bottom: 1px solid var(--ink-3); }
+  .leg-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 24px; }
+  @media (max-width: 1100px) { .leg-grid { grid-template-columns: 1fr; } }
+
+  .leg-card {
+    background: var(--ink-2); border: 1px solid var(--ink-3); border-radius: 4px;
+    padding: 32px; transition: all 240ms;
+    display: grid; grid-template-rows: auto auto auto auto; gap: 24px;
+    position: relative; overflow: hidden;
+  }
+  .leg-card:hover {
+    border-color: var(--clearance);
+    transform: translateY(-2px);
+    box-shadow: 0 24px 48px rgba(0,0,0,0.4);
+  }
+  .leg-card.featured {
+    border-color: rgba(212,98,42,0.4);
+    background: linear-gradient(180deg, rgba(212,98,42,0.06) 0%, var(--ink-2) 60%);
+  }
+
+  .leg-head {
+    display: flex; justify-content: space-between; align-items: flex-start; gap: 16px;
+  }
+  .leg-meta {
+    display: flex; flex-direction: column; gap: 6px;
+  }
+  .leg-meta .id {
+    font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em; color: var(--steel);
+  }
+  .leg-meta .category {
+    font-family: var(--mono); font-size: 11px; color: var(--bone-2); letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+  .leg-discount {
+    padding: 6px 10px; background: var(--clearance); color: white;
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.08em;
+    border-radius: 2px; white-space: nowrap;
+  }
+
+  /* Route diagram */
+  .leg-route {
+    display: grid; grid-template-columns: 1fr auto 1fr; gap: 24px; align-items: center;
+    padding: 12px 0;
+  }
+  .leg-airport {
+    display: flex; flex-direction: column; gap: 6px;
+  }
+  .leg-airport.right { text-align: right; align-items: flex-end; }
+  .leg-airport .code {
+    font-family: var(--serif); font-weight: 300; font-size: 44px; line-height: 1;
+    letter-spacing: -0.01em; color: var(--bone);
+  }
+  .leg-airport .city {
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.06em;
+    color: var(--bone-2); text-transform: uppercase;
+  }
+  .leg-airport .name {
+    font-size: 12px; color: var(--steel); margin-top: 2px;
+  }
+  .leg-arc {
+    display: flex; flex-direction: column; align-items: center; gap: 6px;
+    min-width: 120px;
+  }
+  .leg-arc-svg {
+    width: 100%; height: 28px;
+  }
+  .leg-arc-svg .trail { stroke: var(--clearance); stroke-width: 1; fill: none; stroke-dasharray: 3 3; }
+  .leg-arc-svg .plane { fill: var(--clearance); }
+  .leg-arc .duration {
+    font-family: var(--mono); font-size: 11px; color: var(--bone-2); letter-spacing: 0.06em;
+  }
+
+  /* When + Aircraft strip */
+  .leg-mid {
+    display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px;
+    padding: 20px 0; border-top: 1px solid var(--ink-3); border-bottom: 1px solid var(--ink-3);
+  }
+  .leg-mid > div { display: flex; flex-direction: column; gap: 4px; }
+  .leg-mid .lbl { font-family: var(--mono); font-size: 9px; letter-spacing: 0.12em; color: var(--steel); text-transform: uppercase; }
+  .leg-mid .val { font-family: var(--mono); font-size: 13px; color: var(--bone); }
+
+  /* Pricing strip */
+  .leg-foot {
+    display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  }
+  .leg-price {
+    display: flex; flex-direction: column; gap: 4px;
+  }
+  .leg-price .strikethrough {
+    font-family: var(--mono); font-size: 12px; color: var(--steel); text-decoration: line-through;
+    letter-spacing: 0.04em;
+  }
+  .leg-price .now {
+    font-family: var(--serif); font-weight: 300; font-size: 36px; letter-spacing: -0.01em;
+    color: var(--bone); line-height: 1;
+  }
+  .leg-price .now .currency { color: var(--clearance); margin-right: 2px; }
+  .leg-actions { display: flex; gap: 8px; }
+
+  .ghost-btn {
+    padding: 10px 14px; background: transparent; border: 1px solid var(--ink-3);
+    color: var(--bone-2); font-family: var(--mono); font-size: 11px; letter-spacing: 0.08em;
+    text-transform: uppercase; cursor: pointer; transition: all 200ms; border-radius: 2px;
+    display: inline-flex; align-items: center; gap: 8px; text-decoration: none;
+  }
+  .ghost-btn:hover { border-color: var(--bone-2); color: var(--bone); }
+  .book-btn {
+    padding: 12px 18px; background: var(--clearance); color: white;
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.08em;
+    text-transform: uppercase; cursor: pointer; transition: opacity 200ms; border-radius: 2px;
+    border: none; display: inline-flex; align-items: center; gap: 8px; text-decoration: none;
+  }
+  .book-btn:hover { opacity: 0.85; }
+
+  /* Empty state */
+  .empty-state {
+    grid-column: 1 / -1; padding: 80px; text-align: center;
+    background: var(--ink-2); border: 1px dashed var(--ink-3); border-radius: 4px;
+  }
+  .empty-state h3 { font-family: var(--serif); font-weight: 300; font-size: 32px; color: var(--bone); margin-bottom: 16px; }
+  .empty-state p { color: var(--bone-2); font-size: 15px; max-width: 50ch; margin: 0 auto; line-height: 1.6; }
+
+  /* How it works (mini) */
+  .how-mini { padding: 120px 0; border-bottom: 1px solid var(--ink-3); background: var(--ink-2); }
+  .how-mini-head { display: grid; grid-template-columns: 1fr 1.4fr; gap: 64px; margin-bottom: 64px; align-items: end; }
+  @media (max-width: 900px) { .how-mini-head { grid-template-columns: 1fr; gap: 24px; } }
+  .how-mini-head .kicker { display: inline-flex; align-items: center; gap: 12px; }
+  .how-mini-head .kicker .dash { width: 32px; height: 1px; background: var(--clearance); }
+
+  .how-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
+  @media (max-width: 900px) { .how-grid { grid-template-columns: 1fr; } }
+  .how-card {
+    background: var(--ink); border: 1px solid var(--ink-3); border-radius: 4px;
+    padding: 40px; display: flex; flex-direction: column; gap: 16px;
+  }
+  .how-card .num { font-family: var(--mono); font-size: 11px; color: var(--clearance); letter-spacing: 0.14em; }
+  .how-card h3 { font-family: var(--serif); font-size: 22px; font-weight: 400; line-height: 1.25; }
+  .how-card p { color: var(--bone-2); font-size: 14px; line-height: 1.65; }
+
+  /* Watchlist */
+  .watch { padding: 120px 0; border-bottom: 1px solid var(--ink-3); }
+  .watch-card {
+    background: var(--ink-2); border: 1px solid var(--ink-3); border-radius: 4px;
+    padding: 56px; display: grid; grid-template-columns: 1fr 1fr; gap: 56px; align-items: start;
+  }
+  @media (max-width: 900px) { .watch-card { grid-template-columns: 1fr; gap: 32px; padding: 40px; } }
+  .watch-card .kicker { display: inline-flex; align-items: center; gap: 12px; margin-bottom: 24px; }
+  .watch-card .kicker .dash { width: 32px; height: 1px; background: var(--clearance); }
+  .watch-card h2 { max-width: 14ch; }
+  .watch-card p { color: var(--bone-2); font-size: 16px; line-height: 1.65; margin-top: 20px; }
+
+  .watch-form { display: flex; flex-direction: column; gap: 16px; }
+  .watch-form .field { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .watch-form input {
+    width: 100%; padding: 14px 16px; background: var(--ink); border: 1px solid var(--ink-3);
+    border-radius: 2px; color: var(--bone); font-family: var(--sans); font-size: 14px;
+    transition: border-color 200ms;
+  }
+  .watch-form input:focus { outline: none; border-color: var(--clearance); }
+  .watch-form input::placeholder { color: var(--steel); }
+  .watch-form .full { grid-column: 1 / -1; }
+  .watch-form .submit-row { display: flex; align-items: center; gap: 16px; padding-top: 8px; }
+  .watch-form .micro {
+    font-family: var(--mono); font-size: 11px; color: var(--steel); letter-spacing: 0.04em;
+  }
+</style>
+</head>
+<body>
+
+<nav class="nav" id="nav" data-screen-label="05 Empty Legs">
+  <div class="nav-inner">
+    <a href="homepage.html" class="brand" style="text-decoration: none;">JetNine <span class="nine">09</span></a>
+    <div class="nav-links">
+      <a href="homepage.html">Home</a>
+      <a href="aircraft.html">Aircraft</a>
+      <a href="how-it-works.html">How it works</a>
+      <a href="safety.html">Safety</a>
+      <a href="empty-legs.html" class="active">Empty legs</a>
+      <a href="#">Contact</a>
+    </div>
+    <div class="nav-cta">
+      <a class="phone-link" href="tel:+18188005678">+1 (818) 800-5678</a>
+      <a href="quote-step1.html" class="btn btn-primary btn-sm">Request quote <span class="arrow">→</span></a>
+    </div>
+  </div>
+</nav>
+
+<header class="el-hero">
+  <div class="container">
+    <div>
+      <div class="reveal kicker"><span class="dash"></span> Empty legs · live board</div>
+      <h1 class="display-xl reveal" data-stagger="1">Repositioning legs.<br/>Up to 60% off.</h1>
+      <p class="lead reveal" data-stagger="2">When an aircraft has dropped a passenger somewhere and needs to fly home empty, that flight is for sale. Date-locked, route-locked, but priced like nothing else in the air. Updated every fifteen minutes from operator dispatch.</p>
+    </div>
+    <div class="reveal live-card" data-stagger="3">
+      <div class="live-row"><span class="live-dot"></span> Live · last update 4 min ago</div>
+      <div class="big" id="liveCount">38</div>
+      <div class="desc">Available repositioning legs across the network. Some priced at less than the equivalent first-class commercial fare.</div>
+      <div class="meta">
+        <div><span class="lbl">— DEPARTING</span><span class="val" id="liveNext">in 6h 12m</span></div>
+        <div><span class="lbl">— FURTHEST</span><span class="val">12 days out</span></div>
+        <div><span class="lbl">— BEST DISCOUNT</span><span class="val" style="color: var(--clearance);">62% off</span></div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<section class="filters">
+  <div class="container">
+    <div class="filter-row">
+      <span class="filter-label">— CATEGORY</span>
+      <button class="chip active" data-filter="cat" data-value="all">All <span class="count">38</span></button>
+      <button class="chip" data-filter="cat" data-value="light">Light <span class="count">9</span></button>
+      <button class="chip" data-filter="cat" data-value="midsize">Midsize <span class="count">14</span></button>
+      <button class="chip" data-filter="cat" data-value="supermid">Super-mid <span class="count">8</span></button>
+      <button class="chip" data-filter="cat" data-value="heavy">Heavy <span class="count">5</span></button>
+      <button class="chip" data-filter="cat" data-value="ultra">Ultra <span class="count">2</span></button>
+      <span class="filter-divider"></span>
+      <span class="filter-label">— DEPART</span>
+      <button class="chip active" data-filter="time" data-value="all">Any time</button>
+      <button class="chip" data-filter="time" data-value="48h">Next 48h</button>
+      <button class="chip" data-filter="time" data-value="week">This week</button>
+      <span class="filter-spacer"></span>
+      <span class="filter-results"><span class="num" id="resultCount">12</span> shown</span>
+    </div>
+  </div>
+</section>
+
+<section class="legs">
+  <div class="container">
+    <div class="leg-grid" id="legGrid">
+      <!-- Legs render here via JS -->
+    </div>
+  </div>
+</section>
+
+<section class="how-mini">
+  <div class="container">
+    <div class="how-mini-head">
+      <div class="reveal"><div class="kicker"><span class="dash"></span> How it works</div></div>
+      <div class="reveal" data-stagger="1">
+        <h2 class="display-l">Repositioning legs<br/>are the deal of the year.</h2>
+        <p class="body-l" style="margin-top: 24px; max-width: 56ch;">If your dates and route are flexible, you can fly the same airframe at a fraction of the on-demand charter price. Three things to know before you book.</p>
+      </div>
+    </div>
+    <div class="how-grid">
+      <div class="how-card reveal">
+        <div class="num">— 01 · DATES &amp; ROUTE LOCKED</div>
+        <h3>Take it as scheduled.</h3>
+        <p>Empty legs are positioning flights — the aircraft is already going there, with or without you. Departure window typically holds within an hour of the listed time. The route is the route; no diversion to a different city.</p>
+      </div>
+      <div class="how-card reveal" data-stagger="1">
+        <div class="num">— 02 · CANCEL RISK</div>
+        <h3>If the original trip falls through, so does yours.</h3>
+        <p>The reason the leg exists is that an outbound charter is bringing the aircraft to that city. If that outbound cancels, the empty leg cancels too. Your payment is fully refunded and you get a credit toward a regular charter, but you'll need a backup plan.</p>
+      </div>
+      <div class="how-card reveal" data-stagger="2">
+        <div class="num">— 03 · FIRST CALL WINS</div>
+        <h3>One booking per leg.</h3>
+        <p>Empty legs aren't held — they're sold the moment a confirmation comes through. The list updates every fifteen minutes; if you see one you want, call the dispatch line and we'll lock it on the spot. No soft-hold, no waitlist.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="watch">
+  <div class="container">
+    <div class="watch-card reveal">
+      <div>
+        <div class="kicker"><span class="dash"></span> Watchlist</div>
+        <h2 class="display-l">Set a route.<br/>We'll text when one shows up.</h2>
+        <p>If the lanes you fly are predictable, this is the simplest way to get the discount. Tell us the city pair and date window, we'll match against the live board every fifteen minutes, and SMS the moment something fits. No spam, only matches.</p>
+      </div>
+      <form class="watch-form" onsubmit="event.preventDefault(); alert('Watchlist created (demo).');">
+        <div class="field">
+          <input type="text" placeholder="Departing — e.g. KVNY, Los Angeles" />
+          <input type="text" placeholder="Arriving — e.g. KTEB, New York" />
+        </div>
+        <div class="field">
+          <input type="text" placeholder="Earliest date" />
+          <input type="text" placeholder="Latest date" />
+        </div>
+        <input class="full" type="text" placeholder="Mobile number for SMS alerts" />
+        <input class="full" type="email" placeholder="Email (optional, for backup)" />
+        <div class="submit-row">
+          <button type="submit" class="btn btn-primary">Create watchlist <span class="arrow">→</span></button>
+          <span class="micro">No fees · cancel any time · 1 SMS per match</span>
+        </div>
+      </form>
+    </div>
+  </div>
+</section>
+
+<footer class="docfoot">
+  <div class="container">
+    <div class="footer-grid">
+      <div class="foot-col">
+        <div class="brand" style="font-size: 28px;">JetNine <span class="nine" style="font-size: 12px;">09</span></div>
+        <p class="body" style="margin-top: 16px; max-width: 320px;">Private jet charter, anywhere, anytime. Twenty thousand aircraft worldwide, one number to call.</p>
+        <div style="margin-top: 24px; display: flex; flex-direction: column; gap: 8px;">
+          <a class="phone-link" style="font-size:14px;" href="tel:+18188005678">+1 (818) 800-5678</a>
+          <a class="phone-link" style="font-size:14px;" href="mailto:info@jetnine.com">info@jetnine.com</a>
+          <div class="caption" style="margin-top: 4px;">2934 BEVERLY GLEN CIRCLE #123<br/>LOS ANGELES, CA 90077</div>
+        </div>
+      </div>
+      <div class="foot-col"><h4>Sitemap</h4><ul>
+        <li><a href="homepage.html">Home</a></li>
+        <li><a href="aircraft.html">Aircraft</a></li>
+        <li><a href="how-it-works.html">How it works</a></li>
+        <li><a href="safety.html">Safety</a></li>
+        <li><a href="empty-legs.html">Empty legs</a></li>
+        <li><a href="#">About</a></li>
+      </ul></div>
+      <div class="foot-col"><h4>Categories</h4><ul>
+        <li><a href="aircraft.html">Turboprop</a></li>
+        <li><a href="aircraft-light.html">Light</a></li>
+        <li><a href="aircraft-midsize.html">Midsize</a></li>
+        <li><a href="aircraft-supermid.html">Super-mid</a></li>
+        <li><a href="aircraft-heavy.html">Heavy</a></li>
+        <li><a href="aircraft-ultra.html">Ultra long range</a></li>
+      </ul></div>
+      <div class="foot-col">
+        <h4>Legal</h4>
+        <ul style="gap: 8px;">
+          <li><a href="#">Privacy</a></li>
+          <li><a href="#">Terms</a></li>
+          <li><a href="#">Part 295 broker disclosure</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="foot-bottom">
+      <div>JETNINE © 2026 — LOS ANGELES</div>
+      <div style="display: flex; gap: 24px;">
+        <a href="#" style="color: var(--steel); text-decoration: none;">X</a>
+        <a href="#" style="color: var(--steel); text-decoration: none;">IG</a>
+        <a href="#" style="color: var(--steel); text-decoration: none;">LI</a>
+      </div>
+      <div style="max-width: 480px; text-align: right;">JetNine is an indirect air carrier — Part 295 broker. All flights operated by FAA Part 135 certified carriers.</div>
+    </div>
+  </div>
+</footer>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script type="text/babel" src="tweaks-panel.jsx"></script>
+<div id="tweaks-root"></div>
+<script type="text/babel" src="tweaks.jsx"></script>
+
+<script>
+  const nav = document.getElementById('nav');
+  function updateNav() { if (window.scrollY > 60) nav.classList.add('scrolled'); else nav.classList.remove('scrolled'); }
+  window.addEventListener('scroll', updateNav, { passive: true }); updateNav();
+
+  // ---- Empty leg data ----
+  const LEGS = [
+    { id: "EL-2841", category: "midsize", catLabel: "Midsize · Citation Latitude", from: "VNY", fromCity: "Los Angeles", fromName: "Van Nuys", to: "TEB", toCity: "New York", toName: "Teterboro", date: "TODAY · 16:40 PT", duration: "4h 50m", pax: "8 seats", year: "2019", was: 36800, now: 14900, discount: 60, featured: true, hours: 6.2 },
+    { id: "EL-2840", category: "light", catLabel: "Light · Phenom 300", from: "ASE", fromCity: "Aspen", fromName: "Aspen-Pitkin", to: "DAL", toCity: "Dallas", toName: "Dallas Love", date: "TOMORROW · 09:15 MT", duration: "2h 25m", pax: "7 seats", year: "2021", was: 18200, now: 8400, discount: 54, hours: 24 },
+    { id: "EL-2839", category: "supermid", catLabel: "Super-mid · Challenger 350", from: "PBI", fromCity: "Palm Beach", fromName: "Palm Beach Intl.", to: "VNY", toCity: "Los Angeles", toName: "Van Nuys", date: "FRI 14 NOV · 11:00 ET", duration: "5h 10m", pax: "9 seats", year: "2020", was: 52400, now: 21600, discount: 59, hours: 72 },
+    { id: "EL-2838", category: "heavy", catLabel: "Heavy · Falcon 2000LX", from: "LAS", fromCity: "Las Vegas", fromName: "Henderson Exec.", to: "TEB", toCity: "New York", toName: "Teterboro", date: "TODAY · 22:15 PT", duration: "4h 30m", pax: "10 seats", year: "2018", was: 64200, now: 27500, discount: 57, featured: true, hours: 12 },
+    { id: "EL-2837", category: "midsize", catLabel: "Midsize · Hawker 900XP", from: "BED", fromCity: "Boston", fromName: "Hanscom", to: "MIA", toCity: "Miami", toName: "Opa-Locka", date: "MON 17 NOV · 13:30 ET", duration: "3h 10m", pax: "8 seats", year: "2017", was: 24800, now: 11200, discount: 55, hours: 96 },
+    { id: "EL-2836", category: "ultra", catLabel: "Ultra · Global 6000", from: "SFO", fromCity: "San Francisco", fromName: "San Francisco Intl.", to: "LHR", toCity: "London", toName: "Luton", date: "WED 19 NOV · 21:00 PT", duration: "9h 50m", pax: "14 seats", year: "2019", was: 198000, now: 89000, discount: 55, hours: 120 },
+    { id: "EL-2835", category: "light", catLabel: "Light · Citation CJ3", from: "TEB", fromCity: "New York", fromName: "Teterboro", to: "MVY", toCity: "Martha's Vineyard", toName: "Martha's Vineyard", date: "TOMORROW · 18:45 ET", duration: "1h 05m", pax: "6 seats", year: "2020", was: 8200, now: 3100, discount: 62, hours: 28 },
+    { id: "EL-2834", category: "midsize", catLabel: "Midsize · Citation XLS+", from: "DAL", fromCity: "Dallas", fromName: "Dallas Love", to: "JAC", toCity: "Jackson Hole", toName: "Jackson Hole", date: "SAT 15 NOV · 08:00 CT", duration: "2h 40m", pax: "8 seats", year: "2022", was: 19800, now: 9400, discount: 53, hours: 48 },
+    { id: "EL-2833", category: "supermid", catLabel: "Super-mid · Citation Sovereign", from: "MIA", fromCity: "Miami", fromName: "Opa-Locka", to: "ASE", toCity: "Aspen", toName: "Aspen-Pitkin", date: "SUN 16 NOV · 10:30 ET", duration: "4h 20m", pax: "9 seats", year: "2018", was: 42600, now: 19800, discount: 54, hours: 60 },
+    { id: "EL-2832", category: "heavy", catLabel: "Heavy · Gulfstream G450", from: "LAX", fromCity: "Los Angeles", fromName: "LAX", to: "HND", toCity: "Tokyo", toName: "Haneda", date: "FRI 14 NOV · 23:30 PT", duration: "11h 40m", pax: "12 seats", year: "2017", was: 195000, now: 92000, discount: 53, hours: 84 },
+    { id: "EL-2831", category: "midsize", catLabel: "Midsize · Learjet 75", from: "SDL", fromCity: "Scottsdale", fromName: "Scottsdale", to: "VNY", toCity: "Los Angeles", toName: "Van Nuys", date: "TODAY · 19:50 MT", duration: "1h 15m", pax: "8 seats", year: "2018", was: 11400, now: 5200, discount: 54, hours: 9 },
+    { id: "EL-2830", category: "light", catLabel: "Light · Phenom 100EV", from: "OAK", fromCity: "Oakland", fromName: "Oakland Intl.", to: "PSP", toCity: "Palm Springs", toName: "Palm Springs", date: "TOMORROW · 11:20 PT", duration: "1h 25m", pax: "4 seats", year: "2021", was: 7400, now: 3300, discount: 55, hours: 32 },
+    { id: "EL-2829", category: "midsize", catLabel: "Midsize · Citation Latitude", from: "TEB", fromCity: "New York", fromName: "Teterboro", to: "BHM", toCity: "Birmingham", toName: "Birmingham-Shuttlesworth", date: "TUE 18 NOV · 07:30 ET", duration: "2h 15m", pax: "9 seats", year: "2020", was: 16800, now: 7900, discount: 53, hours: 108 },
+    { id: "EL-2828", category: "supermid", catLabel: "Super-mid · Praetor 600", from: "BFI", fromCity: "Seattle", fromName: "Boeing Field", to: "TEB", toCity: "New York", toName: "Teterboro", date: "WED 19 NOV · 14:00 PT", duration: "5h 05m", pax: "8 seats", year: "2022", was: 51200, now: 23800, discount: 54, hours: 132 },
+    { id: "EL-2827", category: "midsize", catLabel: "Midsize · Citation XLS+", from: "ASE", fromCity: "Aspen", fromName: "Aspen-Pitkin", to: "VNY", toCity: "Los Angeles", toName: "Van Nuys", date: "TODAY · 17:30 MT", duration: "2h 05m", pax: "8 seats", year: "2019", was: 14400, now: 6900, discount: 52, hours: 7 },
+    { id: "EL-2826", category: "heavy", catLabel: "Heavy · Challenger 605", from: "TEB", fromCity: "New York", fromName: "Teterboro", to: "LAS", toCity: "Las Vegas", toName: "Henderson Exec.", date: "FRI 14 NOV · 15:00 ET", duration: "5h 25m", pax: "11 seats", year: "2016", was: 58400, now: 26200, discount: 55, hours: 76 },
+  ];
+
+  function fmt(n) { return "$" + n.toLocaleString("en-US"); }
+  function timeChip(date, hoursOut) {
+    if (hoursOut <= 48) return "48h";
+    if (hoursOut <= 168) return "week";
+    return "later";
+  }
+
+  let filters = { cat: "all", time: "all" };
+
+  function renderLegs() {
+    const grid = document.getElementById("legGrid");
+    const filtered = LEGS.filter(l => {
+      if (filters.cat !== "all" && l.category !== filters.cat) return false;
+      if (filters.time === "48h" && l.hours > 48) return false;
+      if (filters.time === "week" && l.hours > 168) return false;
+      return true;
+    });
+
+    document.getElementById("resultCount").textContent = filtered.length;
+
+    if (filtered.length === 0) {
+      grid.innerHTML = `
+        <div class="empty-state">
+          <h3>No legs match those filters right now.</h3>
+          <p>Try widening the timeframe or category — or set a watchlist below and we'll text you when something shows up.</p>
+        </div>`;
+      return;
+    }
+
+    grid.innerHTML = filtered.map(l => `
+      <div class="leg-card ${l.featured ? 'featured' : ''}">
+        <div class="leg-head">
+          <div class="leg-meta">
+            <span class="id">— ${l.id}</span>
+            <span class="category">${l.catLabel} · ${l.year}</span>
+          </div>
+          <span class="leg-discount">${l.discount}% OFF</span>
+        </div>
+
+        <div class="leg-route">
+          <div class="leg-airport">
+            <div class="code">${l.from}</div>
+            <div class="city">${l.fromCity}</div>
+            <div class="name">${l.fromName}</div>
+          </div>
+          <div class="leg-arc">
+            <svg class="leg-arc-svg" viewBox="0 0 120 28" preserveAspectRatio="none">
+              <path class="trail" d="M 4 22 Q 60 -4 116 22"/>
+              <polygon class="plane" points="60,4 56,12 64,12" transform="rotate(0, 60, 8)"/>
+            </svg>
+            <span class="duration">${l.duration}</span>
+          </div>
+          <div class="leg-airport right">
+            <div class="code">${l.to}</div>
+            <div class="city">${l.toCity}</div>
+            <div class="name">${l.toName}</div>
+          </div>
+        </div>
+
+        <div class="leg-mid">
+          <div><span class="lbl">— DEPART</span><span class="val">${l.date}</span></div>
+          <div><span class="lbl">— CABIN</span><span class="val">${l.pax}</span></div>
+          <div><span class="lbl">— OPERATOR</span><span class="val">ARG/US Plat ✓</span></div>
+        </div>
+
+        <div class="leg-foot">
+          <div class="leg-price">
+            <span class="strikethrough">Was ${fmt(l.was)}</span>
+            <span class="now"><span class="currency">$</span>${l.now.toLocaleString("en-US")}</span>
+          </div>
+          <div class="leg-actions">
+            <a href="#" class="ghost-btn">Details →</a>
+            <a href="quote-step1.html" class="book-btn">Book this leg →</a>
+          </div>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  document.querySelectorAll('.chip').forEach(chip => {
+    chip.addEventListener('click', () => {
+      const filter = chip.dataset.filter;
+      const value = chip.dataset.value;
+      document.querySelectorAll(`.chip[data-filter="${filter}"]`).forEach(c => c.classList.remove('active'));
+      chip.classList.add('active');
+      filters[filter] = value;
+      renderLegs();
+    });
+  });
+
+  renderLegs();
+
+  const reveals = document.querySelectorAll('.reveal');
+  const revObs = new IntersectionObserver((entries) => {
+    entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('in'); revObs.unobserve(e.target); } });
+  }, { threshold: 0.15 });
+  reveals.forEach(r => revObs.observe(r));
+</script>
+</body>
+</html>

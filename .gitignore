@@ -45,3 +45,4 @@ _design_package.tar
 
 # Claude Code local state
 .claude/settings.local.json
+scripts/.specs/

@@ -1,0 +1,147 @@
+"use client";
+
+import { useState, type FormEvent } from "react";
+
+type FieldName = "first" | "last" | "email" | "mobile" | "from" | "to" | "date" | "pax" | "notes";
+type Reason = "quote" | "card" | "trip" | "other";
+
+const REASONS: { id: Reason; label: string }[] = [
+  { id: "quote", label: "Quote a flight" },
+  { id: "card", label: "Card / Reserve" },
+  { id: "trip", label: "Existing trip" },
+  { id: "other", label: "Other" },
+];
+
+const REQUIRED: FieldName[] = ["first", "last", "email", "from", "to", "date"];
+
+type Errors = Partial<Record<FieldName, true>>;
+
+export function ContactForm() {
+  const [reason, setReason] = useState<Reason>("quote");
+  const [errors, setErrors] = useState<Errors>({});
+  const [msg, setMsg] = useState<{ tone: "ok" | "error"; text: string } | null>(null);
+
+  function onSubmit(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const data = new FormData(e.currentTarget);
+    const next: Errors = {};
+    for (const k of REQUIRED) {
+      if (!(data.get(k) as string | null)?.trim()) next[k] = true;
+    }
+    const email = (data.get("email") as string)?.trim() ?? "";
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) next.email = true;
+
+    if (Object.keys(next).length) {
+      setErrors(next);
+      setMsg({
+        tone: "error",
+        text: `CHECK — ${Object.keys(next).join(", ").toUpperCase()}`,
+      });
+      return;
+    }
+    setErrors({});
+    setMsg({
+      tone: "ok",
+      text: `CLEARED — DISPATCH WILL REPLY WITHIN 30 MIN (${reason.toUpperCase()})`,
+    });
+    (e.target as HTMLFormElement).reset();
+    setReason("quote");
+  }
+
+  return (
+    <form noValidate onSubmit={onSubmit} className="flex flex-col gap-3">
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+        <div className={`field-jn ${errors.first ? "error" : ""}`}>
+          <label htmlFor="cf-first">First name</label>
+          <input id="cf-first" name="first" type="text" placeholder="Marcus" autoComplete="given-name" />
+        </div>
+        <div className={`field-jn ${errors.last ? "error" : ""}`}>
+          <label htmlFor="cf-last">Last name</label>
+          <input id="cf-last" name="last" type="text" placeholder="Aldrich" autoComplete="family-name" />
+        </div>
+        <div className={`field-jn ${errors.email ? "error" : ""}`}>
+          <label htmlFor="cf-email">Email</label>
+          <input id="cf-email" name="email" type="email" placeholder="m.aldrich@example.com" autoComplete="email" />
+        </div>
+        <div className={`field-jn ${errors.mobile ? "error" : ""}`}>
+          <label htmlFor="cf-mobile">Mobile</label>
+          <input id="cf-mobile" name="mobile" type="tel" placeholder="+1 (818) 555-0142" autoComplete="tel" />
+        </div>
+      </div>
+
+      <fieldset className="rounded-[2px] border-b border-steel bg-ink-3 px-4 py-4">
+        <legend className="font-mono text-[10px] uppercase tracking-[0.12em] text-bone-2">
+          Reason for contact
+        </legend>
+        <input type="hidden" name="reason" value={reason} />
+        <div className="mt-3 flex flex-wrap gap-2">
+          {REASONS.map((r) => (
+            <button
+              key={r.id}
+              type="button"
+              onClick={() => setReason(r.id)}
+              className={[
+                "rounded-full border px-4 py-1.5 font-mono text-[10px] uppercase tracking-[0.14em] transition-colors",
+                reason === r.id
+                  ? "border-clearance bg-clearance text-ink"
+                  : "border-ink-4 text-bone-2 hover:border-bone-2 hover:text-bone",
+              ].join(" ")}
+            >
+              {r.label}
+            </button>
+          ))}
+        </div>
+      </fieldset>
+
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+        <div className={`field-jn ${errors.from ? "error" : ""}`}>
+          <label htmlFor="cf-from">Departing</label>
+          <input id="cf-from" name="from" type="text" placeholder="Los Angeles, KVNY" />
+        </div>
+        <div className={`field-jn ${errors.to ? "error" : ""}`}>
+          <label htmlFor="cf-to">Arriving</label>
+          <input id="cf-to" name="to" type="text" placeholder="New York, KTEB" />
+        </div>
+        <div className={`field-jn ${errors.date ? "error" : ""}`}>
+          <label htmlFor="cf-date">Date / window</label>
+          <input id="cf-date" name="date" type="text" placeholder="Fri 14 Nov · flexible ±1 day" />
+        </div>
+        <div className={`field-jn ${errors.pax ? "error" : ""}`}>
+          <label htmlFor="cf-pax">Passengers</label>
+          <input id="cf-pax" name="pax" type="text" placeholder="4 adults" />
+        </div>
+      </div>
+
+      <div className={`field-jn ${errors.notes ? "error" : ""}`}>
+        <label htmlFor="cf-notes">Anything else</label>
+        <textarea
+          id="cf-notes"
+          name="notes"
+          rows={4}
+          placeholder="Repositioning leg, multi-stop, pets, special catering — whatever the dispatcher should know up front."
+        />
+      </div>
+
+      <div className="flex flex-wrap items-center justify-between gap-4 pt-2">
+        <p className="font-mono text-[10px] uppercase tracking-[0.12em] text-steel">
+          — Goes directly to the dispatch desk. Not a marketing list.
+        </p>
+        <div className="flex items-center gap-6">
+          {msg ? (
+            <span
+              className={[
+                "font-mono text-[11px] uppercase tracking-[0.12em]",
+                msg.tone === "error" ? "text-[var(--error)]" : "text-[var(--success)]",
+              ].join(" ")}
+            >
+              {msg.text}
+            </span>
+          ) : null}
+          <button type="submit" className="btn btn-primary">
+            Send to dispatch <span className="arrow">→</span>
+          </button>
+        </div>
+      </div>
+    </form>
+  );
+}

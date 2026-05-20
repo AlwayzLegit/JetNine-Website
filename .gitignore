@@ -1,0 +1,44 @@
+# dependencies
+node_modules/
+.pnp
+.pnp.js
+.yarn/install-state.gz
+
+# next
+.next/
+out/
+build/
+
+# debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# env
+.env
+.env*.local
+.env.local
+
+# misc
+.DS_Store
+*.pem
+.vscode/*
+!.vscode/extensions.json
+.idea/
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts
+
+# turbopack
+.turbo/
+
+# vercel
+.vercel
+
+# design package source — keep, but don't bundle
+# (left untracked deliberately to be explicit; not in .gitignore)
+
+# tool result binaries
+_design_package.tar

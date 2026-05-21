@@ -1,11 +1,16 @@
 "use server";
 
+import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { db } from "@/db";
 import { quotes, quoteLegs, type NewQuote, type NewQuoteLeg } from "@/db/schema/quotes";
 import { findAirport } from "@/lib/airports";
 import type { QuoteDraft } from "@/lib/quote-store";
 import { logAudit } from "@/lib/audit";
+import {
+  sendDispatchNewQuoteNotification,
+  sendQuoteAcknowledgmentEmail,
+} from "@/lib/email";
 
 export type SubmitResult =
   | { ok: true; ref: string; id: string }
@@ -137,6 +142,74 @@ export async function submitQuote(draft: QuoteDraft): Promise<SubmitResult> {
 
     // Bust any cached admin views so the new quote shows up on the desk.
     revalidatePath("/admin/dispatch");
+
+    // Fire-and-forget delivery — never block the user's submit response on
+    // SMTP being awake. The email layer no-ops gracefully without an API key.
+    try {
+      const hdrs = await headers();
+      const host = hdrs.get("x-forwarded-host") ?? hdrs.get("host") ?? "localhost:3000";
+      const proto = hdrs.get("x-forwarded-proto") ?? (host.startsWith("localhost") ? "http" : "https");
+      const baseUrl =
+        process.env.NEXT_PUBLIC_SITE_URL ?? `${proto}://${host}`;
+      const workbenchUrl = `${baseUrl}/admin/quote/${inserted.id}`;
+
+      const legSummaries = draft.legs.map((l) => ({
+        fromIata: l.fromIata ?? null,
+        toIata: l.toIata ?? null,
+        date: l.date ?? null,
+      }));
+
+      const [ack, notif] = await Promise.allSettled([
+        sendQuoteAcknowledgmentEmail({
+          quoteCode: inserted.quoteCode,
+          firstName: draft.firstName,
+          lastName: draft.lastName,
+          email: draft.email,
+          phone: draft.phone,
+          legs: legSummaries,
+          paxCount: draft.pax,
+        }),
+        sendDispatchNewQuoteNotification({
+          quoteCode: inserted.quoteCode,
+          firstName: draft.firstName,
+          lastName: draft.lastName,
+          email: draft.email,
+          phone: draft.phone,
+          legs: legSummaries,
+          paxCount: draft.pax,
+          workbenchUrl,
+        }),
+      ]);
+
+      // Audit the delivery outcome — best-effort metadata so dispute
+      // arbitration knows whether dispatch was actually pinged.
+      const summarize = (
+        r: PromiseSettledResult<Awaited<ReturnType<typeof sendQuoteAcknowledgmentEmail>>>,
+      ) => {
+        if (r.status === "rejected") return { status: "rejected" as const, error: String(r.reason) };
+        if (!r.value.ok) return { status: "error" as const, error: r.value.error };
+        return {
+          status: "ok" as const,
+          provider: r.value.provider,
+          messageId: r.value.messageId ?? null,
+        };
+      };
+      await logAudit({
+        actorUserId: null,
+        actorRole: "system",
+        action: "quote.notify.email",
+        subjectType: "quote",
+        subjectId: inserted.id,
+        subjectCode: inserted.quoteCode,
+        metadata: {
+          acknowledgment: summarize(ack),
+          dispatchNotification: summarize(notif),
+        },
+      });
+    } catch (err) {
+      // Email is best-effort — never propagate to the user.
+      console.error("submitQuote email side-effect failed", err);
+    }
 
     return { ok: true, ref: inserted.quoteCode, id: inserted.id };
   } catch (err) {

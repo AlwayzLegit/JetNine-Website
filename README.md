@@ -56,8 +56,15 @@ The dev server is `next dev --turbopack`. Hot-reload covers everything including
 | `SUPABASE_SERVICE_ROLE_KEY` | Server-only bypass key — keep secret | same screen (reveal) |
 | `DATABASE_URL` | Pooled connection (port 6543, transaction mode) | Project Settings → Database → Connection string |
 | `DIRECT_URL` | Session connection (port 5432) — used by Drizzle CLI | same screen, session mode |
+| `RESEND_API_KEY` *(optional)* | Resend API key — transactional email | resend.com → Dashboard → API Keys |
+| `POSTMARK_SERVER_TOKEN` *(optional)* | Alternative to Resend | postmarkapp.com → Servers → API Tokens |
+| `EMAIL_FROM` *(optional)* | Sender address, e.g. `JetNine <dispatch@jetnine.com>` | own choice; must be a verified sender |
+| `DISPATCH_NOTIFY_EMAIL` *(optional)* | Inbox that receives new-quote alerts; defaults to `dispatch@jetnine.com` | own choice |
+| `NEXT_PUBLIC_SITE_URL` *(optional)* | Used to build absolute links in emails (workbench URL); falls back to request headers | e.g. `https://jetnine.com` |
 
 URL-encode any special characters in passwords (`#` → `%23`).
+
+**Email-on-submit is wired but ships dark.** Without `RESEND_API_KEY` or `POSTMARK_SERVER_TOKEN`, every send call logs the would-be payload to stdout and resolves successfully — so the rest of the app behaves as if email were configured. Drop a key in and acknowledgments + dispatch notifications start flowing on the next deploy.
 
 ---
 
@@ -208,9 +215,9 @@ src/
 
 **Pending:**
 - `airports` / `fbos` tables (the rest of Phase B.2) — FK targets for schedule blocks once we want strict ICAO validation
-- Email-on-submit via Resend or Postmark (drop an API key → wire in one commit)
 - Sentry (drop a DSN → uncomment two blocks in `instrumentation.ts`)
 - Live aircraft tracking — needs FlightAware / ADS-B Exchange API access
+- Inbound message webhooks (Twilio / Postmark) — turn `direction='in'` into real round-trip threading
 
 ---
 

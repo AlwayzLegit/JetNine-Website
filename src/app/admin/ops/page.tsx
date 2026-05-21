@@ -346,7 +346,7 @@ function FleetRow({
   return (
     <>
       <Link
-        href={`/admin/operators`}
+        href={`/admin/aircraft/${aircraftId}`}
         className="sticky left-0 z-10 grid grid-cols-[auto_1fr] items-baseline gap-3 border-t border-ink-3 bg-ink-2 px-4 py-3 transition-colors hover:bg-ink"
       >
         <span className="font-mono text-[12px] tracking-[0.04em] text-clearance">

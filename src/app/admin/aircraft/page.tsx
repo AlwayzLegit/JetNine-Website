@@ -156,8 +156,13 @@ export default async function AdminAircraftPage() {
                         r.status === "sold" ? "opacity-50" : "",
                       ].join(" ")}
                     >
-                      <td className="px-4 py-4 font-mono text-[12px] tracking-[0.04em] text-clearance">
-                        {r.tailNumber}
+                      <td className="px-4 py-4 font-mono text-[12px] tracking-[0.04em]">
+                        <Link
+                          href={`/admin/aircraft/${r.id}`}
+                          className="text-clearance hover:underline"
+                        >
+                          {r.tailNumber}
+                        </Link>
                       </td>
                       <td className="px-4 py-4 font-serif text-[15px] text-bone">{r.makeModel}</td>
                       <td className="px-4 py-4 font-mono text-[11px] tracking-[0.04em] text-bone-2">

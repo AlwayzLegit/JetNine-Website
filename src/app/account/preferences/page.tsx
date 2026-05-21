@@ -1,16 +1,18 @@
 import Link from "next/link";
-import { asc, eq } from "drizzle-orm";
+import { asc, desc, eq } from "drizzle-orm";
 import { db } from "@/db";
 import {
   companions,
   memberLanes,
   memberPreferences,
 } from "@/db/schema/member-prefs";
+import { emptyLegWatchlists } from "@/db/schema/empty-legs";
 import { getCurrentUser, requireUser } from "@/lib/auth";
 import { getMemberByUserId } from "@/lib/member";
 import { PreferencesForm } from "./preferences-form";
 import { CompanionsSection } from "./companions-section";
 import { LanesSection } from "./lanes-section";
+import { WatchlistsSection } from "./watchlists-section";
 
 export const dynamic = "force-dynamic";
 
@@ -37,7 +39,7 @@ export default async function AccountPreferencesPage() {
     );
   }
 
-  const [existing, companionRows, laneRows] = await Promise.all([
+  const [existing, companionRows, laneRows, watchlistRows] = await Promise.all([
     db
       .select()
       .from(memberPreferences)
@@ -53,6 +55,11 @@ export default async function AccountPreferencesPage() {
       .from(memberLanes)
       .where(eq(memberLanes.memberId, member.id))
       .orderBy(asc(memberLanes.createdAt)),
+    db
+      .select()
+      .from(emptyLegWatchlists)
+      .where(eq(emptyLegWatchlists.memberId, member.id))
+      .orderBy(desc(emptyLegWatchlists.createdAt)),
   ]);
 
   return (
@@ -100,6 +107,22 @@ export default async function AccountPreferencesPage() {
           </p>
         </div>
         <LanesSection initial={laneRows} />
+      </div>
+
+      <div className="mt-16 grid gap-6 lg:grid-cols-[200px_1fr] lg:gap-10">
+        <div>
+          <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-clearance">
+            — 09
+          </span>
+          <h2 className="mt-3 font-serif text-[22px] font-normal leading-[1.2] tracking-tight text-bone">
+            Empty-leg watchlists
+          </h2>
+          <p className="mt-3 text-[13px] leading-[1.55] text-bone-2">
+            Routes + date windows you want to be notified about when a repositioning leg lists.
+            Pause to mute, remove to drop. New entries added from the public board.
+          </p>
+        </div>
+        <WatchlistsSection initial={watchlistRows} />
       </div>
     </section>
   );

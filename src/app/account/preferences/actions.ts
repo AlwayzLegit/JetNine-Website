@@ -11,6 +11,7 @@ import {
   type NewMemberLane,
   type NewMemberPreferences,
 } from "@/db/schema/member-prefs";
+import { emptyLegWatchlists } from "@/db/schema/empty-legs";
 import {
   aircraftCategoryEnum,
   cateringTierEnum,
@@ -324,6 +325,95 @@ export async function addLane(formData: FormData): Promise<LaneResult> {
     console.error("addLane failed", err);
     return { ok: false, error: "DB_INSERT_FAILED" };
   }
+}
+
+// ─── Empty-leg watchlists ──────────────────────────────────────────────────
+
+export async function deleteWatchlist(
+  watchlistId: string,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const user = await getCurrentUser();
+  if (!user) return { ok: false, error: "Not signed in" };
+  const member = await getMemberByUserId(user.id);
+  if (!member) return { ok: false, error: "No member profile yet." };
+
+  if (!/^[0-9a-f-]{36}$/i.test(watchlistId)) return { ok: false, error: "Bad id" };
+
+  const [target] = await db
+    .select({
+      id: emptyLegWatchlists.id,
+      fromText: emptyLegWatchlists.fromText,
+      toText: emptyLegWatchlists.toText,
+    })
+    .from(emptyLegWatchlists)
+    .where(
+      and(
+        eq(emptyLegWatchlists.id, watchlistId),
+        eq(emptyLegWatchlists.memberId, member.id),
+      ),
+    );
+  if (!target) return { ok: false, error: "Not found" };
+
+  await db.delete(emptyLegWatchlists).where(eq(emptyLegWatchlists.id, target.id));
+
+  await logAudit({
+    actorUserId: user.id,
+    actorRole: user.role,
+    action: "empty_leg_watchlist.delete",
+    subjectType: "empty_leg_watchlist",
+    subjectId: target.id,
+    metadata: {
+      memberId: member.id,
+      memberCode: member.memberCode,
+      route: `${target.fromText ?? ""} → ${target.toText ?? ""}`,
+    },
+  });
+
+  revalidatePath("/account/preferences");
+  return { ok: true };
+}
+
+export async function toggleWatchlistActive(
+  watchlistId: string,
+  next: boolean,
+): Promise<{ ok: true; active: boolean } | { ok: false; error: string }> {
+  const user = await getCurrentUser();
+  if (!user) return { ok: false, error: "Not signed in" };
+  const member = await getMemberByUserId(user.id);
+  if (!member) return { ok: false, error: "No member profile yet." };
+
+  if (!/^[0-9a-f-]{36}$/i.test(watchlistId)) return { ok: false, error: "Bad id" };
+
+  const [target] = await db
+    .select({ id: emptyLegWatchlists.id, active: emptyLegWatchlists.active })
+    .from(emptyLegWatchlists)
+    .where(
+      and(
+        eq(emptyLegWatchlists.id, watchlistId),
+        eq(emptyLegWatchlists.memberId, member.id),
+      ),
+    );
+  if (!target) return { ok: false, error: "Not found" };
+
+  if (target.active === next) return { ok: true, active: target.active };
+
+  await db
+    .update(emptyLegWatchlists)
+    .set({ active: next })
+    .where(eq(emptyLegWatchlists.id, target.id));
+
+  await logAudit({
+    actorUserId: user.id,
+    actorRole: user.role,
+    action: "empty_leg_watchlist.toggle_active",
+    subjectType: "empty_leg_watchlist",
+    subjectId: target.id,
+    diff: { active: { before: target.active, after: next } },
+    metadata: { memberId: member.id, memberCode: member.memberCode },
+  });
+
+  revalidatePath("/account/preferences");
+  return { ok: true, active: next };
 }
 
 export async function deleteLane(laneId: string): Promise<{ ok: true } | { ok: false; error: string }> {

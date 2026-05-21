@@ -3,6 +3,9 @@
 import { revalidatePath } from "next/cache";
 import { db } from "@/db";
 import { emptyLegWatchlists, type NewEmptyLegWatchlist } from "@/db/schema/empty-legs";
+import { getCurrentUser } from "@/lib/auth";
+import { getMemberByUserId } from "@/lib/member";
+import { logAudit } from "@/lib/audit";
 
 export type WatchlistResult =
   | { ok: true; message: string }
@@ -33,8 +36,21 @@ export async function createWatchlist(formData: FormData): Promise<WatchlistResu
   // ICAO heuristic: 4 uppercase letters means we treat the field as a code.
   const isIcao = (s?: string | null) => !!s && /^[A-Z]{4}$/.test(s.toUpperCase());
 
+  // If the visitor is signed in and has a member profile, link the watchlist
+  // so they can manage it from /account/preferences later.
+  let memberId: string | null = null;
+  let actorUserId: string | null = null;
+  let actorRole: string | null = null;
+  const user = await getCurrentUser();
+  if (user) {
+    actorUserId = user.id;
+    actorRole = user.role;
+    const m = await getMemberByUserId(user.id);
+    memberId = m?.id ?? null;
+  }
+
   const values: NewEmptyLegWatchlist = {
-    memberId: null,
+    memberId,
     email: email || null,
     phoneE164: mobile,
     fromIcao: isIcao(from) ? from!.toUpperCase() : null,
@@ -51,14 +67,39 @@ export async function createWatchlist(formData: FormData): Promise<WatchlistResu
     active: true,
   };
 
+  let insertedId: string;
   try {
-    await db.insert(emptyLegWatchlists).values(values);
+    const [row] = await db
+      .insert(emptyLegWatchlists)
+      .values(values)
+      .returning({ id: emptyLegWatchlists.id });
+    insertedId = row.id;
   } catch (err) {
     console.error("createWatchlist failed", err);
     return { ok: false, error: "DB_INSERT_FAILED" };
   }
 
+  // Audit — only when authenticated; anonymous board signups stay
+  // out of the audit_log so the table isn't flooded with un-attributable noise.
+  if (actorUserId) {
+    await logAudit({
+      actorUserId,
+      actorRole: actorRole ?? undefined,
+      action: "empty_leg_watchlist.create",
+      subjectType: "empty_leg_watchlist",
+      subjectId: insertedId,
+      metadata: {
+        memberId,
+        fromText: from,
+        toText: to,
+        earliestOn: earliest,
+        latestOn: latest,
+      },
+    });
+  }
+
   revalidatePath("/empty-legs");
+  revalidatePath("/account/preferences");
   return {
     ok: true,
     message: `WATCHLIST CREATED — ${(from || "").toUpperCase()} → ${(to || "").toUpperCase()}`,

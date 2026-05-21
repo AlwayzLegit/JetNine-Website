@@ -3,3 +3,4 @@ export * from "./enums";
 export * from "./users";
 export * from "./staff";
 export * from "./members";
+export * from "./quotes";

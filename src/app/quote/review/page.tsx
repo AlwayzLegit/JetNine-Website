@@ -13,6 +13,7 @@ import { SavedIndicator } from "@/components/quote/saved-indicator";
 import { StoreHydrationGate } from "@/components/quote/store-hydration";
 import { computeIndicative, formatHours, CRUISE_KT } from "@/lib/quote-pricing";
 import { getFleetEntry } from "@/lib/fleet";
+import { submitQuote } from "../actions";
 
 const CABIN_LABELS: Record<string, string> = {
   wifi: "Wi-Fi",
@@ -50,6 +51,7 @@ function ReviewStepInner() {
   const [submitting, setSubmitting] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   const [ref, setRef] = useState<string | null>(null);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!isMissionComplete(s)) router.replace("/quote/mission");
@@ -79,14 +81,42 @@ function ReviewStepInner() {
     .map((k) => (k === "sms" ? "SMS" : k[0].toUpperCase() + k.slice(1)))
     .join(" + ");
 
-  function onSubmit() {
+  async function onSubmit() {
     setSubmitting(true);
-    window.setTimeout(() => {
-      const r = s.submit();
-      setRef(r);
-      setShowSuccess(true);
+    setSubmitError(null);
+
+    // Strip the action functions before sending to the Server Action — they
+    // aren't serializable. submitQuote only needs the plain data shape.
+    const {
+      setTripType, setPax, updateLeg, addLeg, removeLeg, swapLeg,
+      setCategory, toggleCabin, setCatering, setGround, setExtra, setNotes,
+      setAccount, setContactField, toggleMethod, setBestTime, setSource,
+      toggleConsent, submit, reset,
+      ...draft
+    } = s;
+    void setTripType; void setPax; void updateLeg; void addLeg; void removeLeg;
+    void swapLeg; void setCategory; void toggleCabin; void setCatering;
+    void setGround; void setExtra; void setNotes; void setAccount;
+    void setContactField; void toggleMethod; void setBestTime; void setSource;
+    void toggleConsent; void submit; void reset;
+
+    try {
+      const result = await submitQuote(draft);
+      if (result.ok) {
+        // Mirror server-issued ref into local store so SavedIndicator + nav
+        // can hint at success.
+        useQuoteStore.setState({ submittedRef: result.ref, savedAt: Date.now() });
+        setRef(result.ref);
+        setShowSuccess(true);
+      } else {
+        setSubmitError(result.error);
+      }
+    } catch (e) {
+      console.error(e);
+      setSubmitError("NETWORK");
+    } finally {
       setSubmitting(false);
-    }, 900);
+    }
   }
 
   // Lock body scroll while success overlay is open
@@ -391,14 +421,21 @@ function ReviewStepInner() {
             . Quote requests are not commitments — you&rsquo;ll review specific airframes and
             pricing before anything is booked.
           </p>
-          <button
-            type="button"
-            onClick={onSubmit}
-            disabled={submitting}
-            className="mt-8 btn btn-primary btn-lg disabled:cursor-wait disabled:opacity-60"
-          >
-            {submitting ? "Sending…" : "Submit quote request"} <span className="arrow">→</span>
-          </button>
+          <div className="mt-8 flex flex-wrap items-center gap-6">
+            <button
+              type="button"
+              onClick={onSubmit}
+              disabled={submitting}
+              className="btn btn-primary btn-lg disabled:cursor-wait disabled:opacity-60"
+            >
+              {submitting ? "Sending…" : "Submit quote request"} <span className="arrow">→</span>
+            </button>
+            {submitError ? (
+              <span className="font-mono text-[11px] uppercase tracking-[0.12em] text-[var(--error)]">
+                — {submitError} · try again or call dispatch
+              </span>
+            ) : null}
+          </div>
         </section>
 
         <div className="mt-8 flex flex-wrap items-center justify-between gap-4 border-t border-ink-3 pt-8">

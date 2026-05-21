@@ -15,6 +15,20 @@
       "when": 1779284674000,
       "tag": "0001_rls_and_auth_triggers",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1779346687461,
+      "tag": "0002_init_phase_c1",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1779346800000,
+      "tag": "0003_quotes_rls_and_codegen",
+      "breakpoints": true
     }
   ]
 }

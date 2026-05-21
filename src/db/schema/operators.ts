@@ -109,3 +109,4 @@ export const operatorContacts = pgTable(
 export type Operator = typeof operators.$inferSelect;
 export type NewOperator = typeof operators.$inferInsert;
 export type OperatorContact = typeof operatorContacts.$inferSelect;
+export type NewOperatorContact = typeof operatorContacts.$inferInsert;

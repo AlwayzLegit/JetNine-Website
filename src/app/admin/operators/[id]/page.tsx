@@ -5,6 +5,7 @@ import { db } from "@/db";
 import { operators, operatorContacts } from "@/db/schema/operators";
 import { aircraft } from "@/db/schema/aircraft";
 import { trips } from "@/db/schema/trips";
+import { OperatorContactsEditor } from "@/components/admin/operator-contacts-editor";
 
 export const dynamic = "force-dynamic";
 
@@ -376,57 +377,7 @@ export default async function AdminOperatorDetailPage({ params }: Props) {
           {/* Contacts */}
           <section className="rounded-[4px] border border-ink-3 bg-ink-2 p-6">
             <h2 className="caption mb-4">— Contacts · {contacts.length}</h2>
-            {contacts.length === 0 ? (
-              <p className="text-[13px] leading-[1.55] text-steel">
-                — No contacts on file. Add via ops admin once contact-edit UI ships.
-              </p>
-            ) : (
-              <ul className="flex flex-col gap-3">
-                {contacts.map((c) => (
-                  <li
-                    key={c.id}
-                    className={[
-                      "rounded-[3px] border bg-ink p-3",
-                      c.isEscalation
-                        ? "border-clearance"
-                        : "border-ink-3",
-                    ].join(" ")}
-                  >
-                    <div className="flex items-baseline justify-between gap-3">
-                      <span className="font-serif text-[15px] text-bone">{c.name}</span>
-                      {c.isEscalation ? (
-                        <span className="rounded-[2px] bg-clearance px-1.5 py-0.5 font-mono text-[8px] uppercase tracking-[0.14em] text-ink">
-                          Escalation
-                        </span>
-                      ) : null}
-                    </div>
-                    {c.role ? (
-                      <div className="mt-1 font-mono text-[10px] uppercase tracking-[0.08em] text-bone-2">
-                        {c.role}
-                      </div>
-                    ) : null}
-                    <dl className="mt-2 flex flex-col gap-1 text-[11px]">
-                      {c.email ? (
-                        <a
-                          href={`mailto:${c.email}`}
-                          className="font-mono tracking-[0.04em] text-clearance hover:underline"
-                        >
-                          {c.email}
-                        </a>
-                      ) : null}
-                      {c.phoneE164 ? (
-                        <a
-                          href={`tel:${c.phoneE164}`}
-                          className="font-mono tracking-[0.04em] text-clearance hover:underline"
-                        >
-                          {c.phoneE164}
-                        </a>
-                      ) : null}
-                    </dl>
-                  </li>
-                ))}
-              </ul>
-            )}
+            <OperatorContactsEditor operatorId={op.id} initial={contacts} />
           </section>
 
           {/* History */}

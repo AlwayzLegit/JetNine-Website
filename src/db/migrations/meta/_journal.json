@@ -50,6 +50,20 @@
       "when": 1779349200000,
       "tag": "0006_operators_rls_and_seed",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1779349661174,
+      "tag": "0007_init_phase_c2",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1779350100000,
+      "tag": "0008_trips_invoices_rls_and_codegen",
+      "breakpoints": true
     }
   ]
 }

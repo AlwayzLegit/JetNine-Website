@@ -131,6 +131,10 @@ export const quotes = pgTable(
     assignedDispatcherId: uuid("assigned_dispatcher_id").references(() => staff.id, {
       onDelete: "set null",
     }),
+    // Set by convertQuoteToTrip Server Action; FK declared as a raw uuid
+    // here to avoid a Drizzle circular import with trips.ts. The constraint
+    // is enforced by the hand-written 0008 migration below.
+    convertedTripId: uuid("converted_trip_id"),
 
     // SLA — 30 minutes from received_at during operating hours (we just
     // set received_at + 30m here; ops-hour adjustment runs in app code).

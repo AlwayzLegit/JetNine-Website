@@ -9,6 +9,7 @@ import { aircraft } from "@/db/schema/aircraft";
 import { operators } from "@/db/schema/operators";
 import { StatusSelect } from "@/components/admin/status-select";
 import { DispatcherAssign } from "@/components/admin/dispatcher-assign";
+import { ConvertQuoteButton } from "@/components/admin/convert-quote-button";
 import { formatUSD } from "@/lib/quote-pricing";
 
 export const dynamic = "force-dynamic";
@@ -182,6 +183,11 @@ export default async function QuoteWorkbenchPage({ params }: Props) {
             quoteId={quote.id}
             current={assigned}
             dispatchers={dispatchers}
+          />
+          <ConvertQuoteButton
+            quoteId={quote.id}
+            alreadyConvertedTripId={quote.convertedTripId}
+            status={quote.status}
           />
         </div>
       </div>

@@ -1,10 +1,12 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { asc, eq } from "drizzle-orm";
+import { and, asc, desc, eq, gte, ne, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { quotes, quoteLegs } from "@/db/schema/quotes";
 import { staff } from "@/db/schema/staff";
 import { users } from "@/db/schema/users";
+import { aircraft } from "@/db/schema/aircraft";
+import { operators } from "@/db/schema/operators";
 import { StatusSelect } from "@/components/admin/status-select";
 import { DispatcherAssign } from "@/components/admin/dispatcher-assign";
 import { formatUSD } from "@/lib/quote-pricing";
@@ -78,7 +80,58 @@ export default async function QuoteWorkbenchPage({ params }: Props) {
     : "Anonymous";
 
   const totalDistance = legs.reduce((sum, l) => sum + (l.distanceNm ?? 0), 0);
+  const longestLeg = legs.reduce((max, l) => Math.max(max, l.distanceNm ?? 0), 0);
   const sla = computeSLA(quote.slaDeadlineAt, quote.status);
+
+  // ── Candidate aircraft for the sourcing column ──
+  // Match by requested_category + enough seats + enough range. Operator must
+  // not be suspended/banned/hold. Order by ARG/US tier preference, then
+  // Wyvern flag, then preferred-partner flag. Cap at 8.
+  const candidates = quote.requestedCategory
+    ? await db
+        .select({
+          id: aircraft.id,
+          tailNumber: aircraft.tailNumber,
+          makeModel: aircraft.makeModel,
+          yearManufactured: aircraft.yearManufactured,
+          seats: aircraft.seats,
+          rangeNm: aircraft.rangeNm,
+          speedKt: aircraft.speedKt,
+          wifiType: aircraft.wifiType,
+          baseIcao: aircraft.baseIcao,
+          status: aircraft.status,
+          operatorId: aircraft.operatorId,
+          operatorName: operators.name,
+          isPreferred: operators.isPreferred,
+          argusRating: operators.argusRating,
+          wyvernWingman: operators.wyvernWingman,
+        })
+        .from(aircraft)
+        .innerJoin(operators, eq(operators.id, aircraft.operatorId))
+        .where(
+          and(
+            eq(aircraft.category, quote.requestedCategory),
+            eq(aircraft.status, "available"),
+            gte(aircraft.seats, quote.paxCount),
+            gte(aircraft.rangeNm, longestLeg),
+            ne(operators.status, "suspended"),
+            ne(operators.status, "banned"),
+            ne(operators.status, "hold"),
+          ),
+        )
+        .orderBy(
+          desc(operators.isPreferred),
+          // ARG/US: platinum > gold > silver > none
+          sql`case ${operators.argusRating}
+            when 'platinum' then 0
+            when 'gold' then 1
+            when 'silver' then 2
+            else 3 end`,
+          desc(operators.wyvernWingman),
+          asc(aircraft.tailNumber),
+        )
+        .limit(8)
+    : [];
 
   return (
     <div className="container-jn py-8">
@@ -335,18 +388,83 @@ export default async function QuoteWorkbenchPage({ params }: Props) {
           </section>
         </div>
 
-        {/* ─── Sourcing column (v1 stub) ─── */}
+        {/* ─── Sourcing column ─── */}
         <div className="flex flex-col gap-6">
           <section className="rounded-[4px] border border-ink-3 bg-ink-2 p-6">
-            <h2 className="mb-4 font-mono text-[10px] uppercase tracking-[0.14em] text-bone-2">
-              — Sourcing
-            </h2>
-            <p className="text-[13px] leading-[1.6] text-bone-2">
-              Operator canvassing isn&rsquo;t wired in v1. Use the desk&rsquo;s existing tools to
-              source, then enter the final price below.
-            </p>
-            <p className="mt-4 font-mono text-[10px] uppercase tracking-[0.08em] text-steel">
-              — Future: operator picker · ARG/US ratings · empty-leg matching · slot status
+            <div className="mb-4 flex items-baseline justify-between">
+              <h2 className="font-mono text-[10px] uppercase tracking-[0.14em] text-bone-2">
+                — Sourcing · candidates
+              </h2>
+              <span className="font-mono text-[10px] uppercase tracking-[0.08em] text-clearance">
+                {candidates.length} match{candidates.length === 1 ? "" : "es"}
+              </span>
+            </div>
+
+            {!quote.requestedCategory ? (
+              <p className="text-[13px] leading-[1.6] text-steel">
+                — No category requested; dispatcher to confirm.
+              </p>
+            ) : candidates.length === 0 ? (
+              <p className="text-[13px] leading-[1.6] text-bone-2">
+                No aircraft in network match this brief. Widen category or contact non-preferred
+                operators.
+              </p>
+            ) : (
+              <ul className="flex flex-col gap-3">
+                {candidates.map((c) => (
+                  <li
+                    key={c.id}
+                    className="rounded-[3px] border border-ink-3 bg-ink p-4"
+                  >
+                    <div className="flex items-baseline justify-between">
+                      <span className="font-mono text-[12px] tracking-[0.04em] text-clearance">
+                        {c.tailNumber}
+                      </span>
+                      {c.isPreferred ? (
+                        <span className="rounded-[2px] bg-clearance px-1.5 py-0.5 font-mono text-[8px] uppercase tracking-[0.14em] text-ink">
+                          Preferred
+                        </span>
+                      ) : null}
+                    </div>
+                    <div className="mt-1 font-serif text-[15px] leading-tight text-bone">
+                      {c.makeModel}
+                      {c.yearManufactured ? (
+                        <span className="ml-2 font-mono text-[10px] text-bone-2">
+                          · {c.yearManufactured}
+                        </span>
+                      ) : null}
+                    </div>
+                    <div className="mt-1 text-[12px] text-bone-2">{c.operatorName}</div>
+                    <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1.5 font-mono text-[10px] uppercase tracking-[0.08em]">
+                      <span
+                        className={[
+                          "rounded-[2px] border px-1.5 py-0.5",
+                          c.argusRating === "platinum"
+                            ? "border-clearance text-clearance"
+                            : c.argusRating === "gold"
+                              ? "border-[#C9A961] text-[#C9A961]"
+                              : "border-bone-2 text-bone-2",
+                        ].join(" ")}
+                      >
+                        ARG/US {c.argusRating}
+                      </span>
+                      {c.wyvernWingman ? (
+                        <span className="rounded-[2px] border border-clearance px-1.5 py-0.5 text-clearance">
+                          Wyvern
+                        </span>
+                      ) : null}
+                      <span className="text-bone-2">
+                        {c.seats} pax · {c.rangeNm.toLocaleString()} NM
+                      </span>
+                      <span className="text-steel">· {c.baseIcao ?? "—"}</span>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <p className="mt-5 font-mono text-[10px] uppercase tracking-[0.08em] text-steel">
+              — Sorted by preferred · ARG/US tier · Wyvern. Live availability + soft-hold workflow
+              ships with aircraft_schedule_blocks.
             </p>
           </section>
 

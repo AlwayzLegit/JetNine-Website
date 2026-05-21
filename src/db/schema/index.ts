@@ -4,3 +4,5 @@ export * from "./users";
 export * from "./staff";
 export * from "./members";
 export * from "./quotes";
+export * from "./operators";
+export * from "./aircraft";

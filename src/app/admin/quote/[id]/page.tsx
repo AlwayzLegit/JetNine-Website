@@ -8,6 +8,7 @@ import { users } from "@/db/schema/users";
 import { aircraft } from "@/db/schema/aircraft";
 import { operators } from "@/db/schema/operators";
 import { messages } from "@/db/schema/audit";
+import { aircraftScheduleBlocks } from "@/db/schema/schedule-blocks";
 import { StatusSelect } from "@/components/admin/status-select";
 import { DispatcherAssign } from "@/components/admin/dispatcher-assign";
 import { ConvertQuoteButton } from "@/components/admin/convert-quote-button";
@@ -15,6 +16,11 @@ import {
   MessageThread,
   type ThreadMessage,
 } from "@/components/admin/message-thread";
+import { SoftHoldButton } from "@/components/admin/soft-hold-button";
+import {
+  SoftHoldList,
+  type HeldAircraft,
+} from "@/components/admin/soft-hold-list";
 import { postQuoteMessage } from "@/app/admin/quote/[id]/actions";
 import { formatUSD } from "@/lib/quote-pricing";
 
@@ -119,6 +125,36 @@ export default async function QuoteWorkbenchPage({ params }: Props) {
     body: m.body,
     occurredAt: m.occurredAt,
   }));
+
+  // ── Active soft holds for this quote ──
+  const heldRows = await db
+    .select({
+      blockId: aircraftScheduleBlocks.id,
+      aircraftId: aircraftScheduleBlocks.aircraftId,
+      startAt: aircraftScheduleBlocks.startAt,
+      endAt: aircraftScheduleBlocks.endAt,
+      tailNumber: aircraft.tailNumber,
+      makeModel: aircraft.makeModel,
+    })
+    .from(aircraftScheduleBlocks)
+    .innerJoin(aircraft, eq(aircraft.id, aircraftScheduleBlocks.aircraftId))
+    .where(
+      and(
+        eq(aircraftScheduleBlocks.relatedQuoteId, id),
+        eq(aircraftScheduleBlocks.kind, "hold"),
+      ),
+    )
+    .orderBy(asc(aircraftScheduleBlocks.startAt));
+
+  const heldAircraft: HeldAircraft[] = heldRows.map((h) => ({
+    blockId: h.blockId,
+    aircraftId: h.aircraftId,
+    tailNumber: h.tailNumber,
+    makeModel: h.makeModel,
+    startAt: h.startAt,
+    endAt: h.endAt,
+  }));
+  const heldIds = new Set(heldAircraft.map((h) => h.aircraftId));
 
   // ── Candidate aircraft for the sourcing column ──
   // Match by requested_category + enough seats + enough range. Operator must
@@ -456,7 +492,12 @@ export default async function QuoteWorkbenchPage({ params }: Props) {
                 {candidates.map((c) => (
                   <li
                     key={c.id}
-                    className="rounded-[3px] border border-ink-3 bg-ink p-4"
+                    className={[
+                      "rounded-[3px] border p-4",
+                      heldIds.has(c.id)
+                        ? "border-dashed border-clearance bg-ink"
+                        : "border-ink-3 bg-ink",
+                    ].join(" ")}
                   >
                     <div className="flex items-baseline justify-between">
                       <span className="font-mono text-[12px] tracking-[0.04em] text-clearance">
@@ -500,14 +541,39 @@ export default async function QuoteWorkbenchPage({ params }: Props) {
                       </span>
                       <span className="text-steel">· {c.baseIcao ?? "—"}</span>
                     </div>
+                    <div className="mt-3 flex items-center justify-between gap-3 border-t border-ink-3 pt-3">
+                      <a
+                        href={`/admin/aircraft/${c.id}`}
+                        className="font-mono text-[9px] uppercase tracking-[0.14em] text-bone-2 transition-colors hover:text-clearance"
+                      >
+                        Open tail →
+                      </a>
+                      <SoftHoldButton
+                        quoteId={quote.id}
+                        aircraftId={c.id}
+                        alreadyHeld={heldIds.has(c.id)}
+                      />
+                    </div>
                   </li>
                 ))}
               </ul>
             )}
             <p className="mt-5 font-mono text-[10px] uppercase tracking-[0.08em] text-steel">
-              — Sorted by preferred · ARG/US tier · Wyvern. Live availability + soft-hold workflow
-              ships with aircraft_schedule_blocks.
+              — Sorted by preferred · ARG/US tier · Wyvern. Soft-hold appears on the planner.
             </p>
+          </section>
+
+          {/* Soft holds */}
+          <section className="rounded-[4px] border border-ink-3 bg-ink-2 p-6">
+            <div className="mb-4 flex items-baseline justify-between">
+              <h2 className="font-mono text-[10px] uppercase tracking-[0.14em] text-bone-2">
+                — Soft holds
+              </h2>
+              <span className="font-mono text-[10px] uppercase tracking-[0.08em] text-clearance">
+                {heldAircraft.length} active
+              </span>
+            </div>
+            <SoftHoldList quoteId={quote.id} initial={heldAircraft} />
           </section>
 
           {/* SLA big card */}

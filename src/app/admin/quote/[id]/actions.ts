@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { asc, eq } from "drizzle-orm";
+import { and, asc, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { quotes, quoteLegs, quoteStatusEnum } from "@/db/schema/quotes";
 import { trips, tripLegs, type NewTrip, type NewTripLeg } from "@/db/schema/trips";
@@ -9,6 +9,11 @@ import { invoices, type NewInvoice } from "@/db/schema/invoices";
 import { members } from "@/db/schema/members";
 import { users } from "@/db/schema/users";
 import { staff } from "@/db/schema/staff";
+import { aircraft } from "@/db/schema/aircraft";
+import {
+  aircraftScheduleBlocks,
+  type NewAircraftScheduleBlock,
+} from "@/db/schema/schedule-blocks";
 import {
   messageChannelEnum,
   messages,
@@ -399,4 +404,172 @@ export async function postQuoteMessage(
     console.error("postQuoteMessage failed", err);
     return { ok: false, error: "DB_INSERT_FAILED" };
   }
+}
+
+// ─── Soft holds ────────────────────────────────────────────────────────────
+// A soft hold puts a `kind='hold'` row on aircraft_schedule_blocks linked back
+// to this quote. Different dispatchers can hold the same airframe for
+// different quotes; conflict resolution is human until one is promoted to
+// a confirmed trip. The hold window is derived from the quote's legs:
+// earliest depart → latest depart + a 4-hour buffer for flight + ground.
+
+const UUID_RE = /^[0-9a-f-]{36}$/i;
+const DEFAULT_HOLD_BUFFER_HOURS = 4;
+
+export type CreateSoftHoldResult =
+  | { ok: true; blockId: string; expiresAt: string }
+  | { ok: false; error: string };
+
+export async function createSoftHold(
+  quoteId: string,
+  aircraftId: string,
+): Promise<CreateSoftHoldResult> {
+  const actor = await requireStaff();
+
+  if (!UUID_RE.test(quoteId)) return { ok: false, error: "Bad quote id" };
+  if (!UUID_RE.test(aircraftId)) return { ok: false, error: "Bad aircraft id" };
+
+  const [q] = await db
+    .select({ id: quotes.id, code: quotes.quoteCode, status: quotes.status })
+    .from(quotes)
+    .where(eq(quotes.id, quoteId));
+  if (!q) return { ok: false, error: "Quote not found" };
+  if (["accepted", "declined", "expired", "cancelled", "converted"].includes(q.status)) {
+    return { ok: false, error: `Quote is ${q.status} — can't soft-hold` };
+  }
+
+  const [ac] = await db
+    .select({ id: aircraft.id, tailNumber: aircraft.tailNumber, status: aircraft.status })
+    .from(aircraft)
+    .where(eq(aircraft.id, aircraftId));
+  if (!ac) return { ok: false, error: "Aircraft not found" };
+  if (ac.status === "sold") return { ok: false, error: "Aircraft is sold" };
+
+  // Derive window from quote legs.
+  const legs = await db
+    .select({
+      departDate: quoteLegs.departDate,
+      departTime: quoteLegs.departTime,
+    })
+    .from(quoteLegs)
+    .where(eq(quoteLegs.quoteId, quoteId))
+    .orderBy(asc(quoteLegs.departDate), asc(quoteLegs.departTime));
+  if (legs.length === 0) return { ok: false, error: "Quote has no legs" };
+
+  function legAt(d: string | null, t: string | null): Date | null {
+    if (!d) return null;
+    const time = t || "00:00";
+    // Treat the value as UTC — there's no per-leg tz on the soft-hold path.
+    const iso = `${d}T${time.length === 5 ? `${time}:00` : time}Z`;
+    const dd = new Date(iso);
+    return Number.isNaN(dd.getTime()) ? null : dd;
+  }
+
+  const startAt = legAt(legs[0].departDate, legs[0].departTime);
+  const lastLegStart = legAt(legs[legs.length - 1].departDate, legs[legs.length - 1].departTime);
+  if (!startAt || !lastLegStart) return { ok: false, error: "Quote legs lack a usable date" };
+
+  const endAt = new Date(
+    lastLegStart.getTime() + DEFAULT_HOLD_BUFFER_HOURS * 60 * 60 * 1000,
+  );
+  if (endAt <= startAt) {
+    return { ok: false, error: "Computed hold window is degenerate" };
+  }
+
+  // Reject if THIS quote already holds THIS airframe — soft holds are
+  // idempotent against (quote, aircraft).
+  const [dup] = await db
+    .select({ id: aircraftScheduleBlocks.id })
+    .from(aircraftScheduleBlocks)
+    .where(
+      and(
+        eq(aircraftScheduleBlocks.aircraftId, aircraftId),
+        eq(aircraftScheduleBlocks.relatedQuoteId, quoteId),
+        eq(aircraftScheduleBlocks.kind, "hold"),
+      ),
+    );
+  if (dup) return { ok: false, error: "Already holding this aircraft for this quote" };
+
+  const values: NewAircraftScheduleBlock = {
+    aircraftId,
+    kind: "hold",
+    startAt,
+    endAt,
+    relatedQuoteId: quoteId,
+    notes: q.code,
+    createdByUserId: actor.id,
+  };
+
+  try {
+    const [row] = await db
+      .insert(aircraftScheduleBlocks)
+      .values(values)
+      .returning({ id: aircraftScheduleBlocks.id });
+
+    await logAudit({
+      actorUserId: actor.id,
+      actorRole: actor.role,
+      action: "quote.soft_hold.create",
+      subjectType: "quote",
+      subjectId: quoteId,
+      subjectCode: q.code,
+      metadata: {
+        blockId: row.id,
+        aircraftId,
+        tailNumber: ac.tailNumber,
+        startAt: startAt.toISOString(),
+        endAt: endAt.toISOString(),
+      },
+    });
+
+    revalidatePath(`/admin/quote/${quoteId}`);
+    revalidatePath("/admin/ops");
+    revalidatePath(`/admin/aircraft/${aircraftId}`);
+    return { ok: true, blockId: row.id, expiresAt: endAt.toISOString() };
+  } catch (err) {
+    console.error("createSoftHold failed", err);
+    return { ok: false, error: "DB_INSERT_FAILED" };
+  }
+}
+
+export async function releaseSoftHold(
+  quoteId: string,
+  blockId: string,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const actor = await requireStaff();
+
+  if (!UUID_RE.test(quoteId)) return { ok: false, error: "Bad quote id" };
+  if (!UUID_RE.test(blockId)) return { ok: false, error: "Bad block id" };
+
+  const [target] = await db
+    .select({
+      id: aircraftScheduleBlocks.id,
+      kind: aircraftScheduleBlocks.kind,
+      relatedQuoteId: aircraftScheduleBlocks.relatedQuoteId,
+      aircraftId: aircraftScheduleBlocks.aircraftId,
+    })
+    .from(aircraftScheduleBlocks)
+    .where(eq(aircraftScheduleBlocks.id, blockId));
+  if (!target) return { ok: false, error: "Hold not found" };
+  if (target.relatedQuoteId !== quoteId || target.kind !== "hold") {
+    return { ok: false, error: "Not a soft hold on this quote" };
+  }
+
+  await db
+    .delete(aircraftScheduleBlocks)
+    .where(eq(aircraftScheduleBlocks.id, target.id));
+
+  await logAudit({
+    actorUserId: actor.id,
+    actorRole: actor.role,
+    action: "quote.soft_hold.release",
+    subjectType: "quote",
+    subjectId: quoteId,
+    metadata: { blockId: target.id, aircraftId: target.aircraftId },
+  });
+
+  revalidatePath(`/admin/quote/${quoteId}`);
+  revalidatePath("/admin/ops");
+  revalidatePath(`/admin/aircraft/${target.aircraftId}`);
+  return { ok: true };
 }

@@ -134,6 +134,20 @@
       "when": 1780000200000,
       "tag": "0018_schedule_blocks_rls",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1780100000000,
+      "tag": "0019_init_phase_b2_airports_fbos",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1780100200000,
+      "tag": "0020_airports_seed_and_rls",
+      "breakpoints": true
     }
   ]
 }

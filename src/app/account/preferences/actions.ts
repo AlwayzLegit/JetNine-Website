@@ -11,6 +11,7 @@ import {
 } from "@/db/schema/enums";
 import { getCurrentUser } from "@/lib/auth";
 import { getMemberByUserId } from "@/lib/member";
+import { logAudit } from "@/lib/audit";
 
 const CAT = aircraftCategoryEnum.enumValues as readonly string[];
 const CAT_TIER = cateringTierEnum.enumValues as readonly string[];
@@ -105,6 +106,21 @@ export async function savePreferences(formData: FormData): Promise<SaveResult> {
   } else {
     await db.insert(memberPreferences).values(values);
   }
+
+  await logAudit({
+    actorUserId: user.id,
+    actorRole: user.role,
+    action: existing ? "preferences.update" : "preferences.create",
+    subjectType: "preferences",
+    subjectId: member.id,
+    metadata: {
+      memberCode: member.memberCode,
+      cateringTier: values.cateringTier,
+      groundType: values.groundType,
+      anonymizeManifest: values.anonymizeManifest,
+      blockFlightTracking: values.blockFlightTracking,
+    },
+  });
 
   revalidatePath("/account/preferences");
   return { ok: true };

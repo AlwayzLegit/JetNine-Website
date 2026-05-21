@@ -5,6 +5,7 @@ import { db } from "@/db";
 import { quotes, quoteLegs, type NewQuote, type NewQuoteLeg } from "@/db/schema/quotes";
 import { findAirport } from "@/lib/airports";
 import type { QuoteDraft } from "@/lib/quote-store";
+import { logAudit } from "@/lib/audit";
 
 export type SubmitResult =
   | { ok: true; ref: string; id: string }
@@ -115,6 +116,23 @@ export async function submitQuote(draft: QuoteDraft): Promise<SubmitResult> {
       }
 
       return row;
+    });
+
+    await logAudit({
+      actorUserId: null,
+      actorRole: "anon",
+      action: "quote.submit",
+      subjectType: "quote",
+      subjectId: inserted.id,
+      subjectCode: inserted.quoteCode,
+      metadata: {
+        tripType: draft.tripType,
+        paxCount: draft.pax,
+        legs: draft.legs.length,
+        category: draft.category,
+        contactEmail: draft.email,
+        source: "quote_wizard",
+      },
     });
 
     // Bust any cached admin views so the new quote shows up on the desk.

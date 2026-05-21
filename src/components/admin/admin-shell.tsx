@@ -13,6 +13,7 @@ const ADMIN_NAV = [
   { href: "/admin/aircraft", label: "Aircraft" },
   { href: "/admin/empty-leg", label: "Empty legs" },
   { href: "/admin/reports", label: "Reports" },
+  { href: "/admin/audit", label: "Audit" },
 ];
 
 export function AdminShell({

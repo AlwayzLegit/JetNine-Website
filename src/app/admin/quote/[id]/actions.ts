@@ -10,6 +10,7 @@ import { members } from "@/db/schema/members";
 import { users } from "@/db/schema/users";
 import { staff } from "@/db/schema/staff";
 import { requireStaff } from "@/lib/auth";
+import { logAudit } from "@/lib/audit";
 
 type Status = (typeof quoteStatusEnum.enumValues)[number];
 
@@ -21,13 +22,28 @@ export async function updateQuoteStatus(
   quoteId: string,
   status: string,
 ): Promise<{ ok: true } | { ok: false; error: string }> {
-  await requireStaff();
+  const actor = await requireStaff();
   if (!isStatus(status)) return { ok: false, error: "Invalid status" };
+
+  const [before] = await db
+    .select({ status: quotes.status, code: quotes.quoteCode })
+    .from(quotes)
+    .where(eq(quotes.id, quoteId));
 
   await db
     .update(quotes)
     .set({ status, respondedAt: respondedAtPatch(status) })
     .where(eq(quotes.id, quoteId));
+
+  await logAudit({
+    actorUserId: actor.id,
+    actorRole: actor.role,
+    action: "quote.status.update",
+    subjectType: "quote",
+    subjectId: quoteId,
+    subjectCode: before?.code ?? null,
+    diff: { status: { before: before?.status ?? null, after: status } },
+  });
 
   revalidatePath("/admin/dispatch");
   revalidatePath(`/admin/quote/${quoteId}`);
@@ -44,7 +60,7 @@ export async function assignDispatcher(
   quoteId: string,
   staffId: string | null,
 ): Promise<{ ok: true } | { ok: false; error: string }> {
-  await requireStaff();
+  const actor = await requireStaff();
 
   if (staffId) {
     const [exists] = await db
@@ -54,10 +70,30 @@ export async function assignDispatcher(
     if (!exists) return { ok: false, error: "Unknown dispatcher" };
   }
 
+  const [before] = await db
+    .select({
+      assignedDispatcherId: quotes.assignedDispatcherId,
+      code: quotes.quoteCode,
+    })
+    .from(quotes)
+    .where(eq(quotes.id, quoteId));
+
   await db
     .update(quotes)
     .set({ assignedDispatcherId: staffId })
     .where(eq(quotes.id, quoteId));
+
+  await logAudit({
+    actorUserId: actor.id,
+    actorRole: actor.role,
+    action: "quote.dispatcher.assign",
+    subjectType: "quote",
+    subjectId: quoteId,
+    subjectCode: before?.code ?? null,
+    diff: {
+      assignedDispatcherId: { before: before?.assignedDispatcherId ?? null, after: staffId },
+    },
+  });
 
   revalidatePath("/admin/dispatch");
   revalidatePath(`/admin/quote/${quoteId}`);
@@ -73,7 +109,7 @@ const SEGMENT_FEE_USD = 5.2; // IRS 2026 rate
 export async function convertQuoteToTrip(
   quoteId: string,
 ): Promise<{ ok: true; tripId: string; tripCode: string; invoiceId: string } | { ok: false; error: string }> {
-  await requireStaff();
+  const actor = await requireStaff();
 
   const [quote] = await db.select().from(quotes).where(eq(quotes.id, quoteId));
   if (!quote) return { ok: false, error: "Quote not found" };
@@ -198,6 +234,38 @@ export async function convertQuoteToTrip(
   revalidatePath("/admin/trip");
   revalidatePath("/account/trips");
   revalidatePath("/account/invoices");
+
+  await logAudit({
+    actorUserId: actor.id,
+    actorRole: actor.role,
+    action: "quote.convert.trip",
+    subjectType: "quote",
+    subjectId: quoteId,
+    subjectCode: quote.quoteCode,
+    diff: {
+      status: { before: quote.status, after: "converted" },
+      convertedTripId: { before: null, after: inserted.trip.id },
+    },
+    metadata: {
+      tripCode: inserted.trip.tripCode,
+      invoiceId: inserted.invoice.id,
+      memberId,
+      subtotalUsd: subtotal,
+      fetUsd: fet,
+      segmentFeeUsd: seg,
+      totalUsd: total,
+    },
+  });
+  // Also log on the trip subject so trip-scoped queries see the conversion.
+  await logAudit({
+    actorUserId: actor.id,
+    actorRole: actor.role,
+    action: "trip.create.from_quote",
+    subjectType: "trip",
+    subjectId: inserted.trip.id,
+    subjectCode: inserted.trip.tripCode,
+    metadata: { quoteId, quoteCode: quote.quoteCode },
+  });
 
   return {
     ok: true,

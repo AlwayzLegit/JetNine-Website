@@ -10,6 +10,7 @@ import {
   type NewEmptyLeg,
 } from "@/db/schema/empty-legs";
 import { requireStaff } from "@/lib/auth";
+import { logAudit } from "@/lib/audit";
 
 export type CreateEmptyLegResult =
   | { ok: true; code: string; id: string }
@@ -108,6 +109,25 @@ export async function createEmptyLeg(formData: FormData): Promise<CreateEmptyLeg
       .insert(emptyLegs)
       .values(values)
       .returning({ id: emptyLegs.id, code: emptyLegs.code });
+
+    await logAudit({
+      actorUserId: user.id,
+      actorRole: user.role,
+      action: "empty_leg.create",
+      subjectType: "empty_leg",
+      subjectId: row.id,
+      subjectCode: row.code,
+      metadata: {
+        route: `${fromIcao}→${toIcao}`,
+        wheelsUpAt: wheelsUpAt.toISOString(),
+        seats,
+        listed,
+        fullCharter,
+        discountPct,
+        status,
+      },
+    });
+
     revalidatePath("/admin/empty-leg");
     revalidatePath("/empty-legs");
     return { ok: true, id: row.id, code: row.code };

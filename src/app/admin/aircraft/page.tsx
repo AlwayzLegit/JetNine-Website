@@ -1,8 +1,9 @@
 import Link from "next/link";
-import { asc, eq } from "drizzle-orm";
+import { asc, eq, ne } from "drizzle-orm";
 import { db } from "@/db";
 import { aircraft } from "@/db/schema/aircraft";
 import { operators } from "@/db/schema/operators";
+import { AircraftForm } from "@/components/admin/aircraft-form";
 
 export const dynamic = "force-dynamic";
 
@@ -62,6 +63,16 @@ export default async function AdminAircraftPage() {
     byCategory.set(r.category, arr);
   }
 
+  // Operator options for the create form — exclude suspended/banned.
+  const operatorOptions = await db
+    .select({ id: operators.id, name: operators.name })
+    .from(operators)
+    .where(
+      // ne(status, banned) AND ne(status, suspended) — keep the dropdown clean
+      ne(operators.status, "banned"),
+    )
+    .orderBy(asc(operators.name));
+
   const totals = {
     total: rows.length,
     available: rows.filter((r) => r.status === "available").length,
@@ -86,26 +97,31 @@ export default async function AdminAircraftPage() {
             .
           </p>
         </div>
-        <dl className="flex flex-wrap gap-x-10 gap-y-3 text-right">
-          {[
-            ["TOTAL", String(totals.total)],
-            ["AVAILABLE", String(totals.available)],
-            ["AOG", String(totals.aog)],
-            ["MAINT", String(totals.maint)],
-          ].map(([lbl, val]) => (
-            <div key={lbl} className="flex flex-col items-end">
-              <dt className="font-mono text-[10px] uppercase tracking-[0.14em] text-steel">{lbl}</dt>
-              <dd
-                className={[
-                  "mt-1 font-serif text-[26px] font-light leading-none",
-                  lbl === "AOG" && totals.aog > 0 ? "text-[var(--error)]" : "text-bone",
-                ].join(" ")}
-              >
-                {val}
-              </dd>
-            </div>
-          ))}
-        </dl>
+        <div className="flex flex-col items-end gap-4">
+          <dl className="flex flex-wrap gap-x-10 gap-y-3 text-right">
+            {[
+              ["TOTAL", String(totals.total)],
+              ["AVAILABLE", String(totals.available)],
+              ["AOG", String(totals.aog)],
+              ["MAINT", String(totals.maint)],
+            ].map(([lbl, val]) => (
+              <div key={lbl} className="flex flex-col items-end">
+                <dt className="font-mono text-[10px] uppercase tracking-[0.14em] text-steel">
+                  {lbl}
+                </dt>
+                <dd
+                  className={[
+                    "mt-1 font-serif text-[26px] font-light leading-none",
+                    lbl === "AOG" && totals.aog > 0 ? "text-[var(--error)]" : "text-bone",
+                  ].join(" ")}
+                >
+                  {val}
+                </dd>
+              </div>
+            ))}
+          </dl>
+          <AircraftForm mode="create" operatorOptions={operatorOptions} />
+        </div>
       </header>
 
       <div className="flex flex-col gap-10">

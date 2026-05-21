@@ -7,6 +7,7 @@ import { operators } from "@/db/schema/operators";
 import { aircraftScheduleBlocks } from "@/db/schema/schedule-blocks";
 import { trips } from "@/db/schema/trips";
 import { formatUSD } from "@/lib/quote-pricing";
+import { AircraftForm } from "@/components/admin/aircraft-form";
 
 export const dynamic = "force-dynamic";
 
@@ -69,6 +70,12 @@ function addDays(d: Date, n: number): Date {
 export default async function AdminAircraftDetailPage({ params }: Props) {
   const { id } = await params;
 
+  // Pure-aircraft row for the editor's initial value (the join-shape `row`
+  // below is missing some columns like cabinHeightIn / lavatoryEnclosed /
+  // updatedAt that AircraftForm wants).
+  const [acRow] = await db.select().from(aircraft).where(eq(aircraft.id, id));
+  if (!acRow) notFound();
+
   const [row] = await db
     .select({
       id: aircraft.id,
@@ -103,6 +110,12 @@ export default async function AdminAircraftDetailPage({ params }: Props) {
     .innerJoin(operators, eq(operators.id, aircraft.operatorId))
     .where(eq(aircraft.id, id));
   if (!row) notFound();
+
+  // Operator options for the editor's operator-swap dropdown.
+  const operatorOptions = await db
+    .select({ id: operators.id, name: operators.name })
+    .from(operators)
+    .orderBy(asc(operators.name));
 
   const today = startOfUtcDay(new Date());
   const horizonEnd = addDays(today, HORIZON_DAYS);
@@ -435,6 +448,12 @@ export default async function AdminAircraftDetailPage({ params }: Props) {
 
         {/* RIGHT */}
         <div className="flex flex-col gap-6">
+          {/* Edit fields */}
+          <section className="rounded-[4px] border border-ink-3 bg-ink-2 p-6">
+            <h2 className="caption mb-4">— Edit fields</h2>
+            <AircraftForm mode="edit" initial={acRow} operatorOptions={operatorOptions} />
+          </section>
+
           {/* Operator card */}
           <section className="rounded-[4px] border border-ink-3 bg-ink-2 p-6">
             <h2 className="caption mb-4">— Operator</h2>

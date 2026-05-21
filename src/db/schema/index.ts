@@ -8,3 +8,4 @@ export * from "./operators";
 export * from "./aircraft";
 export * from "./trips";
 export * from "./invoices";
+export * from "./member-prefs";

@@ -64,6 +64,20 @@
       "when": 1779350100000,
       "tag": "0008_trips_invoices_rls_and_codegen",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1779350814322,
+      "tag": "0009_init_phase_a2",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1779351100000,
+      "tag": "0010_member_prefs_rls",
+      "breakpoints": true
     }
   ]
 }

@@ -7,9 +7,14 @@ import { staff } from "@/db/schema/staff";
 import { users } from "@/db/schema/users";
 import { aircraft } from "@/db/schema/aircraft";
 import { operators } from "@/db/schema/operators";
+import { messages } from "@/db/schema/audit";
 import { StatusSelect } from "@/components/admin/status-select";
 import { DispatcherAssign } from "@/components/admin/dispatcher-assign";
 import { ConvertQuoteButton } from "@/components/admin/convert-quote-button";
+import {
+  QuoteMessageThread,
+  type ThreadMessage,
+} from "@/components/admin/quote-message-thread";
 import { formatUSD } from "@/lib/quote-pricing";
 
 export const dynamic = "force-dynamic";
@@ -83,6 +88,36 @@ export default async function QuoteWorkbenchPage({ params }: Props) {
   const totalDistance = legs.reduce((sum, l) => sum + (l.distanceNm ?? 0), 0);
   const longestLeg = legs.reduce((max, l) => Math.max(max, l.distanceNm ?? 0), 0);
   const sla = computeSLA(quote.slaDeadlineAt, quote.status);
+
+  // ── Messages thread (subject_type='quote') ──
+  const messageRows = await db
+    .select({
+      id: messages.id,
+      channel: messages.channel,
+      direction: messages.direction,
+      fromAddress: messages.fromAddress,
+      toAddress: messages.toAddress,
+      preview: messages.preview,
+      body: messages.body,
+      occurredAt: messages.occurredAt,
+      fromUserFirstName: users.firstName,
+      fromUserEmail: users.email,
+    })
+    .from(messages)
+    .leftJoin(users, eq(users.id, messages.fromUserId))
+    .where(and(eq(messages.subjectType, "quote"), eq(messages.subjectId, id)))
+    .orderBy(asc(messages.occurredAt));
+
+  const thread: ThreadMessage[] = messageRows.map((m) => ({
+    id: m.id,
+    channel: m.channel,
+    direction: m.direction,
+    fromLabel: m.fromUserFirstName || m.fromUserEmail || m.fromAddress || null,
+    toAddress: m.toAddress,
+    preview: m.preview,
+    body: m.body,
+    occurredAt: m.occurredAt,
+  }));
 
   // ── Candidate aircraft for the sourcing column ──
   // Match by requested_category + enough seats + enough range. Operator must
@@ -522,23 +557,24 @@ export default async function QuoteWorkbenchPage({ params }: Props) {
           </section>
 
           <section className="rounded-[4px] border border-ink-3 bg-ink-2 p-6">
-            <h2 className="mb-4 font-mono text-[10px] uppercase tracking-[0.14em] text-bone-2">
-              — Reply
-            </h2>
-            <p className="text-[13px] leading-[1.6] text-bone-2">
-              Messaging isn&rsquo;t wired in v1. Reply to the member directly from email; this
-              thread will sync once we ship the comms inbox.
-            </p>
-            {contact?.email ? (
-              <a
-                href={`mailto:${contact.email}?subject=${encodeURIComponent(
-                  `${quote.quoteCode} — your JetNine quote`,
-                )}`}
-                className="mt-5 inline-flex btn btn-secondary btn-sm"
-              >
-                Open in email →
-              </a>
-            ) : null}
+            <div className="mb-4 flex items-baseline justify-between">
+              <h2 className="font-mono text-[10px] uppercase tracking-[0.14em] text-bone-2">
+                — Thread
+              </h2>
+              <span className="font-mono text-[10px] uppercase tracking-[0.08em] text-clearance">
+                {thread.length} message{thread.length === 1 ? "" : "s"}
+              </span>
+            </div>
+            <QuoteMessageThread
+              quoteId={quote.id}
+              initial={thread}
+              defaultEmail={contact?.email ?? null}
+              defaultPhone={
+                contact?.phoneE164
+                  ? `${contact?.phoneCountry ?? ""}${contact.phoneE164}`
+                  : null
+              }
+            />
           </section>
 
           {/* Timeline (synthesized) */}

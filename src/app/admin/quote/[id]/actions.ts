@@ -9,6 +9,11 @@ import { invoices, type NewInvoice } from "@/db/schema/invoices";
 import { members } from "@/db/schema/members";
 import { users } from "@/db/schema/users";
 import { staff } from "@/db/schema/staff";
+import {
+  messageChannelEnum,
+  messages,
+  type NewMessage,
+} from "@/db/schema/audit";
 import { requireStaff } from "@/lib/auth";
 import { logAudit } from "@/lib/audit";
 
@@ -273,4 +278,125 @@ export async function convertQuoteToTrip(
     tripCode: inserted.trip.tripCode,
     invoiceId: inserted.invoice.id,
   };
+}
+
+// ─── Messaging thread ────────────────────────────────────────────────────────
+// Posts a dispatcher-authored message on a quote thread. Direction is always
+// "out" — inbound messages arrive via webhook (Twilio / Postmark) which is
+// not wired yet. Channel "system" is reserved for status-change auto-notes.
+
+type Channel = (typeof messageChannelEnum.enumValues)[number];
+
+const ALLOWED_DISPATCHER_CHANNELS: readonly Channel[] = [
+  "inapp",
+  "email",
+  "sms",
+  "call",
+  "voicemail",
+] as const;
+
+function isAllowedChannel(v: string): v is Channel {
+  return (ALLOWED_DISPATCHER_CHANNELS as readonly string[]).includes(v);
+}
+
+export type PostQuoteMessageResult =
+  | { ok: true; id: string }
+  | { ok: false; error: string };
+
+export async function postQuoteMessage(
+  quoteId: string,
+  formData: FormData,
+): Promise<PostQuoteMessageResult> {
+  const actor = await requireStaff();
+
+  if (!/^[0-9a-f-]{36}$/i.test(quoteId)) {
+    return { ok: false, error: "Bad quote id" };
+  }
+
+  const channelRaw = ((formData.get("channel") as string | null) ?? "").trim();
+  if (!isAllowedChannel(channelRaw)) {
+    return { ok: false, error: "Pick a channel" };
+  }
+
+  const body = ((formData.get("body") as string | null) ?? "").trim();
+  if (body.length < 1) return { ok: false, error: "Body required" };
+  if (body.length > 4000) return { ok: false, error: "Body too long (4000 max)" };
+
+  const toAddress = ((formData.get("toAddress") as string | null) ?? "").trim() || null;
+
+  // Confirm the quote exists + grab the contact snapshot for default to-address.
+  const [q] = await db
+    .select({
+      id: quotes.id,
+      code: quotes.quoteCode,
+      memberId: quotes.memberId,
+      contactSnapshot: quotes.contactSnapshot,
+    })
+    .from(quotes)
+    .where(eq(quotes.id, quoteId));
+  if (!q) return { ok: false, error: "Quote not found" };
+
+  // Default to-address per channel: email → contact.email; sms/call/voicemail → contact phone.
+  const defaultTo =
+    channelRaw === "email"
+      ? q.contactSnapshot?.email ?? null
+      : channelRaw === "sms" || channelRaw === "call" || channelRaw === "voicemail"
+        ? q.contactSnapshot?.phoneE164
+          ? `${q.contactSnapshot.phoneCountry ?? ""}${q.contactSnapshot.phoneE164}`
+          : null
+        : null;
+
+  // Map member.user_id → toUserId so the member's inbox query joins cleanly.
+  let toUserId: string | null = null;
+  if (q.memberId) {
+    const [m] = await db
+      .select({ userId: members.userId })
+      .from(members)
+      .where(eq(members.id, q.memberId));
+    toUserId = m?.userId ?? null;
+  }
+
+  const preview = body.length > 140 ? `${body.slice(0, 139)}…` : body;
+
+  const values: NewMessage = {
+    subjectType: "quote",
+    subjectId: quoteId,
+    channel: channelRaw,
+    direction: "out",
+    fromAddress: null,
+    toAddress: toAddress ?? defaultTo,
+    fromUserId: actor.id,
+    toUserId,
+    preview,
+    body,
+    isRead: false,
+  };
+
+  try {
+    const [row] = await db
+      .insert(messages)
+      .values(values)
+      .returning({ id: messages.id });
+
+    await logAudit({
+      actorUserId: actor.id,
+      actorRole: actor.role,
+      action: "quote.message.post",
+      subjectType: "quote",
+      subjectId: quoteId,
+      subjectCode: q.code,
+      metadata: {
+        messageId: row.id,
+        channel: channelRaw,
+        toAddress: values.toAddress,
+        bodyLen: body.length,
+      },
+    });
+
+    revalidatePath(`/admin/quote/${quoteId}`);
+    return { ok: true, id: row.id };
+  } catch (err) {
+    console.error("postQuoteMessage failed", err);
+    return { ok: false, error: "DB_INSERT_FAILED" };
+  }
 }

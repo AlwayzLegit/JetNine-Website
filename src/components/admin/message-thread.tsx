@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useTransition, type FormEvent } from "react";
-import { postQuoteMessage } from "@/app/admin/quote/[id]/actions";
 
 const CHANNELS = [
   { id: "inapp", label: "In-app", desc: "Member-portal message." },
@@ -22,23 +21,33 @@ export type ThreadMessage = {
   occurredAt: Date | null;
 };
 
-export function QuoteMessageThread({
-  quoteId,
+type PostResult = { ok: true; id: string } | { ok: false; error: string };
+
+/**
+ * Polymorphic thread renderer + composer. Drives both the quote workbench
+ * and trip sheet messaging surfaces. The caller binds the subject id into
+ * `postAction` so this component stays agnostic of subject_type.
+ */
+export function MessageThread({
   initial,
   defaultEmail,
   defaultPhone,
+  postAction,
+  composerHint,
 }: {
-  quoteId: string;
   initial: ThreadMessage[];
   defaultEmail: string | null;
   defaultPhone: string | null;
+  postAction: (formData: FormData) => Promise<PostResult>;
+  composerHint?: string;
 }) {
   const [list, setList] = useState<ThreadMessage[]>(initial);
   const [channel, setChannel] = useState<string>("inapp");
   const [pending, startTransition] = useTransition();
   const [msg, setMsg] = useState<{ tone: "ok" | "error"; text: string } | null>(null);
 
-  const needsAddress = channel === "email" || channel === "sms" || channel === "call" || channel === "voicemail";
+  const needsAddress =
+    channel === "email" || channel === "sms" || channel === "call" || channel === "voicemail";
   const addressDefault =
     channel === "email"
       ? defaultEmail ?? ""
@@ -53,7 +62,7 @@ export function QuoteMessageThread({
     setMsg(null);
 
     startTransition(async () => {
-      const result = await postQuoteMessage(quoteId, data);
+      const result = await postAction(data);
       if (result.ok) {
         const body = (data.get("body") as string) ?? "";
         const preview = body.length > 140 ? `${body.slice(0, 139)}…` : body;
@@ -121,9 +130,9 @@ export function QuoteMessageThread({
       <form onSubmit={onSubmit} className="rounded-[3px] border border-ink-3 bg-ink p-4">
         <div className="grid grid-cols-1 gap-3 md:grid-cols-[200px_1fr]">
           <div className="field-jn">
-            <label htmlFor="qm-channel">Channel</label>
+            <label htmlFor="mt-channel">Channel</label>
             <select
-              id="qm-channel"
+              id="mt-channel"
               name="channel"
               value={channel}
               onChange={(e) => setChannel(e.target.value)}
@@ -138,11 +147,11 @@ export function QuoteMessageThread({
           </div>
           {needsAddress ? (
             <div className="field-jn">
-              <label htmlFor="qm-toAddress">
+              <label htmlFor="mt-toAddress">
                 {channel === "email" ? "To · email" : "To · phone"}
               </label>
               <input
-                id="qm-toAddress"
+                id="mt-toAddress"
                 name="toAddress"
                 type="text"
                 placeholder={addressDefault || "—"}
@@ -156,12 +165,12 @@ export function QuoteMessageThread({
           )}
         </div>
         <div className="field-jn mt-3">
-          <label htmlFor="qm-body">Message</label>
+          <label htmlFor="mt-body">Message</label>
           <textarea
-            id="qm-body"
+            id="mt-body"
             name="body"
             rows={4}
-            placeholder="Quote sheet attached. Two heavy options + one supermid alt — call out which is better suited and I'll lock."
+            placeholder={composerHint ?? "Type a message…"}
             required
             maxLength={4000}
           />

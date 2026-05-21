@@ -12,9 +12,10 @@ import { StatusSelect } from "@/components/admin/status-select";
 import { DispatcherAssign } from "@/components/admin/dispatcher-assign";
 import { ConvertQuoteButton } from "@/components/admin/convert-quote-button";
 import {
-  QuoteMessageThread,
+  MessageThread,
   type ThreadMessage,
-} from "@/components/admin/quote-message-thread";
+} from "@/components/admin/message-thread";
+import { postQuoteMessage } from "@/app/admin/quote/[id]/actions";
 import { formatUSD } from "@/lib/quote-pricing";
 
 export const dynamic = "force-dynamic";
@@ -565,8 +566,7 @@ export default async function QuoteWorkbenchPage({ params }: Props) {
                 {thread.length} message{thread.length === 1 ? "" : "s"}
               </span>
             </div>
-            <QuoteMessageThread
-              quoteId={quote.id}
+            <MessageThread
               initial={thread}
               defaultEmail={contact?.email ?? null}
               defaultPhone={
@@ -574,6 +574,8 @@ export default async function QuoteWorkbenchPage({ params }: Props) {
                   ? `${contact?.phoneCountry ?? ""}${contact.phoneE164}`
                   : null
               }
+              postAction={postQuoteMessage.bind(null, quote.id)}
+              composerHint="Quote sheet attached. Two heavy options + one supermid alt — call out which is better suited and I'll lock."
             />
           </section>
 

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { asc, eq } from "drizzle-orm";
+import { and, asc, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { trips, tripLegs } from "@/db/schema/trips";
 import { invoices } from "@/db/schema/invoices";
@@ -9,7 +9,13 @@ import { users } from "@/db/schema/users";
 import { quotes } from "@/db/schema/quotes";
 import { aircraft } from "@/db/schema/aircraft";
 import { operators } from "@/db/schema/operators";
+import { messages } from "@/db/schema/audit";
 import { TripStatusSelect } from "@/components/admin/trip-status-select";
+import {
+  MessageThread,
+  type ThreadMessage,
+} from "@/components/admin/message-thread";
+import { postTripMessage } from "@/app/admin/trip/[id]/actions";
 import { formatUSD } from "@/lib/quote-pricing";
 
 export const dynamic = "force-dynamic";
@@ -95,6 +101,36 @@ export default async function AdminTripDetailPage({ params }: Props) {
         .from(operators)
         .where(eq(operators.id, trip.operatorId))
     : [];
+
+  // ── Messages thread (subject_type='trip') ──
+  const messageRows = await db
+    .select({
+      id: messages.id,
+      channel: messages.channel,
+      direction: messages.direction,
+      fromAddress: messages.fromAddress,
+      toAddress: messages.toAddress,
+      preview: messages.preview,
+      body: messages.body,
+      occurredAt: messages.occurredAt,
+      fromUserFirstName: users.firstName,
+      fromUserEmail: users.email,
+    })
+    .from(messages)
+    .leftJoin(users, eq(users.id, messages.fromUserId))
+    .where(and(eq(messages.subjectType, "trip"), eq(messages.subjectId, id)))
+    .orderBy(asc(messages.occurredAt));
+
+  const thread: ThreadMessage[] = messageRows.map((m) => ({
+    id: m.id,
+    channel: m.channel,
+    direction: m.direction,
+    fromLabel: m.fromUserFirstName || m.fromUserEmail || m.fromAddress || null,
+    toAddress: m.toAddress,
+    preview: m.preview,
+    body: m.body,
+    occurredAt: m.occurredAt,
+  }));
 
   const totalDistance = legs.reduce((sum, l) => sum + (l.distanceNm ?? 0), 0);
   const memberName =
@@ -357,6 +393,25 @@ export default async function AdminTripDetailPage({ params }: Props) {
                 </span>
               </Row>
             </dl>
+          </section>
+
+          {/* Thread */}
+          <section className="rounded-[4px] border border-ink-3 bg-ink-2 p-6">
+            <div className="mb-4 flex items-baseline justify-between">
+              <h2 className="font-mono text-[10px] uppercase tracking-[0.14em] text-bone-2">
+                — Thread
+              </h2>
+              <span className="font-mono text-[10px] uppercase tracking-[0.08em] text-clearance">
+                {thread.length} message{thread.length === 1 ? "" : "s"}
+              </span>
+            </div>
+            <MessageThread
+              initial={thread}
+              defaultEmail={memberRow?.email ?? null}
+              defaultPhone={memberRow?.phoneE164 ?? null}
+              postAction={postTripMessage.bind(null, trip.id)}
+              composerHint="Crew briefed, wheels-up still on schedule. Catering loaded at 0930."
+            />
           </section>
 
           {/* Invoice */}

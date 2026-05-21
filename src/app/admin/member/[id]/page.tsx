@@ -12,6 +12,7 @@ import { trips } from "@/db/schema/trips";
 import { invoices } from "@/db/schema/invoices";
 import { quotes } from "@/db/schema/quotes";
 import { formatUSD } from "@/lib/quote-pricing";
+import { ReserveTxForm } from "@/components/admin/reserve-tx-form";
 
 export const dynamic = "force-dynamic";
 
@@ -568,6 +569,12 @@ export default async function AdminMemberDetailPage({ params }: Props) {
               </p>
             </section>
           )}
+
+          {/* Post a ledger entry */}
+          <section className="rounded-[4px] border border-clearance bg-[rgba(232,226,210,0.04)] p-6">
+            <h2 className="caption mb-4">— Post ledger entry</h2>
+            <ReserveTxForm memberId={memberRow.id} />
+          </section>
 
           {/* Recent ledger */}
           <section className="rounded-[4px] border border-ink-3 bg-ink-2 p-6">

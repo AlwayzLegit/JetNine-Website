@@ -10,3 +10,4 @@ export * from "./trips";
 export * from "./invoices";
 export * from "./member-prefs";
 export * from "./empty-legs";
+export * from "./memberships";

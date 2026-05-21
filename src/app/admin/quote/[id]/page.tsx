@@ -156,6 +156,27 @@ export default async function QuoteWorkbenchPage({ params }: Props) {
   }));
   const heldIds = new Set(heldAircraft.map((h) => h.aircraftId));
 
+  // ── Active soft holds on candidates by OTHER quotes ──
+  // Surfaced as a "held by JN-YYYY-NNNN" badge so dispatchers know they're
+  // racing another desk on this airframe.
+  const conflictRows = await db
+    .select({
+      aircraftId: aircraftScheduleBlocks.aircraftId,
+      relatedQuoteId: aircraftScheduleBlocks.relatedQuoteId,
+      quoteCode: quotes.quoteCode,
+    })
+    .from(aircraftScheduleBlocks)
+    .innerJoin(quotes, eq(quotes.id, aircraftScheduleBlocks.relatedQuoteId))
+    .where(eq(aircraftScheduleBlocks.kind, "hold"));
+
+  const otherHoldsByAircraft = new Map<string, string[]>();
+  for (const c of conflictRows) {
+    if (c.relatedQuoteId === id) continue;
+    const arr = otherHoldsByAircraft.get(c.aircraftId) ?? [];
+    arr.push(c.quoteCode);
+    otherHoldsByAircraft.set(c.aircraftId, arr);
+  }
+
   // ── Candidate aircraft for the sourcing column ──
   // Match by requested_category + enough seats + enough range. Operator must
   // not be suspended/banned/hold. Order by ARG/US tier preference, then
@@ -541,6 +562,11 @@ export default async function QuoteWorkbenchPage({ params }: Props) {
                       </span>
                       <span className="text-steel">· {c.baseIcao ?? "—"}</span>
                     </div>
+                    {otherHoldsByAircraft.has(c.id) ? (
+                      <div className="mt-3 rounded-[2px] border-l-2 border-[var(--warn)] bg-[rgba(184,137,60,0.08)] px-3 py-2 font-mono text-[10px] uppercase tracking-[0.1em] text-[var(--warn)]">
+                        — Racing {otherHoldsByAircraft.get(c.id)!.join(", ")} for this tail
+                      </div>
+                    ) : null}
                     <div className="mt-3 flex items-center justify-between gap-3 border-t border-ink-3 pt-3">
                       <a
                         href={`/admin/aircraft/${c.id}`}

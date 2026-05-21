@@ -48,3 +48,17 @@ export async function requireStaff(): Promise<CurrentUser> {
   }
   return user;
 }
+
+/**
+ * Stricter gate than requireStaff — dispatchers are excluded. Use for actions
+ * that mutate reference data (airports, fbos), seed operations, and
+ * permissions changes, matching the RLS contract (`is_admin()` on those
+ * tables).
+ */
+export async function requireAdmin(): Promise<CurrentUser> {
+  const user = await requireUser("/admin");
+  if (!["admin", "superadmin"].includes(user.role)) {
+    redirect("/account?denied=admin");
+  }
+  return user;
+}

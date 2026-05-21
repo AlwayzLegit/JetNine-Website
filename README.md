@@ -11,7 +11,7 @@ Full-stack rebuild of jetnine.com — marketing site, four-step quote wizard, me
 
 ## What's in the box
 
-**20 tables · 20 migrations · 23 routes**
+**20 tables · 20 migrations · 25 routes**
 
 | Surface | Routes |
 |---|---|
@@ -19,7 +19,7 @@ Full-stack rebuild of jetnine.com — marketing site, four-step quote wizard, me
 | Quote wizard | `/quote/mission`, `/quote/aircraft`, `/quote/contact`, `/quote/review` |
 | Auth | `/sign-in`, `/auth/callback` |
 | Member account | `/account`, `/account/trips` + `[id]`, `/account/invoices`, `/account/preferences`, `/account/members` |
-| Admin dispatch | `/admin/dispatch`, `/admin/quote/[id]`, `/admin/trip` + `[id]`, `/admin/operators`, `/admin/aircraft`, `/admin/member` + `[id]`, `/admin/empty-leg`, `/admin/reports`, `/admin/audit` |
+| Admin dispatch | `/admin/dispatch`, `/admin/quote/[id]`, `/admin/ops`, `/admin/trip` + `[id]`, `/admin/operators` + `[id]`, `/admin/aircraft` + `[id]`, `/admin/airports` + `[id]`, `/admin/member` + `[id]`, `/admin/empty-leg`, `/admin/reports`, `/admin/audit` |
 
 **Data model** lives in [`src/db/schema/`](./src/db/schema). Migrations in [`src/db/migrations/`](./src/db/migrations). Server Actions for every state-changing operation are colocated with their routes (e.g. [`src/app/admin/quote/[id]/actions.ts`](./src/app/admin/quote/[id]/actions.ts)). Every action logs to `audit_log` via [`src/lib/audit.ts`](./src/lib/audit.ts).
 

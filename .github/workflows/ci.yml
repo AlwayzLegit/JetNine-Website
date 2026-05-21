@@ -1,0 +1,57 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: lint · typecheck · build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+          run_install: false
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint
+        run: pnpm lint
+        continue-on-error: false
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      # Build is the canonical check — catches Next.js / Drizzle issues that
+      # lint + typecheck miss. Env values come from GitHub secrets when set;
+      # the build's runtime code falls back to dummy values when env is
+      # missing so it can compile without contacting Supabase.
+      - name: Build
+        run: pnpm build
+        env:
+          # Dummy values let next build succeed without DB access. Real
+          # values are required for the deployed app, not for the CI build.
+          NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-placeholder
+          SUPABASE_SERVICE_ROLE_KEY: ci-placeholder
+          DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
+          DIRECT_URL: postgresql://ci:ci@localhost:5432/ci

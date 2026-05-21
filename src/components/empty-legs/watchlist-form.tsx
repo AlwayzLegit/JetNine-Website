@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useState, useTransition, type FormEvent } from "react";
+import { createWatchlist } from "@/app/(marketing)/empty-legs/actions";
 
 type FieldName = "from" | "to" | "earliest" | "latest" | "mobile" | "email";
 type Errors = Partial<Record<FieldName, true>>;
@@ -8,16 +9,18 @@ type Errors = Partial<Record<FieldName, true>>;
 export function WatchlistForm() {
   const [errors, setErrors] = useState<Errors>({});
   const [msg, setMsg] = useState<{ tone: "ok" | "error"; text: string } | null>(null);
+  const [pending, startTransition] = useTransition();
 
   function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    // Cheap client-side check so we don't round-trip to the server for
+    // obvious missing fields. The Server Action repeats the validation.
     const data = new FormData(e.currentTarget);
     const next: Errors = {};
     const required: FieldName[] = ["from", "to", "earliest", "latest", "mobile"];
     for (const k of required) {
       if (!(data.get(k) as string | null)?.trim()) next[k] = true;
     }
-    // Simple mobile shape check.
     const mobile = (data.get("mobile") as string)?.trim() ?? "";
     if (mobile && !/^\+?[\d\s().-]{7,}$/.test(mobile)) next.mobile = true;
     const email = (data.get("email") as string)?.trim() ?? "";
@@ -31,9 +34,18 @@ export function WatchlistForm() {
       });
       return;
     }
+
     setErrors({});
-    setMsg({ tone: "ok", text: `CLEARED — WATCHLIST CREATED FOR ${(data.get("from") as string).toUpperCase()} → ${(data.get("to") as string).toUpperCase()}` });
-    (e.target as HTMLFormElement).reset();
+    const form = e.currentTarget;
+    startTransition(async () => {
+      const result = await createWatchlist(data);
+      if (result.ok) {
+        setMsg({ tone: "ok", text: `CLEARED — ${result.message}` });
+        form.reset();
+      } else {
+        setMsg({ tone: "error", text: `MISSING / INVALID — ${result.error}` });
+      }
+    });
   }
 
   return (
@@ -78,8 +90,12 @@ export function WatchlistForm() {
               {msg.text}
             </span>
           ) : null}
-          <button type="submit" className="btn btn-primary">
-            Create watchlist <span className="arrow">→</span>
+          <button
+            type="submit"
+            disabled={pending}
+            className="btn btn-primary disabled:cursor-wait disabled:opacity-60"
+          >
+            {pending ? "Saving…" : "Create watchlist"} <span className="arrow">→</span>
           </button>
         </div>
       </div>

@@ -78,6 +78,20 @@
       "when": 1779351100000,
       "tag": "0010_member_prefs_rls",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1779351753098,
+      "tag": "0011_init_phase_c3_empty_legs",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1779352000000,
+      "tag": "0012_empty_legs_rls_and_seed",
+      "breakpoints": true
     }
   ]
 }

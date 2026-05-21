@@ -3,17 +3,20 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import {
-  EMPTY_LEGS,
   CATEGORY_LABELS,
   formatUSD,
-  type EmptyLeg,
+  type EmptyLegView,
 } from "@/lib/empty-legs";
 
-type CategoryFilter = "all" | EmptyLeg["category"];
+type CategoryFilter = "all" | EmptyLegView["category"];
 type TimeFilter = "any" | "48h" | "week";
 
-function applyFilters(category: CategoryFilter, time: TimeFilter): EmptyLeg[] {
-  return EMPTY_LEGS.filter((l) => {
+function applyFilters(
+  legs: EmptyLegView[],
+  category: CategoryFilter,
+  time: TimeFilter,
+): EmptyLegView[] {
+  return legs.filter((l) => {
     if (category !== "all" && l.category !== category) return false;
     if (time === "48h" && l.hoursOut > 48) return false;
     if (time === "week" && l.hoursOut > 168) return false;
@@ -21,28 +24,33 @@ function applyFilters(category: CategoryFilter, time: TimeFilter): EmptyLeg[] {
   });
 }
 
-function countByCategory(): Record<CategoryFilter, number> {
+function countByCategory(legs: EmptyLegView[]): Record<CategoryFilter, number> {
   const out: Record<CategoryFilter, number> = {
-    all: EMPTY_LEGS.length,
+    all: legs.length,
     light: 0,
     midsize: 0,
     supermid: 0,
     heavy: 0,
     ultra: 0,
+    turboprop: 0,
   };
-  for (const l of EMPTY_LEGS) out[l.category]++;
+  for (const l of legs) out[l.category]++;
   return out;
 }
 
-export function LegsBoard() {
+export function LegsBoard({ legs }: { legs: EmptyLegView[] }) {
   const [category, setCategory] = useState<CategoryFilter>("all");
   const [time, setTime] = useState<TimeFilter>("any");
 
-  const counts = useMemo(() => countByCategory(), []);
-  const legs = useMemo(() => applyFilters(category, time), [category, time]);
+  const counts = useMemo(() => countByCategory(legs), [legs]);
+  const filtered = useMemo(
+    () => applyFilters(legs, category, time),
+    [legs, category, time],
+  );
 
   const catChips: { id: CategoryFilter; label: string }[] = [
     { id: "all", label: "All" },
+    { id: "turboprop", label: CATEGORY_LABELS.turboprop },
     { id: "light", label: CATEGORY_LABELS.light },
     { id: "midsize", label: CATEGORY_LABELS.midsize },
     { id: "supermid", label: CATEGORY_LABELS.supermid },
@@ -101,14 +109,14 @@ export function LegsBoard() {
             ))}
           </div>
           <span className="ml-auto font-mono text-[11px] uppercase tracking-[0.12em] text-clearance">
-            {legs.length} shown
+            {filtered.length} shown
           </span>
         </div>
       </div>
 
       {/* Grid */}
       <div className="container-jn py-16">
-        {legs.length === 0 ? (
+        {filtered.length === 0 ? (
           <div className="mx-auto max-w-[48ch] rounded-[4px] border border-ink-3 bg-ink-2 p-12 text-center">
             <h3 className="font-serif text-[26px] font-normal leading-tight text-bone">
               No legs match those filters right now.
@@ -120,7 +128,7 @@ export function LegsBoard() {
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {legs.map((l) => (
+            {filtered.map((l) => (
               <article
                 key={l.id}
                 className={[
@@ -133,10 +141,10 @@ export function LegsBoard() {
                 <header className="flex items-start justify-between gap-4">
                   <div className="flex flex-col gap-1">
                     <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-bone-2">
-                      {l.id}
+                      {l.code}
                     </span>
                     <span className="font-mono text-[11px] tracking-[0.04em] text-bone">
-                      {CATEGORY_LABELS[l.category]} · {l.aircraft} · {l.year}
+                      {CATEGORY_LABELS[l.category]} · {l.aircraft}
                     </span>
                   </div>
                   <span className="shrink-0 rounded-[2px] bg-clearance px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.14em] text-ink">
@@ -148,7 +156,7 @@ export function LegsBoard() {
                 <div className="grid grid-cols-[auto_1fr_auto] items-center gap-4 border-y border-ink-3 py-6">
                   <div>
                     <div className="font-serif text-[28px] font-light leading-none tracking-tight text-bone">
-                      {l.fromCode}
+                      {l.fromIata}
                     </div>
                     <div className="mt-1 font-mono text-[10px] uppercase tracking-[0.08em] text-bone-2">
                       {l.fromCity}
@@ -169,7 +177,7 @@ export function LegsBoard() {
                   </div>
                   <div className="text-right">
                     <div className="font-serif text-[28px] font-light leading-none tracking-tight text-bone">
-                      {l.toCode}
+                      {l.toIata}
                     </div>
                     <div className="mt-1 font-mono text-[10px] uppercase tracking-[0.08em] text-bone-2">
                       {l.toCity}
@@ -213,12 +221,12 @@ export function LegsBoard() {
                     <button
                       type="button"
                       className="font-mono text-[11px] uppercase tracking-[0.14em] text-bone-2 transition-colors hover:text-bone"
-                      onClick={() => alert(`${l.id} · details`)}
+                      onClick={() => alert(`${l.code} · details`)}
                     >
                       Details →
                     </button>
                     <Link
-                      href={`/quote?leg=${l.id}`}
+                      href={`/quote?leg=${l.code}`}
                       className="btn btn-primary btn-sm"
                     >
                       Book this leg <span className="arrow">→</span>

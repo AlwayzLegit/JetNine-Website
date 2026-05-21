@@ -1,8 +1,16 @@
 import type { Metadata } from "next";
+import { asc, eq } from "drizzle-orm";
+import { db } from "@/db";
 import { Reveal } from "@/components/reveal";
 import { LegsBoard } from "@/components/empty-legs/legs-board";
 import { WatchlistForm } from "@/components/empty-legs/watchlist-form";
-import { EMPTY_LEGS } from "@/lib/empty-legs";
+import { emptyLegs } from "@/db/schema/empty-legs";
+import { operators } from "@/db/schema/operators";
+import { aircraft } from "@/db/schema/aircraft";
+import type { EmptyLegView } from "@/lib/empty-legs";
+
+export const dynamic = "force-dynamic";
+export const revalidate = 60; // refresh every minute
 
 export const metadata: Metadata = {
   title: "Empty legs",
@@ -10,21 +18,120 @@ export const metadata: Metadata = {
     "Repositioning legs at up to 60% off. Live board, updated every fifteen minutes from operator dispatch.",
 };
 
-function liveStats() {
-  const sorted = [...EMPTY_LEGS].sort((a, b) => a.hoursOut - b.hoursOut);
+const MARKETING_CATEGORIES: Record<string, EmptyLegView["category"]> = {
+  turboprop: "turboprop",
+  light: "light",
+  midsize: "midsize",
+  supermid: "supermid",
+  heavy: "heavy",
+  ulr: "ultra",
+};
+
+function formatDate(d: Date): string {
+  const now = new Date();
+  const sameDay = d.toDateString() === now.toDateString();
+  const tomorrow = new Date(now);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const isTomorrow = d.toDateString() === tomorrow.toDateString();
+  const dayName = d.toLocaleDateString("en-US", { weekday: "short" }).toUpperCase();
+  const dayNum = d.getDate();
+  const month = d.toLocaleDateString("en-US", { month: "short" }).toUpperCase();
+  const time = d.toLocaleTimeString("en-US", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+  if (sameDay) return `TODAY · ${time}`;
+  if (isTomorrow) return `TOMORROW · ${time}`;
+  return `${dayName} ${dayNum} ${month} · ${time}`;
+}
+
+function formatDuration(minutes: number | null): string {
+  if (!minutes) return "—";
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  return `${h}h ${String(m).padStart(2, "0")}m`;
+}
+
+async function getLiveLegs(): Promise<EmptyLegView[]> {
+  const rows = await db
+    .select({
+      id: emptyLegs.id,
+      code: emptyLegs.code,
+      category: emptyLegs.category,
+      fromIata: emptyLegs.fromIata,
+      fromIcao: emptyLegs.fromIcao,
+      fromCity: emptyLegs.fromCity,
+      fromName: emptyLegs.fromName,
+      toIata: emptyLegs.toIata,
+      toIcao: emptyLegs.toIcao,
+      toCity: emptyLegs.toCity,
+      toName: emptyLegs.toName,
+      wheelsUpAt: emptyLegs.wheelsUpAt,
+      flightMinutes: emptyLegs.flightMinutes,
+      seats: emptyLegs.seatsAvailable,
+      priceWas: emptyLegs.fullCharterRefUsd,
+      priceNow: emptyLegs.listedPriceUsd,
+      discountPct: emptyLegs.discountPct,
+      makeModel: aircraft.makeModel,
+      yearManufactured: aircraft.yearManufactured,
+      argusRating: operators.argusRating,
+      wyvernWingman: operators.wyvernWingman,
+    })
+    .from(emptyLegs)
+    .leftJoin(aircraft, eq(aircraft.id, emptyLegs.aircraftId))
+    .innerJoin(operators, eq(operators.id, emptyLegs.operatorId))
+    .where(eq(emptyLegs.status, "live"))
+    .orderBy(asc(emptyLegs.wheelsUpAt));
+
+  const now = Date.now();
+  return rows.map<EmptyLegView>((r) => {
+    const hoursOut = Math.max(0, (r.wheelsUpAt.getTime() - now) / 3_600_000);
+    const operatorBadge = r.wyvernWingman
+      ? "Wyvern Wingman ✓"
+      : r.argusRating === "platinum"
+        ? "ARG/US Plat ✓"
+        : `ARG/US ${r.argusRating}`;
+    return {
+      id: r.id,
+      code: r.code,
+      category: (MARKETING_CATEGORIES[r.category] ?? "midsize") as EmptyLegView["category"],
+      aircraft: `${r.makeModel ?? "Aircraft"}${r.yearManufactured ? ` · ${r.yearManufactured}` : ""}`,
+      fromIata: r.fromIata ?? r.fromIcao ?? "—",
+      fromCity: r.fromCity ?? "—",
+      fromAirport: r.fromName ?? r.fromIcao ?? "—",
+      toIata: r.toIata ?? r.toIcao ?? "—",
+      toCity: r.toCity ?? "—",
+      toAirport: r.toName ?? r.toIcao ?? "—",
+      date: formatDate(r.wheelsUpAt),
+      duration: formatDuration(r.flightMinutes),
+      seats: r.seats,
+      priceWas: r.priceWas,
+      priceNow: r.priceNow,
+      discountPct: r.discountPct ?? Math.round(((r.priceWas - r.priceNow) / r.priceWas) * 100),
+      hoursOut,
+      operatorBadge,
+      featured: r.discountPct !== null && r.discountPct >= 60,
+    };
+  });
+}
+
+function liveStats(legs: EmptyLegView[]) {
+  const sorted = [...legs].sort((a, b) => a.hoursOut - b.hoursOut);
   const next = sorted[0];
   const farthest = sorted[sorted.length - 1];
-  const best = EMPTY_LEGS.reduce((acc, l) => (l.discountPct > acc ? l.discountPct : acc), 0);
+  const best = legs.reduce((acc, l) => (l.discountPct > acc ? l.discountPct : acc), 0);
   return {
-    count: EMPTY_LEGS.length,
+    count: legs.length,
     nextHoursOut: next ? `in ${Math.round(next.hoursOut)}h` : "—",
     farthestDays: farthest ? `${Math.round(farthest.hoursOut / 24)} days out` : "—",
-    bestDiscount: `${best}% off`,
+    bestDiscount: best ? `${best}% off` : "—",
   };
 }
 
-export default function EmptyLegsPage() {
-  const s = liveStats();
+export default async function EmptyLegsPage() {
+  const legs = await getLiveLegs();
+  const s = liveStats(legs);
 
   return (
     <>
@@ -80,7 +187,7 @@ export default function EmptyLegsPage() {
         </div>
       </header>
 
-      <LegsBoard />
+      <LegsBoard legs={legs} />
 
       {/* ─── How it works ─── */}
       <section className="border-t border-ink-3 py-32 max-md:py-20">

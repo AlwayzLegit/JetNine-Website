@@ -1,11 +1,10 @@
 import Link from "next/link";
-import { asc, count, eq, sql, sum } from "drizzle-orm";
+import { asc, eq, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { members } from "@/db/schema/members";
 import { users } from "@/db/schema/users";
-import { trips } from "@/db/schema/trips";
-import { invoices } from "@/db/schema/invoices";
 import { formatUSD } from "@/lib/quote-pricing";
+import { MemberInviteForm } from "@/components/admin/member-invite-form";
 
 export const dynamic = "force-dynamic";
 
@@ -69,24 +68,29 @@ export default async function AdminMembersPage() {
           </h1>
           <p className="mt-3 max-w-[64ch] text-[14px] leading-[1.55] text-bone-2">
             Sorted by last name. Click into a row for the 360° view — preferences, lanes,
-            companions, transactions (lands with Phase A.2 + C.3).
+            companions, reserve ledger, trips.
           </p>
         </div>
-        <dl className="flex flex-wrap gap-x-10 gap-y-3 text-right">
-          {[
-            ["TOTAL", String(totals.total)],
-            ["ACTIVE", String(totals.active)],
-            ["CARD / RESERVE", String(totals.flying)],
-            ["LIFETIME REV", formatUSD(totals.lifetimeRevenue)],
-          ].map(([lbl, val]) => (
-            <div key={lbl} className="flex flex-col items-end">
-              <dt className="font-mono text-[10px] uppercase tracking-[0.14em] text-steel">{lbl}</dt>
-              <dd className="mt-1 font-serif text-[26px] font-light leading-none text-bone">
-                {val}
-              </dd>
-            </div>
-          ))}
-        </dl>
+        <div className="flex flex-col items-end gap-4">
+          <dl className="flex flex-wrap gap-x-10 gap-y-3 text-right">
+            {[
+              ["TOTAL", String(totals.total)],
+              ["ACTIVE", String(totals.active)],
+              ["CARD / RESERVE", String(totals.flying)],
+              ["LIFETIME REV", formatUSD(totals.lifetimeRevenue)],
+            ].map(([lbl, val]) => (
+              <div key={lbl} className="flex flex-col items-end">
+                <dt className="font-mono text-[10px] uppercase tracking-[0.14em] text-steel">
+                  {lbl}
+                </dt>
+                <dd className="mt-1 font-serif text-[26px] font-light leading-none text-bone">
+                  {val}
+                </dd>
+              </div>
+            ))}
+          </dl>
+          <MemberInviteForm />
+        </div>
       </header>
 
       {rows.length === 0 ? (

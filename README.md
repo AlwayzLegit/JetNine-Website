@@ -84,16 +84,20 @@ If you signed in **before** setting the GUC, run that same update statement to f
 
 Settings → Environment Variables → add the same five env vars from `.env.local` to **Production, Preview, and Development** scopes. The deployed site renders without them but every Supabase call fails until they're set.
 
-### 3. Optional — bootstrap a member profile
+### 3. Onboard members
 
-`public.users` is created automatically on signup, but `public.members` (which carries tier, member_code, etc.) is a separate row. Until the admin onboarding flow ships, create one by hand:
+`public.users` is created automatically on auth signup; `public.members` carries tier + member_code and is created by ops. Two paths:
+
+**Recommended — admin UI.** Sign in as admin, hit `/admin/member` → **+ Invite member**. The form sends a magic-link invite via Supabase admin API, creates the `public.members` row, fills in the `M-YYYY-NNNN` code, and audit-logs the action. Reuses existing auth users if the email already signed in once.
+
+**Fallback — SQL.** If the admin UI isn't reachable for some reason:
 
 ```sql
 insert into public.members (user_id, member_code, status)
-values ('<auth.users.id>', 'M-2026-0001', 'active');
+values ('<auth.users.id>', '', 'active'); -- code auto-fills via trigger
 ```
 
-Or skip — every account page handles "no member yet" gracefully and points the user at `/quote`.
+Every member-facing page handles "no member yet" gracefully and points the user at `/quote`.
 
 ---
 

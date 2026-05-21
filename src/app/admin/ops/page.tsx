@@ -5,6 +5,7 @@ import { aircraft } from "@/db/schema/aircraft";
 import { operators } from "@/db/schema/operators";
 import { aircraftScheduleBlocks } from "@/db/schema/schedule-blocks";
 import { trips } from "@/db/schema/trips";
+import { ScheduleBlockForm } from "@/components/admin/schedule-block-form";
 
 export const dynamic = "force-dynamic";
 
@@ -148,19 +149,29 @@ export default async function AdminOpsPage() {
         </dl>
       </header>
 
-      {/* Legend */}
-      <section className="mb-4 flex flex-wrap items-center gap-x-5 gap-y-2 font-mono text-[10px] uppercase tracking-[0.12em]">
-        {Object.entries(KIND).map(([k, v]) => (
-          <span key={k} className="flex items-center gap-2">
-            <span
-              className={[
-                "inline-block h-3 w-5 rounded-[2px]",
-                v.cls,
-              ].join(" ")}
-            />
-            <span className="text-bone-2">{v.label}</span>
-          </span>
-        ))}
+      {/* Legend + manual-block authoring */}
+      <section className="mb-6 flex flex-wrap items-start justify-between gap-4">
+        <div className="flex flex-wrap items-center gap-x-5 gap-y-2 font-mono text-[10px] uppercase tracking-[0.12em]">
+          {Object.entries(KIND).map(([k, v]) => (
+            <span key={k} className="flex items-center gap-2">
+              <span
+                className={[
+                  "inline-block h-3 w-5 rounded-[2px]",
+                  v.cls,
+                ].join(" ")}
+              />
+              <span className="text-bone-2">{v.label}</span>
+            </span>
+          ))}
+        </div>
+        <ScheduleBlockForm
+          aircraftOptions={fleet.map((f) => ({
+            id: f.id,
+            tailNumber: f.tailNumber,
+            makeModel: f.makeModel,
+            category: f.category,
+          }))}
+        />
       </section>
 
       {fleet.length === 0 ? (

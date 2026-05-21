@@ -3,6 +3,7 @@ import { desc, asc, count } from "drizzle-orm";
 import { db } from "@/db";
 import { operators } from "@/db/schema/operators";
 import { aircraft } from "@/db/schema/aircraft";
+import { OperatorCreateForm } from "@/components/admin/operator-create-form";
 
 export const dynamic = "force-dynamic";
 
@@ -77,26 +78,33 @@ export default async function OperatorsPage() {
             audit-due operators get yellow highlight as a reminder for the desk.
           </p>
         </div>
-        <dl className="flex flex-wrap gap-x-10 gap-y-3 text-right">
-          {[
-            ["TOTAL", String(totals.operators)],
-            ["ACTIVE", String(totals.active)],
-            ["AUDIT DUE", String(totals.auditDue)],
-            ["HOLD / SUSP", String(totals.suspended)],
-          ].map(([lbl, val]) => (
-            <div key={lbl} className="flex flex-col items-end">
-              <dt className="font-mono text-[10px] uppercase tracking-[0.14em] text-steel">{lbl}</dt>
-              <dd
-                className={[
-                  "mt-1 font-serif text-[26px] font-light leading-none",
-                  lbl === "HOLD / SUSP" && totals.suspended > 0 ? "text-[var(--error)]" : "text-bone",
-                ].join(" ")}
-              >
-                {val}
-              </dd>
-            </div>
-          ))}
-        </dl>
+        <div className="flex flex-col items-end gap-4">
+          <dl className="flex flex-wrap gap-x-10 gap-y-3 text-right">
+            {[
+              ["TOTAL", String(totals.operators)],
+              ["ACTIVE", String(totals.active)],
+              ["AUDIT DUE", String(totals.auditDue)],
+              ["HOLD / SUSP", String(totals.suspended)],
+            ].map(([lbl, val]) => (
+              <div key={lbl} className="flex flex-col items-end">
+                <dt className="font-mono text-[10px] uppercase tracking-[0.14em] text-steel">
+                  {lbl}
+                </dt>
+                <dd
+                  className={[
+                    "mt-1 font-serif text-[26px] font-light leading-none",
+                    lbl === "HOLD / SUSP" && totals.suspended > 0
+                      ? "text-[var(--error)]"
+                      : "text-bone",
+                  ].join(" ")}
+                >
+                  {val}
+                </dd>
+              </div>
+            ))}
+          </dl>
+          <OperatorCreateForm />
+        </div>
       </header>
 
       <div className="overflow-x-auto rounded-[4px] border border-ink-3 bg-ink-2">

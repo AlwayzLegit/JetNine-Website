@@ -6,6 +6,7 @@ import { operators, operatorContacts } from "@/db/schema/operators";
 import { aircraft } from "@/db/schema/aircraft";
 import { trips } from "@/db/schema/trips";
 import { OperatorContactsEditor } from "@/components/admin/operator-contacts-editor";
+import { OperatorEditForm } from "@/components/admin/operator-edit-form";
 
 export const dynamic = "force-dynamic";
 
@@ -189,6 +190,10 @@ export default async function AdminOperatorDetailPage({ params }: Props) {
             </div>
           ))}
         </dl>
+      </div>
+
+      <div className="mb-6">
+        <OperatorEditForm initial={op} />
       </div>
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1.3fr_1fr]">

@@ -12,3 +12,4 @@ export * from "./member-prefs";
 export * from "./empty-legs";
 export * from "./memberships";
 export * from "./audit";
+export * from "./schedule-blocks";

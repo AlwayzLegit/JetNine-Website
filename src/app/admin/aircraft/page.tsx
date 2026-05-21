@@ -79,8 +79,11 @@ export default async function AdminAircraftPage() {
           </h1>
           <p className="mt-3 max-w-[60ch] text-[14px] leading-[1.55] text-bone-2">
             Grouped by category. Tail numbers are unique; each links back to its operator. The
-            14-day availability planner (block slots, soft-holds, ferry) lands once we ship
-            aircraft_schedule_blocks.
+            14-day availability planner is live at{" "}
+            <Link href="/admin/ops" className="text-clearance hover:underline">
+              /admin/ops
+            </Link>
+            .
           </p>
         </div>
         <dl className="flex flex-wrap gap-x-10 gap-y-3 text-right">

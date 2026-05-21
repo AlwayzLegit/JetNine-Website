@@ -120,6 +120,20 @@
       "when": 1779355900000,
       "tag": "0016_audit_rls",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1780000000000,
+      "tag": "0017_init_phase_b2_schedule_blocks",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1780000200000,
+      "tag": "0018_schedule_blocks_rls",
+      "breakpoints": true
     }
   ]
 }

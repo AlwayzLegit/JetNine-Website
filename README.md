@@ -11,7 +11,7 @@ Full-stack rebuild of jetnine.com — marketing site, four-step quote wizard, me
 
 ## What's in the box
 
-**17 tables · 16 migrations · 23 routes**
+**18 tables · 18 migrations · 23 routes**
 
 | Surface | Routes |
 |---|---|
@@ -204,9 +204,10 @@ src/
 - ✅ **Phase C.3** — empty_legs / empty_leg_watchlists (6 seed rows on the live board)
 - ✅ **Phase C.4** — memberships / reserve_transactions ledger + members.tier sync trigger
 - ✅ **Phase C.5** — audit_log / messages
+- ✅ **Phase B.2 (partial)** — aircraft_schedule_blocks + trip-sync trigger + 14-day planner at `/admin/ops`
 
 **Pending:**
-- `airports` / `fbos` / `aircraft_schedule_blocks` (Phase B.2) — needed for the 14-day fleet planner and `/admin/ops`
+- `airports` / `fbos` tables (the rest of Phase B.2) — FK targets for schedule blocks once we want strict ICAO validation
 - Email-on-submit via Resend or Postmark (drop an API key → wire in one commit)
 - Sentry (drop a DSN → uncomment two blocks in `instrumentation.ts`)
 - Live aircraft tracking — needs FlightAware / ADS-B Exchange API access

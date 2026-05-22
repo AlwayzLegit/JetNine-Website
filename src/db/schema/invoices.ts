@@ -3,7 +3,7 @@ import {
   date,
   index,
   integer,
-  numeric,
+  jsonb,
   pgEnum,
   pgTable,
   text,
@@ -55,6 +55,16 @@ export const invoices = pgTable(
       .default(sql`current_date`),
     dueOn: date("due_on"),
     paidOn: date("paid_on"),
+    // Precise timestamp the webhook handler stamped. `paidOn` stays as the
+    // calendar-day rollup for member-facing display.
+    paidAt: timestamp("paid_at", { withTimezone: true }),
+
+    // Stripe linkage — populated when a checkout session is created
+    // (session id) and again on success when the underlying payment
+    // intent is finalised. Unique partial indexes prevent duplicate
+    // bindings across invoices.
+    stripeCheckoutSessionId: text("stripe_checkout_session_id"),
+    stripePaymentIntentId: text("stripe_payment_intent_id"),
 
     status: invoiceStatusEnum("status").notNull().default("draft"),
 
@@ -82,5 +92,29 @@ export const invoices = pgTable(
   ],
 );
 
+/**
+ * Idempotency log for Stripe webhook events. Primary key is the Stripe
+ * event id (`evt_...`); the webhook handler inserts before processing so
+ * a replayed event short-circuits instead of double-processing a payment.
+ *
+ * Server-only — anon / authenticated have no grants (see migration 0027).
+ */
+export const stripeWebhookEvents = pgTable(
+  "stripe_webhook_events",
+  {
+    id: text("id").primaryKey(),
+    type: text("type").notNull(),
+    payload: jsonb("payload").notNull().$type<Record<string, unknown>>(),
+    receivedAt: timestamp("received_at", { withTimezone: true })
+      .notNull()
+      .default(sql`now()`),
+    processedAt: timestamp("processed_at", { withTimezone: true }),
+    error: text("error"),
+  },
+  (t) => [index("stripe_webhook_events_type_idx").on(t.type, t.receivedAt)],
+);
+
 export type Invoice = typeof invoices.$inferSelect;
 export type NewInvoice = typeof invoices.$inferInsert;
+export type StripeWebhookEvent = typeof stripeWebhookEvents.$inferSelect;
+export type NewStripeWebhookEvent = typeof stripeWebhookEvents.$inferInsert;

@@ -139,6 +139,27 @@ pnpm db:push
 
 ---
 
+## Payments (Stripe)
+
+`/account/invoices` ships a **Pay now** button on `due` / `overdue` invoices. Members are redirected to a hosted Stripe Checkout session; on success Stripe posts to `/api/stripe/webhook`, which marks the invoice `paid` and audit-logs the event.
+
+Ships dark without `STRIPE_SECRET_KEY` — the button returns `STRIPE_NOT_CONFIGURED` and the webhook responds 503 (so Stripe stops retrying until env vars land).
+
+| Env var | Purpose |
+|---|---|
+| `STRIPE_SECRET_KEY` | Server-only API key (`sk_test_…` / `sk_live_…`) |
+| `STRIPE_WEBHOOK_SECRET` | Signing secret for `/api/stripe/webhook` (`whsec_…`) |
+| `NEXT_PUBLIC_SITE_URL` | Used to build the success / cancel redirect URLs |
+
+In the Stripe dashboard, point the webhook at `https://YOUR_DOMAIN/api/stripe/webhook` and forward `checkout.session.completed`, `payment_intent.payment_failed`, `charge.refunded`. The handler is idempotent via the `stripe_webhook_events` table (PK on the Stripe event id), so retries and duplicate deliveries are safe.
+
+For local development, use the Stripe CLI:
+
+```sh
+stripe listen --forward-to localhost:3000/api/stripe/webhook
+# copy the printed whsec_... into STRIPE_WEBHOOK_SECRET in .env.local
+```
+
 ## Observability
 
 `src/instrumentation.ts` (server + edge) and `instrumentation-client.ts` (browser) hook into Sentry when `SENTRY_DSN` / `NEXT_PUBLIC_SENTRY_DSN` are set. Without those env vars the SDK is dormant — it ships in the bundle but no events flow. Drop a DSN in and:

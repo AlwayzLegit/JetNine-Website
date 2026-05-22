@@ -139,6 +139,18 @@ pnpm db:push
 
 ---
 
+## SEO / discoverability
+
+The marketing surface ships with:
+
+- **`/sitemap.xml`** — `src/app/sitemap.ts` enumerates every public route, including the 6 aircraft category detail pages from the `FLEET` catalog.
+- **`/robots.txt`** — `src/app/robots.ts`. Production allows the marketing surface; preview / non-prod environments disallow everything so leaked Vercel preview URLs never get indexed.
+- **`/opengraph-image`** — `src/app/opengraph-image.tsx` renders a brand-consistent 1200×630 PNG via `next/og`'s `ImageResponse`. Picked up automatically as the default OG card for every page that doesn't define its own.
+- **JSON-LD `Organization` schema** — inlined in `src/app/layout.tsx` head. Gives Google the knowledge-panel hook (logo, dispatch phone, Part 295 disclosure).
+- **OG / Twitter meta defaults** — set in the root `metadata` export and inherited by every route. Per-route titles + descriptions still come from each page's own `metadata`.
+
+`NEXT_PUBLIC_SITE_URL` drives the sitemap host, robots host, and canonical URLs. Default is `https://jetnine.com`.
+
 ## Payments (Stripe)
 
 `/account/invoices` ships a **Pay now** button on `due` / `overdue` invoices. Members are redirected to a hosted Stripe Checkout session; on success Stripe posts to `/api/stripe/webhook`, which marks the invoice `paid` and audit-logs the event.

@@ -16,6 +16,7 @@ import {
   uuid,
 } from "drizzle-orm/pg-core";
 import { aircraftCategoryEnum, cateringTierEnum, groundTypeEnum } from "./enums";
+import { airports } from "./airports";
 import { members } from "./members";
 import { staff } from "./staff";
 import { users } from "./users";
@@ -191,12 +192,18 @@ export const quoteLegs = pgTable(
       .references(() => quotes.id, { onDelete: "cascade" }),
     legNumber: integer("leg_number").notNull(),
 
-    fromIcao: text("from_icao"),
+    fromIcao: text("from_icao").references(() => airports.icao, {
+      onDelete: "set null",
+      onUpdate: "cascade",
+    }),
     fromIata: text("from_iata"),
     fromCity: text("from_city"),
     fromName: text("from_name"),
 
-    toIcao: text("to_icao"),
+    toIcao: text("to_icao").references(() => airports.icao, {
+      onDelete: "set null",
+      onUpdate: "cascade",
+    }),
     toIata: text("to_iata"),
     toCity: text("to_city"),
     toName: text("to_name"),
@@ -214,6 +221,8 @@ export const quoteLegs = pgTable(
   (t) => [
     uniqueIndex("quote_legs_quote_leg_uq").on(t.quoteId, t.legNumber),
     index("quote_legs_route_idx").on(t.fromIata, t.toIata),
+    index("quote_legs_from_icao_idx").on(t.fromIcao),
+    index("quote_legs_to_icao_idx").on(t.toIcao),
   ],
 );
 

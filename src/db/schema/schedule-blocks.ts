@@ -9,6 +9,7 @@ import {
   uuid,
 } from "drizzle-orm/pg-core";
 import { aircraft } from "./aircraft";
+import { airports } from "./airports";
 import { trips } from "./trips";
 import { quotes } from "./quotes";
 import { users } from "./users";
@@ -64,10 +65,15 @@ export const aircraftScheduleBlocks = pgTable(
       onDelete: "cascade",
     }),
 
-    // Useful for trip/repositioning blocks. Free text so we don't FK to
-    // airports yet (that table arrives in Phase B.2.airports).
-    fromIcao: text("from_icao"),
-    toIcao: text("to_icao"),
+    // Useful for trip/repositioning blocks.
+    fromIcao: text("from_icao").references(() => airports.icao, {
+      onDelete: "set null",
+      onUpdate: "cascade",
+    }),
+    toIcao: text("to_icao").references(() => airports.icao, {
+      onDelete: "set null",
+      onUpdate: "cascade",
+    }),
 
     // Free-form crew list for now. When staff.crew lands we can FK these.
     crewIds: jsonb("crew_ids").$type<string[] | null>(),
@@ -91,6 +97,8 @@ export const aircraftScheduleBlocks = pgTable(
     index("asb_window_idx").on(t.startAt, t.endAt),
     index("asb_related_trip_idx").on(t.relatedTripId),
     index("asb_related_quote_idx").on(t.relatedQuoteId),
+    index("asb_from_icao_idx").on(t.fromIcao),
+    index("asb_to_icao_idx").on(t.toIcao),
   ],
 );
 

@@ -6,6 +6,7 @@ import { trips } from "@/db/schema/trips";
 import { getCurrentUser, requireUser } from "@/lib/auth";
 import { getMemberByUserId } from "@/lib/member";
 import { formatUSD } from "@/lib/quote-pricing";
+import { PayInvoiceButton } from "@/components/invoice/pay-button";
 
 export const dynamic = "force-dynamic";
 
@@ -18,10 +19,21 @@ const STATUS_CLASS: Record<string, string> = {
   void: "border-steel text-steel",
 };
 
-export default async function AccountInvoicesPage() {
+export default async function AccountInvoicesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ paid?: string; cancelled?: string }>;
+}) {
   await requireUser("/account/invoices");
   const user = await getCurrentUser();
   if (!user) return null;
+
+  const sp = await searchParams;
+  const flash = sp.paid
+    ? { kind: "paid" as const, invoiceId: sp.paid }
+    : sp.cancelled
+      ? { kind: "cancelled" as const, invoiceId: sp.cancelled }
+      : null;
 
   const member = await getMemberByUserId(user.id);
 
@@ -71,6 +83,20 @@ export default async function AccountInvoicesPage() {
 
   return (
     <section className="container-jn py-12">
+      {flash ? (
+        <div
+          className={[
+            "mb-8 rounded-[3px] border px-5 py-4 font-mono text-[12px] tracking-[0.04em]",
+            flash.kind === "paid"
+              ? "border-[var(--success)] bg-[rgba(78,159,107,0.08)] text-[var(--success)]"
+              : "border-[var(--warn)] bg-[rgba(192,148,73,0.08)] text-[var(--warn)]",
+          ].join(" ")}
+        >
+          {flash.kind === "paid"
+            ? "— Payment received. Stripe confirmation lands in your inbox; this list updates once the webhook clears (usually a few seconds)."
+            : "— Checkout cancelled. Your invoice is still open — try again whenever you're ready."}
+        </div>
+      ) : null}
       <header className="mb-10 flex flex-wrap items-end justify-between gap-6">
         <div>
           <p className="caption mb-3">— Account · invoices</p>
@@ -158,11 +184,16 @@ export default async function AccountInvoicesPage() {
                   + Seg {i.segmentFeeUsd ? formatUSD(i.segmentFeeUsd) : "—"}
                 </div>
               </div>
-              <div
-                className="font-serif text-[22px] font-light leading-none tracking-tight text-bone"
-                style={{ letterSpacing: "-0.01em" }}
-              >
-                {i.totalUsd ? formatUSD(i.totalUsd) : "—"}
+              <div className="flex flex-col items-end gap-3">
+                <div
+                  className="font-serif text-[22px] font-light leading-none tracking-tight text-bone"
+                  style={{ letterSpacing: "-0.01em" }}
+                >
+                  {i.totalUsd ? formatUSD(i.totalUsd) : "—"}
+                </div>
+                {i.status === "due" || i.status === "overdue" ? (
+                  <PayInvoiceButton invoiceId={i.id} />
+                ) : null}
               </div>
             </li>
           ))}

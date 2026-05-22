@@ -57,3 +57,17 @@ test.describe("auth surface", () => {
     expect(page.url()).toMatch(/sign-in/);
   });
 });
+
+test.describe("stripe webhook endpoint", () => {
+  test("rejects request without a signature", async ({ request }) => {
+    const response = await request.post("/api/stripe/webhook", {
+      data: { fake: "payload" },
+    });
+    // With STRIPE_SECRET_KEY missing in CI, the route short-circuits to
+    // 503 (configured-incorrectly) before signature validation. When the
+    // key IS configured, signature validation rejects with 400. Both are
+    // acceptable for a smoke test — what matters is we don't 5xx with a
+    // crash.
+    expect([400, 503]).toContain(response.status());
+  });
+});

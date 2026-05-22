@@ -51,10 +51,8 @@ export async function logAudit(input: LogInput): Promise<void> {
       userAgent: ua,
     } satisfies NewAuditLog);
   } catch (err) {
-    // Audit failure must not block the operational action. Emit a tagged
-    // structured line so log aggregators / Sentry can alert on missing
-    // audit rows — this is the closest thing we have to "missed audit"
-    // visibility until Sentry is wired in.
+    // Audit failure must not block the operational action. Tagged JSON
+    // line for log-aggregator alerting + forward to Sentry when wired up.
     const tag = "[audit-failure]";
     const payload = {
       action: input.action,
@@ -65,5 +63,10 @@ export async function logAudit(input: LogInput): Promise<void> {
       error: err instanceof Error ? err.message : String(err),
     };
     console.error(`${tag} ${JSON.stringify(payload)}`);
+
+    if (process.env.SENTRY_DSN) {
+      const Sentry = await import("@sentry/nextjs").catch(() => null);
+      Sentry?.captureException(err, { tags: { kind: "audit-failure" }, extra: payload });
+    }
   }
 }

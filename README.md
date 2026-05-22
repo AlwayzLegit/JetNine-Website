@@ -4,7 +4,7 @@ Full-stack rebuild of jetnine.com — marketing site, four-step quote wizard, me
 
 — Repo: [`AlwayzLegit/JetNine-Website`](https://github.com/AlwayzLegit/JetNine-Website)
 — Live database: Supabase project `szuztxfhkudcjzhrkfld`, Postgres 17.6
-— Auth: Supabase magic-link, role-gated via middleware
+— Auth: Supabase magic-link, role-gated via middleware — full matrix in [`RBAC.md`](./RBAC.md)
 — Deploy: Vercel, auto-deploy on push to `main`
 
 ---
@@ -139,15 +139,38 @@ pnpm db:push
 
 ---
 
-## Observability
+## Payments (Stripe)
 
-`src/instrumentation.ts` is the Next.js runtime hook. Currently logs startup + request errors to stdout (visible in Vercel Function Logs). To wire Sentry:
+`/account/invoices` ships a **Pay now** button on `due` / `overdue` invoices. Members are redirected to a hosted Stripe Checkout session; on success Stripe posts to `/api/stripe/webhook`, which marks the invoice `paid` and audit-logs the event.
+
+Ships dark without `STRIPE_SECRET_KEY` — the button returns `STRIPE_NOT_CONFIGURED` and the webhook responds 503 (so Stripe stops retrying until env vars land).
+
+| Env var | Purpose |
+|---|---|
+| `STRIPE_SECRET_KEY` | Server-only API key (`sk_test_…` / `sk_live_…`) |
+| `STRIPE_WEBHOOK_SECRET` | Signing secret for `/api/stripe/webhook` (`whsec_…`) |
+| `NEXT_PUBLIC_SITE_URL` | Used to build the success / cancel redirect URLs |
+
+In the Stripe dashboard, point the webhook at `https://YOUR_DOMAIN/api/stripe/webhook` and forward `checkout.session.completed`, `payment_intent.payment_failed`, `charge.refunded`. The handler is idempotent via the `stripe_webhook_events` table (PK on the Stripe event id), so retries and duplicate deliveries are safe.
+
+For local development, use the Stripe CLI:
 
 ```sh
-pnpm add @sentry/nextjs
+stripe listen --forward-to localhost:3000/api/stripe/webhook
+# copy the printed whsec_... into STRIPE_WEBHOOK_SECRET in .env.local
 ```
 
-then add `SENTRY_DSN` to env and uncomment the two Sentry blocks in `src/instrumentation.ts`.
+## Observability
+
+`src/instrumentation.ts` (server + edge) and `instrumentation-client.ts` (browser) hook into Sentry when `SENTRY_DSN` / `NEXT_PUBLIC_SENTRY_DSN` are set. Without those env vars the SDK is dormant — it ships in the bundle but no events flow. Drop a DSN in and:
+
+- Server errors thrown from RSCs, Server Actions, Route Handlers, middleware → captured via `onRequestError` in `src/instrumentation.ts`.
+- Client errors caught by `app/error.tsx` and `app/global-error.tsx` → forwarded via `Sentry.captureException`.
+- App-Router navigation transitions → captured via `onRouterTransitionStart` re-exported from `instrumentation-client.ts`.
+
+Stdout fallback stays on regardless: every server error emits a tagged `[request-error] {…}` JSON line that Vercel Function Logs and log aggregators can grep. Audit-log insert failures emit `[audit-failure] {…}` from `src/lib/audit.ts`.
+
+Source-map upload to Sentry is opt-in via `SENTRY_AUTH_TOKEN` + `SENTRY_ORG` + `SENTRY_PROJECT` in the Vercel build env. Without those, stack traces show minified frames.
 
 ---
 

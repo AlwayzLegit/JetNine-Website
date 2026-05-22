@@ -14,6 +14,7 @@ import {
 } from "drizzle-orm/pg-core";
 import { aircraftCategoryEnum } from "./enums";
 import { aircraft } from "./aircraft";
+import { airports } from "./airports";
 import { members } from "./members";
 import { operators } from "./operators";
 import { users } from "./users";
@@ -49,12 +50,18 @@ export const emptyLegs = pgTable(
       .references(() => operators.id, { onDelete: "restrict" }),
     category: aircraftCategoryEnum("category").notNull(),
 
-    // Route
-    fromIcao: text("from_icao").notNull(),
+    // Route — RESTRICT on delete because from/to are NOT NULL on this
+    // table; ops must deactivate an airport rather than hard-delete it
+    // while empty legs reference it.
+    fromIcao: text("from_icao")
+      .notNull()
+      .references(() => airports.icao, { onDelete: "restrict", onUpdate: "cascade" }),
     fromIata: text("from_iata"),
     fromCity: text("from_city"),
     fromName: text("from_name"),
-    toIcao: text("to_icao").notNull(),
+    toIcao: text("to_icao")
+      .notNull()
+      .references(() => airports.icao, { onDelete: "restrict", onUpdate: "cascade" }),
     toIata: text("to_iata"),
     toCity: text("to_city"),
     toName: text("to_name"),
@@ -117,6 +124,10 @@ export const emptyLegs = pgTable(
     uniqueIndex("empty_legs_code_uq").on(t.code),
     index("empty_legs_status_idx").on(t.status, t.wheelsUpAt),
     index("empty_legs_route_idx").on(t.fromIcao, t.toIcao),
+    // empty_legs_route_idx covers from_icao FK lookups (leading column);
+    // we need an explicit to_icao index for the reverse FK lookup.
+    index("empty_legs_from_icao_idx").on(t.fromIcao),
+    index("empty_legs_to_icao_idx").on(t.toIcao),
     index("empty_legs_operator_idx").on(t.operatorId),
   ],
 );

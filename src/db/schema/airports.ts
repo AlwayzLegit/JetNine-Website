@@ -27,10 +27,10 @@ import {
  * "regional") because the FAA/ICAO categorization scheme is more nuanced
  * than we need at the broker tier.
  *
- * No FK migrations on existing leg tables in this drop — the catalog
- * arrives as a standalone read-side lookup. Tightening quote_legs /
- * trip_legs / empty_legs / aircraft_schedule_blocks ICAO columns to FK
- * `airports.icao` ships separately once the catalog is fully populated.
+ * quote_legs / trip_legs / empty_legs / aircraft_schedule_blocks FK their
+ * ICAO columns to `airports.icao` (migration 0026). empty_legs uses
+ * RESTRICT on delete because its ICAOs are NOT NULL; the others use SET
+ * NULL so historical legs survive an airport being retired.
  */
 
 export const airportCustomsEnum = pgEnum("airport_customs", [

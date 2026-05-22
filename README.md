@@ -4,7 +4,7 @@ Full-stack rebuild of jetnine.com — marketing site, four-step quote wizard, me
 
 — Repo: [`AlwayzLegit/JetNine-Website`](https://github.com/AlwayzLegit/JetNine-Website)
 — Live database: Supabase project `szuztxfhkudcjzhrkfld`, Postgres 17.6
-— Auth: Supabase magic-link, role-gated via middleware
+— Auth: Supabase magic-link, role-gated via middleware — full matrix in [`RBAC.md`](./RBAC.md)
 — Deploy: Vercel, auto-deploy on push to `main`
 
 ---

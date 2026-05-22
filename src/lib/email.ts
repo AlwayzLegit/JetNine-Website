@@ -29,9 +29,24 @@ type SendResult =
   | { ok: true; provider: "resend" | "postmark" | "logger"; messageId?: string }
   | { ok: false; error: string };
 
-const FROM = process.env.EMAIL_FROM || "JetNine <dispatch@jetnine.com>";
 const RESEND_KEY = process.env.RESEND_API_KEY;
 const POSTMARK_TOKEN = process.env.POSTMARK_SERVER_TOKEN;
+const HAS_PROVIDER = Boolean(RESEND_KEY || POSTMARK_TOKEN);
+
+// EMAIL_FROM is required the moment a provider key is set — without it,
+// deliveries would go from "ships dark" to "ships from an undefined
+// sender." Fail loudly at module load so a misconfigured Vercel deploy
+// surfaces in the build logs instead of silently delivering with a
+// placeholder address. In logger mode (no provider key), the placeholder
+// is fine since nothing actually leaves the process.
+const FROM_RAW = process.env.EMAIL_FROM;
+if (HAS_PROVIDER && !FROM_RAW) {
+  throw new Error(
+    "EMAIL_FROM is required when RESEND_API_KEY or POSTMARK_SERVER_TOKEN is set. " +
+      "Set it to a verified sender, e.g. 'JetNine <dispatch@jetnine.com>'.",
+  );
+}
+const FROM = FROM_RAW || "JetNine <dispatch@jetnine.com>";
 
 function pickProvider(): "resend" | "postmark" | "logger" {
   if (RESEND_KEY) return "resend";

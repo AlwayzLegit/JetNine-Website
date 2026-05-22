@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
+  ensureIdempotencyKey,
   isAircraftComplete,
   isContactComplete,
   isMissionComplete,
@@ -54,10 +55,14 @@ function ReviewStepInner() {
   const [submitError, setSubmitError] = useState<string | null>(null);
 
   useEffect(() => {
+    // Skip the prerequisite guard once we're showing the confirmation —
+    // we intentionally clear the draft on success, which would otherwise
+    // immediately bounce the user back to /quote/mission.
+    if (showSuccess) return;
     if (!isMissionComplete(s)) router.replace("/quote/mission");
     else if (!isAircraftComplete(s)) router.replace("/quote/aircraft");
     else if (!isContactComplete(s)) router.replace("/quote/contact");
-  }, [s, router]);
+  }, [s, router, showSuccess]);
 
   const fleet = getFleetEntry(s.category);
   const totalDistance = s.legs.reduce((sum, l) => sum + (l.distanceNm ?? 0), 0);
@@ -85,6 +90,11 @@ function ReviewStepInner() {
     setSubmitting(true);
     setSubmitError(null);
 
+    // Idempotency token — generated once and reused across retries so a
+    // network drop after the server inserted but before responding doesn't
+    // create a duplicate quote row.
+    ensureIdempotencyKey();
+
     // Strip the action functions before sending to the Server Action — they
     // aren't serializable. submitQuote only needs the plain data shape.
     const {
@@ -103,11 +113,17 @@ function ReviewStepInner() {
     try {
       const result = await submitQuote(draft);
       if (result.ok) {
-        // Mirror server-issued ref into local store so SavedIndicator + nav
-        // can hint at success.
-        useQuoteStore.setState({ submittedRef: result.ref, savedAt: Date.now() });
         setRef(result.ref);
         setShowSuccess(true);
+        // Wipe the persisted draft so back-nav or a new tab starts fresh.
+        // The success overlay reads `ref` from local state, so clearing
+        // the store doesn't blank the confirmation UI.
+        s.reset();
+      } else if (result.error === "RATE_LIMITED") {
+        const mins = result.retryAfterMs
+          ? Math.max(1, Math.ceil(result.retryAfterMs / 60_000))
+          : 5;
+        setSubmitError(`RATE_LIMITED · try again in ~${mins} min`);
       } else {
         setSubmitError(result.error);
       }

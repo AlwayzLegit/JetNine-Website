@@ -60,6 +60,10 @@ export type QuoteDraft = {
   // Meta
   savedAt: number | null;
   submittedRef: string | null;
+  // Client-generated idempotency token, set on the review step before the
+  // first submit. Lets the server short-circuit retries (network drops,
+  // double-clicks) to the existing quote row instead of inserting a dupe.
+  clientIdempotencyKey: string | null;
 };
 
 // Client-only — only called from event handlers, never during SSR.
@@ -108,7 +112,22 @@ function makeDefaultDraft(): QuoteDraft {
 
     savedAt: null,
     submittedRef: null,
+    clientIdempotencyKey: null,
   };
+}
+
+// Generate-once helper. Called from the review step before submit. Uses
+// crypto.randomUUID when available, falls back to Math.random for ancient
+// browsers (which shouldn't reach the wizard anyway).
+export function ensureIdempotencyKey(): string {
+  const existing = useQuoteStore.getState().clientIdempotencyKey;
+  if (existing) return existing;
+  const key =
+    typeof crypto !== "undefined" && "randomUUID" in crypto
+      ? crypto.randomUUID()
+      : `jn-${Date.now()}-${Math.random().toString(36).slice(2, 12)}`;
+  useQuoteStore.setState({ clientIdempotencyKey: key, savedAt: Date.now() });
+  return key;
 }
 
 type QuoteActions = {

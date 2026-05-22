@@ -51,7 +51,19 @@ export async function logAudit(input: LogInput): Promise<void> {
       userAgent: ua,
     } satisfies NewAuditLog);
   } catch (err) {
-    // Audit failure must not block the operational action.
-    console.error("audit logging failed", { input, err });
+    // Audit failure must not block the operational action. Emit a tagged
+    // structured line so log aggregators / Sentry can alert on missing
+    // audit rows — this is the closest thing we have to "missed audit"
+    // visibility until Sentry is wired in.
+    const tag = "[audit-failure]";
+    const payload = {
+      action: input.action,
+      subjectType: input.subjectType,
+      subjectId: input.subjectId ?? null,
+      subjectCode: input.subjectCode ?? null,
+      actorUserId: input.actorUserId ?? null,
+      error: err instanceof Error ? err.message : String(err),
+    };
+    console.error(`${tag} ${JSON.stringify(payload)}`);
   }
 }

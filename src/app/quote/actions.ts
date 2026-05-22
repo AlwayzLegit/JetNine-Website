@@ -2,19 +2,27 @@
 
 import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
+import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { quotes, quoteLegs, type NewQuote, type NewQuoteLeg } from "@/db/schema/quotes";
 import { findAirport } from "@/lib/airports";
 import type { QuoteDraft } from "@/lib/quote-store";
 import { logAudit } from "@/lib/audit";
+import { checkRateLimit } from "@/lib/rate-limit";
 import {
   sendDispatchNewQuoteNotification,
   sendQuoteAcknowledgmentEmail,
 } from "@/lib/email";
 
 export type SubmitResult =
-  | { ok: true; ref: string; id: string }
-  | { ok: false; error: string };
+  | { ok: true; ref: string; id: string; deduped?: true }
+  | { ok: false; error: string; retryAfterMs?: number };
+
+// Limits chosen to be generous for real users (one party rarely submits
+// more than 2-3 quotes in five minutes) and tight enough to throttle a
+// runaway form bot before it spams dispatch alerts.
+const QUOTE_RATE_LIMIT_MAX = 5;
+const QUOTE_RATE_LIMIT_WINDOW_SECONDS = 300;
 
 /**
  * Insert a quote (and its legs) submitted from the public wizard.
@@ -44,6 +52,54 @@ export async function submitQuote(draft: QuoteDraft): Promise<SubmitResult> {
   for (const l of draft.legs) {
     if (!l.fromIata || !l.toIata || !l.date || !l.time) {
       return { ok: false, error: "INCOMPLETE_LEG" };
+    }
+  }
+
+  // Extract client IP up-front so it's available for rate-limit + audit.
+  let clientIp = "unknown";
+  try {
+    const hdrs = await headers();
+    clientIp = hdrs.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
+  } catch {
+    // headers() can throw outside a request scope; allow the action to
+    // proceed without rate-limiting in that case (e.g. unit tests).
+  }
+
+  // Rate limit anonymous quote submissions per IP. Failing-open inside the
+  // limiter library means a DB hiccup never blocks a real user.
+  if (clientIp !== "unknown") {
+    const rl = await checkRateLimit(`quote_submit:${clientIp}`, {
+      max: QUOTE_RATE_LIMIT_MAX,
+      windowSeconds: QUOTE_RATE_LIMIT_WINDOW_SECONDS,
+    });
+    if (!rl.ok) {
+      return { ok: false, error: "RATE_LIMITED", retryAfterMs: rl.retryAfterMs };
+    }
+  }
+
+  // Idempotency — if the client retries with the same key (network drop,
+  // double-click after a slow response), short-circuit to the existing row
+  // instead of creating a duplicate quote.
+  const idempotencyKey = draft.clientIdempotencyKey?.trim() || null;
+  if (idempotencyKey) {
+    try {
+      const existing = await db
+        .select({ id: quotes.id, quoteCode: quotes.quoteCode })
+        .from(quotes)
+        .where(eq(quotes.clientIdempotencyKey, idempotencyKey))
+        .limit(1);
+      if (existing.length > 0) {
+        return {
+          ok: true,
+          ref: existing[0].quoteCode,
+          id: existing[0].id,
+          deduped: true,
+        };
+      }
+    } catch (err) {
+      // Lookup failure shouldn't block the submit; we'll fall through to
+      // insert and let the unique index catch a true duplicate below.
+      console.error("idempotency lookup failed", err);
     }
   }
 
@@ -88,6 +144,8 @@ export async function submitQuote(draft: QuoteDraft): Promise<SubmitResult> {
           consentBroker: draft.consent.broker,
           consentContact: draft.consent.contact,
           consentMarketing: draft.consent.marketing,
+
+          clientIdempotencyKey: idempotencyKey,
 
           status: "submitted",
       };
@@ -213,6 +271,31 @@ export async function submitQuote(draft: QuoteDraft): Promise<SubmitResult> {
 
     return { ok: true, ref: inserted.quoteCode, id: inserted.id };
   } catch (err) {
+    // Unique-violation on client_idempotency_key — a parallel submit
+    // already created the row. Look it up and return it as a dedupe hit.
+    if (
+      idempotencyKey &&
+      err instanceof Error &&
+      /quotes_client_idempotency_key_uq|duplicate key/i.test(err.message)
+    ) {
+      try {
+        const existing = await db
+          .select({ id: quotes.id, quoteCode: quotes.quoteCode })
+          .from(quotes)
+          .where(eq(quotes.clientIdempotencyKey, idempotencyKey))
+          .limit(1);
+        if (existing.length > 0) {
+          return {
+            ok: true,
+            ref: existing[0].quoteCode,
+            id: existing[0].id,
+            deduped: true,
+          };
+        }
+      } catch (lookupErr) {
+        console.error("idempotency post-conflict lookup failed", lookupErr);
+      }
+    }
     console.error("submitQuote failed", err);
     return { ok: false, error: "DB_INSERT_FAILED" };
   }

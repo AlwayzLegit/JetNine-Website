@@ -126,6 +126,12 @@ export const quotes = pgTable(
     consentContact: boolean("consent_contact").notNull().default(false),
     consentMarketing: boolean("consent_marketing").notNull().default(false),
 
+    // Idempotency — client-generated UUID, dedupes retries of the same
+    // submit (network drop after insert, double-clicked button, etc.).
+    // Unique partial index in migration 0021; null is permitted for legacy
+    // paths that don't set it.
+    clientIdempotencyKey: text("client_idempotency_key"),
+
     // Lifecycle
     status: quoteStatusEnum("status").notNull().default("submitted"),
     assignedDispatcherId: uuid("assigned_dispatcher_id").references(() => staff.id, {

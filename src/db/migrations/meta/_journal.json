@@ -148,6 +148,13 @@
       "when": 1780100200000,
       "tag": "0020_airports_seed_and_rls",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1780200000000,
+      "tag": "0021_idempotency_and_rate_limits",
+      "breakpoints": true
     }
   ]
 }

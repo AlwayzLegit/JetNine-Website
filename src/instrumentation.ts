@@ -56,10 +56,17 @@ export async function onRequestError(
 ) {
   const msg = err instanceof Error ? err.message : String(err);
   const stack = err instanceof Error ? err.stack : undefined;
+  const payload = {
+    routeType: context.routeType,
+    routePath: context.routePath,
+    method: request.method,
+    path: request.path,
+    msg,
+    digest: (err as { digest?: string })?.digest ?? null,
+    commit: process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7) ?? "local",
+  };
   // eslint-disable-next-line no-console
-  console.error(
-    `[request-error] ${context.routeType} ${request.method} ${request.path} — ${msg}\n${stack ?? ""}`,
-  );
+  console.error(`[request-error] ${JSON.stringify(payload)}\n${stack ?? ""}`);
 
   // — Sentry (uncomment with the dep installed) —
   // const Sentry = await import("@sentry/nextjs").catch(() => null);

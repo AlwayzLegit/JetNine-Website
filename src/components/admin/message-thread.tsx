@@ -4,11 +4,13 @@ import { useState, useTransition, type FormEvent } from "react";
 
 const CHANNELS = [
   { id: "inapp", label: "In-app", desc: "Member-portal message." },
-  { id: "email", label: "Email", desc: "Logged-only; SMTP wires later." },
+  { id: "email", label: "Email", desc: "Sends via the configured provider." },
   { id: "sms", label: "SMS", desc: "Logged-only; Twilio wires later." },
   { id: "call", label: "Call note", desc: "Phone-call summary." },
   { id: "voicemail", label: "Voicemail", desc: "Left a voicemail." },
 ] as const;
+
+export type DeliveryStatus = "queued" | "sent" | "failed" | "skipped";
 
 export type ThreadMessage = {
   id: string;
@@ -19,6 +21,16 @@ export type ThreadMessage = {
   preview: string | null;
   body: string | null;
   occurredAt: Date | null;
+  deliveryStatus?: DeliveryStatus | null;
+  deliveryProvider?: string | null;
+  deliveryError?: string | null;
+};
+
+const DELIVERY_PILL_CLASS: Record<DeliveryStatus, string> = {
+  sent: "border-[var(--success)] text-[var(--success)]",
+  queued: "border-[var(--warn)] text-[var(--warn)]",
+  failed: "border-[var(--error)] text-[var(--error)]",
+  skipped: "border-ink-3 text-steel",
 };
 
 type PostResult = { ok: true; id: string } | { ok: false; error: string };
@@ -66,16 +78,25 @@ export function MessageThread({
       if (result.ok) {
         const body = (data.get("body") as string) ?? "";
         const preview = body.length > 140 ? `${body.slice(0, 139)}…` : body;
+        const toAddress =
+          ((data.get("toAddress") as string) ?? "").trim() || addressDefault || null;
+        // Optimistic status — the server-side post has already happened
+        // by the time we get here; revalidatePath will refresh with the
+        // real delivery_status on the next render, but until then we
+        // mark email as 'queued' (in-flight from the user's POV) and
+        // everything else as 'skipped' to match server behaviour.
+        const optimisticStatus: DeliveryStatus =
+          channel === "email" && toAddress ? "queued" : "skipped";
         const optimistic: ThreadMessage = {
           id: result.id,
           channel,
           direction: "out",
           fromLabel: "You",
-          toAddress:
-            ((data.get("toAddress") as string) ?? "").trim() || addressDefault || null,
+          toAddress,
           preview,
           body,
           occurredAt: new Date(),
+          deliveryStatus: optimisticStatus,
         };
         setList((prev) => [...prev, optimistic]);
         setMsg({ tone: "ok", text: "POSTED — thread updated." });
@@ -106,9 +127,22 @@ export function MessageThread({
               ].join(" ")}
             >
               <div className="mb-2 flex items-center justify-between gap-3">
-                <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-clearance">
-                  — {m.channel.toUpperCase()} · {m.direction === "out" ? "OUTBOUND" : "INBOUND"}
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-clearance">
+                    — {m.channel.toUpperCase()} · {m.direction === "out" ? "OUTBOUND" : "INBOUND"}
+                  </span>
+                  {m.direction === "out" && m.deliveryStatus ? (
+                    <span
+                      title={m.deliveryError ?? m.deliveryProvider ?? undefined}
+                      className={[
+                        "inline-block rounded-full border px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.14em]",
+                        DELIVERY_PILL_CLASS[m.deliveryStatus],
+                      ].join(" ")}
+                    >
+                      {m.deliveryStatus}
+                    </span>
+                  ) : null}
+                </div>
                 <span className="font-mono text-[10px] uppercase tracking-[0.08em] text-steel">
                   {m.occurredAt
                     ? m.occurredAt.toISOString().slice(0, 16).replace("T", " ") + " UTC"
@@ -122,6 +156,11 @@ export function MessageThread({
               <p className="mt-2 whitespace-pre-wrap text-[13px] leading-[1.55] text-bone">
                 {m.body ?? m.preview ?? ""}
               </p>
+              {m.direction === "out" && m.deliveryStatus === "failed" && m.deliveryError ? (
+                <p className="mt-2 font-mono text-[10px] leading-[1.4] text-[var(--error)]">
+                  delivery error: {m.deliveryError}
+                </p>
+              ) : null}
             </li>
           ))}
         </ul>
@@ -187,7 +226,7 @@ export function MessageThread({
             </span>
           ) : (
             <span className="font-mono text-[10px] uppercase tracking-[0.08em] text-steel">
-              — Logged + audit-tracked. SMS / email delivery wires when Twilio + Postmark land.
+              — Logged + audit-tracked. Email delivers via the configured provider; SMS waits on Twilio.
             </span>
           )}
           <button

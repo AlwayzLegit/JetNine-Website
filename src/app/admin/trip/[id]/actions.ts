@@ -13,6 +13,7 @@ import {
 } from "@/db/schema/audit";
 import { requireStaff } from "@/lib/auth";
 import { logAudit } from "@/lib/audit";
+import { sendThreadMessageEmail } from "@/lib/email";
 
 type Status = (typeof tripStatusEnum.enumValues)[number];
 
@@ -124,6 +125,10 @@ export async function postTripMessage(
         : null;
 
   const preview = body.length > 140 ? `${body.slice(0, 139)}…` : body;
+  const finalTo = toAddress ?? defaultTo;
+
+  const willTransmit = channelRaw === "email" && Boolean(finalTo);
+  const initialStatus: "queued" | "skipped" = willTransmit ? "queued" : "skipped";
 
   const values: NewMessage = {
     subjectType: "trip",
@@ -131,39 +136,79 @@ export async function postTripMessage(
     channel: channelRaw,
     direction: "out",
     fromAddress: null,
-    toAddress: toAddress ?? defaultTo,
+    toAddress: finalTo,
     fromUserId: actor.id,
     toUserId: t.memberUserId,
     preview,
     body,
     isRead: false,
+    deliveryStatus: initialStatus,
   };
 
+  let messageId: string;
   try {
     const [row] = await db
       .insert(messages)
       .values(values)
       .returning({ id: messages.id });
-
-    await logAudit({
-      actorUserId: actor.id,
-      actorRole: actor.role,
-      action: "trip.message.post",
-      subjectType: "trip",
-      subjectId: tripId,
-      subjectCode: t.code,
-      metadata: {
-        messageId: row.id,
-        channel: channelRaw,
-        toAddress: values.toAddress,
-        bodyLen: body.length,
-      },
-    });
-
-    revalidatePath(`/admin/trip/${tripId}`);
-    return { ok: true, id: row.id };
+    messageId = row.id;
   } catch (err) {
-    console.error("postTripMessage failed", err);
+    console.error("postTripMessage insert failed", err);
     return { ok: false, error: "DB_INSERT_FAILED" };
   }
+
+  let deliveryAudit: Record<string, unknown> = { status: initialStatus };
+  if (willTransmit && finalTo) {
+    const summary = preview.length > 60 ? `${preview.slice(0, 59)}…` : preview;
+    const result = await sendThreadMessageEmail({
+      to: finalTo,
+      subjectCode: t.code,
+      subjectSummary: summary,
+      body,
+    });
+    if (result.ok) {
+      await db
+        .update(messages)
+        .set({
+          deliveryStatus: "sent",
+          deliveryProvider: result.provider,
+          deliveryMessageId: result.messageId ?? null,
+          deliveredAt: new Date(),
+        })
+        .where(eq(messages.id, messageId));
+      deliveryAudit = {
+        status: "sent",
+        provider: result.provider,
+        messageId: result.messageId ?? null,
+      };
+    } else {
+      await db
+        .update(messages)
+        .set({
+          deliveryStatus: "failed",
+          deliveryError: result.error.slice(0, 500),
+        })
+        .where(eq(messages.id, messageId));
+      deliveryAudit = { status: "failed", error: result.error };
+    }
+  }
+
+  await logAudit({
+    actorUserId: actor.id,
+    actorRole: actor.role,
+    action: "trip.message.post",
+    subjectType: "trip",
+    subjectId: tripId,
+    subjectCode: t.code,
+    metadata: {
+      messageId,
+      channel: channelRaw,
+      toAddress: finalTo,
+      bodyLen: body.length,
+      delivery: deliveryAudit,
+    },
+  });
+
+  revalidatePath(`/admin/trip/${tripId}`);
+  return { ok: true, id: messageId };
 }

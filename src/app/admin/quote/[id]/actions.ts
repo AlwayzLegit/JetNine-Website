@@ -21,6 +21,7 @@ import {
 } from "@/db/schema/audit";
 import { requireStaff } from "@/lib/auth";
 import { logAudit } from "@/lib/audit";
+import { sendThreadMessageEmail } from "@/lib/email";
 
 type Status = (typeof quoteStatusEnum.enumValues)[number];
 
@@ -362,6 +363,13 @@ export async function postQuoteMessage(
   }
 
   const preview = body.length > 140 ? `${body.slice(0, 139)}…` : body;
+  const finalTo = toAddress ?? defaultTo;
+
+  // Email is the only channel we actively transmit today. The others
+  // (inapp, call, voicemail, sms) are dispatcher-side records of
+  // out-of-band contact (or in-app inbox); marked 'skipped' on insert.
+  const willTransmit = channelRaw === "email" && Boolean(finalTo);
+  const initialStatus: "queued" | "skipped" = willTransmit ? "queued" : "skipped";
 
   const values: NewMessage = {
     subjectType: "quote",
@@ -369,41 +377,84 @@ export async function postQuoteMessage(
     channel: channelRaw,
     direction: "out",
     fromAddress: null,
-    toAddress: toAddress ?? defaultTo,
+    toAddress: finalTo,
     fromUserId: actor.id,
     toUserId,
     preview,
     body,
     isRead: false,
+    deliveryStatus: initialStatus,
   };
 
+  let messageId: string;
   try {
     const [row] = await db
       .insert(messages)
       .values(values)
       .returning({ id: messages.id });
-
-    await logAudit({
-      actorUserId: actor.id,
-      actorRole: actor.role,
-      action: "quote.message.post",
-      subjectType: "quote",
-      subjectId: quoteId,
-      subjectCode: q.code,
-      metadata: {
-        messageId: row.id,
-        channel: channelRaw,
-        toAddress: values.toAddress,
-        bodyLen: body.length,
-      },
-    });
-
-    revalidatePath(`/admin/quote/${quoteId}`);
-    return { ok: true, id: row.id };
+    messageId = row.id;
   } catch (err) {
-    console.error("postQuoteMessage failed", err);
+    console.error("postQuoteMessage insert failed", err);
     return { ok: false, error: "DB_INSERT_FAILED" };
   }
+
+  // Best-effort transmission. We always log the audit row regardless of
+  // delivery outcome — the DB record is the source of truth; delivery
+  // status is a sidecar visible in the thread UI.
+  let deliveryAudit: Record<string, unknown> = { status: initialStatus };
+  if (willTransmit && finalTo) {
+    const summary = preview.length > 60 ? `${preview.slice(0, 59)}…` : preview;
+    const result = await sendThreadMessageEmail({
+      to: finalTo,
+      subjectCode: q.code,
+      subjectSummary: summary,
+      body,
+    });
+    if (result.ok) {
+      await db
+        .update(messages)
+        .set({
+          deliveryStatus: "sent",
+          deliveryProvider: result.provider,
+          deliveryMessageId: result.messageId ?? null,
+          deliveredAt: new Date(),
+        })
+        .where(eq(messages.id, messageId));
+      deliveryAudit = {
+        status: "sent",
+        provider: result.provider,
+        messageId: result.messageId ?? null,
+      };
+    } else {
+      await db
+        .update(messages)
+        .set({
+          deliveryStatus: "failed",
+          deliveryError: result.error.slice(0, 500),
+        })
+        .where(eq(messages.id, messageId));
+      deliveryAudit = { status: "failed", error: result.error };
+    }
+  }
+
+  await logAudit({
+    actorUserId: actor.id,
+    actorRole: actor.role,
+    action: "quote.message.post",
+    subjectType: "quote",
+    subjectId: quoteId,
+    subjectCode: q.code,
+    metadata: {
+      messageId,
+      channel: channelRaw,
+      toAddress: finalTo,
+      bodyLen: body.length,
+      delivery: deliveryAudit,
+    },
+  });
+
+  revalidatePath(`/admin/quote/${quoteId}`);
+  return { ok: true, id: messageId };
 }
 
 // ─── Soft holds ────────────────────────────────────────────────────────────

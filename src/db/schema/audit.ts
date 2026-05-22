@@ -83,6 +83,13 @@ export const messageChannelEnum = pgEnum("message_channel", [
 
 export const messageDirectionEnum = pgEnum("message_direction", ["in", "out"]);
 
+export const messageDeliveryStatusEnum = pgEnum("message_delivery_status", [
+  "queued",
+  "sent",
+  "failed",
+  "skipped",
+]);
+
 export const messages = pgTable(
   "messages",
   {
@@ -108,6 +115,15 @@ export const messages = pgTable(
 
     isRead: boolean("is_read").notNull().default(false),
 
+    // Delivery tracking — populated by the action that posts the message
+    // after the email / SMS provider call returns. See migration 0028
+    // for status semantics.
+    deliveryStatus: messageDeliveryStatusEnum("delivery_status").notNull().default("skipped"),
+    deliveryProvider: text("delivery_provider"),
+    deliveryMessageId: text("delivery_message_id"),
+    deliveryError: text("delivery_error"),
+    deliveredAt: timestamp("delivered_at", { withTimezone: true }),
+
     occurredAt: timestamp("occurred_at", { withTimezone: true })
       .notNull()
       .default(sql`now()`),
@@ -118,6 +134,7 @@ export const messages = pgTable(
   (t) => [
     index("messages_subject_idx").on(t.subjectType, t.subjectId, t.occurredAt),
     index("messages_unread_idx").on(t.isRead, t.toUserId),
+    index("messages_delivery_status_idx").on(t.deliveryStatus, t.occurredAt),
   ],
 );
 

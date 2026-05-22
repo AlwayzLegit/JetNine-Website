@@ -115,6 +115,9 @@ export default async function AdminTripDetailPage({ params }: Props) {
       occurredAt: messages.occurredAt,
       fromUserFirstName: users.firstName,
       fromUserEmail: users.email,
+      deliveryStatus: messages.deliveryStatus,
+      deliveryProvider: messages.deliveryProvider,
+      deliveryError: messages.deliveryError,
     })
     .from(messages)
     .leftJoin(users, eq(users.id, messages.fromUserId))
@@ -130,6 +133,9 @@ export default async function AdminTripDetailPage({ params }: Props) {
     preview: m.preview,
     body: m.body,
     occurredAt: m.occurredAt,
+    deliveryStatus: m.deliveryStatus,
+    deliveryProvider: m.deliveryProvider,
+    deliveryError: m.deliveryError,
   }));
 
   const totalDistance = legs.reduce((sum, l) => sum + (l.distanceNm ?? 0), 0);

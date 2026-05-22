@@ -2,7 +2,6 @@
 
 import { useEffect } from "react";
 import Link from "next/link";
-import * as Sentry from "@sentry/nextjs";
 
 export default function RouteError({
   error,
@@ -13,7 +12,12 @@ export default function RouteError({
 }) {
   useEffect(() => {
     console.error("[route-error]", error);
-    Sentry.captureException(error);
+    // Lazy-load Sentry — error boundaries are off the hot path; the
+    // tiny extra latency to fetch the SDK chunk is worth keeping it
+    // out of the shared bundle.
+    if (process.env.NEXT_PUBLIC_SENTRY_DSN) {
+      void import("@sentry/nextjs").then(({ captureException }) => captureException(error));
+    }
   }, [error]);
 
   return (

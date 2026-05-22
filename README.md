@@ -141,13 +141,15 @@ pnpm db:push
 
 ## Observability
 
-`src/instrumentation.ts` is the Next.js runtime hook. Currently logs startup + request errors to stdout (visible in Vercel Function Logs). To wire Sentry:
+`src/instrumentation.ts` (server + edge) and `instrumentation-client.ts` (browser) hook into Sentry when `SENTRY_DSN` / `NEXT_PUBLIC_SENTRY_DSN` are set. Without those env vars the SDK is dormant — it ships in the bundle but no events flow. Drop a DSN in and:
 
-```sh
-pnpm add @sentry/nextjs
-```
+- Server errors thrown from RSCs, Server Actions, Route Handlers, middleware → captured via `onRequestError` in `src/instrumentation.ts`.
+- Client errors caught by `app/error.tsx` and `app/global-error.tsx` → forwarded via `Sentry.captureException`.
+- App-Router navigation transitions → captured via `onRouterTransitionStart` re-exported from `instrumentation-client.ts`.
 
-then add `SENTRY_DSN` to env and uncomment the two Sentry blocks in `src/instrumentation.ts`.
+Stdout fallback stays on regardless: every server error emits a tagged `[request-error] {…}` JSON line that Vercel Function Logs and log aggregators can grep. Audit-log insert failures emit `[audit-failure] {…}` from `src/lib/audit.ts`.
+
+Source-map upload to Sentry is opt-in via `SENTRY_AUTH_TOKEN` + `SENTRY_ORG` + `SENTRY_PROJECT` in the Vercel build env. Without those, stack traces show minified frames.
 
 ---
 

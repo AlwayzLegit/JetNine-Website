@@ -155,6 +155,34 @@
       "when": 1780200000000,
       "tag": "0021_idempotency_and_rate_limits",
       "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1780300000000,
+      "tag": "0022_function_hardening",
+      "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1780300200000,
+      "tag": "0023_rls_initplan_optimization",
+      "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1780300400000,
+      "tag": "0024_function_grants_lockdown",
+      "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1780300600000,
+      "tag": "0025_move_helpers_to_internal_schema",
+      "breakpoints": true
     }
   ]
 }

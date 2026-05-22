@@ -109,6 +109,9 @@ export default async function QuoteWorkbenchPage({ params }: Props) {
       occurredAt: messages.occurredAt,
       fromUserFirstName: users.firstName,
       fromUserEmail: users.email,
+      deliveryStatus: messages.deliveryStatus,
+      deliveryProvider: messages.deliveryProvider,
+      deliveryError: messages.deliveryError,
     })
     .from(messages)
     .leftJoin(users, eq(users.id, messages.fromUserId))
@@ -124,6 +127,9 @@ export default async function QuoteWorkbenchPage({ params }: Props) {
     preview: m.preview,
     body: m.body,
     occurredAt: m.occurredAt,
+    deliveryStatus: m.deliveryStatus,
+    deliveryProvider: m.deliveryProvider,
+    deliveryError: m.deliveryError,
   }));
 
   // ── Active soft holds for this quote ──

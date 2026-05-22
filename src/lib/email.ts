@@ -251,6 +251,67 @@ export async function sendDispatchNewQuoteNotification(
   });
 }
 
+/**
+ * Send a dispatcher-authored thread message as email. The subject line
+ * carries the entity code (QT-/JN-/INV-) so the customer's mail client
+ * threads it consistently. replyTo = dispatch desk so customer replies
+ * land back with us, not in the void.
+ *
+ * The body comes from the dispatcher's plain-text composer. We wrap it
+ * in a minimal HTML shell to preserve line breaks and keep the styling
+ * recognisably JetNine without going full marketing-email theatre.
+ */
+export type ThreadEmailContext = {
+  to: string;
+  subjectCode: string; // QT-2026-1234, JN-2026-1234, etc.
+  subjectSummary?: string; // short summary, appears after the code
+  body: string; // plain text from the composer
+  fromName?: string; // dispatcher name, optional
+};
+
+export async function sendThreadMessageEmail(ctx: ThreadEmailContext): Promise<SendResult> {
+  const subject = ctx.subjectSummary
+    ? `[${ctx.subjectCode}] ${ctx.subjectSummary}`
+    : `[${ctx.subjectCode}] JetNine dispatch`;
+
+  const signature = ctx.fromName ? `${ctx.fromName} · JetNine dispatch` : "JetNine dispatch";
+  const text = [ctx.body, "", "—", signature, "+1 (888) 847-5669 · 24/7"].join("\n");
+
+  // Preserve dispatcher's line breaks. Wrap each non-empty line; render
+  // blank lines as a small vertical gap.
+  const bodyHtml = ctx.body
+    .split("\n")
+    .map((line) =>
+      line.trim().length === 0
+        ? `<p style="margin:0 0 12px;height:8px;"></p>`
+        : `<p style="margin:0 0 12px;">${escapeHtml(line)}</p>`,
+    )
+    .join("");
+
+  const html = `
+    <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Inter,sans-serif;color:#0F1115;line-height:1.55;max-width:560px;margin:0 auto;padding:24px;">
+      <p style="margin:0 0 16px;font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:#6B7280;">— ${escapeHtml(ctx.subjectCode)}</p>
+      <div style="font-size:15px;">${bodyHtml}</div>
+      <hr style="margin:32px 0 16px;border:none;border-top:1px solid #E5E7EB;"/>
+      <p style="margin:0;font-size:12px;color:#6B7280;">
+        ${escapeHtml(signature)}<br/>
+        <a href="tel:+18888475669" style="color:#0F1115;">+1 (888) 847-5669</a> · 24/7
+      </p>
+      <p style="margin:24px 0 0;font-size:10px;color:#9CA3AF;line-height:1.6;">
+        JetNine LLC · 14 CFR Part 295 indirect air carrier.
+      </p>
+    </div>
+  `.trim();
+
+  return sendEmail({
+    to: ctx.to,
+    subject,
+    html,
+    text,
+    replyTo: DISPATCH_NOTIFY,
+  });
+}
+
 function escapeHtml(s: string): string {
   return s
     .replace(/&/g, "&amp;")

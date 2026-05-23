@@ -1,11 +1,16 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { asc, eq } from "drizzle-orm";
+import { and, asc, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { trips, tripLegs, tripStatusEnum } from "@/db/schema/trips";
+import { invoices } from "@/db/schema/invoices";
 import { members } from "@/db/schema/members";
 import { users } from "@/db/schema/users";
+import {
+  reserveTransactions,
+  type NewReserveTransaction,
+} from "@/db/schema/memberships";
 import {
   messageChannelEnum,
   messages,
@@ -52,6 +57,25 @@ export async function updateTripStatus(
 
   await db.update(trips).set(patch).where(eq(trips.id, tripId));
 
+  // Auto-refund: when a trip transitions into a cancelled state, look
+  // for any charter_draw rows we inserted at conversion time and post
+  // equal-and-opposite refund rows so the member's balance is made
+  // whole. Triggered only on these two states — `diverted` and
+  // `irregular_ops` mean the trip still happened (or partly happened)
+  // so refund policy is ops-decided.
+  let refund: { count: number; totalUsd: number } | null = null;
+  if (
+    (status === "cancelled_wx" || status === "cancelled_other") &&
+    before?.status !== status
+  ) {
+    refund = await refundChartDrawsForTrip({
+      tripId,
+      reason: status,
+      actorUserId: actor.id,
+      tripCode: before?.code ?? null,
+    });
+  }
+
   // Customer-facing status notifications. Fire after the DB update so a
   // failed email never blocks the status change. The email itself is
   // logged as a message row on the trip thread (channel='email',
@@ -85,6 +109,7 @@ export async function updateTripStatus(
       wheelsUpAt: patch.wheelsUpAt?.toISOString() ?? null,
       wheelsDownAt: patch.wheelsDownAt?.toISOString() ?? null,
       notification,
+      refund,
     },
   });
 
@@ -437,4 +462,87 @@ export async function postTripMessage(
 
   revalidatePath(`/admin/trip/${tripId}`);
   return { ok: true, id: messageId };
+}
+
+/**
+ * On a cancelled-trip transition, post equal-and-opposite refund rows
+ * to the reserve ledger for every prior charter_draw against this
+ * trip. Marks the linked invoice(s) as 'void' so /account/invoices and
+ * /admin reports don't keep counting them as paid revenue.
+ *
+ * Policy: full refund of the drawn amount. Partial-keep / penalty
+ * scenarios (member-initiated late cancel, etc.) need an ops-side
+ * manual adjustment row on top — this baseline just unwinds the
+ * automatic draw so the member's balance reflects the trip not
+ * happening.
+ *
+ * Returns null when no draws existed (nothing to refund).
+ */
+async function refundChartDrawsForTrip(args: {
+  tripId: string;
+  reason: "cancelled_wx" | "cancelled_other";
+  actorUserId: string;
+  tripCode: string | null;
+}): Promise<{ count: number; totalUsd: number } | null> {
+  const draws = await db
+    .select({
+      id: reserveTransactions.id,
+      memberId: reserveTransactions.memberId,
+      membershipId: reserveTransactions.membershipId,
+      amountUsd: reserveTransactions.amountUsd,
+      invoiceId: reserveTransactions.invoiceId,
+    })
+    .from(reserveTransactions)
+    .where(
+      and(
+        eq(reserveTransactions.tripId, args.tripId),
+        eq(reserveTransactions.kind, "charter_draw"),
+      ),
+    );
+
+  if (draws.length === 0) return null;
+
+  let totalUsd = 0;
+  await db.transaction(async (tx) => {
+    for (const d of draws) {
+      // charter_draws are stored as negative amounts; refund is the
+      // signed opposite (positive) so balance returns to pre-flight.
+      const refundAmount = -d.amountUsd;
+      const refundRow: NewReserveTransaction = {
+        memberId: d.memberId,
+        membershipId: d.membershipId,
+        kind: "refund",
+        amountUsd: refundAmount,
+        description: `Refund — trip ${args.tripCode ?? args.tripId.slice(0, 8)} (${args.reason})`,
+        tripId: args.tripId,
+        invoiceId: d.invoiceId,
+      };
+      await tx.insert(reserveTransactions).values(refundRow);
+      totalUsd += refundAmount;
+
+      if (d.invoiceId) {
+        await tx
+          .update(invoices)
+          .set({ status: "void", notes: undefined, updatedAt: new Date() })
+          .where(eq(invoices.id, d.invoiceId));
+      }
+    }
+  });
+
+  await logAudit({
+    actorUserId: args.actorUserId,
+    actorRole: "system",
+    action: "trip.cancel.refund",
+    subjectType: "trip",
+    subjectId: args.tripId,
+    subjectCode: args.tripCode,
+    metadata: {
+      reason: args.reason,
+      refundCount: draws.length,
+      totalRefundedUsd: totalUsd,
+      reserveTxIds: draws.map((d) => d.id),
+    },
+  });
+
+  return { count: draws.length, totalUsd };
 }

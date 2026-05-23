@@ -124,6 +124,64 @@ export function constructWebhookEvent(rawBody: string, signature: string | null)
   return getStripe().webhooks.constructEvent(rawBody, signature, getWebhookSecret());
 }
 
+type MembershipTopUpInput = {
+  memberId: string;
+  membershipId: string;
+  amountUsd: number;
+  customerEmail: string | null;
+};
+
+/**
+ * Create a Stripe Checkout session for adding funds to an existing
+ * Card / Reserve. metadata.kind='membership_topup' so the webhook
+ * routes correctly (alongside membership_purchase + invoice_paid).
+ */
+export async function createMembershipTopUpCheckoutSession(
+  input: MembershipTopUpInput,
+): Promise<{ sessionId: string; url: string }> {
+  const stripe = getStripe();
+  const base = getBaseUrl();
+
+  const session = await stripe.checkout.sessions.create({
+    mode: "payment",
+    payment_method_types: ["card"],
+    line_items: [
+      {
+        quantity: 1,
+        price_data: {
+          currency: "usd",
+          unit_amount: input.amountUsd * 100,
+          product_data: {
+            name: "JetNine balance top-up",
+            description: "Refundable funds added to your existing membership.",
+          },
+        },
+      },
+    ],
+    client_reference_id: input.membershipId,
+    metadata: {
+      kind: "membership_topup",
+      membership_id: input.membershipId,
+      member_id: input.memberId,
+      amount_usd: String(input.amountUsd),
+    },
+    payment_intent_data: {
+      metadata: {
+        kind: "membership_topup",
+        membership_id: input.membershipId,
+        member_id: input.memberId,
+        amount_usd: String(input.amountUsd),
+      },
+    },
+    customer_email: input.customerEmail ?? undefined,
+    success_url: `${base}/account/memberships?topup=${input.membershipId}`,
+    cancel_url: `${base}/account/memberships?cancelled=topup`,
+  });
+
+  if (!session.url) throw new Error("Stripe checkout returned no URL");
+  return { sessionId: session.id, url: session.url };
+}
+
 type MembershipCheckoutInput = {
   membershipId: string;
   program: string;

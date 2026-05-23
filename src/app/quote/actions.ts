@@ -103,6 +103,14 @@ export async function submitQuote(draft: QuoteDraft): Promise<SubmitResult> {
     }
   }
 
+  // Smoke-test guard: production-smoke Playwright submits a real quote
+  // through the wizard, but we don't want it to wake dispatch, count
+  // against SLA, or clutter the inbox. A first-name prefix of [SMOKE]
+  // marks the submission as automated — we honor the insert (so the
+  // smoke can assert against DB state) but flip status='cancelled' +
+  // skip both ack and dispatch-notification emails.
+  const isSmoke = draft.firstName.trim().startsWith("[SMOKE]");
+
   try {
     const inserted = await db.transaction(async (tx) => {
       const values: NewQuote = {
@@ -147,7 +155,7 @@ export async function submitQuote(draft: QuoteDraft): Promise<SubmitResult> {
 
           clientIdempotencyKey: idempotencyKey,
 
-          status: "submitted",
+          status: isSmoke ? "cancelled" : "submitted",
       };
       const [row] = await tx
         .insert(quotes)
@@ -200,6 +208,13 @@ export async function submitQuote(draft: QuoteDraft): Promise<SubmitResult> {
 
     // Bust any cached admin views so the new quote shows up on the desk.
     revalidatePath("/admin/dispatch");
+
+    // Smoke-test submissions skip both ack + dispatch notification so
+    // they don't generate noise in inboxes on every deploy. The DB row
+    // is still there for the smoke runner to assert against.
+    if (isSmoke) {
+      return { ok: true, ref: inserted.quoteCode, id: inserted.id };
+    }
 
     // Fire-and-forget delivery — never block the user's submit response on
     // SMTP being awake. The email layer no-ops gracefully without an API key.

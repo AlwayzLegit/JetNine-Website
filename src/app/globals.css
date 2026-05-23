@@ -13,7 +13,14 @@
     /* Bone — text */
     --bone: #F4F1EA;
     --bone-2: #C9C4B8;
-    --steel: #6B7280;
+    /* steel: tertiary muted text. Bumped from #6B7280 (4.14:1 on ink,
+       failed WCAG AA) to #7B8290 (4.86:1 on ink, 4.74:1 on ink-2).
+       Visually still a dim gray — the brand "this is incidental
+       metadata" register — but now legible per WCAG AA for normal
+       body text. Components that previously used .opacity-60 on top
+       of text-steel are below threshold and need to be lifted
+       individually (changed to text-bone-2 or remove the opacity). */
+    --steel: #7B8290;
 
     /* Single accent */
     --clearance: #E8E2D2;

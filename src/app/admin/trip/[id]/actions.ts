@@ -1,9 +1,9 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { eq } from "drizzle-orm";
+import { asc, eq } from "drizzle-orm";
 import { db } from "@/db";
-import { trips, tripStatusEnum } from "@/db/schema/trips";
+import { trips, tripLegs, tripStatusEnum } from "@/db/schema/trips";
 import { members } from "@/db/schema/members";
 import { users } from "@/db/schema/users";
 import {
@@ -13,7 +13,12 @@ import {
 } from "@/db/schema/audit";
 import { requireStaff } from "@/lib/auth";
 import { logAudit } from "@/lib/audit";
-import { sendThreadMessageEmail } from "@/lib/email";
+import {
+  isNotifiableTripStatus,
+  sendThreadMessageEmail,
+  sendTripStatusEmail,
+  type TripNotifyStatus,
+} from "@/lib/email";
 
 type Status = (typeof tripStatusEnum.enumValues)[number];
 
@@ -42,6 +47,27 @@ export async function updateTripStatus(
 
   await db.update(trips).set(patch).where(eq(trips.id, tripId));
 
+  // Customer-facing status notifications. Fire after the DB update so a
+  // failed email never blocks the status change. The email itself is
+  // logged as a message row on the trip thread (channel='email',
+  // direction='out', fromUserId=actor) so it shows up in both the
+  // workbench thread and — if delivery fails — the /admin/dispatch
+  // failed-delivery panel for retry.
+  let notification: { status: "sent" | "failed" | "skipped"; error?: string } = {
+    status: "skipped",
+  };
+  if (
+    isNotifiableTripStatus(status) &&
+    before?.status !== status // only on actual transition, not idempotent flips
+  ) {
+    notification = await notifyTripStatus({
+      tripId,
+      tripCode: before?.code ?? null,
+      newStatus: status,
+      actorUserId: actor.id,
+    });
+  }
+
   await logAudit({
     actorUserId: actor.id,
     actorRole: actor.role,
@@ -53,13 +79,124 @@ export async function updateTripStatus(
     metadata: {
       wheelsUpAt: patch.wheelsUpAt?.toISOString() ?? null,
       wheelsDownAt: patch.wheelsDownAt?.toISOString() ?? null,
+      notification,
     },
   });
 
   revalidatePath("/admin/trip");
   revalidatePath(`/admin/trip/${tripId}`);
+  revalidatePath("/admin/dispatch");
   revalidatePath("/account/trips");
   return { ok: true };
+}
+
+async function notifyTripStatus(args: {
+  tripId: string;
+  tripCode: string | null;
+  newStatus: TripNotifyStatus;
+  actorUserId: string;
+}): Promise<{ status: "sent" | "failed" | "skipped"; error?: string }> {
+  // Look up member email + first name + paxCount + first leg for the
+  // itinerary line.
+  const [target] = await db
+    .select({
+      memberUserId: members.userId,
+      memberEmail: users.email,
+      memberFirstName: users.firstName,
+      paxCount: trips.paxCount,
+    })
+    .from(trips)
+    .innerJoin(members, eq(members.id, trips.memberId))
+    .innerJoin(users, eq(users.id, members.userId))
+    .where(eq(trips.id, args.tripId));
+
+  if (!target || !target.memberEmail || !args.tripCode) {
+    return { status: "skipped" };
+  }
+
+  // Build a compact itinerary line per leg ("KLAX → KSFO · 2026-06-12").
+  const legs = await db
+    .select({
+      fromIcao: tripLegs.fromIcao,
+      toIcao: tripLegs.toIcao,
+      departDate: tripLegs.departDate,
+    })
+    .from(tripLegs)
+    .where(eq(tripLegs.tripId, args.tripId))
+    .orderBy(asc(tripLegs.legNumber));
+
+  const itineraryLines = legs
+    .slice(0, 4) // cap to 4 lines so the email stays scannable
+    .map((l) => {
+      const route = `${l.fromIcao ?? "—"} → ${l.toIcao ?? "—"}`;
+      const date = l.departDate ? String(l.departDate) : "—";
+      return `${route} · ${date}`;
+    });
+  if (target.paxCount) {
+    itineraryLines.push(`${target.paxCount} pax`);
+  }
+
+  // Stub a message row in the thread BEFORE sending so the operator
+  // sees a `queued` pill immediately on revalidate. Then update with
+  // the delivery outcome.
+  const body =
+    `Auto-generated status notification: ${args.newStatus}. ` +
+    `See email content for member-facing copy.`;
+  const previewBody = `Status → ${args.newStatus}`;
+
+  const values: NewMessage = {
+    subjectType: "trip",
+    subjectId: args.tripId,
+    channel: "email",
+    direction: "out",
+    fromAddress: null,
+    toAddress: target.memberEmail,
+    fromUserId: args.actorUserId,
+    toUserId: target.memberUserId,
+    preview: previewBody,
+    body,
+    isRead: false,
+    deliveryStatus: "queued",
+  };
+
+  let messageId: string;
+  try {
+    const [row] = await db.insert(messages).values(values).returning({ id: messages.id });
+    messageId = row.id;
+  } catch (err) {
+    console.error("[trip-status] message insert failed", err);
+    return { status: "failed", error: "DB_INSERT_FAILED" };
+  }
+
+  const result = await sendTripStatusEmail({
+    to: target.memberEmail,
+    tripCode: args.tripCode,
+    status: args.newStatus,
+    firstName: target.memberFirstName,
+    itineraryLines,
+  });
+
+  if (result.ok) {
+    await db
+      .update(messages)
+      .set({
+        deliveryStatus: "sent",
+        deliveryProvider: result.provider,
+        deliveryMessageId: result.messageId ?? null,
+        deliveredAt: new Date(),
+      })
+      .where(eq(messages.id, messageId));
+    return { status: "sent" };
+  }
+
+  await db
+    .update(messages)
+    .set({
+      deliveryStatus: "failed",
+      deliveryError: result.error.slice(0, 500),
+    })
+    .where(eq(messages.id, messageId));
+  return { status: "failed", error: result.error };
 }
 
 // ─── Messaging thread (subject_type='trip') ──────────────────────────────────

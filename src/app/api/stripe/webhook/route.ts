@@ -4,6 +4,11 @@ import type Stripe from "stripe";
 import { db } from "@/db";
 import { invoices } from "@/db/schema/invoices";
 import { stripeWebhookEvents } from "@/db/schema/invoices";
+import {
+  memberships,
+  reserveTransactions,
+  type NewReserveTransaction,
+} from "@/db/schema/memberships";
 import { logAudit } from "@/lib/audit";
 import {
   constructWebhookEvent,
@@ -104,7 +109,23 @@ function invoiceIdFrom(metadata: Stripe.Metadata | null | undefined): string | n
   return typeof id === "string" && id.length > 0 ? id : null;
 }
 
+function membershipIdFrom(metadata: Stripe.Metadata | null | undefined): string | null {
+  const id = metadata?.membership_id;
+  return typeof id === "string" && id.length > 0 ? id : null;
+}
+
 async function onCheckoutCompleted(session: Stripe.Checkout.Session): Promise<void> {
+  // Route by metadata.kind set at session-create time. Falls back to
+  // legacy invoice path for sessions created before the kind tag was
+  // added, where only invoice_id is present.
+  const kind = session.metadata?.kind;
+  if (kind === "membership_purchase") {
+    return onMembershipPurchased(session);
+  }
+  return onInvoicePaid(session);
+}
+
+async function onInvoicePaid(session: Stripe.Checkout.Session): Promise<void> {
   const invoiceId =
     invoiceIdFrom(session.metadata) ?? (session.client_reference_id ?? null);
   if (!invoiceId) {
@@ -174,6 +195,83 @@ async function onPaymentFailed(intent: Stripe.PaymentIntent): Promise<void> {
       stripePaymentIntentId: intent.id,
       lastError: intent.last_payment_error?.message ?? null,
       code: intent.last_payment_error?.code ?? null,
+    },
+  });
+}
+
+async function onMembershipPurchased(session: Stripe.Checkout.Session): Promise<void> {
+  const membershipId = membershipIdFrom(session.metadata) ?? session.client_reference_id;
+  if (!membershipId) {
+    throw new Error("checkout.session.completed: no membership id in metadata");
+  }
+  if (session.payment_status !== "paid") return;
+
+  const paymentIntentId =
+    typeof session.payment_intent === "string"
+      ? session.payment_intent
+      : (session.payment_intent?.id ?? null);
+
+  // Read the row to determine the deposit (= top-up amount) and member.
+  // We trust the depositUsd from DB rather than session.amount_total to
+  // avoid currency conversion / rounding surprises.
+  const [row] = await db
+    .select({
+      id: memberships.id,
+      memberId: memberships.memberId,
+      depositUsd: memberships.depositUsd,
+      program: memberships.program,
+      status: memberships.status,
+    })
+    .from(memberships)
+    .where(eq(memberships.id, membershipId));
+
+  if (!row) {
+    throw new Error(`membership not found: ${membershipId}`);
+  }
+  // If somehow already active (replay arrived after first success), no-op.
+  // The webhook events table dedup means this branch shouldn't trigger,
+  // but defending against a race here is cheap insurance.
+  if (row.status === "active") {
+    return;
+  }
+
+  const now = new Date();
+
+  // Flip membership to active.
+  await db
+    .update(memberships)
+    .set({
+      status: "active",
+      activatedAt: now,
+      stripePaymentIntentId: paymentIntentId,
+      stripeCheckoutSessionId: session.id,
+      updatedAt: now,
+    })
+    .where(eq(memberships.id, membershipId));
+
+  // Top-up the reserve ledger with the deposit. Positive amount = inflow.
+  const tx: NewReserveTransaction = {
+    memberId: row.memberId,
+    membershipId: row.id,
+    kind: "top_up",
+    amountUsd: row.depositUsd,
+    description: `${row.program} activation deposit`,
+  };
+  await db.insert(reserveTransactions).values(tx);
+
+  await logAudit({
+    actorUserId: null,
+    actorRole: "system",
+    action: "membership.activated",
+    subjectType: "membership",
+    subjectId: row.id,
+    diff: { status: { before: row.status, after: "active" } },
+    metadata: {
+      program: row.program,
+      depositUsd: row.depositUsd,
+      stripeSessionId: session.id,
+      stripePaymentIntentId: paymentIntentId,
+      source: "stripe_webhook",
     },
   });
 }

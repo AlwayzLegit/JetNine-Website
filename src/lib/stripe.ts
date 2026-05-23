@@ -123,3 +123,65 @@ export function constructWebhookEvent(rawBody: string, signature: string | null)
   if (!signature) throw new Error("missing Stripe-Signature header");
   return getStripe().webhooks.constructEvent(rawBody, signature, getWebhookSecret());
 }
+
+type MembershipCheckoutInput = {
+  membershipId: string;
+  program: string;
+  programLabel: string;
+  depositUsd: number;
+  memberId: string;
+  customerEmail: string | null;
+};
+
+/**
+ * Create a Stripe Checkout session for a membership deposit. Mirrors
+ * createInvoiceCheckoutSession; the metadata.kind differentiates the
+ * two so the webhook can route to the right handler.
+ */
+export async function createMembershipCheckoutSession(
+  input: MembershipCheckoutInput,
+): Promise<{ sessionId: string; url: string }> {
+  const stripe = getStripe();
+  const base = getBaseUrl();
+
+  const session = await stripe.checkout.sessions.create({
+    mode: "payment",
+    payment_method_types: ["card"],
+    line_items: [
+      {
+        quantity: 1,
+        price_data: {
+          currency: "usd",
+          unit_amount: input.depositUsd * 100,
+          product_data: {
+            name: input.programLabel,
+            description: `Refundable deposit for ${input.programLabel}.`,
+          },
+        },
+      },
+    ],
+    client_reference_id: input.membershipId,
+    metadata: {
+      kind: "membership_purchase",
+      membership_id: input.membershipId,
+      program: input.program,
+      member_id: input.memberId,
+    },
+    payment_intent_data: {
+      metadata: {
+        kind: "membership_purchase",
+        membership_id: input.membershipId,
+        program: input.program,
+        member_id: input.memberId,
+      },
+    },
+    customer_email: input.customerEmail ?? undefined,
+    success_url: `${base}/account/memberships?activated=${input.membershipId}`,
+    cancel_url: `${base}/account/memberships?cancelled=${input.membershipId}`,
+  });
+
+  if (!session.url) {
+    throw new Error("Stripe checkout returned no URL");
+  }
+  return { sessionId: session.id, url: session.url };
+}

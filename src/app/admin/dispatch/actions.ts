@@ -9,6 +9,7 @@ import { trips } from "@/db/schema/trips";
 import { requireStaff } from "@/lib/auth";
 import { logAudit } from "@/lib/audit";
 import { sendThreadMessageEmail } from "@/lib/email";
+import { sendThreadMessageSms } from "@/lib/twilio";
 
 export type RetryResult =
   | { ok: true; status: "sent" | "failed"; provider?: string; error?: string }
@@ -45,7 +46,9 @@ export async function retryMessageDelivery(messageId: string): Promise<RetryResu
 
   if (!m) return { ok: false, error: "NOT_FOUND" };
   if (m.direction !== "out") return { ok: false, error: "NOT_OUTBOUND" };
-  if (m.channel !== "email") return { ok: false, error: "ONLY_EMAIL" };
+  if (m.channel !== "email" && m.channel !== "sms") {
+    return { ok: false, error: "ONLY_EMAIL_OR_SMS" };
+  }
   if (!m.toAddress) return { ok: false, error: "NO_RECIPIENT" };
   if (!m.body) return { ok: false, error: "NO_BODY" };
   if (m.deliveryStatus !== "failed") {
@@ -72,12 +75,19 @@ export async function retryMessageDelivery(messageId: string): Promise<RetryResu
   const preview = m.preview ?? m.body.slice(0, 140);
   const summary = preview.length > 60 ? `${preview.slice(0, 59)}…` : preview;
 
-  const result = await sendThreadMessageEmail({
-    to: m.toAddress,
-    subjectCode,
-    subjectSummary: summary,
-    body: m.body,
-  });
+  const result =
+    m.channel === "email"
+      ? await sendThreadMessageEmail({
+          to: m.toAddress,
+          subjectCode,
+          subjectSummary: summary,
+          body: m.body,
+        })
+      : await sendThreadMessageSms({
+          to: m.toAddress,
+          subjectCode,
+          body: m.body,
+        });
 
   if (result.ok) {
     await db

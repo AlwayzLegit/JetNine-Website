@@ -19,6 +19,7 @@ import {
   sendTripStatusEmail,
   type TripNotifyStatus,
 } from "@/lib/email";
+import { sendThreadMessageSms, sendTripStatusSms } from "@/lib/twilio";
 
 type Status = (typeof tripStatusEnum.enumValues)[number];
 
@@ -96,12 +97,12 @@ async function notifyTripStatus(args: {
   newStatus: TripNotifyStatus;
   actorUserId: string;
 }): Promise<{ status: "sent" | "failed" | "skipped"; error?: string }> {
-  // Look up member email + first name + paxCount + first leg for the
-  // itinerary line.
+  // Look up member email + phone + first name + paxCount.
   const [target] = await db
     .select({
       memberUserId: members.userId,
       memberEmail: users.email,
+      memberPhone: users.phoneE164,
       memberFirstName: users.firstName,
       paxCount: trips.paxCount,
     })
@@ -110,7 +111,10 @@ async function notifyTripStatus(args: {
     .innerJoin(users, eq(users.id, members.userId))
     .where(eq(trips.id, args.tripId));
 
-  if (!target || !target.memberEmail || !args.tripCode) {
+  if (!target || !args.tripCode) {
+    return { status: "skipped" };
+  }
+  if (!target.memberEmail && !target.memberPhone) {
     return { status: "skipped" };
   }
 
@@ -144,17 +148,87 @@ async function notifyTripStatus(args: {
     `See email content for member-facing copy.`;
   const previewBody = `Status → ${args.newStatus}`;
 
+  // Email + SMS in parallel — each independently logged in messages so
+  // delivery failures of one don't lose the other.
+  const emailOutcome = target.memberEmail
+    ? await fireChannel({
+        channel: "email",
+        toAddress: target.memberEmail,
+        send: () =>
+          sendTripStatusEmail({
+            to: target.memberEmail!,
+            tripCode: args.tripCode!,
+            status: args.newStatus,
+            firstName: target.memberFirstName,
+            itineraryLines,
+          }),
+        previewBody,
+        body,
+        tripId: args.tripId,
+        memberUserId: target.memberUserId,
+        actorUserId: args.actorUserId,
+      })
+    : { status: "skipped" as const };
+
+  const smsOutcome = target.memberPhone
+    ? await fireChannel({
+        channel: "sms",
+        toAddress: target.memberPhone,
+        send: () =>
+          sendTripStatusSms({
+            to: target.memberPhone!,
+            tripCode: args.tripCode!,
+            status: args.newStatus,
+            firstLeg: itineraryLines[0] ?? null,
+          }),
+        previewBody,
+        body,
+        tripId: args.tripId,
+        memberUserId: target.memberUserId,
+        actorUserId: args.actorUserId,
+      })
+    : { status: "skipped" as const };
+
+  // Treat 'sent' on either channel as overall success for audit
+  // purposes. The per-channel detail is in the messages rows.
+  if (emailOutcome.status === "sent" || smsOutcome.status === "sent") {
+    return { status: "sent" };
+  }
+  if (emailOutcome.status === "failed" || smsOutcome.status === "failed") {
+    return {
+      status: "failed",
+      error:
+        emailOutcome.status === "failed"
+          ? emailOutcome.error
+          : (smsOutcome as { error?: string }).error,
+    };
+  }
+  return { status: "skipped" };
+}
+
+type FireResult = { status: "sent" } | { status: "failed"; error?: string };
+
+async function fireChannel(args: {
+  channel: "email" | "sms";
+  toAddress: string;
+  send: () => Promise<{ ok: true; provider: string; messageId?: string } | { ok: false; error: string }>;
+  previewBody: string;
+  body: string;
+  tripId: string;
+  memberUserId: string;
+  actorUserId: string;
+}): Promise<FireResult> {
   const values: NewMessage = {
     subjectType: "trip",
     subjectId: args.tripId,
-    channel: "email",
+    channel: args.channel,
     direction: "out",
     fromAddress: null,
-    toAddress: target.memberEmail,
+    toAddress: args.toAddress,
     fromUserId: args.actorUserId,
-    toUserId: target.memberUserId,
-    preview: previewBody,
-    body,
+    toUserId: args.memberUserId,
+    preview: args.previewBody,
+    body: args.body,
     isRead: false,
     deliveryStatus: "queued",
   };
@@ -164,17 +238,11 @@ async function notifyTripStatus(args: {
     const [row] = await db.insert(messages).values(values).returning({ id: messages.id });
     messageId = row.id;
   } catch (err) {
-    console.error("[trip-status] message insert failed", err);
+    console.error(`[trip-status:${args.channel}] message insert failed`, err);
     return { status: "failed", error: "DB_INSERT_FAILED" };
   }
 
-  const result = await sendTripStatusEmail({
-    to: target.memberEmail,
-    tripCode: args.tripCode,
-    status: args.newStatus,
-    firstName: target.memberFirstName,
-    itineraryLines,
-  });
+  const result = await args.send();
 
   if (result.ok) {
     await db
@@ -264,7 +332,10 @@ export async function postTripMessage(
   const preview = body.length > 140 ? `${body.slice(0, 139)}…` : body;
   const finalTo = toAddress ?? defaultTo;
 
-  const willTransmit = channelRaw === "email" && Boolean(finalTo);
+  // SMS now transmits via Twilio in addition to email. Other channels
+  // (inapp, call, voicemail) remain logged-only dispatcher notes.
+  const willTransmit =
+    (channelRaw === "email" || channelRaw === "sms") && Boolean(finalTo);
   const initialStatus: "queued" | "skipped" = willTransmit ? "queued" : "skipped";
 
   const values: NewMessage = {
@@ -297,12 +368,19 @@ export async function postTripMessage(
   let deliveryAudit: Record<string, unknown> = { status: initialStatus };
   if (willTransmit && finalTo) {
     const summary = preview.length > 60 ? `${preview.slice(0, 59)}…` : preview;
-    const result = await sendThreadMessageEmail({
-      to: finalTo,
-      subjectCode: t.code,
-      subjectSummary: summary,
-      body,
-    });
+    const result =
+      channelRaw === "email"
+        ? await sendThreadMessageEmail({
+            to: finalTo,
+            subjectCode: t.code,
+            subjectSummary: summary,
+            body,
+          })
+        : await sendThreadMessageSms({
+            to: finalTo,
+            subjectCode: t.code,
+            body,
+          });
     if (result.ok) {
       await db
         .update(messages)

@@ -20,6 +20,21 @@ test.describe("public marketing surface", () => {
     expect(response?.status()).toBe(404);
     await expect(page.getByText(/Off the flight plan/i)).toBeVisible();
   });
+
+  // Regression guard for the 500 caught during the mobile-a11y audit.
+  // /empty-legs queries the DB at request time; if the connection
+  // refuses (Supabase paused, env var missing, etc.) the page must
+  // degrade to an empty board, not 500. The page wraps getLiveLegs
+  // in try/catch + skips bad rows; this test asserts the contract
+  // holds even when the smoke suite runs with a dummy DATABASE_URL
+  // that can't actually connect.
+  test("empty-legs degrades gracefully without a DB", async ({ page }) => {
+    const response = await page.goto("/empty-legs");
+    expect(response?.status()).toBeLessThan(500);
+    await expect(page.getByText(/Repositioning legs/i).first()).toBeVisible();
+    // Watchlist form is always present regardless of board state.
+    await expect(page.getByText(/Set a route/i).first()).toBeVisible();
+  });
 });
 
 test.describe("quote wizard", () => {

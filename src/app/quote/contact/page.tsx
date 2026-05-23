@@ -279,11 +279,11 @@ function ContactStepInner() {
                   text: (
                     <>
                       I agree to the{" "}
-                      <Link href="/legal#part-295" className="text-clearance underline-offset-2 hover:underline">
+                      <Link href="/legal#part-295" className="text-clearance underline underline-offset-2">
                         Part 295 broker disclosure
                       </Link>{" "}
                       and{" "}
-                      <Link href="/legal#agreement" className="text-clearance underline-offset-2 hover:underline">
+                      <Link href="/legal#agreement" className="text-clearance underline underline-offset-2">
                         Terms of service
                       </Link>
                       .

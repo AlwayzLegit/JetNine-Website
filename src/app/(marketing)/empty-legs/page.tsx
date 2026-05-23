@@ -54,7 +54,71 @@ function formatDuration(minutes: number | null): string {
 }
 
 async function getLiveLegs(): Promise<EmptyLegView[]> {
-  const rows = await db
+  // Wrap the DB query so a transient DB blip (Supabase pause, network
+  // hiccup, schema drift) degrades to an empty board instead of a
+  // hard 500 on a marketing page. The watchlist + how-it-works
+  // sections still render below; the customer can still leave their
+  // info. Errors are surfaced to Sentry via console.error in
+  // production for postmortems.
+  let rows: Awaited<ReturnType<typeof queryLiveLegs>>;
+  try {
+    rows = await queryLiveLegs();
+  } catch (err) {
+    console.error("[empty-legs] live board query failed", err);
+    return [];
+  }
+
+  const now = Date.now();
+  const out: EmptyLegView[] = [];
+  for (const r of rows) {
+    // Belt-and-suspenders nulls — wheels_up_at is NOT NULL in the
+    // schema but a JSON-round-trip in some Drizzle paths can drop the
+    // Date prototype. Same defensive shape for the price fields.
+    try {
+      const wheelsUp = r.wheelsUpAt instanceof Date ? r.wheelsUpAt : new Date(r.wheelsUpAt);
+      const hoursOut = Math.max(0, (wheelsUp.getTime() - now) / 3_600_000);
+      const priceWas = r.priceWas ?? 0;
+      const priceNow = r.priceNow ?? 0;
+      const computedDiscount =
+        priceWas > 0 ? Math.round(((priceWas - priceNow) / priceWas) * 100) : 0;
+      const discountPct = r.discountPct ?? computedDiscount;
+      const operatorBadge = r.wyvernWingman
+        ? "Wyvern Wingman ✓"
+        : r.argusRating === "platinum"
+          ? "ARG/US Plat ✓"
+          : `ARG/US ${r.argusRating ?? "—"}`;
+
+      out.push({
+        id: r.id,
+        code: r.code,
+        category: (MARKETING_CATEGORIES[r.category] ?? "midsize") as EmptyLegView["category"],
+        aircraft: `${r.makeModel ?? "Aircraft"}${r.yearManufactured ? ` · ${r.yearManufactured}` : ""}`,
+        fromIata: r.fromIata ?? r.fromIcao ?? "—",
+        fromCity: r.fromCity ?? "—",
+        fromAirport: r.fromName ?? r.fromIcao ?? "—",
+        toIata: r.toIata ?? r.toIcao ?? "—",
+        toCity: r.toCity ?? "—",
+        toAirport: r.toName ?? r.toIcao ?? "—",
+        date: formatDate(wheelsUp),
+        duration: formatDuration(r.flightMinutes),
+        seats: r.seats,
+        priceWas,
+        priceNow,
+        discountPct,
+        hoursOut,
+        operatorBadge,
+        featured: discountPct >= 60,
+      });
+    } catch (err) {
+      // Skip a single malformed row rather than failing the whole page.
+      console.error("[empty-legs] row mapping failed", { code: r.code, err });
+    }
+  }
+  return out;
+}
+
+async function queryLiveLegs() {
+  return db
     .select({
       id: emptyLegs.id,
       code: emptyLegs.code,
@@ -83,37 +147,6 @@ async function getLiveLegs(): Promise<EmptyLegView[]> {
     .innerJoin(operators, eq(operators.id, emptyLegs.operatorId))
     .where(eq(emptyLegs.status, "live"))
     .orderBy(asc(emptyLegs.wheelsUpAt));
-
-  const now = Date.now();
-  return rows.map<EmptyLegView>((r) => {
-    const hoursOut = Math.max(0, (r.wheelsUpAt.getTime() - now) / 3_600_000);
-    const operatorBadge = r.wyvernWingman
-      ? "Wyvern Wingman ✓"
-      : r.argusRating === "platinum"
-        ? "ARG/US Plat ✓"
-        : `ARG/US ${r.argusRating}`;
-    return {
-      id: r.id,
-      code: r.code,
-      category: (MARKETING_CATEGORIES[r.category] ?? "midsize") as EmptyLegView["category"],
-      aircraft: `${r.makeModel ?? "Aircraft"}${r.yearManufactured ? ` · ${r.yearManufactured}` : ""}`,
-      fromIata: r.fromIata ?? r.fromIcao ?? "—",
-      fromCity: r.fromCity ?? "—",
-      fromAirport: r.fromName ?? r.fromIcao ?? "—",
-      toIata: r.toIata ?? r.toIcao ?? "—",
-      toCity: r.toCity ?? "—",
-      toAirport: r.toName ?? r.toIcao ?? "—",
-      date: formatDate(r.wheelsUpAt),
-      duration: formatDuration(r.flightMinutes),
-      seats: r.seats,
-      priceWas: r.priceWas,
-      priceNow: r.priceNow,
-      discountPct: r.discountPct ?? Math.round(((r.priceWas - r.priceNow) / r.priceWas) * 100),
-      hoursOut,
-      operatorBadge,
-      featured: r.discountPct !== null && r.discountPct >= 60,
-    };
-  });
 }
 
 function liveStats(legs: EmptyLegView[]) {

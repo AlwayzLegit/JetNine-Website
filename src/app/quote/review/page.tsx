@@ -427,11 +427,11 @@ function ReviewStepInner() {
           </h3>
           <p className="mt-3 max-w-[72ch] text-[15px] leading-[1.65] text-bone-2">
             By submitting, you agree to the{" "}
-            <Link href="/legal#part-295" className="text-clearance underline-offset-2 hover:underline">
+            <Link href="/legal#part-295" className="text-clearance underline underline-offset-2">
               Part 295 broker disclosure
             </Link>{" "}
             &amp;{" "}
-            <Link href="/legal#agreement" className="text-clearance underline-offset-2 hover:underline">
+            <Link href="/legal#agreement" className="text-clearance underline underline-offset-2">
               terms of service
             </Link>
             . Quote requests are not commitments — you&rsquo;ll review specific airframes and

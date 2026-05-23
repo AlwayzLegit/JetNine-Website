@@ -127,7 +127,35 @@ After DNS resolves:
 
 ## First-deploy verification checklist
 
-After everything is wired, verify these in order:
+After everything is wired, the fastest single-call check is:
+
+```
+curl -s https://YOUR_DOMAIN/api/health | jq
+```
+
+Expected response shape:
+
+```json
+{
+  "ok": true,
+  "status": "healthy",       // or "degraded" if some optional integration is unconfigured
+  "env": "production",
+  "region": "cle1",
+  "sha": "abc123def456",
+  "checks": {
+    "db":        { "ok": true,  "latencyMs": 12 },
+    "stripe":    { "ok": true,  "configured": true, "webhookConfigured": true, "mode": "live" },
+    "email":     { "ok": true,  "provider": "resend", "outboundConfigured": true, "inboundConfigured": true, "fromConfigured": true },
+    "twilio":    { "ok": true,  "smsConfigured": true, "whatsappConfigured": true },
+    "sentry":    { "ok": true,  "browserConfigured": true, "serverConfigured": true },
+    "plausible": { "ok": true,  "configured": true }
+  }
+}
+```
+
+`status: "healthy"` means every integration is wired. `status: "degraded"` means DB is up but at least one optional integration (Stripe / email / Twilio / Sentry) is unconfigured — read `checks` to see which. HTTP status is 200 unless the DB itself is unreachable, in which case the endpoint returns 503 with the same body shape (so ops still has diagnostics).
+
+For broader verification, also check:
 
 - [ ] `/sitemap.xml` returns 200 with the right host in `<loc>` entries.
 - [ ] `/robots.txt` shows production rules (not `Disallow: /`).

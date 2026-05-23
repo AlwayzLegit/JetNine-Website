@@ -253,6 +253,51 @@ async function checkRegionPin(): Promise<void> {
   });
 }
 
+// ─── Health endpoint ─────────────────────────────────────────────────────
+
+async function checkHealthEndpoint(): Promise<void> {
+  // For localhost runs against `pnpm start` with a dummy DATABASE_URL,
+  // 503 (DB unreachable) is the expected outcome — local validation
+  // shouldn't fail just because the smoke target has no real DB.
+  // Against any other host the smoke runner expects a healthy 200.
+  const isLocal = /^https?:\/\/(localhost|127\.0\.0\.1)/.test(TARGET);
+
+  await check("GET /api/health", "required", async () => {
+    const r = await fetchWithTimeout(`${TARGET}/api/health`);
+    if (r.status !== 200 && r.status !== 503) {
+      return { ok: false, detail: `expected 200 or 503, got ${r.status}` };
+    }
+    if (r.status === 503 && !isLocal) {
+      return { ok: false, detail: "503 — DB unreachable (see body for failing checks)" };
+    }
+    let body: {
+      ok?: boolean;
+      status?: string;
+      env?: string;
+      region?: string;
+      sha?: string;
+      checks?: Record<string, { ok?: boolean }>;
+    };
+    try {
+      body = JSON.parse(r.text);
+    } catch {
+      return { ok: false, detail: "non-JSON response" };
+    }
+    if (typeof body.ok !== "boolean") {
+      return { ok: false, detail: "missing .ok field" };
+    }
+    if (!body.ok && !isLocal) {
+      const failed = Object.entries(body.checks ?? {})
+        .filter(([, v]) => v && v.ok === false)
+        .map(([k]) => k)
+        .join(",");
+      return { ok: false, detail: `unhealthy; failing checks: ${failed || "unknown"}` };
+    }
+    const detail = `${body.status} · ${body.env}/${body.region} · sha ${body.sha}`;
+    return { ok: true, detail };
+  });
+}
+
 // ─── Run ─────────────────────────────────────────────────────────────────
 
 async function main() {
@@ -267,6 +312,7 @@ async function main() {
     await checkPage(p);
     await sleep(50); // gentle on CDN
   }
+  await checkHealthEndpoint();
   await checkSitemap();
   await checkRobots();
   await checkOgImage();

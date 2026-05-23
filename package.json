@@ -18,7 +18,8 @@
     "e2e": "playwright test",
     "e2e:install": "playwright install --with-deps chromium",
     "audit:a11y": "tsx scripts/audit-mobile-a11y.mts",
-    "smoke": "tsx scripts/smoke-prod.mts"
+    "smoke": "tsx scripts/smoke-prod.mts",
+    "smoke:e2e": "playwright test --config playwright.prod.config.ts"
   },
   "dependencies": {
     "@sentry/nextjs": "^10.53.1",

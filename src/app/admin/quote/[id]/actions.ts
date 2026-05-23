@@ -23,6 +23,7 @@ import { requireStaff } from "@/lib/auth";
 import { logAudit } from "@/lib/audit";
 import { sendThreadMessageEmail } from "@/lib/email";
 import { sendThreadMessageSms, sendThreadMessageWhatsApp } from "@/lib/twilio";
+import { attemptInvoiceDrawdown, type DrawdownOutcome } from "@/lib/membership-balance";
 
 type Status = (typeof quoteStatusEnum.enumValues)[number];
 
@@ -214,11 +215,19 @@ export async function convertQuoteToTrip(
     }));
     await tx.insert(tripLegs).values(tripLegRows);
 
+    // If the member has an active Card / Reserve with sufficient balance,
+    // the invoice opens as 'due' so attemptInvoiceDrawdown can immediately
+    // flip it to 'paid' from the reserve. Otherwise it stays 'draft' for
+    // the dispatcher to review + finalize manually (current default).
+    const memberHasCardBalance = total !== null && total > 0;
     const invoiceValues: NewInvoice = {
       memberId,
       tripId: tripRow.id,
       kind: "charter",
-      status: "draft",
+      // 'due' lets the drawdown helper short-circuit to 'paid' atomically.
+      // If the draw fails (no card or insufficient balance), we revert to
+      // 'draft' below so the existing review-then-finalize workflow holds.
+      status: memberHasCardBalance ? "due" : "draft",
       subtotalUsd: subtotal,
       fetUsd: fet,
       segmentFeeUsd: seg,
@@ -229,6 +238,28 @@ export async function convertQuoteToTrip(
       .values(invoiceValues)
       .returning({ id: invoices.id });
 
+    // Atomic drawdown: if the member has a Card/Reserve with balance
+    // covering the full total, draw it down and flip the invoice to
+    // 'paid' inside this same transaction.
+    let drawdown: DrawdownOutcome | null = null;
+    if (memberHasCardBalance) {
+      drawdown = await attemptInvoiceDrawdown(tx, {
+        invoiceId: invRow.id,
+        memberId,
+        tripId: tripRow.id,
+        totalUsd: total,
+      });
+      // Drawdown didn't fire — revert the optimistic 'due' status to
+      // 'draft' so it doesn't accidentally route the customer to Stripe
+      // for an invoice the dispatcher meant to review first.
+      if (!drawdown.drew) {
+        await tx
+          .update(invoices)
+          .set({ status: "draft", updatedAt: new Date() })
+          .where(eq(invoices.id, invRow.id));
+      }
+    }
+
     await tx
       .update(quotes)
       .set({
@@ -238,7 +269,7 @@ export async function convertQuoteToTrip(
       })
       .where(eq(quotes.id, quoteId));
 
-    return { trip: tripRow, invoice: invRow };
+    return { trip: tripRow, invoice: invRow, drawdown };
   });
 
   revalidatePath("/admin/dispatch");
@@ -266,6 +297,7 @@ export async function convertQuoteToTrip(
       fetUsd: fet,
       segmentFeeUsd: seg,
       totalUsd: total,
+      drawdown: inserted.drawdown,
     },
   });
   // Also log on the trip subject so trip-scoped queries see the conversion.
@@ -278,6 +310,27 @@ export async function convertQuoteToTrip(
     subjectCode: inserted.trip.tripCode,
     metadata: { quoteId, quoteCode: quote.quoteCode },
   });
+
+  // Separate audit row for the membership drawdown so the membership
+  // subject_type history reads as a clean ledger: top-ups + draws +
+  // adjustments only.
+  if (inserted.drawdown?.drew) {
+    await logAudit({
+      actorUserId: actor.id,
+      actorRole: actor.role,
+      action: "membership.charter_draw",
+      subjectType: "membership",
+      subjectId: null, // membershipId — we don't have it in scope here without an extra query
+      metadata: {
+        invoiceId: inserted.invoice.id,
+        tripId: inserted.trip.id,
+        tripCode: inserted.trip.tripCode,
+        amountUsd: inserted.drawdown.amountUsd,
+        reserveTxId: inserted.drawdown.reserveTxId,
+        remainingBalanceUsd: inserted.drawdown.remainingBalanceUsd,
+      },
+    });
+  }
 
   return {
     ok: true,

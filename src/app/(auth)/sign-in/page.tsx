@@ -37,10 +37,17 @@ export default async function SignInPage({ searchParams }: Props) {
         </div>
         <p className="mt-8 border-t border-ink-3 pt-6 font-mono text-[10px] uppercase tracking-[0.12em] text-steel">
           — Trouble signing in? Email{" "}
-          <a href="mailto:dispatch@jetnine.com" className="text-clearance">
+          <a
+            href="mailto:dispatch@jetnine.com"
+            className="text-clearance underline underline-offset-2"
+          >
             dispatch@jetnine.com
           </a>{" "}
-          or call <Link href="/contact" className="text-clearance">dispatch</Link>.
+          or call{" "}
+          <Link href="/contact" className="text-clearance underline underline-offset-2">
+            dispatch
+          </Link>
+          .
         </p>
       </div>
     </section>

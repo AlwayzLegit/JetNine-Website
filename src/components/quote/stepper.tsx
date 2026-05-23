@@ -24,9 +24,13 @@ export function QuoteStepper() {
           const clickable = state !== "pending";
           const content = (
             <span
+              // Pending state shows muted color via text-steel below;
+              // double-dimming with opacity-60 dropped contrast below
+              // WCAG AA on the bracket-text color (#7B8290 × 0.6).
+              // Cursor-default is still appropriate; opacity is not.
               className={[
                 "flex items-center gap-3 transition-colors",
-                state === "pending" ? "cursor-default opacity-60" : "cursor-pointer hover:text-bone",
+                state === "pending" ? "cursor-default" : "cursor-pointer hover:text-bone",
               ].join(" ")}
             >
               <span

@@ -6,9 +6,18 @@ const CHROMIUM_PATH = "/opt/pw-browsers/chromium-1194/chrome-linux/chrome";
 const BASE = process.env.AUDIT_BASE_URL ?? "http://localhost:3000";
 
 const TARGETS = [
-  { url: "/", rules: ["aria-required-children"] },
-  { url: "/quote/mission", rules: ["label"] },
+  { url: "/", rules: ["link-in-text-block"] },
+  { url: "/aircraft", rules: ["link-in-text-block"] },
+  { url: "/aircraft/midsize", rules: ["link-in-text-block"] },
+  { url: "/memberships", rules: ["link-in-text-block"] },
+  { url: "/how-it-works", rules: ["link-in-text-block"] },
+  { url: "/safety", rules: ["link-in-text-block"] },
+  { url: "/about", rules: ["link-in-text-block"] },
+  { url: "/contact", rules: ["link-in-text-block"] },
   { url: "/empty-legs", rules: ["link-in-text-block"] },
+  { url: "/faq", rules: ["link-in-text-block"] },
+  { url: "/quote/mission", rules: ["link-in-text-block"] },
+  { url: "/sign-in", rules: ["link-in-text-block"] },
 ];
 
 async function main() {

@@ -71,3 +71,26 @@ test.describe("stripe webhook endpoint", () => {
     expect([400, 503]).toContain(response.status());
   });
 });
+
+test.describe("email inbound webhook", () => {
+  test("returns 404 without a secret configured (ships dark)", async ({ request }) => {
+    // INBOUND_EMAIL_SECRET is not set in CI. The route should return
+    // 404 (looks like it doesn't exist) rather than 500.
+    const response = await request.post("/api/email/inbound/anything", {
+      data: { Subject: "[QT-2026-0001] hi", TextBody: "test", MessageID: "x" },
+    });
+    expect(response.status()).toBe(404);
+  });
+});
+
+test.describe("twilio inbound webhook", () => {
+  test("returns 503 without Twilio configured (ships dark)", async ({ request }) => {
+    // No TWILIO_ACCOUNT_SID in CI; route returns 503 so Twilio retries
+    // until env lands. Also acceptable: 403 if env partially set and
+    // signature fails verification. Crash (5xx with no body) is not.
+    const response = await request.post("/api/twilio/inbound", {
+      form: { From: "+15551234567", Body: "test", MessageSid: "x" },
+    });
+    expect([403, 503]).toContain(response.status());
+  });
+});

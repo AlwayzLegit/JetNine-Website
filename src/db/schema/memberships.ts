@@ -84,6 +84,13 @@ export const memberships = pgTable(
 
     status: membershipStatusEnum("status").notNull().default("active"),
 
+    // Stripe linkage — populated when a self-serve purchase creates
+    // the Checkout session, then completed by the webhook on payment
+    // success. See migration 0030.
+    stripeCheckoutSessionId: text("stripe_checkout_session_id"),
+    stripePaymentIntentId: text("stripe_payment_intent_id"),
+    activatedAt: timestamp("activated_at", { withTimezone: true }),
+
     notes: text("notes"),
 
     createdAt: timestamp("created_at", { withTimezone: true })

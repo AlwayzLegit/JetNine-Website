@@ -312,6 +312,171 @@ export async function sendThreadMessageEmail(ctx: ThreadEmailContext): Promise<S
   });
 }
 
+// ─── Trip-status auto-notifications ─────────────────────────────────────
+// Fired automatically by updateTripStatus when the dispatcher flips a
+// trip to a customer-visible state. Each state owns its own subject +
+// body so the customer's mail client doesn't show "Trip update" 4 times
+// in a row — they see "Confirmed", "Boarding now", "Cancelled (wx)",
+// "Trip complete". The thread bracket [JN-2026-NNNN] still threads
+// them together.
+
+export type TripNotifyStatus =
+  | "confirmed"
+  | "boarding"
+  | "completed"
+  | "cancelled_wx"
+  | "cancelled_other"
+  | "diverted"
+  | "irregular_ops";
+
+// Statuses we actually email on. Other enum values (draft, crew_briefed,
+// airborne, wheels_down) are operational and don't need a customer ping.
+export const NOTIFIABLE_TRIP_STATUSES: ReadonlySet<TripNotifyStatus> = new Set([
+  "confirmed",
+  "boarding",
+  "completed",
+  "cancelled_wx",
+  "cancelled_other",
+  "diverted",
+  "irregular_ops",
+]);
+
+export function isNotifiableTripStatus(s: string): s is TripNotifyStatus {
+  return NOTIFIABLE_TRIP_STATUSES.has(s as TripNotifyStatus);
+}
+
+type TripStatusContext = {
+  to: string;
+  tripCode: string;
+  status: TripNotifyStatus;
+  firstName?: string | null;
+  // Itinerary summary lines, e.g. ["KLAX → KSFO · 2026-06-12 · 4 pax"].
+  itineraryLines?: string[];
+  // Optional free-form note from dispatcher (cancellation reason,
+  // divert destination, etc). Already plain-text from the action.
+  note?: string | null;
+};
+
+type StatusTemplate = {
+  subjectSuffix: string;
+  headline: string;
+  intro: string;
+};
+
+const STATUS_TEMPLATES: Record<TripNotifyStatus, StatusTemplate> = {
+  confirmed: {
+    subjectSuffix: "Trip confirmed",
+    headline: "You're on the manifest.",
+    intro:
+      "Your trip is locked in. We'll send another note when the aircraft is ready to board — usually about 30 minutes before departure.",
+  },
+  boarding: {
+    subjectSuffix: "Boarding now",
+    headline: "The aircraft is ready when you are.",
+    intro:
+      "Captain and crew are on board. Head to the FBO whenever you're ready; if you're already there, we'll see you on the ramp.",
+  },
+  completed: {
+    subjectSuffix: "Trip complete",
+    headline: "Wheels down. Hope it flew well.",
+    intro:
+      "That's a wrap on this one. A receipt + post-flight summary will land in your inbox shortly. If anything was off — or off-the-charts — we want to hear about it.",
+  },
+  cancelled_wx: {
+    subjectSuffix: "Cancelled — weather",
+    headline: "Weather got in the way.",
+    intro:
+      "We're standing down on this flight because of conditions we can't safely operate through. A dispatcher will follow up about reschedule options; if you want to talk through it now, dispatch is on the line below.",
+  },
+  cancelled_other: {
+    subjectSuffix: "Cancelled",
+    headline: "We've stood this one down.",
+    intro:
+      "This trip has been cancelled. A dispatcher will reach out about rebooking. The number below is the fastest path if you'd like to talk now.",
+  },
+  diverted: {
+    subjectSuffix: "Diverted",
+    headline: "We're putting down somewhere else.",
+    intro:
+      "Conditions ahead made the original destination a no-go, so we're diverting. A dispatcher is arranging ground from the new airport; expect a call within minutes.",
+  },
+  irregular_ops: {
+    subjectSuffix: "Irregular ops",
+    headline: "We've hit a snag — and we're on it.",
+    intro:
+      "Something operational has shifted on this trip. Don't act on it from your end yet; a dispatcher is calling you now with the live picture.",
+  },
+};
+
+/**
+ * Send a trip-status notification email to the member. Returns the
+ * same SendResult shape as sendEmail so callers can stamp delivery
+ * status on the corresponding messages row.
+ */
+export async function sendTripStatusEmail(ctx: TripStatusContext): Promise<SendResult> {
+  const tpl = STATUS_TEMPLATES[ctx.status];
+  const subject = `[${ctx.tripCode}] ${tpl.subjectSuffix}`;
+  const greetingName = ctx.firstName?.trim() || "there";
+
+  const itineraryText = ctx.itineraryLines?.length
+    ? `\n\nItinerary:\n  ${ctx.itineraryLines.join("\n  ")}\n`
+    : "";
+  const noteText = ctx.note ? `\n\n${ctx.note}\n` : "";
+
+  const text = [
+    `${greetingName},`,
+    ``,
+    tpl.intro,
+    itineraryText,
+    noteText,
+    `Reference: ${ctx.tripCode}`,
+    ``,
+    `Dispatch is on +1 (888) 847-5669, 24/7.`,
+    ``,
+    `JetNine LLC · 14 CFR Part 295 indirect air carrier.`,
+  ].join("\n");
+
+  const itineraryHtml = ctx.itineraryLines?.length
+    ? `<ul style="margin:16px 0;padding:0;list-style:none;">${ctx.itineraryLines
+        .map(
+          (l) =>
+            `<li style="margin:0 0 6px;font-family:ui-monospace,SF Mono,Menlo,monospace;font-size:12px;color:#0F1115;">${escapeHtml(l)}</li>`,
+        )
+        .join("")}</ul>`
+    : "";
+  const noteHtml = ctx.note
+    ? `<p style="margin:0 0 16px;font-size:14px;color:#374151;background:#F5F4F0;padding:12px 16px;border-left:2px solid #C5CDD9;">${escapeHtml(ctx.note)}</p>`
+    : "";
+
+  const html = `
+    <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Inter,sans-serif;color:#0F1115;line-height:1.55;max-width:560px;margin:0 auto;padding:24px;">
+      <p style="margin:0 0 16px;font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:#6B7280;">— ${escapeHtml(ctx.tripCode)} · ${escapeHtml(tpl.subjectSuffix)}</p>
+      <h1 style="margin:0 0 16px;font-family:'Fraunces',Georgia,serif;font-weight:300;font-size:28px;letter-spacing:-0.01em;line-height:1.2;">
+        ${escapeHtml(tpl.headline)}
+      </h1>
+      <p style="margin:0 0 16px;font-size:15px;">${escapeHtml(tpl.intro)}</p>
+      ${itineraryHtml}
+      ${noteHtml}
+      <hr style="margin:32px 0 16px;border:none;border-top:1px solid #E5E7EB;"/>
+      <p style="margin:0;font-size:12px;color:#6B7280;">
+        JetNine dispatch<br/>
+        <a href="tel:+18888475669" style="color:#0F1115;">+1 (888) 847-5669</a> · 24/7
+      </p>
+      <p style="margin:24px 0 0;font-size:10px;color:#9CA3AF;line-height:1.6;">
+        JetNine LLC · 14 CFR Part 295 indirect air carrier.
+      </p>
+    </div>
+  `.trim();
+
+  return sendEmail({
+    to: ctx.to,
+    subject,
+    html,
+    text,
+    replyTo: DISPATCH_NOTIFY,
+  });
+}
+
 function escapeHtml(s: string): string {
   return s
     .replace(/&/g, "&amp;")

@@ -1,8 +1,14 @@
 import Link from "next/link";
-import { desc } from "drizzle-orm";
+import { and, desc, eq, gte, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { quotes, quoteLegs } from "@/db/schema/quotes";
+import { messages } from "@/db/schema/audit";
+import { trips } from "@/db/schema/trips";
 import { formatUSD } from "@/lib/quote-pricing";
+import {
+  FailedDeliveryList,
+  type FailedDeliveryRow,
+} from "@/components/admin/failed-delivery-list";
 
 export const dynamic = "force-dynamic";
 
@@ -63,6 +69,48 @@ export default async function DispatchInboxPage() {
   }
 
   const stats = computeStats(rows);
+
+  // Failed-delivery surface — last 7 days of outbound email messages
+  // stuck in `delivery_status='failed'`. Joins quote/trip to surface
+  // the entity code for the row, since the messages table is polymorphic.
+  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+  const failedRaw = await db
+    .select({
+      id: messages.id,
+      subjectType: messages.subjectType,
+      subjectId: messages.subjectId,
+      toAddress: messages.toAddress,
+      preview: messages.preview,
+      error: messages.deliveryError,
+      occurredAt: messages.occurredAt,
+      quoteCode: quotes.quoteCode,
+      tripCode: trips.tripCode,
+    })
+    .from(messages)
+    .leftJoin(quotes, and(eq(messages.subjectType, "quote"), eq(quotes.id, messages.subjectId)))
+    .leftJoin(trips, and(eq(messages.subjectType, "trip"), eq(trips.id, messages.subjectId)))
+    .where(
+      and(
+        eq(messages.deliveryStatus, "failed"),
+        eq(messages.direction, "out"),
+        gte(messages.occurredAt, sevenDaysAgo),
+      ),
+    )
+    .orderBy(desc(messages.occurredAt))
+    .limit(50);
+
+  const failedDeliveries: FailedDeliveryRow[] = failedRaw
+    .filter((r) => r.subjectType === "quote" || r.subjectType === "trip")
+    .map((r) => ({
+      id: r.id,
+      subjectType: r.subjectType as "quote" | "trip",
+      subjectId: r.subjectId,
+      subjectCode: r.quoteCode ?? r.tripCode ?? null,
+      toAddress: r.toAddress,
+      preview: r.preview,
+      error: r.error,
+      occurredAt: r.occurredAt,
+    }));
 
   return (
     <div className="container-jn py-10">
@@ -131,6 +179,28 @@ export default async function DispatchInboxPage() {
           </table>
         </div>
       )}
+
+      <section className="mt-14">
+        <header className="mb-5 flex items-end justify-between gap-4">
+          <div>
+            <p className="caption mb-2">— Failed deliveries · last 7 days</p>
+            <h2 className="font-serif text-[22px] font-light leading-tight tracking-tight text-bone">
+              Mail that didn&rsquo;t leave the building.
+            </h2>
+            <p className="mt-2 max-w-[60ch] text-[13px] leading-[1.55] text-bone-2">
+              Thread emails the provider rejected. Retry sends the same body again
+              against the same recipient; a still-failing retry updates the error
+              text but doesn&rsquo;t double-deliver.
+            </p>
+          </div>
+          {failedDeliveries.length > 0 ? (
+            <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--error)]">
+              {failedDeliveries.length} stuck
+            </span>
+          ) : null}
+        </header>
+        <FailedDeliveryList initial={failedDeliveries} />
+      </section>
     </div>
   );
 }

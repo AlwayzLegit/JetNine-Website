@@ -5,7 +5,8 @@ import { useState, useTransition, type FormEvent } from "react";
 const CHANNELS = [
   { id: "inapp", label: "In-app", desc: "Member-portal message." },
   { id: "email", label: "Email", desc: "Sends via the configured provider." },
-  { id: "sms", label: "SMS", desc: "Logged-only; Twilio wires later." },
+  { id: "sms", label: "SMS", desc: "Sends via Twilio." },
+  { id: "whatsapp", label: "WhatsApp", desc: "Sends via Twilio WhatsApp." },
   { id: "call", label: "Call note", desc: "Phone-call summary." },
   { id: "voicemail", label: "Voicemail", desc: "Left a voicemail." },
 ] as const;
@@ -59,11 +60,18 @@ export function MessageThread({
   const [msg, setMsg] = useState<{ tone: "ok" | "error"; text: string } | null>(null);
 
   const needsAddress =
-    channel === "email" || channel === "sms" || channel === "call" || channel === "voicemail";
+    channel === "email" ||
+    channel === "sms" ||
+    channel === "whatsapp" ||
+    channel === "call" ||
+    channel === "voicemail";
   const addressDefault =
     channel === "email"
       ? defaultEmail ?? ""
-      : channel === "sms" || channel === "call" || channel === "voicemail"
+      : channel === "sms" ||
+          channel === "whatsapp" ||
+          channel === "call" ||
+          channel === "voicemail"
         ? defaultPhone ?? ""
         : "";
 
@@ -86,7 +94,9 @@ export function MessageThread({
         // mark email as 'queued' (in-flight from the user's POV) and
         // everything else as 'skipped' to match server behaviour.
         const optimisticStatus: DeliveryStatus =
-          channel === "email" && toAddress ? "queued" : "skipped";
+          (channel === "email" || channel === "sms" || channel === "whatsapp") && toAddress
+            ? "queued"
+            : "skipped";
         const optimistic: ThreadMessage = {
           id: result.id,
           channel,
@@ -187,7 +197,7 @@ export function MessageThread({
           {needsAddress ? (
             <div className="field-jn">
               <label htmlFor="mt-toAddress">
-                {channel === "email" ? "To · email" : "To · phone"}
+                {channel === "email" ? "To · email" : channel === "whatsapp" ? "To · phone (WhatsApp)" : "To · phone"}
               </label>
               <input
                 id="mt-toAddress"
@@ -226,7 +236,7 @@ export function MessageThread({
             </span>
           ) : (
             <span className="font-mono text-[10px] uppercase tracking-[0.08em] text-steel">
-              — Logged + audit-tracked. Email delivers via the configured provider; SMS waits on Twilio.
+              — Logged + audit-tracked. Email + SMS deliver via the configured providers; failed sends surface on /admin/dispatch.
             </span>
           )}
           <button

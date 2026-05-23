@@ -69,6 +69,13 @@ export const metadata: Metadata = {
     googleBot: { index: true, follow: true, "max-image-preview": "large" },
   },
   alternates: { canonical: "/" },
+  // Search Console / Webmaster verification — populated from env so we
+  // don't bake a tenant-specific token into the repo. Ships dark when
+  // unset; once Google/Bing verify ownership the value can stay or be
+  // removed at will.
+  verification: {
+    google: process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION,
+  },
 };
 
 // JSON-LD structured data. Organization schema gives Google a hook for
@@ -95,12 +102,27 @@ const organizationJsonLd = {
   areaServed: { "@type": "Place", name: "Worldwide" },
 };
 
+const plausibleDomain = process.env.NEXT_PUBLIC_PLAUSIBLE_DOMAIN;
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html
       lang="en"
       className={`${fraunces.variable} ${inter.variable} ${jetbrainsMono.variable}`}
     >
+      <head>
+        {/* Plausible — cookieless, privacy-friendly analytics. Conditional
+            on env so localhost / preview deploys stay clean. CSP allows
+            plausible.io unconditionally; the script just doesn't load
+            when the domain isn't set. */}
+        {plausibleDomain ? (
+          <script
+            defer
+            data-domain={plausibleDomain}
+            src="https://plausible.io/js/script.js"
+          />
+        ) : null}
+      </head>
       <body>
         <script
           type="application/ld+json"

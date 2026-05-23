@@ -22,7 +22,7 @@ import {
 import { requireStaff } from "@/lib/auth";
 import { logAudit } from "@/lib/audit";
 import { sendThreadMessageEmail } from "@/lib/email";
-import { sendThreadMessageSms } from "@/lib/twilio";
+import { sendThreadMessageSms, sendThreadMessageWhatsApp } from "@/lib/twilio";
 
 type Status = (typeof quoteStatusEnum.enumValues)[number];
 
@@ -366,11 +366,12 @@ export async function postQuoteMessage(
   const preview = body.length > 140 ? `${body.slice(0, 139)}…` : body;
   const finalTo = toAddress ?? defaultTo;
 
-  // Email + SMS both transmit. The others (inapp, call, voicemail)
-  // remain dispatcher-side records of out-of-band contact; marked
-  // 'skipped' on insert.
+  // Email + SMS + WhatsApp all transmit. The others (inapp, call,
+  // voicemail) remain dispatcher-side records of out-of-band contact;
+  // marked 'skipped' on insert.
   const willTransmit =
-    (channelRaw === "email" || channelRaw === "sms") && Boolean(finalTo);
+    (channelRaw === "email" || channelRaw === "sms" || channelRaw === "whatsapp") &&
+    Boolean(finalTo);
   const initialStatus: "queued" | "skipped" = willTransmit ? "queued" : "skipped";
 
   const values: NewMessage = {
@@ -414,11 +415,17 @@ export async function postQuoteMessage(
             subjectSummary: summary,
             body,
           })
-        : await sendThreadMessageSms({
-            to: finalTo,
-            subjectCode: q.code,
-            body,
-          });
+        : channelRaw === "whatsapp"
+          ? await sendThreadMessageWhatsApp({
+              to: finalTo,
+              subjectCode: q.code,
+              body,
+            })
+          : await sendThreadMessageSms({
+              to: finalTo,
+              subjectCode: q.code,
+              body,
+            });
     if (result.ok) {
       await db
         .update(messages)

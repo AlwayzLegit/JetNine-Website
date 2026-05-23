@@ -79,6 +79,7 @@ export const messageChannelEnum = pgEnum("message_channel", [
   "voicemail",
   "inapp",
   "system",
+  "whatsapp",
 ]);
 
 export const messageDirectionEnum = pgEnum("message_direction", ["in", "out"]);

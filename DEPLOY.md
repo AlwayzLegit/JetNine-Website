@@ -88,7 +88,13 @@ Configure inbound:
 
 The route verifies Twilio's signature using `TWILIO_AUTH_TOKEN`; no path-based secret needed.
 
-**WhatsApp** is not wired yet — that needs a WhatsApp Business Account (WABA) registration and a new `whatsapp` value in the `message_channel` enum. Tracked but deferred.
+**WhatsApp** uses the same Twilio account. Set:
+
+| Env var | Notes |
+|---|---|
+| `TWILIO_WHATSAPP_FROM` | `whatsapp:+E164` of your WABA-approved sender. Sandbox value for dev: `whatsapp:+14155238886`. |
+
+Dev sandbox: members text "join <code>" to the sandbox number from their phone before we can reach them. Production needs a WhatsApp Business Account (WABA) registration through Twilio + Meta — allow a week for approval. Outbound-first messages from a WABA sender require pre-approved templates; once the customer initiates a conversation, freeform replies work for 24h after each message.
 
 ## 6. Sentry (optional — error tracking)
 

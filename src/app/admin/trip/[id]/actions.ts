@@ -19,7 +19,11 @@ import {
   sendTripStatusEmail,
   type TripNotifyStatus,
 } from "@/lib/email";
-import { sendThreadMessageSms, sendTripStatusSms } from "@/lib/twilio";
+import {
+  sendThreadMessageSms,
+  sendThreadMessageWhatsApp,
+  sendTripStatusSms,
+} from "@/lib/twilio";
 
 type Status = (typeof tripStatusEnum.enumValues)[number];
 
@@ -332,10 +336,11 @@ export async function postTripMessage(
   const preview = body.length > 140 ? `${body.slice(0, 139)}…` : body;
   const finalTo = toAddress ?? defaultTo;
 
-  // SMS now transmits via Twilio in addition to email. Other channels
-  // (inapp, call, voicemail) remain logged-only dispatcher notes.
+  // SMS + WhatsApp now transmit via Twilio in addition to email. Other
+  // channels (inapp, call, voicemail) remain logged-only dispatcher notes.
   const willTransmit =
-    (channelRaw === "email" || channelRaw === "sms") && Boolean(finalTo);
+    (channelRaw === "email" || channelRaw === "sms" || channelRaw === "whatsapp") &&
+    Boolean(finalTo);
   const initialStatus: "queued" | "skipped" = willTransmit ? "queued" : "skipped";
 
   const values: NewMessage = {
@@ -376,11 +381,17 @@ export async function postTripMessage(
             subjectSummary: summary,
             body,
           })
-        : await sendThreadMessageSms({
-            to: finalTo,
-            subjectCode: t.code,
-            body,
-          });
+        : channelRaw === "whatsapp"
+          ? await sendThreadMessageWhatsApp({
+              to: finalTo,
+              subjectCode: t.code,
+              body,
+            })
+          : await sendThreadMessageSms({
+              to: finalTo,
+              subjectCode: t.code,
+              body,
+            });
     if (result.ok) {
       await db
         .update(messages)

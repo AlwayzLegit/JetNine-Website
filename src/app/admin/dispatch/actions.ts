@@ -9,7 +9,7 @@ import { trips } from "@/db/schema/trips";
 import { requireStaff } from "@/lib/auth";
 import { logAudit } from "@/lib/audit";
 import { sendThreadMessageEmail } from "@/lib/email";
-import { sendThreadMessageSms } from "@/lib/twilio";
+import { sendThreadMessageSms, sendThreadMessageWhatsApp } from "@/lib/twilio";
 
 export type RetryResult =
   | { ok: true; status: "sent" | "failed"; provider?: string; error?: string }
@@ -46,8 +46,8 @@ export async function retryMessageDelivery(messageId: string): Promise<RetryResu
 
   if (!m) return { ok: false, error: "NOT_FOUND" };
   if (m.direction !== "out") return { ok: false, error: "NOT_OUTBOUND" };
-  if (m.channel !== "email" && m.channel !== "sms") {
-    return { ok: false, error: "ONLY_EMAIL_OR_SMS" };
+  if (m.channel !== "email" && m.channel !== "sms" && m.channel !== "whatsapp") {
+    return { ok: false, error: "ONLY_EMAIL_SMS_OR_WHATSAPP" };
   }
   if (!m.toAddress) return { ok: false, error: "NO_RECIPIENT" };
   if (!m.body) return { ok: false, error: "NO_BODY" };
@@ -83,11 +83,17 @@ export async function retryMessageDelivery(messageId: string): Promise<RetryResu
           subjectSummary: summary,
           body: m.body,
         })
-      : await sendThreadMessageSms({
-          to: m.toAddress,
-          subjectCode,
-          body: m.body,
-        });
+      : m.channel === "whatsapp"
+        ? await sendThreadMessageWhatsApp({
+            to: m.toAddress,
+            subjectCode,
+            body: m.body,
+          })
+        : await sendThreadMessageSms({
+            to: m.toAddress,
+            subjectCode,
+            body: m.body,
+          });
 
   if (result.ok) {
     await db

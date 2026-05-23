@@ -18,10 +18,20 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 const ACCOUNT_SID = process.env.TWILIO_ACCOUNT_SID;
 const AUTH_TOKEN = process.env.TWILIO_AUTH_TOKEN;
 const SMS_FROM = process.env.TWILIO_SMS_FROM; // E.164, e.g. +18885551234
+// WhatsApp sender — Twilio uses the `whatsapp:+E164` prefix on both
+// `To` and `From`. Sandbox value during dev: whatsapp:+14155238886.
+// Prod requires a WhatsApp Business Account (WABA) registration.
+const WHATSAPP_FROM = process.env.TWILIO_WHATSAPP_FROM;
+
 const HAS_TWILIO = Boolean(ACCOUNT_SID && AUTH_TOKEN && SMS_FROM);
+const HAS_WHATSAPP = Boolean(ACCOUNT_SID && AUTH_TOKEN && WHATSAPP_FROM);
 
 export function isTwilioConfigured(): boolean {
   return HAS_TWILIO;
+}
+
+export function isWhatsAppConfigured(): boolean {
+  return HAS_WHATSAPP;
 }
 
 // Same shape as email's SendResult so callers can stamp delivery
@@ -140,6 +150,67 @@ export async function sendThreadMessageSms(args: {
   // right thread.
   const text = `[${args.subjectCode}] ${args.body}`;
   return sendSms({ to: args.to, body: text });
+}
+
+/**
+ * Send a WhatsApp message via Twilio. Same REST endpoint as SMS, but
+ * `To` and `From` use the `whatsapp:+E164` scheme. Caller passes a
+ * plain E.164 number; we apply the prefix.
+ *
+ * Production WhatsApp requires a Twilio WhatsApp Business Account
+ * (WABA) sender + an opt-in conversation from the recipient (or an
+ * approved templated outbound). For dev, Twilio's sandbox sender
+ * (whatsapp:+14155238886) works once the recipient joins the sandbox
+ * via the "join <code>" SMS.
+ */
+export async function sendWhatsApp(payload: SmsPayload): Promise<TwilioSendResult> {
+  const body = payload.body.slice(0, 4000);
+
+  if (!HAS_WHATSAPP) {
+    console.log("[twilio:whatsapp:dry-run]", {
+      to: payload.to,
+      bodyPreview: body.slice(0, 100),
+    });
+    return { ok: true, provider: "logger" };
+  }
+
+  const url = `https://api.twilio.com/2010-04-01/Accounts/${ACCOUNT_SID}/Messages.json`;
+  const auth = Buffer.from(`${ACCOUNT_SID}:${AUTH_TOKEN}`).toString("base64");
+  const formData = new URLSearchParams();
+  formData.set("To", `whatsapp:${payload.to}`);
+  formData.set("From", WHATSAPP_FROM!);
+  formData.set("Body", body);
+
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+        Authorization: `Basic ${auth}`,
+      },
+      body: formData.toString(),
+    });
+  } catch (err) {
+    return { ok: false, error: `twilio whatsapp fetch failed: ${String(err)}` };
+  }
+
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    return { ok: false, error: `twilio whatsapp ${res.status}: ${text.slice(0, 200)}` };
+  }
+
+  const json = (await res.json().catch(() => ({}))) as { sid?: string };
+  return { ok: true, provider: "twilio", messageId: json.sid };
+}
+
+export async function sendThreadMessageWhatsApp(args: {
+  to: string;
+  subjectCode: string;
+  body: string;
+}): Promise<TwilioSendResult> {
+  const text = `[${args.subjectCode}] ${args.body}`;
+  return sendWhatsApp({ to: args.to, body: text });
 }
 
 const STATUS_SMS_HEADLINES: Record<string, string> = {

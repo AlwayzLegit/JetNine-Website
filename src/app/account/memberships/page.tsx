@@ -13,11 +13,12 @@ import {
   type MembershipProgram,
 } from "@/lib/memberships";
 import { BuyMembershipButton } from "@/components/account/buy-membership-button";
+import { TopUpForm } from "@/components/account/top-up-form";
 
 export const dynamic = "force-dynamic";
 
 type Props = {
-  searchParams: Promise<{ activated?: string; cancelled?: string }>;
+  searchParams: Promise<{ activated?: string; cancelled?: string; topup?: string }>;
 };
 
 const CARD_TIERS: MembershipProgram[] = ["card_100", "card_250", "card_500"];
@@ -37,9 +38,11 @@ export default async function AccountMembershipsPage({ searchParams }: Props) {
   const sp = await searchParams;
   const flash = sp.activated
     ? { kind: "activated" as const }
-    : sp.cancelled
-      ? { kind: "cancelled" as const }
-      : null;
+    : sp.topup
+      ? { kind: "topup" as const }
+      : sp.cancelled
+        ? { kind: "cancelled" as const }
+        : null;
 
   const member = await getMemberByUserId(user.id);
 
@@ -102,14 +105,16 @@ export default async function AccountMembershipsPage({ searchParams }: Props) {
         <div
           className={[
             "mb-8 rounded-[3px] border px-5 py-4 font-mono text-[12px] tracking-[0.04em]",
-            flash.kind === "activated"
+            flash.kind === "activated" || flash.kind === "topup"
               ? "border-[var(--success)] bg-[rgba(78,159,107,0.08)] text-[var(--success)]"
               : "border-[var(--warn)] bg-[rgba(192,148,73,0.08)] text-[var(--warn)]",
           ].join(" ")}
         >
           {flash.kind === "activated"
             ? "— Membership activated. The deposit is sitting in your reserve balance below; we'll draw from it on each invoice."
-            : "— Purchase cancelled. The membership row was rolled back; nothing was charged."}
+            : flash.kind === "topup"
+              ? "— Top-up received. Stripe confirmation hits your inbox; the new balance lands here once the webhook clears (usually a few seconds)."
+              : "— Purchase cancelled. Nothing was charged."}
         </div>
       ) : null}
 
@@ -252,6 +257,8 @@ export default async function AccountMembershipsPage({ searchParams }: Props) {
           })}
         </div>
       ) : null}
+
+      {active ? <TopUpForm /> : null}
 
       <section className="mt-14">
         <p className="caption mb-3">— Other ways to fly</p>

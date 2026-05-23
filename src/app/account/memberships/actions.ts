@@ -13,6 +13,7 @@ import {
 } from "@/lib/memberships";
 import {
   createMembershipCheckoutSession,
+  createMembershipTopUpCheckoutSession,
   isStripeConfigured,
 } from "@/lib/stripe";
 
@@ -123,6 +124,80 @@ export async function buyMembership(programInput: string): Promise<BuyResult> {
     metadata: {
       program: spec.program,
       depositUsd: spec.depositUsd,
+      stripeSessionId: session.sessionId,
+    },
+  });
+
+  return { ok: true, url: session.url };
+}
+
+// ─── Top-up flow ────────────────────────────────────────────────────────
+// Active card holders can add funds to their existing balance without
+// activating a new tier. Stripe Checkout for the amount; webhook
+// inserts a `top_up` reserve transaction. Same redirect contract as
+// the initial purchase.
+//
+// Bounds: $5,000 min (so we're not running Stripe for trivial amounts),
+// $1,000,000 max (Stripe one-time limit is ~$999k; we leave headroom).
+
+const TOP_UP_MIN_USD = 5_000;
+const TOP_UP_MAX_USD = 1_000_000;
+
+export async function topUpMembership(amountUsdRaw: number): Promise<BuyResult> {
+  if (!isStripeConfigured()) {
+    return { ok: false, error: "STRIPE_NOT_CONFIGURED" };
+  }
+  if (
+    !Number.isFinite(amountUsdRaw) ||
+    !Number.isInteger(amountUsdRaw) ||
+    amountUsdRaw < TOP_UP_MIN_USD ||
+    amountUsdRaw > TOP_UP_MAX_USD
+  ) {
+    return { ok: false, error: "INVALID_AMOUNT" };
+  }
+  const amountUsd = amountUsdRaw;
+
+  const user = await requireUser("/account/memberships");
+
+  const [member] = await db
+    .select({ id: members.id })
+    .from(members)
+    .where(eq(members.userId, user.id));
+  if (!member) return { ok: false, error: "MEMBER_NOT_FOUND" };
+
+  // Only active members can top up — no active card means there's no
+  // balance bucket to add to.
+  const [activeMembership] = await db
+    .select({ id: memberships.id, program: memberships.program })
+    .from(memberships)
+    .where(and(eq(memberships.memberId, member.id), eq(memberships.status, "active")))
+    .limit(1);
+  if (!activeMembership) {
+    return { ok: false, error: "NO_ACTIVE_MEMBERSHIP" };
+  }
+
+  let session: { sessionId: string; url: string };
+  try {
+    session = await createMembershipTopUpCheckoutSession({
+      memberId: member.id,
+      membershipId: activeMembership.id,
+      amountUsd,
+      customerEmail: user.email,
+    });
+  } catch (err) {
+    console.error("stripe topup checkout failed", err);
+    return { ok: false, error: "STRIPE_ERROR" };
+  }
+
+  await logAudit({
+    actorUserId: user.id,
+    actorRole: user.role,
+    action: "membership.topup.start",
+    subjectType: "membership",
+    subjectId: activeMembership.id,
+    metadata: {
+      program: activeMembership.program,
+      amountUsd,
       stripeSessionId: session.sessionId,
     },
   });

@@ -122,7 +122,72 @@ async function onCheckoutCompleted(session: Stripe.Checkout.Session): Promise<vo
   if (kind === "membership_purchase") {
     return onMembershipPurchased(session);
   }
+  if (kind === "membership_topup") {
+    return onMembershipToppedUp(session);
+  }
   return onInvoicePaid(session);
+}
+
+async function onMembershipToppedUp(session: Stripe.Checkout.Session): Promise<void> {
+  const membershipId = membershipIdFrom(session.metadata) ?? session.client_reference_id;
+  const memberId = session.metadata?.member_id;
+  const amountStr = session.metadata?.amount_usd;
+  if (!membershipId || !memberId || !amountStr) {
+    throw new Error("checkout.session.completed: missing topup metadata");
+  }
+  const amountUsd = Number.parseInt(amountStr, 10);
+  if (!Number.isFinite(amountUsd) || amountUsd <= 0) {
+    throw new Error(`checkout.session.completed: bad topup amount ${amountStr}`);
+  }
+  if (session.payment_status !== "paid") return;
+
+  // Idempotency: if a reserve_transactions row already exists for this
+  // session's payment_intent, skip the insert. The webhook events
+  // dedup table catches replays of the same event id, but Stripe could
+  // also re-deliver the same intent across two distinct events; we
+  // guard with a lookup on description for now (cheap; we'd add a
+  // dedicated column if we ever saw collisions in practice).
+  const [row] = await db
+    .select({ id: memberships.id, memberId: memberships.memberId, status: memberships.status })
+    .from(memberships)
+    .where(eq(memberships.id, membershipId));
+  if (!row) throw new Error(`membership not found: ${membershipId}`);
+  if (row.status !== "active") {
+    // Top-up against a paused / cancelled membership shouldn't normally
+    // happen (UI gates on active), but if it does, refuse rather than
+    // accidentally crediting a dead bucket.
+    console.warn("[stripe-webhook] topup against non-active membership", {
+      membershipId,
+      status: row.status,
+    });
+    return;
+  }
+
+  const tx: NewReserveTransaction = {
+    memberId: row.memberId,
+    membershipId: row.id,
+    kind: "top_up",
+    amountUsd,
+    description: `Balance top-up via Stripe (session ${session.id.slice(0, 14)}…)`,
+  };
+  await db.insert(reserveTransactions).values(tx);
+
+  await logAudit({
+    actorUserId: null,
+    actorRole: "system",
+    action: "membership.topup.completed",
+    subjectType: "membership",
+    subjectId: row.id,
+    metadata: {
+      amountUsd,
+      stripeSessionId: session.id,
+      stripePaymentIntentId:
+        typeof session.payment_intent === "string"
+          ? session.payment_intent
+          : (session.payment_intent?.id ?? null),
+      source: "stripe_webhook",
+    },
+  });
 }
 
 async function onInvoicePaid(session: Stripe.Checkout.Session): Promise<void> {

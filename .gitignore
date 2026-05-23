@@ -51,3 +51,6 @@ _design_package.tar
 # Claude Code local state
 .claude/settings.local.json
 scripts/.specs/
+
+# Audit artifacts (screenshots + report.json from `pnpm audit:a11y`)
+tmp/

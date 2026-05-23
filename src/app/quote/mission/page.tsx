@@ -289,6 +289,11 @@ function MissionStepInner() {
                 step={1}
                 value={pax}
                 onChange={(e) => setPax(Number(e.target.value))}
+                aria-label="Passengers"
+                aria-valuenow={pax}
+                aria-valuemin={1}
+                aria-valuemax={16}
+                aria-valuetext={`${pax} passenger${pax === 1 ? "" : "s"}`}
                 className="flex-1 accent-clearance"
               />
             </div>

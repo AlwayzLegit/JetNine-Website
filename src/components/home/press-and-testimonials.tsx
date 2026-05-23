@@ -97,12 +97,21 @@ export function PressAndTestimonials() {
               {TESTIMONIALS[i].cite}
             </cite>
           </Reveal>
-          <div className="mt-10 flex justify-center gap-2.5" role="tablist" aria-label="Testimonial selector">
+          {/* aria-required-children: role="tablist" requires children with
+              role="tab". The buttons aren't tabs in the WAI-ARIA sense
+              (no associated tabpanels) — they're a paginated carousel
+              control — so the cleaner fix is to drop the tablist role
+              and label the group natively. */}
+          <div
+            className="mt-10 flex justify-center gap-2.5"
+            role="group"
+            aria-label="Testimonial selector"
+          >
             {TESTIMONIALS.map((_, idx) => (
               <button
                 key={idx}
                 type="button"
-                aria-label={`Quote ${idx + 1}`}
+                aria-label={`Show testimonial ${idx + 1} of ${TESTIMONIALS.length}`}
                 aria-current={idx === i}
                 onClick={() => setIndex(idx)}
                 className={[

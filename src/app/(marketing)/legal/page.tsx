@@ -262,7 +262,7 @@ export default function LegalPage() {
                 />
                 <p>
                   Full subprocessor list is available on request to{" "}
-                  <a href="mailto:legal@jetnine.com" className="text-clearance underline-offset-2 hover:underline">
+                  <a href="mailto:legal@jetnine.com" className="text-clearance underline underline-offset-2">
                     legal@jetnine.com
                   </a>
                   .
@@ -291,7 +291,7 @@ export default function LegalPage() {
                 />
                 <p>
                   Email{" "}
-                  <a href="mailto:legal@jetnine.com" className="text-clearance underline-offset-2 hover:underline">
+                  <a href="mailto:legal@jetnine.com" className="text-clearance underline underline-offset-2">
                     legal@jetnine.com
                   </a>
                   . California residents (CCPA), EU residents (GDPR), and Virginia residents (CDPA)
@@ -473,7 +473,7 @@ export default function LegalPage() {
                   status on the FAA&rsquo;s certificate-holder lookup at{" "}
                   <a
                     href="https://www.faa.gov/licenses_certificates"
-                    className="text-clearance underline-offset-2 hover:underline"
+                    className="text-clearance underline underline-offset-2"
                   >
                     faa.gov/licenses_certificates
                   </a>
@@ -498,7 +498,7 @@ export default function LegalPage() {
                   <strong className="font-medium text-bone">1-202-366-2220</strong>,{" "}
                   <a
                     href="https://www.transportation.gov/airconsumer"
-                    className="text-clearance underline-offset-2 hover:underline"
+                    className="text-clearance underline underline-offset-2"
                   >
                     transportation.gov/airconsumer
                   </a>

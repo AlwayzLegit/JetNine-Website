@@ -204,6 +204,13 @@
       "when": 1780600000000,
       "tag": "0028_message_delivery",
       "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1780700000000,
+      "tag": "0029_inbound_idempotency",
+      "breakpoints": true
     }
   ]
 }

@@ -26,6 +26,14 @@ const FETCH_TIMEOUT_MS = 15_000;
 // when the runner can't reach *.vercel.app directly (e.g. agent sandbox).
 // Not used in normal CI — leave unset.
 const USE_MCP = process.env.SMOKE_VIA_MCP === "1";
+// Vercel preview deployments may be gated by Vercel Authentication.
+// Setting VERCEL_AUTOMATION_BYPASS_SECRET to a project-level bypass
+// token lets the runner pass `x-vercel-protection-bypass` so smoke
+// can hit protected previews without SSO.
+const BYPASS = process.env.VERCEL_AUTOMATION_BYPASS_SECRET;
+const COMMON_HEADERS: Record<string, string> = BYPASS
+  ? { "x-vercel-protection-bypass": BYPASS, "x-vercel-set-bypass-cookie": "true" }
+  : {};
 
 type CheckResult = {
   name: string;
@@ -44,7 +52,12 @@ async function fetchWithTimeout(
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), FETCH_TIMEOUT_MS);
   try {
-    const res = await fetch(url, { ...init, signal: ctrl.signal });
+    const merged: RequestInit = {
+      ...init,
+      signal: ctrl.signal,
+      headers: { ...COMMON_HEADERS, ...(init?.headers as Record<string, string> | undefined) },
+    };
+    const res = await fetch(url, merged);
     const text = await res.text().catch(() => "");
     return { status: res.status, headers: res.headers, text };
   } finally {

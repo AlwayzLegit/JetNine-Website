@@ -1,0 +1,83 @@
+name: Post-deploy smoke
+
+# Vercel posts deployment_status events to GitHub when a deploy moves
+# state (queued → in_progress → success / error). This workflow fires
+# on success and runs `pnpm smoke` against the unique deployment URL
+# Vercel returns — catches real production regressions that local
+# tests can't see (CDN, CSP, env vars, region routing).
+#
+# Runs for BOTH production and preview deploys:
+#   - production: smoke against the just-promoted main deploy
+#   - preview: smoke against PR preview URLs so review can see results
+#
+# Failure surfaces as a check on the deployment + an annotation on the
+# associated commit, so anyone looking at the PR sees red before merge.
+
+on:
+  deployment_status:
+
+permissions:
+  contents: read
+  deployments: read
+
+jobs:
+  smoke:
+    name: smoke ${{ github.event.deployment_status.environment }}
+    if: github.event.deployment_status.state == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Resolve deployment URL
+        id: resolve
+        run: |
+          URL="${{ github.event.deployment_status.target_url || github.event.deployment_status.environment_url }}"
+          if [ -z "$URL" ]; then
+            echo "No deployment URL in event payload — nothing to smoke."
+            exit 1
+          fi
+          # Strip trailing slash so the smoke runner's path concatenation
+          # produces clean URLs like https://host/sitemap.xml not //sitemap.
+          URL="${URL%/}"
+          echo "url=$URL" >> "$GITHUB_OUTPUT"
+          echo "Smoking: $URL"
+
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # The smoke script lives in the same commit that triggered the
+          # deploy. Vercel passes the sha in deployment.sha.
+          ref: ${{ github.event.deployment.sha }}
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+          run_install: false
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run production smoke
+        env:
+          BASE_URL: ${{ steps.resolve.outputs.url }}
+          # Preview deploys behind Vercel Authentication need a bypass
+          # token. Generate one in Project Settings → Deployment
+          # Protection → Protection Bypass for Automation, then add
+          # to repo secrets as VERCEL_AUTOMATION_BYPASS_SECRET.
+          # Production deploys typically aren't gated, so this is
+          # optional — secret missing = no header sent = still works
+          # against public prod URLs.
+          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+        run: pnpm smoke
+
+      - name: Annotate failure
+        if: failure()
+        run: |
+          echo "::error title=Post-deploy smoke failed::Smoke checks failed against ${{ steps.resolve.outputs.url }} — see job log for which checks regressed."

@@ -68,12 +68,32 @@ export default async function AccountMembershipsPage({ searchParams }: Props) {
   // Balance = signed sum of the ledger. Positive = available; negative
   // would indicate over-draft (shouldn't happen, but we surface it).
   let balanceUsd = 0;
+  let ledger: Array<{
+    id: string;
+    kind: string;
+    amountUsd: number;
+    description: string | null;
+    occurredAt: Date;
+  }> = [];
   if (active) {
     const [row] = await db
       .select({ total: sum(reserveTransactions.amountUsd) })
       .from(reserveTransactions)
       .where(eq(reserveTransactions.memberId, member.id));
     balanceUsd = Number(row?.total ?? 0);
+
+    ledger = await db
+      .select({
+        id: reserveTransactions.id,
+        kind: reserveTransactions.kind,
+        amountUsd: reserveTransactions.amountUsd,
+        description: reserveTransactions.description,
+        occurredAt: reserveTransactions.occurredAt,
+      })
+      .from(reserveTransactions)
+      .where(eq(reserveTransactions.memberId, member.id))
+      .orderBy(desc(reserveTransactions.occurredAt))
+      .limit(12);
   }
 
   return (
@@ -138,6 +158,53 @@ export default async function AccountMembershipsPage({ searchParams }: Props) {
           </dl>
         ) : null}
       </header>
+
+      {active && ledger.length > 0 ? (
+        <section className="mb-14">
+          <p className="caption mb-3">— Reserve ledger</p>
+          <ul className="overflow-hidden rounded-[4px] border border-ink-3 bg-ink-2 divide-y divide-ink-3">
+            {ledger.map((row) => {
+              const positive = row.amountUsd >= 0;
+              const KIND_LABEL: Record<string, string> = {
+                top_up: "Activation deposit",
+                charter_draw: "Charter draw",
+                credit_accrual: "Credit accrual",
+                refund: "Refund",
+                adjustment: "Adjustment",
+              };
+              return (
+                <li
+                  key={row.id}
+                  className="grid grid-cols-[1fr_auto] items-center gap-4 px-5 py-3.5"
+                >
+                  <div>
+                    <p className="font-mono text-[11px] uppercase tracking-[0.08em] text-bone">
+                      {KIND_LABEL[row.kind] ?? row.kind}
+                    </p>
+                    <p className="mt-0.5 font-mono text-[10px] tracking-[0.04em] text-steel">
+                      {row.description ?? "—"}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p
+                      className={[
+                        "font-mono text-[14px] tracking-[0.02em]",
+                        positive ? "text-[var(--success)]" : "text-bone",
+                      ].join(" ")}
+                    >
+                      {positive ? "+" : "−"}
+                      {formatUSD(Math.abs(row.amountUsd))}
+                    </p>
+                    <p className="font-mono text-[10px] tracking-[0.04em] text-steel">
+                      {row.occurredAt.toISOString().slice(0, 10)}
+                    </p>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      ) : null}
 
       {!active ? (
         <div className="grid grid-cols-1 gap-5 md:grid-cols-3">

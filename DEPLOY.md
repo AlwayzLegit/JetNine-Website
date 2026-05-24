@@ -169,6 +169,18 @@ For broader verification, also check:
 - [ ] Plausible dashboard shows pageviews.
 - [ ] Sentry dashboard shows a test error (trigger via `/admin/audit` if you've wired one).
 
+## Diagnosing a sick deploy
+
+If `/api/health` returns `status: "unhealthy"`, the only check that can flip it is `db`. Three causes, in order of likelihood:
+
+1. **`DATABASE_URL` missing or wrong on Vercel.** Open Project Settings → Environment Variables. Confirm `DATABASE_URL` is set for the right scope (Production / Preview / Development). If you rotated the Supabase DB password, both `DATABASE_URL` and `DIRECT_URL` need the new password — they're independent strings.
+2. **Supabase project paused.** Free tier auto-pauses after 7 days of zero queries. Resume from the Supabase dashboard; deploys start working again within seconds.
+3. **Region mismatch.** `DATABASE_URL` should be the **Transaction pooler** URL (port 6543), not the direct connection (port 5432). The pooler region must match your Supabase region — for us-east-2, that's `aws-0-us-east-2.pooler.supabase.com`.
+
+If `/api/health` returns `status: "degraded"`, the DB is fine but at least one optional integration (Stripe / email / Twilio / Sentry / Plausible) is unconfigured. Visit `/admin/health` for a per-integration breakdown with fix hints, or read `checks.*` in the JSON.
+
+The post-deploy smoke workflow (`.github/workflows/smoke-after-deploy.yml`) fails when `/api/health` returns non-200 against a non-localhost target — so a degraded prod deploy will paint the merge commit red without manual checking. There's also a scheduled health monitor (`.github/workflows/health-monitor.yml`) that probes every 15 minutes for between-deploy regressions.
+
 ## Rotation
 
 If you need to rotate a secret:

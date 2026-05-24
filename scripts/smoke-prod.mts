@@ -289,9 +289,23 @@ async function checkHealthEndpoint(): Promise<void> {
     if (!body.ok && !isLocal) {
       const failed = Object.entries(body.checks ?? {})
         .filter(([, v]) => v && v.ok === false)
-        .map(([k]) => k)
-        .join(",");
-      return { ok: false, detail: `unhealthy; failing checks: ${failed || "unknown"}` };
+        .map(([k, v]) => {
+          const err = (v as { error?: string }).error;
+          return err ? `${k}(${err})` : k;
+        });
+      // Echo the full diagnostic body so CI logs have ground truth
+      // without an extra curl. Indent so it stands out from the
+      // single-line check rows above.
+      console.log("");
+      console.log("  /api/health body:");
+      for (const line of JSON.stringify(body, null, 2).split("\n")) {
+        console.log("    " + line);
+      }
+      console.log("");
+      return {
+        ok: false,
+        detail: `unhealthy; failing: ${failed.length ? failed.join(", ") : "unknown"}`,
+      };
     }
     const detail = `${body.status} · ${body.env}/${body.region} · sha ${body.sha}`;
     return { ok: true, detail };

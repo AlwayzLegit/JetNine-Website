@@ -15,6 +15,7 @@ const ADMIN_NAV = [
   { href: "/admin/empty-leg", label: "Empty legs" },
   { href: "/admin/reports", label: "Reports" },
   { href: "/admin/audit", label: "Audit" },
+  { href: "/admin/health", label: "Health" },
 ];
 
 export function AdminShell({

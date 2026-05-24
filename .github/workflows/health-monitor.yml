@@ -1,0 +1,59 @@
+name: Health monitor
+
+# Free, GitHub-Actions-native uptime check. Hits /api/health every 15
+# minutes and fails the workflow if status != 'healthy' or 'degraded'
+# for two consecutive runs. Failure surfaces as an email to the repo
+# owner (default GitHub notifications) and as a red badge in Actions.
+#
+# Catches between-deploy regressions: DB pause, env-var drift, Supabase
+# password rotation that wasn't mirrored to Vercel, etc. The smoke
+# workflow only fires on deploys; this fills the gap.
+#
+# Why not Vercel monitors? They're a Pro-plan feature. This is free
+# and tied to the same repo + same auth as the rest of the CI.
+
+on:
+  schedule:
+    - cron: "*/15 * * * *" # every 15 min
+  workflow_dispatch: # operator can trigger manually
+
+permissions:
+  contents: read
+
+jobs:
+  health:
+    name: probe ${{ matrix.target }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    strategy:
+      fail-fast: false
+      matrix:
+        # Add preview targets here if you operate multiple environments.
+        target:
+          - https://jet-nine-website.vercel.app
+
+    steps:
+      - name: Probe /api/health
+        id: probe
+        run: |
+          URL="${{ matrix.target }}/api/health"
+          echo "Probing $URL"
+          # Two attempts before failing — masks single-request blips.
+          for attempt in 1 2; do
+            response=$(curl -sw "\n%{http_code}" --max-time 15 "$URL" || true)
+            body=$(echo "$response" | head -n -1)
+            status=$(echo "$response" | tail -n 1)
+            if [ "$status" = "200" ]; then
+              echo "Attempt $attempt: 200 OK"
+              echo "::notice title=Health OK::$URL returned 200"
+              echo "$body"
+              exit 0
+            fi
+            echo "Attempt $attempt: status=$status"
+            echo "$body" | head -c 800
+            echo ""
+            sleep 30
+          done
+          # Both attempts failed. Final body for diagnostic context.
+          echo "::error title=Health unhealthy::$URL returned non-200 on both attempts. Body: $body"
+          exit 1

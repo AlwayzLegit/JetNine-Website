@@ -6,6 +6,7 @@ import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { quotes, quoteLegs, type NewQuote, type NewQuoteLeg } from "@/db/schema/quotes";
 import { findAirport } from "@/lib/airports";
+import { toE164 } from "@/lib/phone";
 import type { QuoteDraft } from "@/lib/quote-store";
 import { logAudit } from "@/lib/audit";
 import { checkRateLimit } from "@/lib/rate-limit";
@@ -143,7 +144,12 @@ export async function submitQuote(draft: QuoteDraft): Promise<SubmitResult> {
             firstName: draft.firstName,
             lastName: draft.lastName,
             email: draft.email,
-            phoneE164: draft.phone,
+            // Normalize at intake — the wizard collects the phone in
+            // national format and the country dial code separately,
+            // so storing them verbatim under the misleading
+            // `phoneE164` name produces "+1(818) 800-5678" downstream
+            // (Twilio rejects 21211). Store the canonical E.164.
+            phoneE164: toE164(draft.phone, draft.phoneCountry) ?? draft.phone,
             phoneCountry: draft.phoneCountry,
             company: draft.company,
             account: draft.account,

@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { eq, sql } from "drizzle-orm";
+import { and, desc, eq, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { members } from "@/db/schema/members";
 import {
@@ -60,11 +60,18 @@ export async function appendReserveTransaction(
   const amountUsd =
     kind === "adjustment" ? magnitude : Math.abs(magnitude) * KIND_SIGN[kind];
 
-  // Resolve the active membership if any so the ledger row links to it.
+  // Resolve the ACTIVE membership so the ledger row attributes to the
+  // right bucket. Without the status filter + activatedOn ordering, a
+  // member with a historical cancelled/paused row alongside their
+  // current active row could see manual ledger entries attached to the
+  // dead bucket — balance sums (which use memberId) stay correct, but
+  // per-membership reports and the membership ledger view break.
   const [activeMembership] = await db
     .select({ id: memberships.id })
     .from(memberships)
-    .where(eq(memberships.memberId, memberId));
+    .where(and(eq(memberships.memberId, memberId), eq(memberships.status, "active")))
+    .orderBy(desc(memberships.activatedOn))
+    .limit(1);
 
   const description =
     (formData.get("description") as string | null)?.trim() ||
@@ -85,16 +92,31 @@ export async function appendReserveTransaction(
     .where(eq(members.id, memberId));
   if (!memberRow) return { ok: false, error: "Unknown member" };
 
-  await db.insert(reserveTransactions).values(values);
+  // Capture the inserted tx id so the audit row's subjectId points at
+  // the ledger entry, not at the member. Previously subjectId=memberId
+  // for subjectType='reserve_transaction' broke any audit query that
+  // joined audit_log to reserve_transactions on subject_id (the
+  // audit_log_subject_idx (subjectType, subjectId) was unusable for
+  // disputes — "find who entered tx X" returned nothing).
+  const [inserted] = await db
+    .insert(reserveTransactions)
+    .values(values)
+    .returning({ id: reserveTransactions.id });
 
   await logAudit({
     actorUserId: actor.id,
     actorRole: actor.role,
     action: `reserve_transaction.${kind}`,
     subjectType: "reserve_transaction",
-    subjectId: memberId,
+    subjectId: inserted.id,
     subjectCode: memberRow.memberCode,
-    metadata: { amountUsd, kind, description, membershipId: activeMembership?.id ?? null },
+    metadata: {
+      amountUsd,
+      kind,
+      description,
+      memberId,
+      membershipId: activeMembership?.id ?? null,
+    },
   });
 
   // Quick sum so the form can update the displayed balance without a full

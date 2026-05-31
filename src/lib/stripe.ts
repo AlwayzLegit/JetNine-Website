@@ -64,6 +64,37 @@ type CheckoutInput = {
   description: string;
 };
 
+// Stripe per-line-item `unit_amount` ceiling is 99,999,999 cents
+// (~$999,999.99). Ultra-long-range charters can exceed this — a $1.5M
+// trip multiplied by 100 cents = 150,000,000, which Stripe rejects as
+// `amount_too_large`. The caller catches the throw and returns a
+// generic STRIPE_ERROR with no hint that splitting the invoice would
+// fix it. We pre-validate against a slightly conservative ceiling
+// ($999,999) and surface a typed error so the dispatcher (or the
+// /account UI) can route the customer to wire or split the line.
+const STRIPE_MAX_LINE_USD = 999_999;
+
+/**
+ * `StripeAmountTooLargeError` is thrown by the checkout helpers when
+ * the requested amount would exceed Stripe's per-line-item cap. The
+ * caller maps this to a typed error response.
+ */
+export class StripeAmountTooLargeError extends Error {
+  constructor(amountUsd: number, maxUsd: number) {
+    super(
+      `Stripe per-line-item amount exceeds cap: ${amountUsd} > ${maxUsd}. ` +
+        `Split into multiple line items or route to wire.`,
+    );
+    this.name = "StripeAmountTooLargeError";
+  }
+}
+
+function assertStripeAmountInRange(amountUsd: number): void {
+  if (amountUsd > STRIPE_MAX_LINE_USD) {
+    throw new StripeAmountTooLargeError(amountUsd, STRIPE_MAX_LINE_USD);
+  }
+}
+
 /**
  * Create a hosted Stripe Checkout session for the given invoice. Returns
  * the session id + redirect URL. We pass invoiceId in metadata so the
@@ -73,6 +104,7 @@ export async function createInvoiceCheckoutSession(input: CheckoutInput): Promis
   sessionId: string;
   url: string;
 }> {
+  assertStripeAmountInRange(input.totalUsd);
   const stripe = getStripe();
   const base = getBaseUrl();
 
@@ -94,11 +126,13 @@ export async function createInvoiceCheckoutSession(input: CheckoutInput): Promis
     ],
     client_reference_id: input.invoiceId,
     metadata: {
+      kind: "invoice_paid",
       invoice_id: input.invoiceId,
       invoice_code: input.invoiceCode,
     },
     payment_intent_data: {
       metadata: {
+        kind: "invoice_paid",
         invoice_id: input.invoiceId,
         invoice_code: input.invoiceCode,
       },
@@ -139,6 +173,7 @@ type MembershipTopUpInput = {
 export async function createMembershipTopUpCheckoutSession(
   input: MembershipTopUpInput,
 ): Promise<{ sessionId: string; url: string }> {
+  assertStripeAmountInRange(input.amountUsd);
   const stripe = getStripe();
   const base = getBaseUrl();
 
@@ -199,6 +234,7 @@ type MembershipCheckoutInput = {
 export async function createMembershipCheckoutSession(
   input: MembershipCheckoutInput,
 ): Promise<{ sessionId: string; url: string }> {
+  assertStripeAmountInRange(input.depositUsd);
   const stripe = getStripe();
   const base = getBaseUrl();
 

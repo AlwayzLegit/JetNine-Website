@@ -304,6 +304,7 @@ const ALLOWED_DISPATCHER_CHANNELS: readonly Channel[] = [
   "inapp",
   "email",
   "sms",
+  "whatsapp",
   "call",
   "voicemail",
 ] as const;

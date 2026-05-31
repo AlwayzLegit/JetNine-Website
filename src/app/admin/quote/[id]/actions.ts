@@ -22,6 +22,7 @@ import { requireStaff } from "@/lib/auth";
 import { logAudit } from "@/lib/audit";
 import { attemptInvoiceDrawdown, type DrawdownOutcome } from "@/lib/membership-balance";
 import { dispatchThreadMessage, type ThreadChannel } from "@/lib/message-delivery";
+import { isE164, toE164 } from "@/lib/phone";
 
 type Status = (typeof quoteStatusEnum.enumValues)[number];
 
@@ -161,7 +162,11 @@ export async function convertQuoteToTrip(
     quote.indicativeLowUsd && quote.indicativeHighUsd
       ? Math.round((quote.indicativeLowUsd + quote.indicativeHighUsd) / 2)
       : null;
-  const fet = subtotal ? Math.round(subtotal * 0.075) : null;
+  // FET is 7.5% of subtotal. Use null-check (not truthy) so a $0
+  // subtotal correctly produces fet=0 instead of fet=null — the
+  // downstream `fetUsd is known iff subtotalUsd is known` invariant
+  // matters for revenue reports.
+  const fet = subtotal !== null ? Math.round(subtotal * 0.075) : null;
   const seg = Math.round(SEGMENT_FEE_USD * quote.paxCount * legs.length);
   const total = subtotal !== null ? subtotal + (fet ?? 0) + seg : null;
 
@@ -185,9 +190,7 @@ export async function convertQuoteToTrip(
         paxCount: quote.paxCount,
         crewCount: 2,
         isInternational: legs.some(
-          (l) =>
-            (l.fromIcao && !l.fromIcao.startsWith("K")) ||
-            (l.toIcao && !l.toIcao.startsWith("K")),
+          (l) => isInternationalIcao(l.fromIcao) || isInternationalIcao(l.toIcao),
         ),
         status: "confirmed",
         revenueUsd: subtotal,
@@ -394,6 +397,7 @@ const ALLOWED_DISPATCHER_CHANNELS: readonly Channel[] = [
   "inapp",
   "email",
   "sms",
+  "whatsapp",
   "call",
   "voicemail",
 ] as const;
@@ -439,14 +443,24 @@ export async function postQuoteMessage(
     .where(eq(quotes.id, quoteId));
   if (!q) return { ok: false, error: "Quote not found" };
 
-  // Default to-address per channel: email → contact.email; sms/call/voicemail → contact phone.
+  // Default to-address per channel: email → contact.email; phone channels
+  // → contact phone normalized to E.164. Post-launch quotes are stored
+  // already-normalized via toE164 at intake; for legacy rows still in
+  // "(818) 800-5678" form, re-normalize here so Twilio doesn't 21211.
+  const contactPhoneE164 = q.contactSnapshot?.phoneE164 ?? null;
+  const contactPhoneCC = q.contactSnapshot?.phoneCountry ?? null;
+  const normalizedPhone = isE164(contactPhoneE164)
+    ? contactPhoneE164
+    : toE164(contactPhoneE164, contactPhoneCC);
+
   const defaultTo =
     channelRaw === "email"
       ? q.contactSnapshot?.email ?? null
-      : channelRaw === "sms" || channelRaw === "call" || channelRaw === "voicemail"
-        ? q.contactSnapshot?.phoneE164
-          ? `${q.contactSnapshot.phoneCountry ?? ""}${q.contactSnapshot.phoneE164}`
-          : null
+      : channelRaw === "sms" ||
+          channelRaw === "whatsapp" ||
+          channelRaw === "call" ||
+          channelRaw === "voicemail"
+        ? normalizedPhone
         : null;
 
   // Map member.user_id → toUserId so the member's inbox query joins cleanly.
@@ -736,4 +750,28 @@ export async function releaseSoftHold(
 function isUniqueViolation(err: unknown): boolean {
   if (!err || typeof err !== "object") return false;
   return (err as { code?: string }).code === "23505";
+}
+
+/**
+ * ICAO prefixes that indicate the airport is OUTSIDE the United States
+ * (and US territories) for customs / APIS purposes. The previous
+ * `!startsWith("K")` heuristic wrongly flagged P** (Hawaii, Alaska,
+ * Guam — PHNL, PANC, PGUM) and T** (PR, USVI — TJSJ, TIST) as
+ * international, triggering eAPIS / customs paperwork on what are
+ * actually domestic-territory flights. Correct rule: K** (CONUS) and
+ * the territory P** / T** prefixes below are domestic; everything
+ * else (CY**, EG**, M**, LF**, RJ**, etc.) is international.
+ *
+ * Source: ICAO Doc 7910 region-code allocations. Hawaii=PH, Alaska=PA,
+ * Guam=PG, Puerto Rico=TJ, USVI=TI. American Samoa (NSTU) and Northern
+ * Mariana Islands (PG**) round out the territories — NSTU is N**
+ * which would otherwise be flagged, so listed explicitly.
+ */
+const US_DOMESTIC_ICAO_PREFIXES = ["K", "PH", "PA", "PG", "TJ", "TI"] as const;
+const US_DOMESTIC_FULL_ICAO = new Set(["NSTU"]); // American Samoa, lone N** territory
+
+function isInternationalIcao(icao: string | null): boolean {
+  if (!icao) return false;
+  if (US_DOMESTIC_FULL_ICAO.has(icao)) return false;
+  return !US_DOMESTIC_ICAO_PREFIXES.some((p) => icao.startsWith(p));
 }

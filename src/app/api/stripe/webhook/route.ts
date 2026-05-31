@@ -151,9 +151,14 @@ function paymentIntentIdOf(
 }
 
 async function onCheckoutCompleted(session: Stripe.Checkout.Session): Promise<void> {
-  // Route by metadata.kind set at session-create time. Falls back to
-  // legacy invoice path for sessions created before the kind tag was
-  // added, where only invoice_id is present.
+  // Route by metadata.kind set at session-create time. We require
+  // either an explicit kind OR an unambiguous invoice_id in metadata —
+  // a session with missing metadata + a stray client_reference_id
+  // shouldn't get force-routed through onInvoicePaid (where the
+  // membership UUID in client_reference_id would be treated as an
+  // invoice UUID and either throw or, astronomically rarely, collide
+  // with a real invoice). The webhook layer catches the throw and
+  // returns 500 → Stripe retries; ops investigates.
   const kind = session.metadata?.kind;
   if (kind === "membership_purchase") {
     return onMembershipPurchased(session);
@@ -161,7 +166,12 @@ async function onCheckoutCompleted(session: Stripe.Checkout.Session): Promise<vo
   if (kind === "membership_topup") {
     return onMembershipToppedUp(session);
   }
-  return onInvoicePaid(session);
+  if (kind === "invoice_paid" || invoiceIdFrom(session.metadata)) {
+    return onInvoicePaid(session);
+  }
+  throw new Error(
+    `checkout.session.completed: missing metadata.kind and metadata.invoice_id (session ${session.id})`,
+  );
 }
 
 async function onMembershipToppedUp(session: Stripe.Checkout.Session): Promise<void> {

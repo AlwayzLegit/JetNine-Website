@@ -88,6 +88,17 @@ export async function attemptInvoiceDrawdown(
     return { drew: false, reason: "INVOICE_NO_TOTAL" };
   }
 
+  // Serialize all drawdown attempts for this member within the current
+  // transaction. Postgres default isolation is READ COMMITTED, so two
+  // concurrent convertQuoteToTrip calls would otherwise both observe
+  // the pre-draw balance and both pass the `balance < total` check —
+  // ending the day with a negative reserve. The advisory lock is keyed
+  // on memberId (hashtext → bigint), held until COMMIT, and contends
+  // with itself across sessions but with nothing else in the DB.
+  await tx.execute(
+    sql`select pg_advisory_xact_lock(hashtext(${`reserve:${args.memberId}`}))`,
+  );
+
   const membership = await getActiveMembership(tx, args.memberId);
   if (!membership) {
     return { drew: false, reason: "NO_ACTIVE_MEMBERSHIP" };

@@ -3,6 +3,7 @@
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { safeNext } from "@/lib/safe-next";
 
 export type SignInResult =
   | { ok: true; message: string }
@@ -14,7 +15,12 @@ export type SignInResult =
  */
 export async function sendMagicLink(formData: FormData): Promise<SignInResult> {
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
-  const next = String(formData.get("next") ?? "/account");
+  // Sanitize `next` here too — Supabase encodes whatever we pass into the
+  // magic link, so an unfiltered absolute URL ends up baked into a link
+  // the attacker can trick the user into clicking. The callback also
+  // re-sanitizes (defense in depth) but blocking at this layer keeps the
+  // link itself benign in case a future caller forwards it elsewhere.
+  const next = safeNext(formData.get("next") as string | null);
 
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     return { ok: false, error: "Enter a valid email address." };

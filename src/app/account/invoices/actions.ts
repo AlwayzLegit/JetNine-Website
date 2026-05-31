@@ -9,6 +9,7 @@ import { requireUser } from "@/lib/auth";
 import {
   createInvoiceCheckoutSession,
   isStripeConfigured,
+  StripeAmountTooLargeError,
 } from "@/lib/stripe";
 
 export type PayResult =
@@ -115,6 +116,15 @@ export async function startInvoiceCheckout(invoiceId: string): Promise<PayResult
       .where(
         and(eq(invoices.id, row.id), eq(invoices.stripeCheckoutSessionId, claimToken)),
       );
+    if (err instanceof StripeAmountTooLargeError) {
+      // Ops surfaces this in /admin/invoice/[id] and routes to wire +
+      // the customer sees a hint instead of a generic "something broke".
+      console.warn("stripe invoice exceeds per-line cap", {
+        invoiceId: row.id,
+        totalUsd: row.totalUsd,
+      });
+      return { ok: false, error: "INVOICE_TOO_LARGE_FOR_STRIPE" };
+    }
     console.error("stripe checkout creation failed", err);
     return { ok: false, error: "STRIPE_ERROR" };
   }

@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, eq, inArray, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { trips, tripLegs, tripStatusEnum } from "@/db/schema/trips";
 import { invoices } from "@/db/schema/invoices";
@@ -471,6 +471,13 @@ async function refundChartDrawsForTrip(args: {
   actorUserId: string;
   tripCode: string | null;
 }): Promise<{ count: number; totalUsd: number } | null> {
+  // Select only draws that don't already have a matching refund. Filters
+  // out both the cancel→confirm→cancel cycle (where a previous cancel
+  // already posted refunds) and a partial racer where another call beat
+  // us to half the refunds. The partial unique index
+  // `reserve_tx_refund_per_draw_uniq` (migration 0032) is the final
+  // backstop against the concurrent-cancel race; the NOT EXISTS guard
+  // here keeps it from throwing in the common single-writer case.
   const draws = await db
     .select({
       id: reserveTransactions.id,
@@ -484,37 +491,63 @@ async function refundChartDrawsForTrip(args: {
       and(
         eq(reserveTransactions.tripId, args.tripId),
         eq(reserveTransactions.kind, "charter_draw"),
+        sql`not exists (
+          select 1 from ${reserveTransactions} r
+          where r.trip_id = ${reserveTransactions.tripId}
+            and r.invoice_id is not distinct from ${reserveTransactions.invoiceId}
+            and r.kind = 'refund'
+        )`,
       ),
     );
 
   if (draws.length === 0) return null;
 
   let totalUsd = 0;
-  await db.transaction(async (tx) => {
-    for (const d of draws) {
-      // charter_draws are stored as negative amounts; refund is the
-      // signed opposite (positive) so balance returns to pre-flight.
-      const refundAmount = -d.amountUsd;
-      const refundRow: NewReserveTransaction = {
-        memberId: d.memberId,
-        membershipId: d.membershipId,
-        kind: "refund",
-        amountUsd: refundAmount,
-        description: `Refund — trip ${args.tripCode ?? args.tripId.slice(0, 8)} (${args.reason})`,
-        tripId: args.tripId,
-        invoiceId: d.invoiceId,
-      };
-      await tx.insert(reserveTransactions).values(refundRow);
-      totalUsd += refundAmount;
+  const refundedInvoiceIds = new Set<string>();
+  try {
+    await db.transaction(async (tx) => {
+      for (const d of draws) {
+        // charter_draws are stored as negative amounts; refund is the
+        // signed opposite (positive) so balance returns to pre-flight.
+        const refundAmount = -d.amountUsd;
+        const refundRow: NewReserveTransaction = {
+          memberId: d.memberId,
+          membershipId: d.membershipId,
+          kind: "refund",
+          amountUsd: refundAmount,
+          description: `Refund — trip ${args.tripCode ?? args.tripId.slice(0, 8)} (${args.reason})`,
+          tripId: args.tripId,
+          invoiceId: d.invoiceId,
+        };
+        await tx.insert(reserveTransactions).values(refundRow);
+        totalUsd += refundAmount;
+        if (d.invoiceId) refundedInvoiceIds.add(d.invoiceId);
+      }
 
-      if (d.invoiceId) {
+      if (refundedInvoiceIds.size > 0) {
         await tx
           .update(invoices)
-          .set({ status: "void", notes: undefined, updatedAt: new Date() })
-          .where(eq(invoices.id, d.invoiceId));
+          .set({
+            status: "void",
+            notes: sql`coalesce(${invoices.notes} || E'\n', '') || ${`Voided on trip cancel (${args.reason})`}`,
+            updatedAt: new Date(),
+          })
+          .where(inArray(invoices.id, Array.from(refundedInvoiceIds)));
       }
+    });
+  } catch (err) {
+    // The partial unique index can fire when two cancellations race even
+    // after the NOT EXISTS guard (between SELECT and INSERT). The other
+    // writer has already posted the refunds — fall through with null.
+    if ((err as { code?: string }).code === "23505") {
+      console.warn("[trip.cancel.refund] lost race to concurrent cancellation", {
+        tripId: args.tripId,
+        reason: args.reason,
+      });
+      return null;
     }
-  });
+    throw err;
+  }
 
   await logAudit({
     actorUserId: args.actorUserId,

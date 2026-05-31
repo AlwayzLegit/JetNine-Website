@@ -130,6 +130,13 @@ export const reserveTransactions = pgTable(
     tripId: uuid("trip_id").references(() => trips.id, { onDelete: "set null" }),
     invoiceId: uuid("invoice_id").references(() => invoices.id, { onDelete: "set null" }),
 
+    // Stripe payment_intent that produced this row (top_ups only today).
+    // The partial unique index `reserve_tx_top_up_per_intent_uniq` enforces
+    // one-row-per-intent so a Dashboard "Resend event" or any future webhook
+    // route that surfaces the same intent under a different event id can't
+    // double-credit the member's balance.
+    stripePaymentIntentId: text("stripe_payment_intent_id"),
+
     occurredAt: timestamp("occurred_at", { withTimezone: true })
       .notNull()
       .default(sql`now()`),

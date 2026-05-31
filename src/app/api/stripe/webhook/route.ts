@@ -52,7 +52,15 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: "invalid signature" }, { status: 400 });
   }
 
-  // Idempotency claim. If we've seen this event id before, short-circuit.
+  // Idempotency claim. The dedup contract: an event is "processed" only
+  // once processed_at is stamped. If a prior delivery inserted the event
+  // row but never completed dispatch (lambda OOM, transient DB error,
+  // deploy mid-flight), the retry MUST re-attempt — otherwise the row
+  // sits forever with processed_at=NULL, Stripe stops retrying after
+  // seeing a 200 dedup response, and the side effects (membership flip,
+  // reserve credit, invoice paid) never happen even though Stripe
+  // collected. The two-tier check below: try-insert + if-conflict-then
+  // look up, dedup only on processed_at being set.
   const claimed = await db
     .insert(stripeWebhookEvents)
     .values({
@@ -64,7 +72,24 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     .returning({ id: stripeWebhookEvents.id });
 
   if (claimed.length === 0) {
-    return NextResponse.json({ received: true, deduped: true });
+    const [existing] = await db
+      .select({
+        id: stripeWebhookEvents.id,
+        processedAt: stripeWebhookEvents.processedAt,
+      })
+      .from(stripeWebhookEvents)
+      .where(eq(stripeWebhookEvents.id, event.id));
+    if (existing?.processedAt) {
+      return NextResponse.json({ received: true, deduped: true });
+    }
+    await db
+      .update(stripeWebhookEvents)
+      .set({ error: null })
+      .where(eq(stripeWebhookEvents.id, event.id));
+    console.warn("[stripe-webhook] retry of unfinished event", {
+      id: event.id,
+      type: event.type,
+    });
   }
 
   try {
@@ -81,7 +106,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       .update(stripeWebhookEvents)
       .set({ error: msg.slice(0, 500) })
       .where(eq(stripeWebhookEvents.id, event.id));
-    // 5xx so Stripe retries with backoff.
+    // 5xx so Stripe retries with backoff. The retry lands on the
+    // claimed==0 + processedAt IS NULL branch and re-attempts dispatch.
     return NextResponse.json({ error: "dispatch failed" }, { status: 500 });
   }
 }
@@ -141,46 +167,85 @@ async function onCheckoutCompleted(session: Stripe.Checkout.Session): Promise<vo
 async function onMembershipToppedUp(session: Stripe.Checkout.Session): Promise<void> {
   const membershipId = membershipIdFrom(session.metadata) ?? session.client_reference_id;
   const memberId = session.metadata?.member_id;
-  const amountStr = session.metadata?.amount_usd;
-  if (!membershipId || !memberId || !amountStr) {
+  if (!membershipId || !memberId) {
     throw new Error("checkout.session.completed: missing topup metadata");
-  }
-  const amountUsd = Number.parseInt(amountStr, 10);
-  if (!Number.isFinite(amountUsd) || amountUsd <= 0) {
-    throw new Error(`checkout.session.completed: bad topup amount ${amountStr}`);
   }
   if (session.payment_status !== "paid") return;
 
-  // Idempotency: if a reserve_transactions row already exists for this
-  // session's payment_intent, skip the insert. The webhook events
-  // dedup table catches replays of the same event id, but Stripe could
-  // also re-deliver the same intent across two distinct events; we
-  // guard with a lookup on description for now (cheap; we'd add a
-  // dedicated column if we ever saw collisions in practice).
+  // Derive the credit amount from what Stripe actually charged
+  // (`amount_total` is in cents), not from our own `metadata.amount_usd`.
+  // Metadata can be edited from the Stripe Dashboard after creation
+  // without re-charging the card — trusting it would let a compromised
+  // Dashboard token credit a member with money they didn't pay. We do
+  // still cross-check against the metadata to catch an upstream session
+  // misconfiguration, but the credit value is always the charge value.
+  if (typeof session.amount_total !== "number" || session.amount_total <= 0) {
+    throw new Error(`checkout.session.completed: missing amount_total on topup ${session.id}`);
+  }
+  if (session.amount_total % 100 !== 0) {
+    throw new Error(
+      `checkout.session.completed: non-USD-integer amount_total ${session.amount_total} on topup ${session.id}`,
+    );
+  }
+  const amountUsd = session.amount_total / 100;
+  const metadataAmount = Number.parseInt(session.metadata?.amount_usd ?? "", 10);
+  if (Number.isFinite(metadataAmount) && metadataAmount !== amountUsd) {
+    console.warn("[stripe-webhook] topup amount mismatch (using amount_total)", {
+      sessionId: session.id,
+      amountTotalUsd: amountUsd,
+      metadataAmountUsd: metadataAmount,
+    });
+  }
+
   const [row] = await db
     .select({ id: memberships.id, memberId: memberships.memberId, status: memberships.status })
     .from(memberships)
     .where(eq(memberships.id, membershipId));
   if (!row) throw new Error(`membership not found: ${membershipId}`);
   if (row.status !== "active") {
-    // Top-up against a paused / cancelled membership shouldn't normally
-    // happen (UI gates on active), but if it does, refuse rather than
-    // accidentally crediting a dead bucket.
-    console.warn("[stripe-webhook] topup against non-active membership", {
-      membershipId,
-      status: row.status,
-    });
-    return;
+    // Race window: the activation webhook for this membership hasn't
+    // landed yet (or landed and got rolled back). Throw so the dispatch
+    // wrapper returns 500 and Stripe retries with backoff — by the time
+    // the retry arrives, the activation event will have landed first
+    // and this top-up will succeed. Previously this branch silently
+    // returned 200, marking the event "processed" and stranding the
+    // member's money.
+    throw new Error(
+      `topup arrived before membership ${membershipId} is active (status=${row.status}); retry`,
+    );
   }
 
+  // Idempotency on (stripePaymentIntentId, kind='top_up'). The webhook
+  // event-id dedup catches re-deliveries of the SAME event id, but
+  // Stripe Dashboard "Resend event" produces a NEW event id for the
+  // same intent, and adding payment_intent.succeeded to the dispatch
+  // switch later would do the same. The partial unique index
+  // `reserve_tx_top_up_per_intent_uniq` (migration 0032) makes the
+  // second insert a no-op (ON CONFLICT) rather than a double credit.
+  const paymentIntentId = paymentIntentIdOf(session.payment_intent);
   const tx: NewReserveTransaction = {
     memberId: row.memberId,
     membershipId: row.id,
     kind: "top_up",
     amountUsd,
     description: `Balance top-up via Stripe (session ${session.id.slice(0, 14)}…)`,
+    stripePaymentIntentId: paymentIntentId,
   };
-  await db.insert(reserveTransactions).values(tx);
+  try {
+    await db.insert(reserveTransactions).values(tx);
+  } catch (err) {
+    // Partial unique index fires when the same payment_intent surfaces
+    // under a different event id (Dashboard resend). Swallow and treat
+    // as a no-op — the original credit is already on the ledger.
+    if ((err as { code?: string }).code === "23505") {
+      console.warn("[stripe-webhook] topup dedup hit on payment_intent", {
+        paymentIntentId,
+        sessionId: session.id,
+      });
+      return;
+    }
+    throw err;
+  }
 
   await logAudit({
     actorUserId: null,
@@ -303,27 +368,78 @@ async function onMembershipPurchased(session: Stripe.Checkout.Session): Promise<
 
   const now = new Date();
 
-  // Flip membership to active.
-  await db
-    .update(memberships)
-    .set({
-      status: "active",
-      activatedAt: now,
-      stripePaymentIntentId: paymentIntentId,
-      stripeCheckoutSessionId: session.id,
-      updatedAt: now,
-    })
-    .where(eq(memberships.id, membershipId));
+  // Flip membership to active. The partial unique index
+  // `memberships_active_per_member_uniq` (migration 0032) catches the
+  // TOCTOU race where the buyMembership action created two paused rows
+  // (member double-clicked / opened two tabs) and both made it through
+  // Stripe Checkout. The second activation here bounces with 23505 —
+  // log it (the operator needs to refund this duplicate charge in
+  // Stripe) and exit clean. The first activation has already happened
+  // and the member has a valid card on file.
+  try {
+    await db
+      .update(memberships)
+      .set({
+        status: "active",
+        activatedAt: now,
+        stripePaymentIntentId: paymentIntentId,
+        stripeCheckoutSessionId: session.id,
+        updatedAt: now,
+      })
+      .where(eq(memberships.id, membershipId));
+  } catch (err) {
+    if ((err as { code?: string }).code === "23505") {
+      console.error(
+        "[stripe-webhook] duplicate membership activation — refund required",
+        {
+          membershipId,
+          memberId: row.memberId,
+          paymentIntentId,
+          sessionId: session.id,
+        },
+      );
+      await logAudit({
+        actorUserId: null,
+        actorRole: "system",
+        action: "membership.activation.duplicate_refund_required",
+        subjectType: "membership",
+        subjectId: membershipId,
+        metadata: {
+          memberId: row.memberId,
+          stripePaymentIntentId: paymentIntentId,
+          stripeSessionId: session.id,
+          program: row.program,
+          depositUsd: row.depositUsd,
+        },
+      });
+      return;
+    }
+    throw err;
+  }
 
   // Top-up the reserve ledger with the deposit. Positive amount = inflow.
+  // Stamp the payment_intent for the partial unique index dedup so a
+  // Dashboard-resent activation event doesn't double the member's deposit.
   const tx: NewReserveTransaction = {
     memberId: row.memberId,
     membershipId: row.id,
     kind: "top_up",
     amountUsd: row.depositUsd,
     description: `${row.program} activation deposit`,
+    stripePaymentIntentId: paymentIntentId,
   };
-  await db.insert(reserveTransactions).values(tx);
+  try {
+    await db.insert(reserveTransactions).values(tx);
+  } catch (err) {
+    if ((err as { code?: string }).code === "23505") {
+      console.warn("[stripe-webhook] activation dedup hit on payment_intent", {
+        paymentIntentId,
+        membershipId,
+      });
+    } else {
+      throw err;
+    }
+  }
 
   await logAudit({
     actorUserId: null,
@@ -346,9 +462,33 @@ async function onChargeRefunded(charge: Stripe.Charge): Promise<void> {
   const paymentIntentId = paymentIntentIdOf(charge.payment_intent);
   if (!paymentIntentId) return;
 
-  // Find the invoice this charge belongs to, then flip status. We don't
-  // create a separate "refund" invoice here — that's a manual ops call
-  // depending on whether it's a full refund or partial.
+  // Only flip to 'void' on a FULL refund. Partial refunds — common for
+  // dispute resolution, incidental adjustments, fee write-offs — must
+  // NOT void the entire invoice: doing so corrupts revenue reporting
+  // (the trip still happened, the customer paid for most of it) and
+  // confuses the member ("my $50k charter is void?"). For partials we
+  // just audit; ops decides how to record the adjustment manually.
+  const isFullRefund = charge.amount_refunded >= charge.amount;
+  if (!isFullRefund) {
+    await logAudit({
+      actorUserId: null,
+      actorRole: "system",
+      action: "invoice.refunded.partial",
+      subjectType: "invoice",
+      // We don't have the invoice id yet without an extra query; the
+      // payment_intent in metadata is the bridge for the report tool.
+      subjectId: null,
+      metadata: {
+        stripePaymentIntentId: paymentIntentId,
+        chargeId: charge.id,
+        amountCharged: charge.amount,
+        amountRefunded: charge.amount_refunded,
+        source: "stripe_webhook",
+      },
+    });
+    return;
+  }
+
   const updated = await db
     .update(invoices)
     .set({ status: "void", updatedAt: new Date() })

@@ -7,7 +7,6 @@ import { quotes, quoteLegs, quoteStatusEnum } from "@/db/schema/quotes";
 import { trips, tripLegs, type NewTrip, type NewTripLeg } from "@/db/schema/trips";
 import { invoices, type NewInvoice } from "@/db/schema/invoices";
 import { members } from "@/db/schema/members";
-import { users } from "@/db/schema/users";
 import { staff } from "@/db/schema/staff";
 import { aircraft } from "@/db/schema/aircraft";
 import {
@@ -132,24 +131,20 @@ export async function convertQuoteToTrip(
     return { ok: false, error: `Quote is ${quote.status}` };
   }
 
-  // Resolve member: prefer an existing member row by email. Auto-creating
-  // a member here requires a Supabase auth user — kept out of scope.
-  let memberId = quote.memberId;
-  if (!memberId) {
-    const email = quote.contactSnapshot?.email?.toLowerCase()?.trim();
-    if (email) {
-      const [hit] = await db
-        .select({ id: members.id })
-        .from(members)
-        .innerJoin(users, eq(users.id, members.userId))
-        .where(eq(users.email, email));
-      memberId = hit?.id ?? null;
-    }
-  }
+  // Resolve member: quote must already have an explicit memberId. The
+  // previous auto-bind-by-contactSnapshot.email was an IDOR — the contact
+  // form is unauthenticated, so an attacker could submit a quote with a
+  // victim's email and convert-time would attach the trip + invoice to
+  // (and auto-draw from the reserve of) the unrelated victim's account.
+  // Member linkage now requires either (a) the customer signed in before
+  // submitting, or (b) a dispatcher explicitly attached a member at
+  // /admin/quote/[id] before clicking Convert.
+  const memberId = quote.memberId;
   if (!memberId) {
     return {
       ok: false,
-      error: "No member row for this contact — create the member account first.",
+      error:
+        "Attach a member to this quote first (the customer must sign in, or you must link a member from the quote workbench).",
     };
   }
 
@@ -170,106 +165,155 @@ export async function convertQuoteToTrip(
   const seg = Math.round(SEGMENT_FEE_USD * quote.paxCount * legs.length);
   const total = subtotal !== null ? subtotal + (fet ?? 0) + seg : null;
 
-  const inserted = await db.transaction(async (tx) => {
-    const tripValues: NewTrip = {
-      memberId,
-      quoteId,
-      assignedDispatcherId: quote.assignedDispatcherId ?? null,
-      missionType:
-        quote.tripType === "round"
-          ? "round"
-          : quote.tripType === "one_way"
-            ? "one_way"
-            : "multi_leg",
-      paxCount: quote.paxCount,
-      crewCount: 2,
-      isInternational: legs.some(
-        (l) =>
-          (l.fromIcao && !l.fromIcao.startsWith("K")) ||
-          (l.toIcao && !l.toIcao.startsWith("K")),
-      ),
-      status: "confirmed",
-      revenueUsd: subtotal,
-    };
-    const [tripRow] = await tx
-      .insert(trips)
-      .values(tripValues)
-      .returning({ id: trips.id, tripCode: trips.tripCode });
+  let inserted: {
+    trip: { id: string; tripCode: string };
+    invoice: { id: string };
+    drawdown: DrawdownOutcome | null;
+  };
+  try {
+    inserted = await db.transaction(async (tx) => {
+      const tripValues: NewTrip = {
+        memberId,
+        quoteId,
+        assignedDispatcherId: quote.assignedDispatcherId ?? null,
+        missionType:
+          quote.tripType === "round"
+            ? "round"
+            : quote.tripType === "one_way"
+              ? "one_way"
+              : "multi_leg",
+        paxCount: quote.paxCount,
+        crewCount: 2,
+        isInternational: legs.some(
+          (l) =>
+            (l.fromIcao && !l.fromIcao.startsWith("K")) ||
+            (l.toIcao && !l.toIcao.startsWith("K")),
+        ),
+        status: "confirmed",
+        revenueUsd: subtotal,
+      };
+      // Insert the trip first — the partial unique index
+      // `trips_quote_id_uniq` (migration 0032) makes this the
+      // serialization point against concurrent convertQuoteToTrip
+      // calls on the same quote (dispatcher double-click, two-tab
+      // race). The second caller bounces here with SQLSTATE 23505
+      // and we surface "already converted" to the caller below.
+      const [tripRow] = await tx
+        .insert(trips)
+        .values(tripValues)
+        .returning({ id: trips.id, tripCode: trips.tripCode });
 
-    const tripLegRows: NewTripLeg[] = legs.map((l) => ({
-      tripId: tripRow.id,
-      legNumber: l.legNumber,
-      fromIcao: l.fromIcao,
-      fromIata: l.fromIata,
-      fromCity: l.fromCity,
-      fromName: l.fromName,
-      toIcao: l.toIcao,
-      toIata: l.toIata,
-      toCity: l.toCity,
-      toName: l.toName,
-      departDate: l.departDate,
-      departTime: l.departTime,
-      departTz: l.departTz,
-      distanceNm: l.distanceNm,
-    }));
-    await tx.insert(tripLegs).values(tripLegRows);
+      const tripLegRows: NewTripLeg[] = legs.map((l) => ({
+        tripId: tripRow.id,
+        legNumber: l.legNumber,
+        fromIcao: l.fromIcao,
+        fromIata: l.fromIata,
+        fromCity: l.fromCity,
+        fromName: l.fromName,
+        toIcao: l.toIcao,
+        toIata: l.toIata,
+        toCity: l.toCity,
+        toName: l.toName,
+        departDate: l.departDate,
+        departTime: l.departTime,
+        departTz: l.departTz,
+        distanceNm: l.distanceNm,
+      }));
+      await tx.insert(tripLegs).values(tripLegRows);
 
-    // If the member has an active Card / Reserve with sufficient balance,
-    // the invoice opens as 'due' so attemptInvoiceDrawdown can immediately
-    // flip it to 'paid' from the reserve. Otherwise it stays 'draft' for
-    // the dispatcher to review + finalize manually (current default).
-    const memberHasCardBalance = total !== null && total > 0;
-    const invoiceValues: NewInvoice = {
-      memberId,
-      tripId: tripRow.id,
-      kind: "charter",
-      // 'due' lets the drawdown helper short-circuit to 'paid' atomically.
-      // If the draw fails (no card or insufficient balance), we revert to
-      // 'draft' below so the existing review-then-finalize workflow holds.
-      status: memberHasCardBalance ? "due" : "draft",
-      subtotalUsd: subtotal,
-      fetUsd: fet,
-      segmentFeeUsd: seg,
-      totalUsd: total,
-    };
-    const [invRow] = await tx
-      .insert(invoices)
-      .values(invoiceValues)
-      .returning({ id: invoices.id });
-
-    // Atomic drawdown: if the member has a Card/Reserve with balance
-    // covering the full total, draw it down and flip the invoice to
-    // 'paid' inside this same transaction.
-    let drawdown: DrawdownOutcome | null = null;
-    if (memberHasCardBalance) {
-      drawdown = await attemptInvoiceDrawdown(tx, {
-        invoiceId: invRow.id,
+      // If the member has an active Card / Reserve with sufficient balance,
+      // the invoice opens as 'due' so attemptInvoiceDrawdown can immediately
+      // flip it to 'paid' from the reserve. Otherwise it stays 'draft' for
+      // the dispatcher to review + finalize manually (current default).
+      const memberHasCardBalance = total !== null && total > 0;
+      const invoiceValues: NewInvoice = {
         memberId,
         tripId: tripRow.id,
+        kind: "charter",
+        // 'due' lets the drawdown helper short-circuit to 'paid' atomically.
+        // If the draw fails (no card or insufficient balance), we revert to
+        // 'draft' below so the existing review-then-finalize workflow holds.
+        status: memberHasCardBalance ? "due" : "draft",
+        subtotalUsd: subtotal,
+        fetUsd: fet,
+        segmentFeeUsd: seg,
         totalUsd: total,
-      });
-      // Drawdown didn't fire — revert the optimistic 'due' status to
-      // 'draft' so it doesn't accidentally route the customer to Stripe
-      // for an invoice the dispatcher meant to review first.
-      if (!drawdown.drew) {
-        await tx
-          .update(invoices)
-          .set({ status: "draft", updatedAt: new Date() })
-          .where(eq(invoices.id, invRow.id));
+      };
+      const [invRow] = await tx
+        .insert(invoices)
+        .values(invoiceValues)
+        .returning({ id: invoices.id });
+
+      // Atomic drawdown: if the member has a Card/Reserve with balance
+      // covering the full total, draw it down and flip the invoice to
+      // 'paid' inside this same transaction.
+      let drawdown: DrawdownOutcome | null = null;
+      if (memberHasCardBalance) {
+        drawdown = await attemptInvoiceDrawdown(tx, {
+          invoiceId: invRow.id,
+          memberId,
+          tripId: tripRow.id,
+          totalUsd: total,
+        });
+        // Drawdown didn't fire — revert the optimistic 'due' status to
+        // 'draft' so it doesn't accidentally route the customer to Stripe
+        // for an invoice the dispatcher meant to review first.
+        if (!drawdown.drew) {
+          await tx
+            .update(invoices)
+            .set({ status: "draft", updatedAt: new Date() })
+            .where(eq(invoices.id, invRow.id));
+        }
       }
+
+      // Release any soft holds this quote had on aircraft. Without this,
+      // the holds linger forever — /admin/ops shows phantom blocks on the
+      // tail, and the manual deleteScheduleBlock path refuses to remove
+      // rows with relatedQuoteId set ("cancel the trip or release the
+      // hold instead"). Doing the delete inside the convert tx keeps the
+      // ops calendar consistent with the trip's new confirmed state.
+      await tx
+        .delete(aircraftScheduleBlocks)
+        .where(
+          and(
+            eq(aircraftScheduleBlocks.relatedQuoteId, quoteId),
+            eq(aircraftScheduleBlocks.kind, "hold"),
+          ),
+        );
+
+      await tx
+        .update(quotes)
+        .set({
+          status: "converted",
+          acceptedAt: new Date(),
+          convertedTripId: tripRow.id,
+        })
+        .where(eq(quotes.id, quoteId));
+
+      return { trip: tripRow, invoice: invRow, drawdown };
+    });
+  } catch (err) {
+    // Race: a parallel convertQuoteToTrip call already won. The unique
+    // index on trips(quote_id) returns SQLSTATE 23505. Re-read the quote
+    // and surface the existing trip rather than dropping the user into
+    // a generic error.
+    if (isUniqueViolation(err)) {
+      const [requoted] = await db
+        .select({
+          convertedTripId: quotes.convertedTripId,
+          quoteCode: quotes.quoteCode,
+        })
+        .from(quotes)
+        .where(eq(quotes.id, quoteId));
+      return {
+        ok: false,
+        error: requoted?.convertedTripId
+          ? `Already converted to trip ${requoted.convertedTripId}`
+          : "Convert raced with another writer — refresh and try again.",
+      };
     }
-
-    await tx
-      .update(quotes)
-      .set({
-        status: "converted",
-        acceptedAt: new Date(),
-        convertedTripId: tripRow.id,
-      })
-      .where(eq(quotes.id, quoteId));
-
-    return { trip: tripRow, invoice: invRow, drawdown };
-  });
+    throw err;
+  }
 
   revalidatePath("/admin/dispatch");
   revalidatePath(`/admin/quote/${quoteId}`);
@@ -633,6 +677,13 @@ export async function createSoftHold(
     revalidatePath(`/admin/aircraft/${aircraftId}`);
     return { ok: true, blockId: row.id, expiresAt: endAt.toISOString() };
   } catch (err) {
+    // The new partial unique index (migration 0032) catches the TOCTOU
+    // race where two dispatchers both passed the dup-check above and
+    // both try to insert. Surface the same friendly message the app
+    // check would have.
+    if (isUniqueViolation(err)) {
+      return { ok: false, error: "Already holding this aircraft for this quote" };
+    }
     console.error("createSoftHold failed", err);
     return { ok: false, error: "DB_INSERT_FAILED" };
   }
@@ -678,4 +729,11 @@ export async function releaseSoftHold(
   revalidatePath("/admin/ops");
   revalidatePath(`/admin/aircraft/${target.aircraftId}`);
   return { ok: true };
+}
+
+// Postgres unique-violation SQLSTATE. Drizzle bubbles the underlying
+// postgres-js error which exposes `.code` as the SQLSTATE.
+function isUniqueViolation(err: unknown): boolean {
+  if (!err || typeof err !== "object") return false;
+  return (err as { code?: string }).code === "23505";
 }

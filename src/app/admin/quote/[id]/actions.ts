@@ -21,9 +21,8 @@ import {
 } from "@/db/schema/audit";
 import { requireStaff } from "@/lib/auth";
 import { logAudit } from "@/lib/audit";
-import { sendThreadMessageEmail } from "@/lib/email";
-import { sendThreadMessageSms, sendThreadMessageWhatsApp } from "@/lib/twilio";
 import { attemptInvoiceDrawdown, type DrawdownOutcome } from "@/lib/membership-balance";
+import { dispatchThreadMessage, type ThreadChannel } from "@/lib/message-delivery";
 
 type Status = (typeof quoteStatusEnum.enumValues)[number];
 
@@ -113,7 +112,7 @@ export async function assignDispatcher(
   return { ok: true };
 }
 
-// ─── convertQuoteToTrip ──────────────────────────────────────────────────
+// ─── convertQuoteToTrip ───────────────────────────────────────────
 // Promotes an accepted quote into a real trip + a draft invoice. Idempotent
 // against the quote (won't double-convert if already linked).
 
@@ -340,7 +339,7 @@ export async function convertQuoteToTrip(
   };
 }
 
-// ─── Messaging thread ────────────────────────────────────────────────────────
+// ─── Messaging thread ───────────────────────────────────────────────
 // Posts a dispatcher-authored message on a quote thread. Direction is always
 // "out" — inbound messages arrive via webhook (Twilio / Postmark) which is
 // not wired yet. Channel "system" is reserved for status-change auto-notes.
@@ -460,25 +459,12 @@ export async function postQuoteMessage(
   let deliveryAudit: Record<string, unknown> = { status: initialStatus };
   if (willTransmit && finalTo) {
     const summary = preview.length > 60 ? `${preview.slice(0, 59)}…` : preview;
-    const result =
-      channelRaw === "email"
-        ? await sendThreadMessageEmail({
-            to: finalTo,
-            subjectCode: q.code,
-            subjectSummary: summary,
-            body,
-          })
-        : channelRaw === "whatsapp"
-          ? await sendThreadMessageWhatsApp({
-              to: finalTo,
-              subjectCode: q.code,
-              body,
-            })
-          : await sendThreadMessageSms({
-              to: finalTo,
-              subjectCode: q.code,
-              body,
-            });
+    const result = await dispatchThreadMessage(channelRaw as ThreadChannel, {
+      to: finalTo,
+      subjectCode: q.code,
+      subjectSummary: summary,
+      body,
+    });
     if (result.ok) {
       await db
         .update(messages)
@@ -526,7 +512,7 @@ export async function postQuoteMessage(
   return { ok: true, id: messageId };
 }
 
-// ─── Soft holds ────────────────────────────────────────────────────────────
+// ─── Soft holds ───────────────────────────────────────────────────────
 // A soft hold puts a `kind='hold'` row on aircraft_schedule_blocks linked back
 // to this quote. Different dispatchers can hold the same airframe for
 // different quotes; conflict resolution is human until one is promoted to

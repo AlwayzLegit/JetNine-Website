@@ -130,7 +130,7 @@ export async function sendEmail(payload: EmailPayload): Promise<SendResult> {
   }
 }
 
-// ─── Domain senders ────────────────────────────────────────────────────────
+// ─── Domain senders ────────────────────────────────────────────
 // Each helper composes a specific message and calls sendEmail. Keeping the
 // HTML inline (with text fallback) is intentional — when an email fails to
 // render right in a customer's mail client, you read the page and you read
@@ -312,7 +312,7 @@ export async function sendThreadMessageEmail(ctx: ThreadEmailContext): Promise<S
   });
 }
 
-// ─── Trip-status auto-notifications ─────────────────────────────────────
+// ─── Trip-status auto-notifications ──────────────────────────────────
 // Fired automatically by updateTripStatus when the dispatcher flips a
 // trip to a customer-visible state. Each state owns its own subject +
 // body so the customer's mail client doesn't show "Trip update" 4 times
@@ -329,20 +329,12 @@ export type TripNotifyStatus =
   | "diverted"
   | "irregular_ops";
 
-// Statuses we actually email on. Other enum values (draft, crew_briefed,
-// airborne, wheels_down) are operational and don't need a customer ping.
-export const NOTIFIABLE_TRIP_STATUSES: ReadonlySet<TripNotifyStatus> = new Set([
-  "confirmed",
-  "boarding",
-  "completed",
-  "cancelled_wx",
-  "cancelled_other",
-  "diverted",
-  "irregular_ops",
-]);
-
+// Statuses we actually email on are exactly the keys of STATUS_TEMPLATES
+// (defined below). Other enum values (draft, crew_briefed, airborne,
+// wheels_down) are operational and don't need a customer ping. Checking
+// `s in STATUS_TEMPLATES` keeps the membership in one place.
 export function isNotifiableTripStatus(s: string): s is TripNotifyStatus {
-  return NOTIFIABLE_TRIP_STATUSES.has(s as TripNotifyStatus);
+  return Object.prototype.hasOwnProperty.call(STATUS_TEMPLATES, s);
 }
 
 type TripStatusContext = {

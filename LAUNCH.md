@@ -7,46 +7,35 @@ Last updated: 2026-05-31 by Claude (session_013mQ7iterX9C2onpo1Qi8Vg)
 
 ---
 
-## ✅ Already done (by Claude via MCP)
+## ✅ Phase 1 — DB connectivity (COMPLETE)
 
-- **Superadmin minted** — `alwayzlegit@gmail.com` exists in `auth.users` +
-  `public.users` with `role='superadmin'`, email verified, identity row
-  attached. Sign-in via `/sign-in` will work the moment `DATABASE_URL`
-  on Vercel is fixed (Phase 1 below).
-- **Sentry org confirmed** — `jetnine` org exists on us.sentry.io. Project
-  creation requires an org-policy change (see Phase 3).
-- **Production code** — every PR through #10 merged. Deploy `dpl_H1W8DrH2Zy…`
-  is live; marketing pages render; only DB-touching routes are dark
-  because of the env-var gap.
-
-## 🔴 Phase 1 — Fix DB connectivity (blocks everything DB-touching)
-
-`/api/health` currently returns `db.ok: false`. Quote submission,
-sign-in lookups, member portal, admin pages — all 500 until this is fixed.
-
-- [x] Open Vercel → `jet-nine-website` → Settings → Environment Variables
-- [x] All six vars set (Supabase URL/anon/service-role, DB url + direct, site URL)
-- [ ] Trigger redeploy to pick up the new env vars
-- [ ] Verify: `/api/health` returns `ok: true`
+- [x] All six core env vars set in Vercel
+- [x] Pooler hostname corrected to `aws-1-us-east-2.pooler.supabase.com` (was `aws-0-`)
+- [x] Redeploy `dpl_HiQZ2ec…` → built, ready, serving
+- [x] `/api/health` returns `db.ok: true`, **latency 169 ms** (down from 568 ms timeout)
+- [x] `/empty-legs` renders all 6 seed legs from the DB
+- [x] Superadmin `alwayzlegit@gmail.com` provisioned (`role='superadmin'`,
+      email_verified, identity row attached) — ready for first sign-in
 
 ## 🟡 Phase 2 — First sign-in test
 
 - [ ] Open https://jet-nine-website.vercel.app/sign-in in incognito
 - [ ] Enter `alwayzlegit@gmail.com` → "Email me a link"
 - [ ] Magic link arrives via Supabase default SMTP (rate-limited but fine
-      for first sign-in)
+      for first sign-in; check spam if it doesn't show in 30 s)
 - [ ] Click link → lands on `/account`
-- [ ] Manually navigate to `/admin` — should resolve (you're superadmin)
-- [ ] Visit `/admin/health` — confirm all rows green / yellow per integration
+- [ ] Manually navigate to `/admin/dispatch` — should resolve (you're superadmin)
+- [ ] Visit `/admin/health` — confirm DB row green, optional integrations
+      red until Phase 3+ wire them
 
 ## 🟢 Phase 3 — Sentry (error tracking)
 
-- [ ] Either: enable members to create projects in
-      https://jetnine.sentry.io/settings/ → "Open Membership" — ping me and
-      I'll create the project + DSN via MCP
-- [ ] Or: create a project yourself at
-      https://jetnine.sentry.io/projects/new/ with platform `javascript-nextjs`,
-      team `jetnine`. Copy the DSN.
+- [ ] Sentry org `jetnine` confirmed exists. Member-create policy currently
+      blocks project creation via MCP. Either:
+  - Enable "Open Membership" in https://jetnine.sentry.io/settings/ → ping
+    Claude and the project + DSN get provisioned via MCP
+  - OR create the project yourself at https://jetnine.sentry.io/projects/new/
+    with platform `javascript-nextjs`, team `jetnine`. Copy the DSN.
 - [ ] Set in Vercel:
   - `NEXT_PUBLIC_SENTRY_DSN` = `<DSN>`
   - `SENTRY_DSN` = `<DSN>` (same value)

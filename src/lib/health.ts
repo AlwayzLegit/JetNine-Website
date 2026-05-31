@@ -33,10 +33,9 @@ export async function checkDb(): Promise<CheckResult> {
     await db.execute(drizzleSql`select 1 as ok`);
     return { ok: true, latencyMs: Math.round(performance.now() - t0) };
   } catch (err) {
-    // Full error to stderr so Vercel runtime logs surface the cause
-    // (connection refused, DNS, SASL auth failure, etc.) for ops
-    // diagnosis. Response body stays generic to avoid leaking
-    // connection strings or pg codes publicly.
+    // Log to stderr so Vercel runtime logs surface the cause without
+    // leaking it in the public JSON. Keep the response body sanitized
+    // — error name only.
     const e = err as { name?: string; code?: string; message?: string; cause?: unknown };
     console.error("[health] db probe failed", {
       name: e.name,
@@ -46,8 +45,6 @@ export async function checkDb(): Promise<CheckResult> {
         e.cause instanceof Error
           ? { name: e.cause.name, message: e.cause.message?.slice(0, 300) }
           : undefined,
-      databaseUrlPrefix: (process.env.DATABASE_URL ?? "").slice(0, 40),
-      databaseUrlLength: (process.env.DATABASE_URL ?? "").length,
     });
     return {
       ok: false,

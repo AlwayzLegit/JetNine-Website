@@ -31,12 +31,44 @@ Last updated: 2026-05-31 by Claude (session_013mQ7iterX9C2onpo1Qi8Vg)
     `https://jet-nine-website.vercel.app/**`, `https://*.vercel.app/**`,
     `http://localhost:3000/**` to the allowlist.
 
+## ✅ Pre-launch quality pass (COMPLETE)
+
+Independent code review + security review of the integration code before
+exposing it to real customers. Five parallel review agents (money path,
+inbound webhooks + auth, cross-file tracer, TS/Next/Drizzle pitfalls,
+concurrency / race conditions) at `/code-review --max` effort + a
+`/security-review` lens. Surfaced ~30 findings; **21 fixed**, 6 deferred
+as edge cases needing product input.
+
+- [x] **PR #11** (high-severity) — open-redirect chain on /auth/callback +
+      /sign-in, Stripe webhook idempotency vs retry, drawdown lost-update
+      race, convertQuoteToTrip double-click, refund double-post on cancel
+      cycle, partial-refund full-void, double Stripe charge, IDOR via
+      quote→member email auto-bind, email inbound spoofing, top-up race
+      drop, stranded soft-holds. Migration 0032 (5 partial unique indexes
+      + 1 column) already applied to prod.
+- [x] **PR #12** (medium-severity) — SMS inbound caller-ID spoof, Stripe
+      webhook metadata.kind strictness, phone E.164 canonicalization at
+      intake, isInternational US-territory classification, Stripe
+      unit_amount cap pre-validation, FET falsy-zero, ledger-attribution
+      membership filter, audit subjectId mismatch, WhatsApp channel
+      hygiene.
+- [x] Both deployed cleanly: 0 runtime errors, 0 Postgres errors,
+      14/14 open-redirect attack vectors blocked locally.
+
+Deferred (not launch-blockers; tracked for follow-up): trip-cancel voids
+Stripe-paid invoice when manual draw was linked (needs ops policy);
+postQuoteMessage double-submit dedup (needs client + server change).
+
 ## 🟢 Phase 3 — Sentry (error tracking)
 
-- [ ] Sentry org `jetnine` confirmed exists. Member-create policy currently
-      blocks project creation via MCP. Either:
+- [ ] Sentry org `jetnine` confirmed exists; team `jetnine` exists with two
+      sibling projects (`la-mattress-headless`, `thelook-prod`). The
+      member-create-project policy is still disabled — re-tested via MCP
+      and confirmed `403: Your organization has disabled this feature for
+      members`. Either:
   - Enable "Open Membership" in https://jetnine.sentry.io/settings/ → ping
-    Claude and the project + DSN get provisioned via MCP
+    Claude and the project + DSN get provisioned via MCP (under 1 min)
   - OR create the project yourself at https://jetnine.sentry.io/projects/new/
     with platform `javascript-nextjs`, team `jetnine`. Copy the DSN.
 - [ ] Set in Vercel:

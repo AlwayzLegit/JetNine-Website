@@ -225,6 +225,13 @@
       "when": 1780900000000,
       "tag": "0031_whatsapp_channel",
       "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1781000000000,
+      "tag": "0032_money_path_guards",
+      "breakpoints": true
     }
   ]
 }

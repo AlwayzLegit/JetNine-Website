@@ -17,16 +17,19 @@ Last updated: 2026-05-31 by Claude (session_013mQ7iterX9C2onpo1Qi8Vg)
 - [x] Superadmin `alwayzlegit@gmail.com` provisioned (`role='superadmin'`,
       email_verified, identity row attached) — ready for first sign-in
 
-## 🟡 Phase 2 — First sign-in test
+## ✅ Phase 2 — First sign-in test (COMPLETE)
 
-- [ ] Open https://jet-nine-website.vercel.app/sign-in in incognito
-- [ ] Enter `alwayzlegit@gmail.com` → "Email me a link"
-- [ ] Magic link arrives via Supabase default SMTP (rate-limited but fine
-      for first sign-in; check spam if it doesn't show in 30 s)
-- [ ] Click link → lands on `/account`
-- [ ] Manually navigate to `/admin/dispatch` — should resolve (you're superadmin)
-- [ ] Visit `/admin/health` — confirm DB row green, optional integrations
-      red until Phase 3+ wire them
+- [x] Magic-link send + verify working
+- [x] Superadmin signed in successfully
+- [x] Fixed two bootstrap-time gotchas along the way:
+  - `auth.users` token columns were NULL (raw-SQL provisioning leaves them
+    NULL; GoTrue scans them as non-nullable strings → 500 on /otp).
+    Backfilled with empty strings.
+  - Supabase Site URL was still `localhost:3000` + Vercel host wasn't on the
+    redirect allowlist, so magic links pointed at localhost. Configured
+    Site URL = `https://jet-nine-website.vercel.app` + added
+    `https://jet-nine-website.vercel.app/**`, `https://*.vercel.app/**`,
+    `http://localhost:3000/**` to the allowlist.
 
 ## 🟢 Phase 3 — Sentry (error tracking)
 

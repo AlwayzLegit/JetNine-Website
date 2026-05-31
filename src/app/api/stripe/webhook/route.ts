@@ -114,6 +114,16 @@ function membershipIdFrom(metadata: Stripe.Metadata | null | undefined): string 
   return typeof id === "string" && id.length > 0 ? id : null;
 }
 
+// Stripe types `payment_intent` as `string | PaymentIntent | null` on
+// both Session and Charge. Unwrap once instead of repeating the
+// ternary at every callsite.
+function paymentIntentIdOf(
+  pi: Stripe.Checkout.Session["payment_intent"] | Stripe.Charge["payment_intent"],
+): string | null {
+  if (!pi) return null;
+  return typeof pi === "string" ? pi : (pi.id ?? null);
+}
+
 async function onCheckoutCompleted(session: Stripe.Checkout.Session): Promise<void> {
   // Route by metadata.kind set at session-create time. Falls back to
   // legacy invoice path for sessions created before the kind tag was
@@ -181,10 +191,7 @@ async function onMembershipToppedUp(session: Stripe.Checkout.Session): Promise<v
     metadata: {
       amountUsd,
       stripeSessionId: session.id,
-      stripePaymentIntentId:
-        typeof session.payment_intent === "string"
-          ? session.payment_intent
-          : (session.payment_intent?.id ?? null),
+      stripePaymentIntentId: paymentIntentIdOf(session.payment_intent),
       source: "stripe_webhook",
     },
   });
@@ -200,10 +207,7 @@ async function onInvoicePaid(session: Stripe.Checkout.Session): Promise<void> {
   // covers card; `'no_payment_required'` shouldn't happen (we always charge).
   if (session.payment_status !== "paid") return;
 
-  const paymentIntentId =
-    typeof session.payment_intent === "string"
-      ? session.payment_intent
-      : (session.payment_intent?.id ?? null);
+  const paymentIntentId = paymentIntentIdOf(session.payment_intent);
 
   const updated = await db
     .update(invoices)
@@ -271,10 +275,7 @@ async function onMembershipPurchased(session: Stripe.Checkout.Session): Promise<
   }
   if (session.payment_status !== "paid") return;
 
-  const paymentIntentId =
-    typeof session.payment_intent === "string"
-      ? session.payment_intent
-      : (session.payment_intent?.id ?? null);
+  const paymentIntentId = paymentIntentIdOf(session.payment_intent);
 
   // Read the row to determine the deposit (= top-up amount) and member.
   // We trust the depositUsd from DB rather than session.amount_total to
@@ -342,10 +343,7 @@ async function onMembershipPurchased(session: Stripe.Checkout.Session): Promise<
 }
 
 async function onChargeRefunded(charge: Stripe.Charge): Promise<void> {
-  const paymentIntentId =
-    typeof charge.payment_intent === "string"
-      ? charge.payment_intent
-      : (charge.payment_intent?.id ?? null);
+  const paymentIntentId = paymentIntentIdOf(charge.payment_intent);
   if (!paymentIntentId) return;
 
   // Find the invoice this charge belongs to, then flip status. We don't

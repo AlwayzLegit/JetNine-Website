@@ -8,8 +8,7 @@ import { quotes } from "@/db/schema/quotes";
 import { trips } from "@/db/schema/trips";
 import { requireStaff } from "@/lib/auth";
 import { logAudit } from "@/lib/audit";
-import { sendThreadMessageEmail } from "@/lib/email";
-import { sendThreadMessageSms, sendThreadMessageWhatsApp } from "@/lib/twilio";
+import { dispatchThreadMessage, type ThreadChannel } from "@/lib/message-delivery";
 
 export type RetryResult =
   | { ok: true; status: "sent" | "failed"; provider?: string; error?: string }
@@ -75,25 +74,12 @@ export async function retryMessageDelivery(messageId: string): Promise<RetryResu
   const preview = m.preview ?? m.body.slice(0, 140);
   const summary = preview.length > 60 ? `${preview.slice(0, 59)}…` : preview;
 
-  const result =
-    m.channel === "email"
-      ? await sendThreadMessageEmail({
-          to: m.toAddress,
-          subjectCode,
-          subjectSummary: summary,
-          body: m.body,
-        })
-      : m.channel === "whatsapp"
-        ? await sendThreadMessageWhatsApp({
-            to: m.toAddress,
-            subjectCode,
-            body: m.body,
-          })
-        : await sendThreadMessageSms({
-            to: m.toAddress,
-            subjectCode,
-            body: m.body,
-          });
+  const result = await dispatchThreadMessage(m.channel as ThreadChannel, {
+    to: m.toAddress,
+    subjectCode,
+    subjectSummary: summary,
+    body: m.body,
+  });
 
   if (result.ok) {
     await db

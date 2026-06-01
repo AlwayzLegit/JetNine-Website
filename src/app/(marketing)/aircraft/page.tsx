@@ -1,16 +1,18 @@
 import Link from "next/link";
 import type { Metadata } from "next";
+import { pageMetadata } from "@/lib/page-meta";
 import { PageHeader } from "@/components/page-header";
 import { ClosingCTA } from "@/components/closing-cta";
 import { Reveal } from "@/components/reveal";
 import { Placeholder } from "@/components/placeholder";
 import { FLEET, formatKt, formatNm, formatPax } from "@/lib/fleet";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMetadata({
   title: "Aircraft",
   description:
     "Six categories, hundreds of airframes. Turboprop through ultra long range — match the airframe to the mission.",
-};
+  path: "/aircraft",
+});
 
 export default function AircraftPage() {
   return (

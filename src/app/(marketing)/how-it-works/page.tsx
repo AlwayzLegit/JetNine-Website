@@ -1,15 +1,17 @@
 import Link from "next/link";
 import type { Metadata } from "next";
+import { pageMetadata } from "@/lib/page-meta";
 import { PageHeader } from "@/components/page-header";
 import { ClosingCTA } from "@/components/closing-cta";
 import { Reveal } from "@/components/reveal";
 import { SITE } from "@/lib/constants";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMetadata({
   title: "How it works",
   description:
     "A senior dispatcher, not a chatbot. One number to call. Specific airframes & pricing back within thirty minutes.",
-};
+  path: "/how-it-works",
+});
 
 const HERO_STATS = [
   { label: "Quote turnaround", value: "<30 MIN", sub: "Median, business hours" },
@@ -158,9 +160,34 @@ const FAQ = [
   },
 ];
 
+// HowTo Schema.org JSON-LD. Google may surface this as a rich result —
+// stepped how-to card under the search listing — and it gives the page
+// a strong intent signal for queries like 'how to book a private jet'.
+// Built straight from the STEPS array so the structured data tracks
+// whatever the visible content shows.
+const howToJsonLd = {
+  "@context": "https://schema.org",
+  "@type": "HowTo",
+  name: "How to charter a private flight with JetNine",
+  description:
+    "From quote request to wheels-up in five steps. Senior dispatcher, real airframes, all-in pricing, under thirty minutes to first quote.",
+  totalTime: "PT30M",
+  step: STEPS.map((s, i) => ({
+    "@type": "HowToStep",
+    position: i + 1,
+    name: s.title,
+    text: s.body,
+  })),
+};
+
 export default function HowItWorksPage() {
   return (
     <>
+      <script
+        type="application/ld+json"
+        // Built from STEPS catalog at build time — no user input, no XSS.
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(howToJsonLd) }}
+      />
       <PageHeader
         kicker="How it works · operations"
         title="A senior dispatcher, not a chatbot. One number to call."

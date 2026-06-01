@@ -1,15 +1,17 @@
 import Link from "next/link";
 import type { Metadata } from "next";
+import { pageMetadata } from "@/lib/page-meta";
 import { PageHeader } from "@/components/page-header";
 import { ClosingCTA } from "@/components/closing-cta";
 import { Reveal } from "@/components/reveal";
 import { SITE } from "@/lib/constants";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMetadata({
   title: "Safety",
   description:
     "The floor is high. The ceiling is mandatory. Every operator audited every twelve months, with spot-checks in between.",
-};
+  path: "/safety",
+});
 
 const ACCREDITATIONS = [
   { id: "A/G", name: "ARG/US Gold", role: "FLOOR · ALL OPERATORS", desc: "Aviation Research Group. The standard accreditation for serious charter — historical safety audit and operator profile." },

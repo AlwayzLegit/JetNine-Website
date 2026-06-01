@@ -1,15 +1,17 @@
 import Link from "next/link";
 import type { Metadata } from "next";
+import { pageMetadata } from "@/lib/page-meta";
 import { PageHeader } from "@/components/page-header";
 import { ClosingCTA } from "@/components/closing-cta";
 import { Reveal } from "@/components/reveal";
 import { SITE } from "@/lib/constants";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMetadata({
   title: "Memberships",
   description:
     "Three ways to fly — on-demand, JetNine Card, or Reserve. None of them require a membership. Locked rates, refundable deposits, no peak surcharges.",
-};
+  path: "/memberships",
+});
 
 const ANCHORS = [
   { label: "Compare programs ↓", href: "#tiers" },
@@ -265,9 +267,38 @@ const FAQ = [
   },
 ];
 
+// ItemList of Offer for the three programs. The Offer schema gives
+// each program a discrete entity Google can attribute (and surface in
+// price/feature comparisons), and wrapping them in an ItemList tells
+// crawlers these are three sibling options of the same kind rather
+// than three unrelated offers. Built from PROGRAMS so it can't drift.
+const offerCatalogJsonLd = {
+  "@context": "https://schema.org",
+  "@type": "ItemList",
+  itemListElement: PROGRAMS.map((p, i) => ({
+    "@type": "ListItem",
+    position: i + 1,
+    item: {
+      "@type": "Offer",
+      name: p.name,
+      description: p.strap,
+      category: "Private aviation charter program",
+      price: p.price.replace(/[^0-9]/g, "") || "0",
+      priceCurrency: "USD",
+      eligibleCustomerType: "https://schema.org/Enduser",
+      seller: { "@type": "Organization", name: "JetNine" },
+    },
+  })),
+};
+
 export default function MembershipsPage() {
   return (
     <>
+      <script
+        type="application/ld+json"
+        // Built from PROGRAMS catalog at build time — no user input, no XSS.
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(offerCatalogJsonLd) }}
+      />
       <PageHeader
         kicker="Memberships · jet card · on-demand"
         title="Three ways to fly. None of them require a membership."

@@ -1,32 +1,116 @@
 [
   {
-    "dest": "public/images/fleet/turboprop.webp",
+    "dest": "public/images/about/dispatch-room.webp",
     "source": "FLUX.1-Krea-dev",
-    "note": "King Air twin-turboprop front-on at sunset, mountain backdrop, props in motion blur",
-    "url": "https://mcp-tools-flux-1-krea-dev.hf.space/--replicas/r9b4l/gradio_api/file=/tmp/gradio/23e121f4b416e86fd768cf293aac9bcc661bbb925aa8d33d0d88f1088485aff6/image.webp"
+    "note": "Editorial dispatch operations room — 3 monitors, empty Aeron, low ambient LED, warm desk lamp accent",
+    "url": "https://mcp-tools-flux-1-krea-dev.hf.space/--replicas/r9b4l/gradio_api/file=/tmp/gradio/bec84001d786ccdb9125848e3389c21910b9467798830603aeef261269c7a549/image.webp"
   },
   {
-    "dest": "public/images/programs/tarmac-dusk.webp",
+    "dest": "public/images/aircraft/cabin/turboprop-club.webp",
     "source": "FLUX.1-Krea-dev",
-    "note": "Business jet silhouette on tarmac at dusk with warm runway bokeh",
-    "url": "https://mcp-tools-flux-1-krea-dev.hf.space/--replicas/r9b4l/gradio_api/file=/tmp/gradio/f04e0359a9ce4ce0c940b7c7588a64be8b03b9de8c0de90bb592ebc2ec2fd186/image.webp"
+    "note": "Turboprop forward 4-seat club, walnut paneling, cream leather",
+    "url": "https://mcp-tools-flux-1-krea-dev.hf.space/--replicas/r9b4l/gradio_api/file=/tmp/gradio/aa335ae3af34f942a8c758c7d036f9c7dffb240c9ec083fcd806053e8c573f8a/image.webp"
   },
   {
-    "dest": "public/images/programs/black-card.webp",
+    "dest": "public/images/aircraft/cabin/turboprop-cockpit.webp",
     "source": "FLUX.1-Krea-dev",
-    "note": "Embossed-09 black metal charge card on dark navy leather, top-down",
-    "url": "https://mcp-tools-flux-1-krea-dev.hf.space/--replicas/r9b4l/gradio_api/file=/tmp/gradio/c59bee739fba3240931bef594ec50d05d9a0f0220c0125eb9f5212058ce4757b/image.webp"
+    "note": "Turboprop over-shoulder pilot view at sunrise, Garmin glass cockpit",
+    "url": "https://mcp-tools-flux-1-krea-dev.hf.space/--replicas/r9b4l/gradio_api/file=/tmp/gradio/5465845a2b454e712760e344a5f7749a04f6e91af47801894e880e547b7f5587/image.webp"
   },
   {
-    "dest": "public/images/programs/reposition-sector.webp",
+    "dest": "public/images/aircraft/cabin/turboprop-baggage.webp",
     "source": "FLUX.1-Krea-dev",
-    "note": "Topographic flight-path arcs over stylized coastline",
-    "url": "https://mcp-tools-flux-1-krea-dev.hf.space/--replicas/r9b4l/gradio_api/file=/tmp/gradio/941586da886209a55a124948017f31ad5e52bca1fa7da2900e1aa0f494c842e8/image.webp"
+    "note": "Turboprop open rear baggage door at dusk, single leather duffel",
+    "url": "https://mcp-tools-flux-1-krea-dev.hf.space/--replicas/r9b4l/gradio_api/file=/tmp/gradio/9518b017d11189f069e4eded660cf1cba7da4fb4e598a53c8c320d96dc09e85f/image.webp"
   },
   {
-    "dest": "public/images/discretion/tail-night.webp",
+    "dest": "public/images/aircraft/cabin/light-club.webp",
     "source": "FLUX.1-Krea-dev",
-    "note": "Unmarked dark business jet tail rising in foggy night with runway bokeh",
-    "url": "https://mcp-tools-flux-1-krea-dev.hf.space/--replicas/r9b4l/gradio_api/file=/tmp/gradio/c4828dfb9c85c40d857b2d50bdec97398f76f68da09e6dfdcbe539e2d46e12fe/image.webp"
+    "note": "Light jet 4-seat club, walnut + cream, glass of water on table",
+    "url": "https://mcp-tools-flux-1-krea-dev.hf.space/--replicas/r9b4l/gradio_api/file=/tmp/gradio/3f9a71a315b844458854c4757f14f908676765d7b768b0fabc1c74418a12244e/image.webp"
+  },
+  {
+    "dest": "public/images/aircraft/cabin/light-seat.webp",
+    "source": "FLUX.1-Krea-dev",
+    "note": "Light jet seat & table detail with notebook and pen",
+    "url": "https://mcp-tools-flux-1-krea-dev.hf.space/--replicas/r9b4l/gradio_api/file=/tmp/gradio/ae1714c25edf444681150836171d01f5a49b8899e2f57d2a674c3bc2efa5aa92/image.webp"
+  },
+  {
+    "dest": "public/images/aircraft/cabin/light-galley.webp",
+    "source": "FLUX.1-Krea-dev",
+    "note": "Light jet forward galley, marble counter, espresso cup + linen",
+    "url": "https://mcp-tools-flux-1-krea-dev.hf.space/--replicas/r9b4l/gradio_api/file=/tmp/gradio/bc39ad1dcf80fd8226b6ab5237e809c72f75af809eeef2fdd248197cf40da2c7/image.webp"
+  },
+  {
+    "dest": "public/images/aircraft/cabin/midsize-club.webp",
+    "source": "FLUX.1-Krea-dev",
+    "note": "Midsize stand-up cabin 4-seat club, larger oval windows, deep navy carpet",
+    "url": "https://mcp-tools-flux-1-krea-dev.hf.space/--replicas/r9b4l/gradio_api/file=/tmp/gradio/2a6abaead6c2753fd99800644caee09f38392828c9ff0160aea2d64bfd211d4d/image.webp"
+  },
+  {
+    "dest": "public/images/aircraft/cabin/midsize-seat.webp",
+    "source": "FLUX.1-Krea-dev",
+    "note": "Midsize tufted leather seat detail, raking natural light, brushed bronze controls",
+    "url": "https://mcp-tools-flux-1-krea-dev.hf.space/--replicas/r9b4l/gradio_api/file=/tmp/gradio/e5a1820594f90ea6c5e637d9ec16dac560051f3c0c04806a7b7830217ebddb41/image.webp"
+  },
+  {
+    "dest": "public/images/aircraft/cabin/midsize-galley.webp",
+    "source": "FLUX.1-Krea-dev",
+    "note": "Midsize full galley, marble counter, crystal stemware, hot oven",
+    "url": "https://mcp-tools-flux-1-krea-dev.hf.space/--replicas/r9b4l/gradio_api/file=/tmp/gradio/8cb4e603944ea7148ec9d65254f8bfea4027b4b565501d1a1b624eca61a1bdbd/image.webp"
+  },
+  {
+    "dest": "public/images/aircraft/cabin/supermid-doubleclub.webp",
+    "source": "FLUX.1-Krea-dev",
+    "note": "Super-mid double 4-seat club end-to-end, flat floor, ambient cove lighting",
+    "url": "https://mcp-tools-flux-1-krea-dev.hf.space/--replicas/r9b4l/gradio_api/file=/tmp/gradio/ecda89ecfc01f3a19e90df1b2401ec8d238e208d9807d6c07ea499d8d746e3c0/image.webp"
+  },
+  {
+    "dest": "public/images/aircraft/cabin/supermid-berth.webp",
+    "source": "FLUX.1-Krea-dev",
+    "note": "Super-mid divan converted to sleeper bed, brass sconce, atmospheric nighttime",
+    "url": "https://mcp-tools-flux-1-krea-dev.hf.space/--replicas/r9b4l/gradio_api/file=/tmp/gradio/3bd257dcb9ca3f6692ad6d5581a7d001ff3eace25cdb31139d5d5dcaeb20fe7c/image.webp"
+  },
+  {
+    "dest": "public/images/aircraft/cabin/supermid-galley.webp",
+    "source": "FLUX.1-Krea-dev",
+    "note": "Super-mid full hot-meal galley, marble both sides, plated dome + crystal",
+    "url": "https://mcp-tools-flux-1-krea-dev.hf.space/--replicas/r9b4l/gradio_api/file=/tmp/gradio/83fae6486cd7a100519301e06fe43018b107985b17b35204aa3aacffd8c1599d/image.webp"
+  },
+  {
+    "dest": "public/images/aircraft/cabin/heavy-club.webp",
+    "source": "FLUX.1-Krea-dev",
+    "note": "Heavy 2-zone cabin: forward club foreground, aft archway visible behind",
+    "url": "https://mcp-tools-flux-1-krea-dev.hf.space/--replicas/r9b4l/gradio_api/file=/tmp/gradio/076b272091a3db8e3846a226ad6d9f481ecf013997e3e400de395b04879dd877/image.webp"
+  },
+  {
+    "dest": "public/images/aircraft/cabin/heavy-dining.webp",
+    "source": "FLUX.1-Krea-dev",
+    "note": "Heavy jet dining table set for two, walnut top, crystal stemware, florals",
+    "url": "https://mcp-tools-flux-1-krea-dev.hf.space/--replicas/r9b4l/gradio_api/file=/tmp/gradio/ca38dddb49468166f134f4f1481d3787bbf59f9b34621154344f400ce0d1edfb/image.webp"
+  },
+  {
+    "dest": "public/images/aircraft/cabin/heavy-stateroom.webp",
+    "source": "FLUX.1-Krea-dev",
+    "note": "Heavy aft stateroom queen bed, twin sconces, walnut paneling, water carafe",
+    "url": "https://mcp-tools-flux-1-krea-dev.hf.space/--replicas/r9b4l/gradio_api/file=/tmp/gradio/1ef6c058f2d0bfea92eac598a886d81a5e36566232f30c22404638dd0adf19e8/image.webp"
+  },
+  {
+    "dest": "public/images/aircraft/cabin/ultra-threezone.webp",
+    "source": "FLUX.1-Krea-dev",
+    "note": "Ultra three-zone cabin looking down the length, club + dining + stateroom",
+    "url": "https://mcp-tools-flux-1-krea-dev.hf.space/--replicas/r9b4l/gradio_api/file=/tmp/gradio/a0803647dbed581014189261730e8a67a1d2d46293a39e766166a3804a0a4136/image.webp"
+  },
+  {
+    "dest": "public/images/aircraft/cabin/ultra-conference.webp",
+    "source": "FLUX.1-Krea-dev",
+    "note": "Ultra mid-cabin conference table for 6, flat panel on forward bulkhead",
+    "url": "https://mcp-tools-flux-1-krea-dev.hf.space/--replicas/r9b4l/gradio_api/file=/tmp/gradio/b4c5f8819c4d7d86438fc36d90954a6d2648a86299550237337ff8bd6a09c0d2/image.webp"
+  },
+  {
+    "dest": "public/images/aircraft/cabin/ultra-stateroom.webp",
+    "source": "FLUX.1-Krea-dev",
+    "note": "Ultra aft stateroom with archway to marble en-suite shower visible",
+    "url": "https://mcp-tools-flux-1-krea-dev.hf.space/--replicas/r9b4l/gradio_api/file=/tmp/gradio/67bebc961703e451547a03e68aecda8cfdcf348b1ec8bc98ad827cc9581ca419/image.webp"
   }
 ]

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { pageMetadata } from "@/lib/page-meta";
 import { asc, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { Reveal } from "@/components/reveal";
@@ -12,11 +13,12 @@ import type { EmptyLegView } from "@/lib/empty-legs";
 export const dynamic = "force-dynamic";
 export const revalidate = 60; // refresh every minute
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMetadata({
   title: "Empty legs",
   description:
     "Repositioning legs at up to 60% off. Live board, updated every fifteen minutes from operator dispatch.",
-};
+  path: "/empty-legs",
+});
 
 const MARKETING_CATEGORIES: Record<string, EmptyLegView["category"]> = {
   turboprop: "turboprop",

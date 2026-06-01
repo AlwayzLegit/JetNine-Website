@@ -11,8 +11,6 @@ export const metadata: Metadata = pageMetadata({
   description:
     "JetNine is a senior-dispatcher charter brokerage in Los Angeles. Roughly 6,200 flights a year, almost all by referral.",
   path: "/about",
-  image: "/images/about/dispatch-room.webp",
-  imageAlt: "JetNine HQ dispatch room — three-monitor operations desk in low ambient light",
 });
 
 const HERO_STATS = [

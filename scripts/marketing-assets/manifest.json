@@ -1,0 +1,32 @@
+[
+  {
+    "dest": "public/images/fleet/turboprop.webp",
+    "source": "FLUX.1-Krea-dev",
+    "note": "King Air twin-turboprop, mountain airstrip golden hour, props in motion blur",
+    "url": "https://mcp-tools-flux-1-krea-dev.hf.space/--replicas/r9b4l/gradio_api/file=/tmp/gradio/cf184dcc60390bc7ec99b85fd9fa8c4f98aac94e780cb6887a2c4cbbc8aa662e/image.webp"
+  },
+  {
+    "dest": "public/images/programs/tarmac-dusk.webp",
+    "source": "FLUX.1-Krea-dev",
+    "note": "Business jet silhouette on tarmac at dusk with warm runway bokeh",
+    "url": "https://mcp-tools-flux-1-krea-dev.hf.space/--replicas/r9b4l/gradio_api/file=/tmp/gradio/5121751dcaf9cca9d0c411a5678831f1f51f3e29c498dc364c84e4c7ca394aba/image.webp"
+  },
+  {
+    "dest": "public/images/programs/black-card.webp",
+    "source": "FLUX.1-Krea-dev",
+    "note": "Embossed-9 black metal charge card on dark navy leather, top-down",
+    "url": "https://mcp-tools-flux-1-krea-dev.hf.space/--replicas/r9b4l/gradio_api/file=/tmp/gradio/39c5f3c349acdea897efb3356753aa0d20aaa0f765225b7d03e52d097a630b0f/image.webp"
+  },
+  {
+    "dest": "public/images/programs/reposition-sector.webp",
+    "source": "FLUX.1-Krea-dev",
+    "note": "Topographic flight-path arcs over stylized coastline",
+    "url": "https://mcp-tools-flux-1-krea-dev.hf.space/--replicas/r9b4l/gradio_api/file=/tmp/gradio/1defe4fd176e6c1fbc1bbc662e09478df55e5c4e940b315cb7aa9253ab912a1c/image.webp"
+  },
+  {
+    "dest": "public/images/discretion/tail-night.webp",
+    "source": "FLUX.1-Krea-dev",
+    "note": "Unmarked dark business jet tail rising in foggy night fog with runway bokeh",
+    "url": "https://mcp-tools-flux-1-krea-dev.hf.space/--replicas/r9b4l/gradio_api/file=/tmp/gradio/5d2d8dc467d5853a0878419298c8cabb490097bbd32b387ac12ef78cdfccccea/image.webp"
+  }
+]

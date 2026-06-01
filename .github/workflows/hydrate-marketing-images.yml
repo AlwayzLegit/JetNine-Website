@@ -1,0 +1,77 @@
+name: Hydrate marketing images from HF
+
+# Runs when scripts/marketing-assets/manifest.json changes. Each entry
+# in the manifest pairs an ephemeral HuggingFace Spaces image URL with
+# a destination path under /public/images. GitHub's runners can reach
+# *.hf.space (this sandbox can't), so this workflow is the bridge from
+# generated-on-HF to committed-in-repo.
+#
+# The runner downloads each URL, drops the binary at the destination
+# path, and pushes the resulting public/images/ changes back to the
+# triggering branch.
+
+on:
+  push:
+    paths:
+      - "scripts/marketing-assets/manifest.json"
+      - ".github/workflows/hydrate-marketing-images.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  hydrate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref }}
+          # Need write-able token to push the fetched binaries back.
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Fetch each manifest entry
+        run: |
+          set -euo pipefail
+          manifest=scripts/marketing-assets/manifest.json
+          if [ ! -f "$manifest" ]; then
+            echo "No manifest at $manifest — nothing to fetch."; exit 0
+          fi
+
+          count=$(jq 'length' "$manifest")
+          echo "Found $count entries in manifest."
+
+          # iterate via index instead of `while read` so spaces in URLs don't break
+          for i in $(seq 0 $((count - 1))); do
+            url=$(jq -r ".[$i].url"  "$manifest")
+            dest=$(jq -r ".[$i].dest" "$manifest")
+            mkdir -p "$(dirname "$dest")"
+            echo "→ [$((i+1))/$count] $dest"
+            # -f: fail on HTTP errors so a 404 (expired URL) breaks the job loudly
+            # -L: follow redirects (HF replicas often 302 to a CDN)
+            if ! curl -fsSL --max-time 60 -o "$dest" "$url"; then
+              echo "::error::Failed to fetch $url"
+              echo "  (HF /tmp/gradio URLs expire within hours of generation —"
+              echo "   regenerate and update the manifest if this is stale.)"
+              exit 1
+            fi
+            ls -la "$dest"
+            file "$dest"
+          done
+
+      - name: Commit fetched images
+        run: |
+          set -euo pipefail
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add public/images/
+          if git diff --cached --quiet; then
+            echo "No image changes to commit."
+            exit 0
+          fi
+          git commit -m "chore(assets): hydrate marketing images from HF manifest
+
+Auto-fetched by .github/workflows/hydrate-marketing-images.yml from
+the URLs in scripts/marketing-assets/manifest.json. The manifest is
+the source of truth; the binaries here are reproducible artifacts."
+          git push

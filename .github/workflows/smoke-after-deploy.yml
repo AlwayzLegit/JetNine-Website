@@ -28,6 +28,26 @@ jobs:
     timeout-minutes: 10
 
     steps:
+      - name: Dump deployment_status payload (debug)
+        # Always print key payload fields up-front so failures further
+        # down can be triaged without re-running locally. Smoke has
+        # been failing in <20s on every preview deploy even after the
+        # URL preference fix; the only way to know why without local
+        # repro is to see what the webhook actually contained.
+        run: |
+          echo "=== deployment_status webhook fields ==="
+          echo "state            = ${{ github.event.deployment_status.state }}"
+          echo "environment      = ${{ github.event.deployment_status.environment }}"
+          echo "environment_url  = ${{ github.event.deployment_status.environment_url }}"
+          echo "target_url       = ${{ github.event.deployment_status.target_url }}"
+          echo "log_url          = ${{ github.event.deployment_status.log_url }}"
+          echo "description      = ${{ github.event.deployment_status.description }}"
+          echo "creator.login    = ${{ github.event.deployment_status.creator.login }}"
+          echo "=== deployment fields ==="
+          echo "deployment.sha   = ${{ github.event.deployment.sha }}"
+          echo "deployment.ref   = ${{ github.event.deployment.ref }}"
+          echo "deployment.task  = ${{ github.event.deployment.task }}"
+
       - name: Resolve deployment URL
         id: resolve
         run: |
@@ -39,7 +59,9 @@ jobs:
           # the gated inspector, failing all marketing-page checks.
           URL="${{ github.event.deployment_status.environment_url || github.event.deployment_status.target_url }}"
           if [ -z "$URL" ]; then
-            echo "No deployment URL in event payload — nothing to smoke."
+            echo "::warning::No deployment URL in event payload — nothing to smoke."
+            echo "::warning::environment_url was: '${{ github.event.deployment_status.environment_url }}'"
+            echo "::warning::target_url was: '${{ github.event.deployment_status.target_url }}'"
             exit 1
           fi
           # Strip trailing slash so the smoke runner's path concatenation
@@ -47,8 +69,26 @@ jobs:
           URL="${URL%/}"
           echo "url=$URL" >> "$GITHUB_OUTPUT"
           echo "Resolved smoke target: $URL"
-          echo "  (target_url was: ${{ github.event.deployment_status.target_url }})"
-          echo "  (environment_url was: ${{ github.event.deployment_status.environment_url }})"
+
+      - name: Reachability probe (HEAD /)
+        # Quick sanity check that the resolved URL is publicly reachable
+        # before we sink time into pnpm install + smoke runner.
+        # -L follow redirects, -I HEAD, -o /dev/null discard body,
+        # -w print status, -s silent, --max-time 15.
+        run: |
+          URL="${{ steps.resolve.outputs.url }}"
+          echo "Probing: $URL"
+          status=$(curl -sLI -o /dev/null -w '%{http_code}' --max-time 15 "$URL" || echo "curl_failed")
+          echo "HEAD / → $status"
+          if [ "$status" = "200" ]; then
+            echo "✓ Public + 200, proceeding to full smoke."
+          elif [ "$status" = "401" ] || [ "$status" = "403" ]; then
+            echo "::error::Preview returned $status — deployment protection still on, or wrong URL resolved. Bypass token (VERCEL_AUTOMATION_BYPASS_SECRET) is the standard fix."
+            exit 1
+          else
+            echo "::error::Unexpected HEAD response $status from $URL — see deployment_status payload echoed above."
+            exit 1
+          fi
 
       - name: Checkout
         uses: actions/checkout@v4

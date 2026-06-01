@@ -35,7 +35,12 @@ export function FleetPreview() {
                 className="block overflow-hidden rounded-[4px] border border-ink-3 bg-ink-2 transition-all duration-200 ease-out-quint hover:-translate-y-0.5 hover:border-clearance"
               >
                 <div className="relative">
-                  <Placeholder caption={a.cap.replace(/^— /, "")} aspect="4/5" />
+                  <Placeholder
+                    caption={a.cap.replace(/^— /, "")}
+                    aspect="4/5"
+                    imageUrl={a.imageUrl}
+                    sizes="(max-width: 768px) 50vw, (max-width: 1024px) 33vw, 17vw"
+                  />
                   <div className="pointer-events-none absolute inset-0 flex items-end bg-gradient-to-t from-ink/85 via-transparent to-transparent p-4 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
                     <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-clearance">
                       View specs →

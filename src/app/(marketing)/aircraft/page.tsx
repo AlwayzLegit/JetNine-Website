@@ -114,7 +114,12 @@ export default function AircraftPage() {
                 >
                   <div className="overflow-hidden">
                     <div className="transition-transform duration-[600ms] ease-out-quint group-hover:scale-[1.04]">
-                      <Placeholder caption={f.cap.replace(/^— /, "")} aspect="16/9" />
+                      <Placeholder
+                        caption={f.cap.replace(/^— /, "")}
+                        aspect="16/9"
+                        imageUrl={f.imageUrl}
+                        sizes="(max-width: 768px) 100vw, 50vw"
+                      />
                     </div>
                   </div>
                   <div className="flex flex-col gap-5 p-10">

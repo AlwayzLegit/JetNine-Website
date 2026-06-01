@@ -7,6 +7,7 @@ type Program = {
   cap: string;
   title: string;
   body: string;
+  imageUrl?: string;
 };
 
 const PROGRAMS: Program[] = [
@@ -15,18 +16,21 @@ const PROGRAMS: Program[] = [
     cap: "— TARMAC, DUSK",
     title: "On-demand charter",
     body: "Pay-as-you-fly. No commitment. Quotes within minutes, all-in pricing, your airframe of choice.",
+    imageUrl: "/images/programs/tarmac-dusk.webp",
   },
   {
     href: "/memberships",
     cap: "— BLACK CARD, STILL LIFE",
     title: "JetNine Card",
     body: "Fixed hourly rates. Guaranteed availability. The membership program for the regular flyer.",
+    imageUrl: "/images/programs/black-card.webp",
   },
   {
     href: "/empty-legs",
     cap: "— REPOSITION SECTOR",
     title: "Empty legs",
     body: "Repositioning flights at deep discount. Real-time availability for travelers with flexibility.",
+    imageUrl: "/images/programs/reposition-sector.webp",
   },
 ];
 
@@ -56,7 +60,12 @@ export function Programs() {
                 href={p.href}
                 className="block overflow-hidden rounded-[4px] border border-ink-3 bg-ink-2 transition-all duration-200 ease-out-quint hover:-translate-y-0.5 hover:border-clearance"
               >
-                <Placeholder caption={p.cap} aspect="16/10" />
+                <Placeholder
+                  caption={p.cap}
+                  aspect="16/10"
+                  imageUrl={p.imageUrl}
+                  sizes="(max-width: 768px) 100vw, 33vw"
+                />
                 <div className="flex flex-col gap-2 p-7">
                   <h3 className="font-serif text-[24px] font-normal leading-[1.2] tracking-tight text-bone">
                     {p.title}

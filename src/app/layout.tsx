@@ -86,12 +86,20 @@ export const viewport: Viewport = {
   colorScheme: "dark",
 };
 
-// JSON-LD structured data. Organization schema gives Google a hook for
-// the knowledge panel. No `address` because we're a broker (no
-// public-facing terminal); contact is the dispatch line.
+// JSON-LD structured data. Organization gives Google a hook for the
+// knowledge panel; WebSite links the corresponding domain to that
+// organization so the two entities don't float independently. No
+// `address` on Organization because we're a broker (no public-facing
+// terminal); contact is the dispatch line.
+//
+// @id values are stable URIs that Google uses to wire references
+// together. Other pages with their own structured data — /about
+// AboutPage.mainEntity, /aircraft Service.provider — should point at
+// `${SITE_URL}/#organization` to feed the same graph node.
 const organizationJsonLd = {
   "@context": "https://schema.org",
   "@type": "Organization",
+  "@id": `${SITE_URL}/#organization`,
   name: "JetNine",
   legalName: "JetNine LLC",
   url: SITE_URL,
@@ -108,6 +116,17 @@ const organizationJsonLd = {
     },
   ],
   areaServed: { "@type": "Place", name: "Worldwide" },
+};
+
+const websiteJsonLd = {
+  "@context": "https://schema.org",
+  "@type": "WebSite",
+  "@id": `${SITE_URL}/#website`,
+  url: SITE_URL,
+  name: "JetNine",
+  description: "Private aviation, ready when you are.",
+  publisher: { "@id": `${SITE_URL}/#organization` },
+  inLanguage: "en-US",
 };
 
 const plausibleDomain = process.env.NEXT_PUBLIC_PLAUSIBLE_DOMAIN;
@@ -157,6 +176,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           type="application/ld+json"
           // Stringified at build time, not user-controlled — no XSS risk.
           dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationJsonLd) }}
+        />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteJsonLd) }}
         />
         {children}
       </body>

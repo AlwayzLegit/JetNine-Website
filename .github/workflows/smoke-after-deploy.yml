@@ -31,7 +31,13 @@ jobs:
       - name: Resolve deployment URL
         id: resolve
         run: |
-          URL="${{ github.event.deployment_status.target_url || github.event.deployment_status.environment_url }}"
+          # IMPORTANT: prefer environment_url over target_url. For Vercel
+          # deployment_status events, target_url is the inspector URL
+          # (vercel.com/.../inspect — gated and unrelated to the deploy),
+          # while environment_url is the actual deploy URL (...vercel.app).
+          # Earlier the order was reversed and every smoke ran against
+          # the gated inspector, failing all marketing-page checks.
+          URL="${{ github.event.deployment_status.environment_url || github.event.deployment_status.target_url }}"
           if [ -z "$URL" ]; then
             echo "No deployment URL in event payload — nothing to smoke."
             exit 1
@@ -40,7 +46,9 @@ jobs:
           # produces clean URLs like https://host/sitemap.xml not //sitemap.
           URL="${URL%/}"
           echo "url=$URL" >> "$GITHUB_OUTPUT"
-          echo "Smoking: $URL"
+          echo "Resolved smoke target: $URL"
+          echo "  (target_url was: ${{ github.event.deployment_status.target_url }})"
+          echo "  (environment_url was: ${{ github.event.deployment_status.environment_url }})"
 
       - name: Checkout
         uses: actions/checkout@v4

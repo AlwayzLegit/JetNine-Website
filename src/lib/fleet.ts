@@ -22,6 +22,9 @@ export type SampleAircraft = {
   speedKt: number;
   year: number;
   wifi: "YES" | "KA" | "NONE";
+  /** Optional path under /public for the sample-card exterior shot.
+   *  When absent the Placeholder falls back to its CSS gradient. */
+  imageUrl?: string;
 };
 
 export type BestForTile = {
@@ -153,6 +156,7 @@ export const FLEET: FleetEntry[] = [
         speedKt: 312,
         year: 2019,
         wifi: "YES",
+        imageUrl: "/images/aircraft/samples/turboprop-king-air-350i.webp",
       },
       {
         name: "Pilatus PC-12 NGX",
@@ -164,6 +168,7 @@ export const FLEET: FleetEntry[] = [
         speedKt: 290,
         year: 2022,
         wifi: "YES",
+        imageUrl: "/images/aircraft/samples/turboprop-pc-12.webp",
       },
       {
         name: "Daher TBM 960",
@@ -175,6 +180,7 @@ export const FLEET: FleetEntry[] = [
         speedKt: 330,
         year: 2023,
         wifi: "YES",
+        imageUrl: "/images/aircraft/samples/turboprop-tbm-960.webp",
       },
     ],
     bestFor: [
@@ -273,6 +279,7 @@ export const FLEET: FleetEntry[] = [
         speedKt: 464,
         year: 2021,
         wifi: "YES",
+        imageUrl: "/images/aircraft/samples/light-phenom-300e.webp",
       },
       {
         name: "Cessna Citation CJ4",
@@ -284,6 +291,7 @@ export const FLEET: FleetEntry[] = [
         speedKt: 451,
         year: 2020,
         wifi: "YES",
+        imageUrl: "/images/aircraft/samples/light-cj4.webp",
       },
       {
         name: "Learjet 75 Liberty",
@@ -295,6 +303,7 @@ export const FLEET: FleetEntry[] = [
         speedKt: 464,
         year: 2018,
         wifi: "YES",
+        imageUrl: "/images/aircraft/samples/light-lear-75.webp",
       },
     ],
     bestFor: [
@@ -393,6 +402,7 @@ export const FLEET: FleetEntry[] = [
         speedKt: 441,
         year: 2019,
         wifi: "YES",
+        imageUrl: "/images/aircraft/samples/midsize-xls-plus.webp",
       },
       {
         name: "Hawker 900XP",
@@ -404,6 +414,7 @@ export const FLEET: FleetEntry[] = [
         speedKt: 448,
         year: 2017,
         wifi: "YES",
+        imageUrl: "/images/aircraft/samples/midsize-hawker-900xp.webp",
       },
       {
         name: "Learjet 60XR",
@@ -415,6 +426,7 @@ export const FLEET: FleetEntry[] = [
         speedKt: 464,
         year: 2015,
         wifi: "YES",
+        imageUrl: "/images/aircraft/samples/midsize-lear-60xr.webp",
       },
     ],
     bestFor: [
@@ -513,6 +525,7 @@ export const FLEET: FleetEntry[] = [
         speedKt: 488,
         year: 2020,
         wifi: "KA",
+        imageUrl: "/images/aircraft/samples/supermid-challenger-350.webp",
       },
       {
         name: "Cessna Citation Longitude",
@@ -524,6 +537,7 @@ export const FLEET: FleetEntry[] = [
         speedKt: 483,
         year: 2022,
         wifi: "YES",
+        imageUrl: "/images/aircraft/samples/supermid-longitude.webp",
       },
       {
         name: "Embraer Praetor 600",
@@ -535,6 +549,7 @@ export const FLEET: FleetEntry[] = [
         speedKt: 466,
         year: 2021,
         wifi: "KA",
+        imageUrl: "/images/aircraft/samples/supermid-praetor-600.webp",
       },
     ],
     bestFor: [
@@ -633,6 +648,7 @@ export const FLEET: FleetEntry[] = [
         speedKt: 476,
         year: 2017,
         wifi: "KA",
+        imageUrl: "/images/aircraft/samples/heavy-g450.webp",
       },
       {
         name: "Bombardier Challenger 605",
@@ -644,6 +660,7 @@ export const FLEET: FleetEntry[] = [
         speedKt: 459,
         year: 2018,
         wifi: "KA",
+        imageUrl: "/images/aircraft/samples/heavy-cl605.webp",
       },
       {
         name: "Dassault Falcon 2000LXS",
@@ -655,6 +672,7 @@ export const FLEET: FleetEntry[] = [
         speedKt: 482,
         year: 2019,
         wifi: "KA",
+        imageUrl: "/images/aircraft/samples/heavy-falcon-2000.webp",
       },
     ],
     bestFor: [
@@ -765,6 +783,7 @@ export const FLEET: FleetEntry[] = [
         speedKt: 516,
         year: 2020,
         wifi: "KA",
+        imageUrl: "/images/aircraft/samples/ultra-g650er.webp",
       },
       {
         name: "Bombardier Global 7500",
@@ -776,6 +795,7 @@ export const FLEET: FleetEntry[] = [
         speedKt: 516,
         year: 2022,
         wifi: "KA",
+        imageUrl: "/images/aircraft/samples/ultra-global-7500.webp",
       },
       {
         name: "Dassault Falcon 8X",
@@ -787,6 +807,7 @@ export const FLEET: FleetEntry[] = [
         speedKt: 488,
         year: 2021,
         wifi: "KA",
+        imageUrl: "/images/aircraft/samples/ultra-falcon-8x.webp",
       },
     ],
     bestFor: [

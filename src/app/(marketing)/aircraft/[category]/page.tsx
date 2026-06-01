@@ -113,7 +113,11 @@ export default async function AircraftCategoryPage({ params }: RouteParams) {
                 stagger={(i as 0 | 1 | 2)}
                 className="overflow-hidden rounded-[4px] border border-ink-3"
               >
-                <Placeholder caption={cap} aspect="4/5" />
+                <Placeholder
+                  caption={cap}
+                  aspect="4/5"
+                  imageUrl={entry.cabin.imageUrls?.[i]}
+                />
               </Reveal>
             ))}
           </div>

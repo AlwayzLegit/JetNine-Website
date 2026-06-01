@@ -73,6 +73,9 @@ export type FleetEntry = {
   cabin: {
     headline: [string, string]; // two-line h2
     placeholders: [string, string, string];
+    /** Optional matching imageUrls, in the same order as placeholders.
+     *  When absent the Placeholder falls back to its CSS gradient. */
+    imageUrls?: [string, string, string];
     caption: string;
   };
 
@@ -131,6 +134,11 @@ export const FLEET: FleetEntry[] = [
     cabin: {
       headline: ["Quiet, capable,", "field-flexible."],
       placeholders: ["CABIN, FORWARD CLUB", "PILOT VIEW", "REAR BAGGAGE DOOR"],
+      imageUrls: [
+        "/images/aircraft/cabin/turboprop-club.webp",
+        "/images/aircraft/cabin/turboprop-cockpit.webp",
+        "/images/aircraft/cabin/turboprop-baggage.webp",
+      ],
       caption:
         "A typical turboprop cabin runs 16 to 18 feet of length, 4'9\" of cabin height, and seats six to nine in club plus aft seating. Refreshment galley, enclosed lavatory on most types, Wi-Fi available on newer airframes. Built for short runways the airline can't touch.",
     },
@@ -246,6 +254,11 @@ export const FLEET: FleetEntry[] = [
     cabin: {
       headline: ["Compact, capable,", "quick to climb."],
       placeholders: ["CABIN, CLUB OF FOUR", "SEAT & TABLE", "FORWARD GALLEY"],
+      imageUrls: [
+        "/images/aircraft/cabin/light-club.webp",
+        "/images/aircraft/cabin/light-seat.webp",
+        "/images/aircraft/cabin/light-galley.webp",
+      ],
       caption:
         "A typical light cabin runs 13 to 16 feet of length, 4'9\" of cabin height, and seats six to seven in a four-seat club plus side-facing or aft seats. Refreshment galley with snacks & bar; enclosed lavatory on most airframes. Wi-Fi available on newer types.",
     },
@@ -361,6 +374,11 @@ export const FLEET: FleetEntry[] = [
     cabin: {
       headline: ["Stand up. Stretch out.", "Get to work."],
       placeholders: ["CABIN, 4 SEATS CLUB", "SEAT DETAIL", "GALLEY"],
+      imageUrls: [
+        "/images/aircraft/cabin/midsize-club.webp",
+        "/images/aircraft/cabin/midsize-seat.webp",
+        "/images/aircraft/cabin/midsize-galley.webp",
+      ],
       caption:
         "A typical midsize cabin runs 18 to 22 feet of length, six feet of stand-up height, and seats eight to nine in a four-seat club plus three- or four-place divan. Full galley with hot & cold options. Enclosed lavatory. Wi-Fi standard on most airframes in the network.",
     },
@@ -476,6 +494,11 @@ export const FLEET: FleetEntry[] = [
     cabin: {
       headline: ["Flat floor.", "Fast cruise."],
       placeholders: ["DOUBLE CLUB CABIN", "SEAT & BERTHING", "FULL GALLEY"],
+      imageUrls: [
+        "/images/aircraft/cabin/supermid-doubleclub.webp",
+        "/images/aircraft/cabin/supermid-berth.webp",
+        "/images/aircraft/cabin/supermid-galley.webp",
+      ],
       caption:
         "A typical super-midsize cabin runs 25 to 28 feet, six feet of stand-up height, and a flat floor — no center step. Double-club seating with eight to ten passengers, full hot-meal galley, enclosed lavatory, divan that converts to a berth. Wi-Fi standard, Ka-band on newer airframes.",
     },
@@ -591,6 +614,11 @@ export const FLEET: FleetEntry[] = [
     cabin: {
       headline: ["Two cabins.", "Real beds."],
       placeholders: ["FORWARD CLUB, AFT BERTH", "DINING SETTING", "STATEROOM"],
+      imageUrls: [
+        "/images/aircraft/cabin/heavy-club.webp",
+        "/images/aircraft/cabin/heavy-dining.webp",
+        "/images/aircraft/cabin/heavy-stateroom.webp",
+      ],
       caption:
         "A typical heavy cabin runs 35 to 42 feet, six-and-a-half feet of stand-up height, and divides into two or three zones — forward club, mid dining, aft berth or stateroom. Stand-up galley with full crew, dual lavatories, vanity room, full Wi-Fi with Ka-band streaming. Most types carry a flight attendant standard.",
     },
@@ -706,6 +734,11 @@ export const FLEET: FleetEntry[] = [
     cabin: {
       headline: ["Three zones.", "Sixteen hours."],
       placeholders: ["THREE-ZONE LAYOUT", "CONFERENCE / DINING", "STATEROOM & SHOWER"],
+      imageUrls: [
+        "/images/aircraft/cabin/ultra-threezone.webp",
+        "/images/aircraft/cabin/ultra-conference.webp",
+        "/images/aircraft/cabin/ultra-stateroom.webp",
+      ],
       caption:
         "A typical ultra cabin runs 45 to 54 feet, six-and-a-half feet of stand-up height, divided into three zones — forward club, mid conference / dining for six, aft stateroom with a real bed. Crew rest separate from passenger zones. Ka-band Wi-Fi with high-speed streaming. Most types fly with two-pilot augmented crew and a dedicated flight attendant.",
     },

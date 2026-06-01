@@ -69,9 +69,5 @@ jobs:
             echo "No image changes to commit."
             exit 0
           fi
-          git commit -m "chore(assets): hydrate marketing images from HF manifest
-
-Auto-fetched by .github/workflows/hydrate-marketing-images.yml from
-the URLs in scripts/marketing-assets/manifest.json. The manifest is
-the source of truth; the binaries here are reproducible artifacts."
+          git commit -m "chore(assets): hydrate marketing images from HF manifest"
           git push

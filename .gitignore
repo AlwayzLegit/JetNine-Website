@@ -54,3 +54,8 @@ scripts/.specs/
 
 # Audit artifacts (screenshots + report.json from `pnpm audit:a11y`)
 tmp/
+
+# Raw asset archives — extract into public/images/* and commit the
+# processed webp outputs, not the source zips. Keeps clone size down.
+*.zip
+!public/**/*.zip

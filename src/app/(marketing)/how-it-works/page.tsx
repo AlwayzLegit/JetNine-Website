@@ -1,15 +1,17 @@
 import Link from "next/link";
 import type { Metadata } from "next";
+import { pageMetadata } from "@/lib/page-meta";
 import { PageHeader } from "@/components/page-header";
 import { ClosingCTA } from "@/components/closing-cta";
 import { Reveal } from "@/components/reveal";
 import { SITE } from "@/lib/constants";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMetadata({
   title: "How it works",
   description:
     "A senior dispatcher, not a chatbot. One number to call. Specific airframes & pricing back within thirty minutes.",
-};
+  path: "/how-it-works",
+});
 
 const HERO_STATS = [
   { label: "Quote turnaround", value: "<30 MIN", sub: "Median, business hours" },

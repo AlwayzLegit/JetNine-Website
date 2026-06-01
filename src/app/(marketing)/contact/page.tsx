@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { Metadata } from "next";
+import { pageMetadata } from "@/lib/page-meta";
 import { PageHeader } from "@/components/page-header";
 import { ClosingCTA } from "@/components/closing-cta";
 import { Reveal } from "@/components/reveal";
@@ -7,11 +8,12 @@ import { Placeholder } from "@/components/placeholder";
 import { ContactForm } from "@/components/contact-form";
 import { SITE } from "@/lib/constants";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMetadata({
   title: "Contact",
   description:
     "One desk. One number. Open every hour of every day. Senior dispatcher picks up — average pick-up under twenty seconds.",
-};
+  path: "/contact",
+});
 
 const CHANNELS = [
   {

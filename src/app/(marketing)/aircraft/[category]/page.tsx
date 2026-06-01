@@ -7,6 +7,7 @@ import { BestForIcon } from "@/components/best-for-icon";
 import { ClosingCTA } from "@/components/closing-cta";
 import { SITE } from "@/lib/constants";
 import { FLEET, formatNm, formatPax, getFleetEntry } from "@/lib/fleet";
+import { pageMetadata } from "@/lib/page-meta";
 
 type RouteParams = { params: Promise<{ category: string }> };
 
@@ -18,10 +19,11 @@ export async function generateMetadata({ params }: RouteParams): Promise<Metadat
   const { category } = await params;
   const entry = getFleetEntry(category);
   if (!entry) return {};
-  return {
+  return pageMetadata({
     title: entry.name,
     description: entry.lead.slice(0, 160),
-  };
+    path: entry.href,
+  });
 }
 
 export default async function AircraftCategoryPage({ params }: RouteParams) {

@@ -1,15 +1,17 @@
 import Link from "next/link";
 import type { Metadata } from "next";
+import { pageMetadata } from "@/lib/page-meta";
 import { PageHeader } from "@/components/page-header";
 import { ClosingCTA } from "@/components/closing-cta";
 import { Reveal } from "@/components/reveal";
 import { SITE } from "@/lib/constants";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMetadata({
   title: "Memberships",
   description:
     "Three ways to fly — on-demand, JetNine Card, or Reserve. None of them require a membership. Locked rates, refundable deposits, no peak surcharges.",
-};
+  path: "/memberships",
+});
 
 const ANCHORS = [
   { label: "Compare programs ↓", href: "#tiers" },

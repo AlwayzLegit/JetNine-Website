@@ -1,15 +1,17 @@
 import Link from "next/link";
 import type { Metadata } from "next";
+import { pageMetadata } from "@/lib/page-meta";
 import { ClosingCTA } from "@/components/closing-cta";
 import { Reveal } from "@/components/reveal";
 import { Placeholder } from "@/components/placeholder";
 import { SITE } from "@/lib/constants";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMetadata({
   title: "About",
   description:
     "JetNine is a senior-dispatcher charter brokerage in Los Angeles. Roughly 6,200 flights a year, almost all by referral.",
-};
+  path: "/about",
+});
 
 const HERO_STATS = [
   { label: "Founded", value: "2014", sub: "Los Angeles, California" },

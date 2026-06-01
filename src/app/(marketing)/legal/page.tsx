@@ -1,12 +1,14 @@
 import Link from "next/link";
 import type { Metadata } from "next";
+import { pageMetadata } from "@/lib/page-meta";
 import { Reveal } from "@/components/reveal";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMetadata({
   title: "Legal & disclosures",
   description:
     "Privacy policy, terms of service, and the Part 295 broker disclosure. Written plainly. Reviewed by counsel.",
-};
+  path: "/legal",
+});
 
 const TOC = [
   {

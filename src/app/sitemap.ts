@@ -28,11 +28,18 @@ export default function sitemap(): MetadataRoute.Sitemap {
       priority: r.priority,
     })),
     // Each of the 6 aircraft category detail pages.
+    // Image extension: list the hero + 3 cabin shots Google can index
+    // for image search. Helps surface real fleet photography in
+    // category-intent visual queries ("light jet interior", etc.).
     ...FLEET.map((entry) => ({
       url: `${base}/aircraft/${entry.slug}`,
       lastModified: now,
       changeFrequency: "monthly" as const,
       priority: 0.7,
+      images: [
+        ...(entry.imageUrl ? [`${base}${entry.imageUrl}`] : []),
+        ...(entry.cabin.imageUrls?.map((u) => `${base}${u}`) ?? []),
+      ],
     })),
   ];
 }

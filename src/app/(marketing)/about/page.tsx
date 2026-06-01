@@ -314,7 +314,11 @@ export default function AboutPage() {
               </Reveal>
             </div>
             <Reveal stagger={1}>
-              <Placeholder caption="HQ — DISPATCH ROOM" aspect="4/5" />
+              <Placeholder
+                caption="HQ — DISPATCH ROOM"
+                aspect="4/5"
+                imageUrl="/images/about/dispatch-room.webp"
+              />
             </Reveal>
           </div>
         </div>

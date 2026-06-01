@@ -45,6 +45,15 @@ jobs:
           for i in $(seq 0 $((count - 1))); do
             url=$(jq -r ".[$i].url"  "$manifest")
             dest=$(jq -r ".[$i].dest" "$manifest")
+            # Skip entries whose destination already exists. The manifest
+            # is meant to grow append-only; previously-hydrated binaries
+            # stay in the repo and don't need to be refetched on every
+            # run (which would also break the moment their HF URL
+            # expires, hours after generation).
+            if [ -f "$dest" ]; then
+              echo "→ [$((i+1))/$count] $dest  (already present — skip)"
+              continue
+            fi
             mkdir -p "$(dirname "$dest")"
             echo "→ [$((i+1))/$count] $dest"
             # -f: fail on HTTP errors so a 404 (expired URL) breaks the job loudly

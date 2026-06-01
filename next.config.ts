@@ -30,7 +30,7 @@ const csp = [
   "script-src 'self' 'unsafe-inline' https://plausible.io",
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   "font-src 'self' data: https://fonts.gstatic.com",
-  `img-src 'self' data: blob: https://images.unsplash.com https://jetnine.com https://${supabaseHost}`,
+  `img-src 'self' data: blob: https://jetnine.com https://${supabaseHost}`,
   `connect-src 'self' https://${supabaseHost} wss://${supabaseHost} https://plausible.io`,
   "frame-ancestors 'none'",
   "base-uri 'self'",
@@ -63,7 +63,6 @@ const nextConfig: NextConfig = {
   reactStrictMode: true,
   images: {
     remotePatterns: [
-      { protocol: "https", hostname: "images.unsplash.com" },
       { protocol: "https", hostname: "jetnine.com" },
     ],
   },

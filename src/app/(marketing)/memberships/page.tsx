@@ -11,6 +11,8 @@ export const metadata: Metadata = pageMetadata({
   description:
     "Three ways to fly — on-demand, JetNine Card, or Reserve. None of them require a membership. Locked rates, refundable deposits, no peak surcharges.",
   path: "/memberships",
+  image: "/images/programs/black-card.webp",
+  imageAlt: "JetNine Card — embossed-09 black metal charge card on dark navy leather",
 });
 
 const ANCHORS = [

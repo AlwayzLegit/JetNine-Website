@@ -15,6 +15,13 @@ import type { Metadata } from "next";
 // the <title> tag; we just have to spell out the resolved title for the
 // openGraph + twitter blocks because Next.js doesn't apply title
 // templates to those.
+//
+// `image` optionally overrides the default /opengraph-image route so a
+// share of /aircraft/light previews with the actual Citation CJ3+
+// thumbnail, /about with the dispatch room, etc. Resolution is relative
+// to metadataBase (set on the root layout), so a site-relative path
+// like "/images/fleet/light.webp" becomes the absolute URL Open Graph
+// and Twitter card scrapers expect.
 export function pageMetadata(opts: {
   /** Short title used in <title> (the template adds " · JetNine"). */
   title: string;
@@ -22,8 +29,22 @@ export function pageMetadata(opts: {
   description: string;
   /** Site-relative path with leading slash (e.g. "/about"). */
   path: string;
+  /** Optional site-relative image path for og:image / twitter:image. */
+  image?: string;
+  /** Optional alt text for the image. Defaults to the resolved page title. */
+  imageAlt?: string;
 }): Metadata {
   const resolvedTitle = `${opts.title} · JetNine`;
+  const imageBlock = opts.image
+    ? {
+        images: [
+          {
+            url: opts.image,
+            alt: opts.imageAlt ?? resolvedTitle,
+          },
+        ],
+      }
+    : {};
   return {
     title: opts.title,
     description: opts.description,
@@ -32,10 +53,12 @@ export function pageMetadata(opts: {
       title: resolvedTitle,
       description: opts.description,
       url: opts.path,
+      ...imageBlock,
     },
     twitter: {
       title: resolvedTitle,
       description: opts.description,
+      ...(opts.image ? { images: [opts.image] } : {}),
     },
   };
 }

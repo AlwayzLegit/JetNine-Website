@@ -18,6 +18,8 @@ export const metadata: Metadata = pageMetadata({
   description:
     "Repositioning legs at up to 60% off. Live board, updated every fifteen minutes from operator dispatch.",
   path: "/empty-legs",
+  image: "/images/programs/reposition-sector.webp",
+  imageAlt: "JetNine empty legs — repositioning flight-path arcs over coastline",
 });
 
 const MARKETING_CATEGORIES: Record<string, EmptyLegView["category"]> = {

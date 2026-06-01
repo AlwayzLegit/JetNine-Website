@@ -19,12 +19,14 @@ export async function generateMetadata({ params }: RouteParams): Promise<Metadat
   const { category } = await params;
   const entry = getFleetEntry(category);
   if (!entry) return {};
+  // Note: no `image` override here — Next.js auto-discovers the
+  // sibling opengraph-image.tsx, which renders a composed
+  // category-specific OG card (photo + headline + spec line) at
+  // 1200×630. That beats the raw 4:5 fleet photo for social cropping.
   return pageMetadata({
     title: entry.name,
     description: entry.lead.slice(0, 160),
     path: entry.href,
-    image: entry.imageUrl,
-    imageAlt: `JetNine ${entry.name.toLowerCase()} category — ${entry.heroImageCaption.replace(/^— /, "").toLowerCase()}`,
   });
 }
 

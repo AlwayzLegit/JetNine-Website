@@ -12,8 +12,6 @@ export const metadata: Metadata = pageMetadata({
   description:
     "Six categories, hundreds of airframes. Turboprop through ultra long range — match the airframe to the mission.",
   path: "/aircraft",
-  image: "/images/fleet/ultra.webp",
-  imageAlt: "JetNine aircraft — Bombardier Global 7500 banking through cloudscape",
 });
 
 export default function AircraftPage() {

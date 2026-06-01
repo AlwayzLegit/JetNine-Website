@@ -11,8 +11,6 @@ export const metadata: Metadata = pageMetadata({
   description:
     "A senior dispatcher, not a chatbot. One number to call. Specific airframes & pricing back within thirty minutes.",
   path: "/how-it-works",
-  image: "/images/programs/tarmac-dusk.webp",
-  imageAlt: "JetNine charter — business jet silhouette on tarmac at dusk",
 });
 
 const HERO_STATS = [

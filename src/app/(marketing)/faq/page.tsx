@@ -12,8 +12,6 @@ export const metadata: Metadata = pageMetadata({
   description:
     "Answers to the questions before the call. Written by the dispatch desk for the kind of question that comes in at 11pm on a Sunday.",
   path: "/faq",
-  image: "/images/fleet/midsize.webp",
-  imageAlt: "JetNine FAQ — Embraer Phenom 300E on ramp",
 });
 
 // FAQPage Schema.org JSON-LD. Google may surface these as a rich

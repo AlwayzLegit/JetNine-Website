@@ -13,8 +13,6 @@ export const metadata: Metadata = pageMetadata({
   description:
     "One desk. One number. Open every hour of every day. Senior dispatcher picks up — average pick-up under twenty seconds.",
   path: "/contact",
-  image: "/images/about/dispatch-room.webp",
-  imageAlt: "JetNine dispatch operations room — open 24/7",
 });
 
 const CHANNELS = [

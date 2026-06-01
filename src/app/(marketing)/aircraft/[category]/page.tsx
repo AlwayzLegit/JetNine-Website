@@ -291,7 +291,12 @@ export default async function AircraftCategoryPage({ params }: RouteParams) {
                 stagger={(i as 0 | 1 | 2)}
                 className="overflow-hidden rounded-[4px] border border-ink-3 bg-ink-2 transition-colors hover:border-[rgba(232,226,210,0.3)]"
               >
-                <Placeholder caption={s.phCap} aspect="16/10" />
+                <Placeholder
+                  caption={s.phCap}
+                  aspect="16/10"
+                  imageUrl={s.imageUrl}
+                  sizes="(max-width: 768px) 100vw, (max-width: 1280px) 33vw, 28vw"
+                />
                 <div className="flex flex-col gap-3 p-7">
                   <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-clearance">
                     {s.tail} · {s.base}

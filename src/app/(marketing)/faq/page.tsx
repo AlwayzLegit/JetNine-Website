@@ -5,6 +5,7 @@ import { PageHeader } from "@/components/page-header";
 import { Reveal } from "@/components/reveal";
 import { FaqBoard } from "@/components/faq/faq-board";
 import { SITE } from "@/lib/constants";
+import { FAQ } from "@/lib/faq";
 
 export const metadata: Metadata = pageMetadata({
   title: "FAQ",
@@ -13,9 +14,30 @@ export const metadata: Metadata = pageMetadata({
   path: "/faq",
 });
 
+// FAQPage Schema.org JSON-LD. Google may surface these as a rich
+// snippet (collapsible Q&A under the search result) when the markup
+// matches the visible content. Built straight from the FAQ catalog so
+// it never drifts from what's rendered.
+const faqJsonLd = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: FAQ.flatMap((cat) =>
+    cat.items.map((it) => ({
+      "@type": "Question",
+      name: it.q,
+      acceptedAnswer: { "@type": "Answer", text: it.a },
+    })),
+  ),
+};
+
 export default function FaqPage() {
   return (
     <>
+      <script
+        type="application/ld+json"
+        // Built from FAQ catalog at build time — no user input, no XSS surface.
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }}
+      />
       <PageHeader
         kicker="Frequently asked"
         title="The questions before the call."

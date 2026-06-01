@@ -31,8 +31,50 @@ export default async function AircraftCategoryPage({ params }: RouteParams) {
   const entry = getFleetEntry(category);
   if (!entry) notFound();
 
+  const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL || "https://jetnine.com").replace(/\/$/, "");
+
+  // BreadcrumbList: Home › Aircraft › {Category}. Helps Google
+  // surface the breadcrumb trail under the search result and improves
+  // site hierarchy understanding.
+  const breadcrumbJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      { "@type": "ListItem", position: 1, name: "Home", item: siteUrl },
+      { "@type": "ListItem", position: 2, name: "Aircraft", item: `${siteUrl}/aircraft` },
+      { "@type": "ListItem", position: 3, name: entry.name, item: `${siteUrl}${entry.href}` },
+    ],
+  };
+
+  // Service: each category is a distinct service offering. Google
+  // uses this for the services panel + better matching against
+  // category-intent queries ("private heavy jet charter", etc.).
+  const serviceJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "Service",
+    serviceType: "Private aviation charter",
+    name: `JetNine ${entry.name} Charter`,
+    description: entry.lead.slice(0, 280),
+    provider: {
+      "@type": "Organization",
+      name: "JetNine",
+      url: siteUrl,
+    },
+    areaServed: { "@type": "Place", name: "Worldwide" },
+    url: `${siteUrl}${entry.href}`,
+  };
+
   return (
     <>
+      <script
+        type="application/ld+json"
+        // Built from FLEET catalog at build time — no user input, no XSS.
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(serviceJsonLd) }}
+      />
       {/* ─── Hero: split text + image ─── */}
       <section className="pt-[200px] pb-24 max-md:pt-[140px] max-md:pb-16">
         <div className="container-jn">

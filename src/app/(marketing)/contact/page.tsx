@@ -80,9 +80,60 @@ const FBOS = [
   { icao: "RJTT", fbo: "Universal Aviation Haneda", sub: "Tokyo, slot-restricted", city: "Tokyo, JP", notes: "Slot req'd · 96h notice" },
 ];
 
+// LocalBusiness JSON-LD. Schema.org subtype for a brick-and-mortar
+// or local-service-area business. Reinforces Organization on the root
+// layout with the specifically-local context — address, phone,
+// 24/7 dispatch hours — which Google uses for local-intent queries
+// (e.g. "private jet charter Los Angeles", "charter broker Van Nuys").
+const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL || "https://jetnine.com").replace(/\/$/, "");
+const localBusinessJsonLd = {
+  "@context": "https://schema.org",
+  "@type": "LocalBusiness",
+  "@id": `${siteUrl}/#localbusiness`,
+  name: "JetNine",
+  legalName: "JetNine LLC",
+  url: siteUrl,
+  telephone: SITE.dispatchPhoneE164,
+  email: "dispatch@jetnine.com",
+  description:
+    "Senior-dispatcher private aviation charter brokerage. Part 295 indirect air carrier on ARG/US Platinum Part 135 operators.",
+  address: {
+    "@type": "PostalAddress",
+    streetAddress: SITE.address.line1,
+    addressLocality: "Los Angeles",
+    addressRegion: "CA",
+    postalCode: "90077",
+    addressCountry: "US",
+  },
+  areaServed: { "@type": "Place", name: "Worldwide" },
+  openingHoursSpecification: [
+    {
+      "@type": "OpeningHoursSpecification",
+      dayOfWeek: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"],
+      opens: "00:00",
+      closes: "23:59",
+    },
+  ],
+  contactPoint: [
+    {
+      "@type": "ContactPoint",
+      telephone: SITE.dispatchPhoneE164,
+      contactType: "Dispatch",
+      areaServed: "Worldwide",
+      availableLanguage: ["English"],
+      hoursAvailable: "Mo-Su 00:00-23:59",
+    },
+  ],
+};
+
 export default function ContactPage() {
   return (
     <>
+      <script
+        type="application/ld+json"
+        // Built from SITE constants at build time — no user input, no XSS.
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(localBusinessJsonLd) }}
+      />
       <PageHeader
         kicker="Contact dispatch"
         title="One desk. One number. Open every hour of every day."

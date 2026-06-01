@@ -16,7 +16,12 @@ export function DiscretionSplit() {
             </Reveal>
           </div>
           <Reveal stagger={1}>
-            <Placeholder caption="— TAIL, NIGHT TARMAC" aspect="4/5" />
+            <Placeholder
+              caption="— TAIL, NIGHT TARMAC"
+              aspect="4/5"
+              imageUrl="/images/discretion/tail-night.webp"
+              sizes="(max-width: 1024px) 100vw, 50vw"
+            />
           </Reveal>
         </div>
       </div>

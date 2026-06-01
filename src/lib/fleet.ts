@@ -56,6 +56,10 @@ export type FleetEntry = {
   speedKt: number;
   enduranceHr: string;
   sampleAircraft: string[];
+  /** Path under /public for the category thumbnail. The Placeholder
+   *  component falls back to its CSS gradient if the file is missing,
+   *  so it's safe to ship paths before the assets land. */
+  imageUrl?: string;
 
   // Category-detail content
   index: number; // 1-based position in the lineup
@@ -107,6 +111,7 @@ export const FLEET: FleetEntry[] = [
     speedKt: 290,
     enduranceHr: "~4 HR",
     sampleAircraft: ["King Air 350", "Pilatus PC-12"],
+    imageUrl: "/images/fleet/turboprop.webp",
 
     index: 1,
     total: TOTAL_CATEGORIES,
@@ -221,6 +226,7 @@ export const FLEET: FleetEntry[] = [
     speedKt: 410,
     enduranceHr: "~3.5 HR",
     sampleAircraft: ["Phenom 300", "Citation CJ3+"],
+    imageUrl: "/images/fleet/light.webp",
 
     index: 2,
     total: TOTAL_CATEGORIES,
@@ -335,6 +341,7 @@ export const FLEET: FleetEntry[] = [
     speedKt: 430,
     enduranceHr: "~5 HR",
     sampleAircraft: ["Citation XLS+", "Hawker 900XP"],
+    imageUrl: "/images/fleet/midsize.webp",
 
     index: 3,
     total: TOTAL_CATEGORIES,
@@ -449,6 +456,7 @@ export const FLEET: FleetEntry[] = [
     speedKt: 490,
     enduranceHr: "~7 HR",
     sampleAircraft: ["Challenger 350", "Citation Longitude"],
+    imageUrl: "/images/fleet/supermid.webp",
 
     index: 4,
     total: TOTAL_CATEGORIES,
@@ -563,6 +571,7 @@ export const FLEET: FleetEntry[] = [
     speedKt: 490,
     enduranceHr: "~9 HR",
     sampleAircraft: ["Falcon 2000", "Gulfstream G450"],
+    imageUrl: "/images/fleet/heavy.webp",
 
     index: 5,
     total: TOTAL_CATEGORIES,
@@ -677,6 +686,7 @@ export const FLEET: FleetEntry[] = [
     speedKt: 516,
     enduranceHr: "~14 HR",
     sampleAircraft: ["Gulfstream G650", "Global 7500"],
+    imageUrl: "/images/fleet/ultra.webp",
 
     index: 6,
     total: TOTAL_CATEGORIES,

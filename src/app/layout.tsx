@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Fraunces, Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 
@@ -78,6 +78,14 @@ export const metadata: Metadata = {
   },
 };
 
+// Mobile browser chrome (iOS status bar, Android URL bar background)
+// pulls from theme-color. Match the brand ink so the chrome blends
+// rather than showing the default white strip above the page.
+export const viewport: Viewport = {
+  themeColor: "#07080A",
+  colorScheme: "dark",
+};
+
 // JSON-LD structured data. Organization schema gives Google a hook for
 // the knowledge panel. No `address` because we're a broker (no
 // public-facing terminal); contact is the dispatch line.
@@ -103,6 +111,11 @@ const organizationJsonLd = {
 };
 
 const plausibleDomain = process.env.NEXT_PUBLIC_PLAUSIBLE_DOMAIN;
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+// Supabase requests use the project's REST + Realtime hosts. preconnect
+// kicks off the DNS + TLS handshake at HTML parse time so the first
+// auth check on /account, /admin, /quote etc. doesn't pay that cost.
+const supabaseOrigin = supabaseUrl ? new URL(supabaseUrl).origin : null;
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -111,6 +124,22 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       className={`${fraunces.variable} ${inter.variable} ${jetbrainsMono.variable}`}
     >
       <head>
+        {/* Connection hints — start TLS handshakes for third-party
+            origins early so the first request to each doesn't pay the
+            ~100-300ms handshake cost on top of the actual response. */}
+        {supabaseOrigin ? (
+          <>
+            <link rel="preconnect" href={supabaseOrigin} crossOrigin="anonymous" />
+            <link rel="dns-prefetch" href={supabaseOrigin} />
+          </>
+        ) : null}
+        {plausibleDomain ? (
+          <>
+            <link rel="preconnect" href="https://plausible.io" crossOrigin="anonymous" />
+            <link rel="dns-prefetch" href="https://plausible.io" />
+          </>
+        ) : null}
+
         {/* Plausible — cookieless, privacy-friendly analytics. Conditional
             on env so localhost / preview deploys stay clean. CSP allows
             plausible.io unconditionally; the script just doesn't load

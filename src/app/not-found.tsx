@@ -1,4 +1,14 @@
 import Link from "next/link";
+import type { Metadata } from "next";
+
+// Tell Google not to index 404 pages. Without this, the root layout's
+// robots: { index: true } cascades and Search Console eventually
+// flags every 404 hit as an indexable page (then de-indexes them with
+// a soft-404 warning). Explicit noindex skips that cycle entirely.
+export const metadata: Metadata = {
+  title: "Page not found",
+  robots: { index: false, follow: false },
+};
 
 export default function NotFound() {
   return (

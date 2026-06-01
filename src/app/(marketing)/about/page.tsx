@@ -75,9 +75,42 @@ const PRESS = [
   { source: "FlightGlobal", year: "2022", quote: "Tighter operator vetting than most direct Part 135 carriers." },
 ];
 
+// AboutPage + Person schema. AboutPage links the page to the
+// Organization (declared on the root layout) so Google can connect
+// the dots between 'JetNine' as an entity and this page as its
+// authoritative about source. Person entries for the founders give
+// the company named principals — useful for the knowledge panel and
+// for 'who founded JetNine' queries.
+const aboutJsonLd = {
+  "@context": "https://schema.org",
+  "@type": "AboutPage",
+  name: "About JetNine",
+  description:
+    "JetNine is a senior-dispatcher charter brokerage in Los Angeles. Roughly 6,200 flights a year, almost all by referral.",
+  mainEntity: {
+    "@type": "Organization",
+    name: "JetNine",
+    legalName: "JetNine LLC",
+    foundingDate: "2014",
+    foundingLocation: { "@type": "Place", name: "Los Angeles, CA" },
+    founder: FOUNDERS.map((f) => ({
+      "@type": "Person",
+      name: f.name,
+      jobTitle: f.role,
+      worksFor: { "@type": "Organization", name: "JetNine" },
+    })),
+    numberOfEmployees: { "@type": "QuantitativeValue", value: 21 },
+  },
+};
+
 export default function AboutPage() {
   return (
     <>
+      <script
+        type="application/ld+json"
+        // Built from FOUNDERS catalog at build time — no user input, no XSS.
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(aboutJsonLd) }}
+      />
       {/* Hero — split text + stats */}
       <header className="border-b border-ink-3 bg-ink pt-[200px] pb-24 max-md:pt-[140px] max-md:pb-16">
         <div className="container-jn grid gap-16 lg:grid-cols-[1.2fr_1fr]">

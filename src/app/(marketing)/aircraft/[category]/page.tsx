@@ -129,6 +129,8 @@ export default async function AircraftCategoryPage({ params }: RouteParams) {
                 caption={entry.heroImageCaption.replace(/^— /, "")}
                 aspect="4/5"
                 imageUrl={entry.imageUrl}
+                priority
+                sizes="(max-width: 1024px) 100vw, 45vw"
                 className="rounded-[4px] border border-ink-3"
               />
             </Reveal>

@@ -11,6 +11,8 @@ export const metadata: Metadata = pageMetadata({
   description:
     "The floor is high. The ceiling is mandatory. Every operator audited every twelve months, with spot-checks in between.",
   path: "/safety",
+  image: "/images/fleet/heavy.webp",
+  imageAlt: "JetNine safety — Gulfstream G450 banking against cloudscape",
 });
 
 const ACCREDITATIONS = [

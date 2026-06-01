@@ -23,6 +23,8 @@ export async function generateMetadata({ params }: RouteParams): Promise<Metadat
     title: entry.name,
     description: entry.lead.slice(0, 160),
     path: entry.href,
+    image: entry.imageUrl,
+    imageAlt: `JetNine ${entry.name.toLowerCase()} category — ${entry.heroImageCaption.replace(/^— /, "").toLowerCase()}`,
   });
 }
 

@@ -6,7 +6,6 @@ import { HowItWorks } from "@/components/home/how-it-works";
 import { ValueProps } from "@/components/home/value-props";
 import { FleetPreview } from "@/components/home/fleet-preview";
 import { DiscretionSplit } from "@/components/home/discretion-split";
-import { PressAndTestimonials } from "@/components/home/press-and-testimonials";
 import { FinalCTA } from "@/components/home/final-cta";
 
 export default function HomePage() {
@@ -20,7 +19,6 @@ export default function HomePage() {
       <ValueProps />
       <FleetPreview />
       <DiscretionSplit />
-      <PressAndTestimonials />
       <FinalCTA />
     </>
   );

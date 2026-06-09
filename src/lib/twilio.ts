@@ -233,6 +233,6 @@ export async function sendTripStatusSms(args: {
   const itinerary = args.firstLeg ? ` (${args.firstLeg})` : "";
   const body =
     `[${args.tripCode}] ${headline}${itinerary} ` +
-    `Dispatch: +1 (888) 847-5669 · 24/7. Reply here to reach us.`;
+    `Dispatch: +1 (818) 900-5278 · 24/7. Reply here to reach us.`;
   return sendSms({ to: args.to, body });
 }

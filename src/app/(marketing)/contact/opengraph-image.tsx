@@ -13,7 +13,7 @@ export default function OgImage() {
       title: "One desk. One number. Always.",
       lead: "Senior dispatcher picks up — average pick-up under twenty seconds. Open every hour of every day.",
       bgImageUrl: `${siteBase()}/images/about/dispatch-room.webp`,
-      bottomLeft: "+1 (888) 847-5669",
+      bottomLeft: "+1 (818) 900-5278",
     }),
     { ...size },
   );

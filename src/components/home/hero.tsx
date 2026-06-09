@@ -44,7 +44,7 @@ export function Hero() {
       <div className="relative z-10 mx-auto w-full max-w-container px-[var(--pad-x)]">
         <Reveal stagger={1} className="mb-8 inline-flex items-center gap-3.5 font-mono text-[11px] uppercase tracking-[0.16em] text-bone-2">
           <span className="block h-px w-8 bg-clearance" />
-          EST. 2025 — LOS ANGELES
+          EST. 2026 — LOS ANGELES
         </Reveal>
         <Reveal stagger={2} as="h1" className="display-xl max-w-[16ch] text-bone">
           Ready when

@@ -19,7 +19,7 @@ export function GET(): Response {
     "# https://datatracker.ietf.org/doc/html/rfc9116",
     "",
     "Contact: mailto:dispatch@jetnine.com",
-    "Contact: tel:+1-888-847-5669",
+    "Contact: tel:+1-818-900-5278",
     `Expires: ${expires}`,
     "Preferred-Languages: en",
     "Canonical: https://jetnine.com/.well-known/security.txt",

@@ -11,7 +11,7 @@ export default function OgImage() {
     ogCardJsx({
       kicker: "About JetNine",
       title: "A small company built on one phone number.",
-      lead: "Senior-dispatcher charter brokerage in Los Angeles. Roughly 6,200 flights a year, almost all by referral.",
+      lead: "Senior-dispatcher charter brokerage in Los Angeles. One number, one desk, ready when you are.",
       bgImageUrl: `${siteBase()}/images/about/dispatch-room.webp`,
     }),
     { ...size },

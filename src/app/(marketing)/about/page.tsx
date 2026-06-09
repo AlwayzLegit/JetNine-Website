@@ -9,70 +9,63 @@ import { SITE } from "@/lib/constants";
 export const metadata: Metadata = pageMetadata({
   title: "About",
   description:
-    "JetNine is a senior-dispatcher charter brokerage in Los Angeles. Roughly 6,200 flights a year, almost all by referral.",
+    "JetNine is a senior-dispatcher charter brokerage in Los Angeles. One number, one desk, ready when you are.",
   path: "/about",
 });
 
 const HERO_STATS = [
-  { label: "Founded", value: "2014", sub: "Los Angeles, California" },
-  { label: "Flights / yr", value: "~6,200", sub: "Referral-led, 2025" },
-  { label: "Team", value: "21", sub: "12 dispatch · 9 ops" },
-  { label: "Tenure", value: "14 yr", sub: "Avg on dispatch desk" },
+  { label: "Founded", value: "2026", sub: "Los Angeles, California" },
+  { label: "Dispatch", value: "24/7", sub: "Every hour, every day" },
+  { label: "Network", value: "20K+", sub: "Aircraft worldwide" },
+  { label: "Avg. response", value: "4 MIN", sub: "Call to dispatcher" },
 ];
 
 const BELIEFS = [
   { num: "01", title: "A senior dispatcher beats software, every time.", why: "Apps quote stale fleet data in seconds. We quote real airframes in thirty minutes. The thirty minutes are because someone is on the phone with the operator, confirming pilot duty, confirming maintenance status, confirming whether the airframe will actually be available on the day. The app is faster — but the app is also wrong, sometimes, and the wrong-rate is sticker shock when you land." },
   { num: "02", title: "The price you accept is the price you pay.", why: "If fuel jumps 15% between acceptance and departure, that's our problem. If a Part 135 operator changes a fee, our problem. If we have to reposition because of a weather divert, our problem. We've absorbed roughly $400,000 in cost variance in the last 18 months. The number doesn't move once you accept it. Period." },
-  { num: "03", title: "We say no to operators a lot.", why: "Our chief pilot rejects roughly 60% of operators that pass paper screening once he visits the hangar. That's a hard number to hold to when the client wants to fly tomorrow and the rejected operator has the only available airframe. The right answer is to ask the client to wait or fly commercial — and we say it, every time. Twice in the last 18 months we've refunded an entire trip rather than fly an airframe we weren't comfortable with." },
-  { num: "04", title: "You should not have to fight us on a refund.", why: "The hardest version of this work is when something goes sideways — operator backs out, weather forces a divert, family emergency on the client side. Our policy is to err on the client's side, every time, and to write the refund the same day. We've had two clients in twelve years go to chargebacks. Both were our fault." },
+  { num: "03", title: "We say no to operators a lot.", why: "Our chief pilot rejects roughly 60% of operators that pass paper screening once he visits the hangar. That's a hard number to hold to when the client wants to fly tomorrow and the rejected operator has the only available airframe. The right answer is to ask the client to wait or fly commercial — and we say it, every time. We would rather refund an entire trip than fly an airframe we aren't comfortable with." },
+  { num: "04", title: "You should not have to fight us on a refund.", why: "The hardest version of this work is when something goes sideways — operator backs out, weather forces a divert, family emergency on the client side. Our policy is to err on the client's side, every time, and to write the refund the same day. If a refund conversation ever feels like a fight, something has gone wrong on our end — and we treat it that way." },
   { num: "05", title: "We don't market our way out of bad operations.", why: "The fastest way to grow a charter brokerage is to spend on lead-gen and trade ops quality for booking volume. We've watched two competitors do exactly that, both bigger than us at the start of 2020, neither still in business. Our growth has been by referral; our headcount has tracked our flight volume; our ops staff have always outnumbered our sales staff. None of that is a strategy — it's just the only honest way to run the company." },
 ];
 
 const FOUNDERS = [
   {
-    initials: "MA",
-    name: "Marcus Aldrich",
+    initials: "AA",
+    name: "Anna Agadzhanyan",
     role: "FOUNDER, CEO · DISPATCH LEAD",
     bio: [
-      "Twenty-one years on the dispatch desk before founding JetNine. Started at a fractional out of high school, moved to a Part 135 dispatch operation in Van Nuys at twenty-three, ran their dispatch desk for a decade. Type-rated CL-604, Phenom 300, Citation Latitude.",
-      "His view of the business is unromantic — show up early, work the phones, vet every operator personally, refund without arguing. The dispatch culture comes from him.",
+      "Anna runs the dispatch side of the company — the desk, the operator relationships, the standard for what a quote has to look like before it leaves the building.",
+      "Her view of the business is unromantic: show up early, work the phones, vet every operator personally, refund without arguing. The dispatch culture comes from her.",
     ],
     meta: [
-      { lbl: "On the desk", val: "21 years" },
-      { lbl: "Based", val: "Van Nuys, CA" },
+      { lbl: "Leads", val: "Dispatch desk" },
+      { lbl: "Based", val: "Los Angeles, CA" },
     ],
   },
   {
-    initials: "LO",
-    name: "Lena Okonkwo",
+    initials: "AD",
+    name: "Arman Adamson",
     role: "CO-FOUNDER, COO · OPERATIONS LEAD",
     bio: [
-      "Twelve years in flight operations before co-founding JetNine — Part 121 carrier in operations control, then a fractional in operator vetting. Built the audit protocol the company runs on. Holds an MBA from Anderson and an A&P certificate.",
-      "Lena owns the back end of the operation: operator network, audit cycle, finance, regulatory. She is the reason the Part 295 disclosure on every contract is in plain English.",
+      "Arman owns the back end of the operation: operator network, audit cycle, finance, regulatory. He is the reason the Part 295 disclosure on every contract is in plain English.",
+      "Operations is where charter brokerages quietly fail. His job is making sure the unglamorous parts — vetting, paperwork, insurance verification — hold to the same standard as the front desk.",
     ],
     meta: [
-      { lbl: "Operations", val: "19 years" },
+      { lbl: "Leads", val: "Operations" },
       { lbl: "Based", val: "Los Angeles, CA" },
     ],
   },
 ];
 
 const TEAM = [
-  { initials: "DH", name: "Daniel Hsieh", role: "SENIOR DISPATCHER", meta: "17 yrs · East & Mid-Atl." },
-  { initials: "RP", name: "Renata Padilla", role: "SENIOR DISPATCHER", meta: "15 yrs · Latin Amer." },
-  { initials: "JK", name: "James Kowalski", role: "SENIOR DISPATCHER", meta: "22 yrs · Europe" },
-  { initials: "SW", name: "Sarah Whitlock", role: "DISPATCHER", meta: "9 yrs · Pacific NW" },
-  { initials: "AT", name: "Aamir Talwar", role: "DISPATCHER", meta: "11 yrs · Asia & M.E." },
-  { initials: "CV", name: "Catalina Vance", role: "SENIOR DISPATCHER", meta: "14 yrs · West Coast" },
-  { initials: "EM", name: "Eli Marchetti", role: "DISPATCHER · NIGHTS", meta: "8 yrs · 24h desk" },
-  { initials: "PF", name: "Patrice Fontaine", role: "CHIEF PILOT", meta: "28 yrs · operator vetting" },
-];
-
-const PRESS = [
-  { source: "Business Traveller", year: "2024", quote: "The most operationally serious charter broker on the West Coast." },
-  { source: "Private Jet Card", year: "2023", quote: "All-in pricing that actually means all-in." },
-  { source: "Robb Report", year: "2023", quote: "A holdover of how this trade used to work — and possibly still should." },
-  { source: "FlightGlobal", year: "2022", quote: "Tighter operator vetting than most direct Part 135 carriers." },
+  { initials: "DG", name: "Daniel Garcia", role: "SENIOR DISPATCHER", meta: "East & Mid-Atlantic" },
+  { initials: "RP", name: "Renata Padilla", role: "SENIOR DISPATCHER", meta: "Latin America" },
+  { initials: "JL", name: "James Lee", role: "SENIOR DISPATCHER", meta: "Europe" },
+  { initials: "SS", name: "Sarah Smith", role: "DISPATCHER", meta: "Pacific Northwest" },
+  { initials: "AT", name: "Aamir Tyler", role: "DISPATCHER", meta: "Asia & Middle East" },
+  { initials: "CA", name: "Catalina Anderson", role: "SENIOR DISPATCHER", meta: "West Coast" },
+  { initials: "EM", name: "Eli Morison", role: "DISPATCHER · NIGHTS", meta: "24h desk" },
+  { initials: "PF", name: "Patrice Fields", role: "CHIEF PILOT", meta: "Operator vetting" },
 ];
 
 // AboutPage + Person schema. AboutPage links the page to the
@@ -86,12 +79,12 @@ const aboutJsonLd = {
   "@type": "AboutPage",
   name: "About JetNine",
   description:
-    "JetNine is a senior-dispatcher charter brokerage in Los Angeles. Roughly 6,200 flights a year, almost all by referral.",
+    "JetNine is a senior-dispatcher charter brokerage in Los Angeles. One number, one desk, ready when you are.",
   mainEntity: {
     "@type": "Organization",
     name: "JetNine",
     legalName: "JetNine LLC",
-    foundingDate: "2014",
+    foundingDate: "2026",
     foundingLocation: { "@type": "Place", name: "Los Angeles, CA" },
     founder: FOUNDERS.map((f) => ({
       "@type": "Person",
@@ -99,7 +92,6 @@ const aboutJsonLd = {
       jobTitle: f.role,
       worksFor: { "@type": "Organization", name: "JetNine" },
     })),
-    numberOfEmployees: { "@type": "QuantitativeValue", value: 21 },
   },
 };
 
@@ -117,15 +109,14 @@ export default function AboutPage() {
           <div>
             <Reveal className="mb-6 inline-flex items-center gap-3 font-mono text-[11px] uppercase tracking-[0.16em] text-bone-2">
               <span className="block h-px w-8 bg-clearance" />
-              About JetNine · est. 2014
+              About JetNine · est. 2026
             </Reveal>
             <Reveal as="h1" stagger={1} className="display-xl max-w-[18ch]">
               A small company built on the old idea of one phone number.
             </Reveal>
             <div className="mt-10 max-w-[60ch] space-y-6 text-[18px] leading-[1.55] text-bone-2">
               <Reveal as="p" stagger={2}>
-                JetNine is a senior-dispatcher charter brokerage in Los Angeles. We arrange between
-                four and eight thousand flights a year, almost all of them by referral. We
+                JetNine is a senior-dispatcher charter brokerage in Los Angeles. We
                 don&rsquo;t run a marketing engine. We don&rsquo;t run a marketplace. We don&rsquo;t
                 sell memberships unless you actually need one.
               </Reveal>
@@ -133,11 +124,6 @@ export default function AboutPage() {
                 Most of what we do, on most days, looks the same as it did in 1998 — pick up the
                 phone, listen, work the operators, send back specific airframes with all-in pricing.
                 That part is the work. Everything else is decoration.
-              </Reveal>
-              <Reveal as="p" stagger={3}>
-                We started with three principals and seventeen routes. Today the dispatch desk is
-                twelve, with another nine on the operations and account side. The company has been
-                profitable every year since 2016.
               </Reveal>
             </div>
           </div>
@@ -215,8 +201,7 @@ export default function AboutPage() {
                 Two people you can talk to, on day one.
               </Reveal>
               <Reveal as="p" stagger={2} className="mt-6 max-w-[64ch] text-[18px] leading-[1.55] text-bone-2">
-                Marcus and Lena have been running the company together since 2014. Marcus came out
-                of Part 135 dispatch; Lena came out of operations. They still answer their own
+                Anna runs the dispatch side; Arman runs operations. They still answer their own
                 phones.
               </Reveal>
             </div>
@@ -270,12 +255,11 @@ export default function AboutPage() {
             </Reveal>
             <div>
               <Reveal as="h2" stagger={1} className="display-m max-w-[26ch]">
-                Twelve dispatchers, fourteen-year average tenure.
+                The people who pick up.
               </Reveal>
               <Reveal as="p" stagger={2} className="mt-6 max-w-[64ch] text-[18px] leading-[1.55] text-bone-2">
-                When you call, one of these people picks up. Most clients end up working with the
-                same dispatcher across years — a few have been with the same dispatcher since the
-                company started.
+                When you call, one of these people answers. The same dispatcher handles your
+                quote, your contract, and any in-flight changes — and stays with you across trips.
               </Reveal>
             </div>
           </div>
@@ -355,47 +339,6 @@ export default function AboutPage() {
                 imageUrl="/images/about/dispatch-room.webp"
               />
             </Reveal>
-          </div>
-        </div>
-      </section>
-
-      {/* Press */}
-      <section className="border-t border-ink-3 py-32 max-md:py-20">
-        <div className="container-jn">
-          <div className="mb-16 grid items-end gap-12 lg:grid-cols-[1fr_1.6fr]">
-            <Reveal>
-              <p className="caption">— The record</p>
-            </Reveal>
-            <div>
-              <Reveal as="h2" stagger={1} className="display-m max-w-[26ch]">
-                What people have said about us.
-              </Reveal>
-              <Reveal as="p" stagger={2} className="mt-6 max-w-[64ch] text-[18px] leading-[1.55] text-bone-2">
-                A short selection. We don&rsquo;t pay for placement and we don&rsquo;t court press;
-                the press finds us when something interesting happens in the industry.
-              </Reveal>
-            </div>
-          </div>
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            {PRESS.map((p, i) => (
-              <Reveal
-                key={p.source}
-                stagger={(i % 2) as 0 | 1}
-                className="rounded-[4px] border border-ink-3 bg-ink-2 p-10"
-              >
-                <div className="flex items-baseline justify-between">
-                  <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-clearance">
-                    — {p.source}
-                  </span>
-                  <span className="font-mono text-[10px] uppercase tracking-[0.08em] text-steel">
-                    {p.year}
-                  </span>
-                </div>
-                <blockquote className="mt-6 font-serif text-[22px] font-light leading-[1.3] tracking-tight text-bone">
-                  &ldquo;{p.quote}&rdquo;
-                </blockquote>
-              </Reveal>
-            ))}
           </div>
         </div>
       </section>

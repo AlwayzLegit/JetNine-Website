@@ -28,7 +28,11 @@ test.describe("@prod-smoke quote wizard", () => {
 
     // ─── Mission ─────────────────────────────────────────────────────────
     await page.goto("/quote/mission");
-    await expect(page.getByText(/Where to/i).first()).toBeVisible({ timeout: 15_000 });
+    // The h1 reads "Where, when, how many." — match on the heading role
+    // so minor copy tweaks don't break the smoke again.
+    await expect(page.getByRole("heading", { name: /where/i }).first()).toBeVisible({
+      timeout: 15_000,
+    });
 
     // Trip type — pick One-way (matches the .id "oneway" pattern).
     await page.getByRole("button", { name: /one[-\s]?way/i }).first().click();

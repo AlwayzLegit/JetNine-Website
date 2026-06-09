@@ -99,7 +99,9 @@ test.describe("@prod-smoke quote wizard", () => {
     // Confirmation: the page either renders a thank-you with the quote
     // ref, or shows an error. Either way, assert no NETWORK / 500 leak.
     // Wait for the thank-you OR the error to land.
-    const success = page.getByText(/QT-\d{4}-\d+/);
+    // Quote codes are JN-YYYY-NNNNN (next_quote_code in migration 0003);
+    // QT- never existed in the DB and this matcher could never pass.
+    const success = page.getByText(/JN-\d{4}-\d+/);
     const errorBanner = page.locator('text=/RATE_LIMITED|NETWORK|MISSING_/');
 
     await expect(async () => {

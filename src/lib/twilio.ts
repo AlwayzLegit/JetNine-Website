@@ -1,5 +1,6 @@
 import "server-only";
 import { createHmac, timingSafeEqual } from "node:crypto";
+import { SITE } from "@/lib/constants";
 
 /**
  * Twilio outbound + inbound helpers. Ships dark when
@@ -233,6 +234,6 @@ export async function sendTripStatusSms(args: {
   const itinerary = args.firstLeg ? ` (${args.firstLeg})` : "";
   const body =
     `[${args.tripCode}] ${headline}${itinerary} ` +
-    `Dispatch: +1 (818) 900-5278 · 24/7. Reply here to reach us.`;
+    `Dispatch: ${SITE.dispatchPhone} · 24/7. Reply here to reach us.`;
   return sendSms({ to: args.to, body });
 }

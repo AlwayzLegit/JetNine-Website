@@ -61,12 +61,13 @@ Last major merge: PR #25 `fix(launch): replace all fabricated data`
 
 ## Known open items (not blockers)
 
-- **smoke Preview CI check:** root cause finally found 2026-06-09 —
-  `tsx` was never in devDependencies, so `pnpm smoke` died with
-  `tsx: not found` on every run (after the PR #16 URL fix and the
-  owner disabling deployment protection, the probe passed and THIS was
-  the remaining failure). Fixed by adding `tsx` as a devDependency;
-  verify the next deploy's smoke run goes green.
+- ~~smoke Preview CI check~~ — **GREEN as of 2026-06-09** (first green
+  run ever). Three stacked root causes fixed in order: `tsx` missing
+  from devDependencies (`tsx: not found` on every run), then two stale
+  e2e assertions — the mission heading is "Where, when, how many." not
+  "Where to", and quote codes are `JN-YYYY-NNNNN` not `QT-…` (the
+  success matcher could never pass). The e2e now submits real [SMOKE]
+  quotes end-to-end; rows land at status='cancelled' as designed.
 - **Contact-page KVNY map:** still CSS placeholder. AI maps draw the wrong
   runway layout (KVNY is parallel, models draw X). Needs Mapbox embed
   (API key) or hand-drawn SVG.

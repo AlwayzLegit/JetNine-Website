@@ -32,33 +32,41 @@ Last major merge: PR #25 `fix(launch): replace all fabricated data`
   **+1 (818) 900-5278**, founded **2026**, founders **Anna Agadzhanyan**
   (CEO · Dispatch) + **Arman Adamson** (COO · Operations).
 
-## MCP status (verify at session start with whoami-style calls)
+## MCP status (verified 2026-06-09 with whoami-style calls)
 
 | Service  | Status | Notes |
 |---|---|---|
-| Supabase | ✅ | org `Jetnine` → project `JetNine Website` (`szuztxfhkudcjzhrkfld`, us-east-2) |
-| Vercel   | ✅ | team `team_di6oiEhCIT17lNXsonHt3mSc` → `prj_fcimzGWfsLIjGlYvQU3kmipbactr` |
-| Sentry   | ✅ account / ⚠️ no project | org `jetnine` has only unrelated projects. **Create `jetnine-website` project, get DSN, add `NEXT_PUBLIC_SENTRY_DSN` + `SENTRY_DSN` to Vercel env.** App code already conditional on it. |
+| Supabase | ✅ | org `Jetnine` → project `JetNine Website` (`szuztxfhkudcjzhrkfld`, us-east-2, ACTIVE_HEALTHY) |
+| Vercel   | ✅ | team `team_di6oiEhCIT17lNXsonHt3mSc` → `prj_fcimzGWfsLIjGlYvQU3kmipbactr`. **MCP has no env-var tools** — all env values go in via the dashboard. |
+| Sentry   | ✅ account / ❌ blocked | Authenticated as anna@jetnine.com (member-level in org `jetnine`). `create_project` via MCP returns 403 "organization has disabled this feature for members". Owner must enable members-create-projects (Settings → General) or create `jetnine-website` in the UI; then DSN → Vercel env. |
 | GitHub   | ✅ | scoped to `AlwayzLegit/JetNine-Website` |
 | HuggingFace | ✅ | `AlwayzLegit` — image gen via FLUX Krea-Dev |
-| Stripe   | ❌ pending | Owner will connect MCP in fresh session. App-side: `/api/health` shows `stripe.configured: false`. Needs `STRIPE_SECRET_KEY` + `STRIPE_WEBHOOK_SECRET` in Vercel env; webhook route + money-path code already built and reviewed (PRs #11/#12). |
-| PostHog  | ❌ pending | Owner will connect MCP in fresh session. Site currently has Plausible wiring (env-gated, dark). **Ask owner: PostHog replaces Plausible or runs alongside?** CSP in `next.config.ts` must add PostHog hosts either way. |
+| Stripe   | ✅ **LIVE mode** | Account `acct_1TdCAEKCpHyfNVWt` "JetNine". MCP exposes neither secret keys nor webhook-endpoint management — both must come from the Dashboard. |
+| PostHog  | ✅ account / ⚠️ no project | Authenticated as anna@jetnine.com, org "alwayzlegit's projects" — zero projects, and the MCP has no project-create tool. Owner creates one at us.posthog.com. Decision made: **PostHog replaces Plausible**; client lib + CSP + health check wired this session (ships dark until `NEXT_PUBLIC_POSTHOG_KEY`). |
 
-## Immediate next tasks (fresh session)
+## Owner checklist (everything below is dashboard work; agent retries once unblocked)
 
-1. **Verify new MCPs** (Stripe, PostHog) are on the right accounts before touching anything.
-2. **Sentry:** create `jetnine-website` project in org `jetnine` via MCP → DSN → Vercel env → redeploy → verify `/api/health` shows sentry configured.
-3. **Stripe:** verify account via MCP; keys → Vercel env; configure webhook endpoint `https://jetnine.com/api/stripe/webhook`; flip through health check; run a test-mode checkout.
-4. **PostHog:** decide vs Plausible; wire client lib + CSP; add env vars.
-5. **Re-test:** `pnpm smoke` against prod (BASE_URL=https://jetnine.com) + the structured-data spot-checks in TESTING.md.
+1. **Sentry:** flip "Let Members Create Projects" at jetnine.sentry.io → Settings →
+   General (or create project `jetnine-website`, platform javascript-nextjs, yourself).
+   Then: DSN → Vercel env `NEXT_PUBLIC_SENTRY_DSN` + `SENTRY_DSN` → redeploy.
+2. **Stripe (live):** Dashboard → API keys → `STRIPE_SECRET_KEY` into Vercel env.
+   Dashboard → Webhooks → add `https://jetnine.com/api/stripe/webhook` with events
+   `checkout.session.completed`, `payment_intent.payment_failed`, `charge.refunded`
+   → signing secret into Vercel env `STRIPE_WEBHOOK_SECRET`. For a test-mode dry
+   run first, use `sk_test_…` + a test-mode webhook instead.
+3. **PostHog:** create project at us.posthog.com → Project API key into Vercel env
+   `NEXT_PUBLIC_POSTHOG_KEY` (`phc_…`). `NEXT_PUBLIC_POSTHOG_HOST` only if not US cloud.
+4. **Redeploy + verify:** `/api/health` should flip `sentry`/`stripe`/`posthog` to
+   configured; `/admin/health` shows per-row status with fix hints.
 
 ## Known open items (not blockers)
 
-- **smoke Preview CI check:** was red all session. Root causes fixed in
-  order: wrong URL field (PR #16), then deployment protection (owner
-  disabled it), diagnostics added (PR #18 — payload dump + reachability
-  probe as first workflow steps). Status unconfirmed since: check the
-  next PR's smoke run; the log now says exactly what's wrong if it fails.
+- **smoke Preview CI check:** root cause finally found 2026-06-09 —
+  `tsx` was never in devDependencies, so `pnpm smoke` died with
+  `tsx: not found` on every run (after the PR #16 URL fix and the
+  owner disabling deployment protection, the probe passed and THIS was
+  the remaining failure). Fixed by adding `tsx` as a devDependency;
+  verify the next deploy's smoke run goes green.
 - **Contact-page KVNY map:** still CSS placeholder. AI maps draw the wrong
   runway layout (KVNY is parallel, models draw X). Needs Mapbox embed
   (API key) or hand-drawn SVG.
@@ -70,10 +78,9 @@ Last major merge: PR #25 `fix(launch): replace all fabricated data`
   on-duty API.
 - **Memberships pricing:** owner said "use these for now, we will change
   later" — flag for revisit before serious traffic.
-- **Hardcoded dispatch number in lib templates:** `src/lib/email.ts` and
-  `src/lib/twilio.ts` carry the number as string literals (now the real
-  one). Consider importing from `src/lib/constants.ts` to keep single
-  source of truth.
+- ~~Hardcoded dispatch number in lib templates~~ — done 2026-06-09;
+  `email.ts` / `twilio.ts` now interpolate `SITE.dispatchPhone` from
+  `src/lib/constants.ts`.
 
 ## Working conventions this repo expects
 

@@ -22,7 +22,7 @@ export type HealthSnapshot = {
     email: CheckResult;
     twilio: CheckResult;
     sentry: CheckResult;
-    plausible: CheckResult;
+    posthog: CheckResult;
   };
   timestamp: string;
 };
@@ -107,10 +107,10 @@ export function checkSentry(): CheckResult {
   };
 }
 
-export function checkPlausible(): CheckResult {
+export function checkPosthog(): CheckResult {
   return {
     ok: true,
-    configured: Boolean(process.env.NEXT_PUBLIC_PLAUSIBLE_DOMAIN),
+    configured: Boolean(process.env.NEXT_PUBLIC_POSTHOG_KEY),
   };
 }
 
@@ -121,16 +121,16 @@ export async function snapshot(): Promise<HealthSnapshot> {
     (process.env.VERCEL_GIT_COMMIT_SHA ?? process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA ?? "")
       .slice(0, 12) || "unknown";
 
-  const [db, stripe, email, twilio, sentry, plausible] = await Promise.all([
+  const [db, stripe, email, twilio, sentry, posthog] = await Promise.all([
     checkDb(),
     Promise.resolve(checkStripe()),
     Promise.resolve(checkEmail()),
     Promise.resolve(checkTwilio()),
     Promise.resolve(checkSentry()),
-    Promise.resolve(checkPlausible()),
+    Promise.resolve(checkPosthog()),
   ]);
 
-  const checks = { db, stripe, email, twilio, sentry, plausible };
+  const checks = { db, stripe, email, twilio, sentry, posthog };
   const ok = db.ok;
   const allOptionalsConfigured =
     Boolean(stripe.configured) &&

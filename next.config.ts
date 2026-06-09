@@ -22,16 +22,17 @@ const supabaseHost = (() => {
 //   - 'unsafe-inline' for style-src covers Tailwind's component primitives
 //     in globals.css and inline `style={...}` props the design system uses.
 //   - connect-src whitelists the Supabase REST + Realtime sockets.
-//   - plausible.io is allowed unconditionally; the script only loads when
-//     NEXT_PUBLIC_PLAUSIBLE_DOMAIN is set on the page side, so the policy
-//     entry is a no-op when analytics is dark.
+//   - PostHog hosts are allowed unconditionally; the SDK only initializes
+//     when NEXT_PUBLIC_POSTHOG_KEY is set (instrumentation-client.ts), so
+//     the policy entries are a no-op when analytics is dark. us-assets
+//     serves the SDK's lazy-loaded chunks; us.i is event ingest.
 const csp = [
   "default-src 'self'",
-  "script-src 'self' 'unsafe-inline' https://plausible.io",
+  "script-src 'self' 'unsafe-inline' https://us-assets.i.posthog.com",
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   "font-src 'self' data: https://fonts.gstatic.com",
   `img-src 'self' data: blob: https://jetnine.com https://${supabaseHost}`,
-  `connect-src 'self' https://${supabaseHost} wss://${supabaseHost} https://plausible.io`,
+  `connect-src 'self' https://${supabaseHost} wss://${supabaseHost} https://us.i.posthog.com https://us-assets.i.posthog.com`,
   "frame-ancestors 'none'",
   "base-uri 'self'",
   "form-action 'self'",

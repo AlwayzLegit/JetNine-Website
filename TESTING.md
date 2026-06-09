@@ -86,7 +86,7 @@ the prod environment.
   `STRIPE_NOT_CONFIGURED`. Skip money-path testing entirely.
 - **Phase 7 Twilio** — no SMS / WhatsApp send. Skip dispatcher SMS
   channels.
-- **Phase 8 Plausible**, **Phase 9 Search Console**, **Phase 10
+- **Phase 8 PostHog**, **Phase 9 Search Console**, **Phase 10
   Custom domain** — visible-but-cosmetic. Note absence; don't fail
   tests on them.
 
@@ -246,7 +246,7 @@ allowlist fix.
 
 | # | Step | Expected |
 |---|---|---|
-| 7.1 | `/admin/health` page or `/api/health` JSON | Shape: `{ status, db: { ok, latencyMs }, stripe, email, twilio, sentry, plausible }` |
+| 7.1 | `/admin/health` page or `/api/health` JSON | Shape: `{ status, db: { ok, latencyMs }, stripe, email, twilio, sentry, posthog }` |
 | 7.2 | `db.ok === true`, `db.latencyMs < 500` | Verified |
 | 7.3 | `email.outbound.provider === 'resend'` | Confirms Phase 5 wired (post-redeploy) |
 | 7.4 | `stripe.configured === false` | Expected (Phase 4 not wired) |

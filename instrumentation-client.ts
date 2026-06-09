@@ -24,6 +24,22 @@ if (typeof window !== "undefined" && dsn) {
   });
 }
 
+// PostHog product analytics, same dynamic-import treatment as Sentry —
+// the SDK chunk only downloads when a key is configured, and marketing
+// pages don't carry it in their shared bundle. The `defaults` date opts
+// into history-API pageview capture, so App Router client navigations
+// count without a manual capture call on every route change.
+const posthogKey = process.env.NEXT_PUBLIC_POSTHOG_KEY;
+
+if (typeof window !== "undefined" && posthogKey) {
+  void import("posthog-js").then(({ default: posthog }) => {
+    posthog.init(posthogKey, {
+      api_host: process.env.NEXT_PUBLIC_POSTHOG_HOST ?? "https://us.i.posthog.com",
+      defaults: "2025-05-24",
+    });
+  });
+}
+
 // Next.js calls this on every App Router navigation. We delegate to
 // Sentry once it's loaded; before that, it's a no-op (early-load
 // navigations are uncommon and lose only a trace, not an error).

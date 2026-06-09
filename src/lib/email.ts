@@ -15,6 +15,8 @@
  *   bundle size flat and makes provider-swap trivial.
  */
 
+import { SITE } from "@/lib/constants";
+
 type EmailPayload = {
   to: string | string[];
   subject: string;
@@ -275,7 +277,7 @@ export async function sendThreadMessageEmail(ctx: ThreadEmailContext): Promise<S
     : `[${ctx.subjectCode}] JetNine dispatch`;
 
   const signature = ctx.fromName ? `${ctx.fromName} · JetNine dispatch` : "JetNine dispatch";
-  const text = [ctx.body, "", "—", signature, "+1 (818) 900-5278 · 24/7"].join("\n");
+  const text = [ctx.body, "", "—", signature, `${SITE.dispatchPhone} · 24/7`].join("\n");
 
   // Preserve dispatcher's line breaks. Wrap each non-empty line; render
   // blank lines as a small vertical gap.
@@ -295,7 +297,7 @@ export async function sendThreadMessageEmail(ctx: ThreadEmailContext): Promise<S
       <hr style="margin:32px 0 16px;border:none;border-top:1px solid #E5E7EB;"/>
       <p style="margin:0;font-size:12px;color:#6B7280;">
         ${escapeHtml(signature)}<br/>
-        <a href="tel:+18189005278" style="color:#0F1115;">+1 (818) 900-5278</a> · 24/7
+        <a href="tel:${SITE.dispatchPhoneE164}" style="color:#0F1115;">${SITE.dispatchPhone}</a> · 24/7
       </p>
       <p style="margin:24px 0 0;font-size:10px;color:#9CA3AF;line-height:1.6;">
         JetNine LLC · 14 CFR Part 295 indirect air carrier.
@@ -423,7 +425,7 @@ export async function sendTripStatusEmail(ctx: TripStatusContext): Promise<SendR
     noteText,
     `Reference: ${ctx.tripCode}`,
     ``,
-    `Dispatch is on +1 (818) 900-5278, 24/7.`,
+    `Dispatch is on ${SITE.dispatchPhone}, 24/7.`,
     ``,
     `JetNine LLC · 14 CFR Part 295 indirect air carrier.`,
   ].join("\n");
@@ -452,7 +454,7 @@ export async function sendTripStatusEmail(ctx: TripStatusContext): Promise<SendR
       <hr style="margin:32px 0 16px;border:none;border-top:1px solid #E5E7EB;"/>
       <p style="margin:0;font-size:12px;color:#6B7280;">
         JetNine dispatch<br/>
-        <a href="tel:+18189005278" style="color:#0F1115;">+1 (818) 900-5278</a> · 24/7
+        <a href="tel:${SITE.dispatchPhoneE164}" style="color:#0F1115;">${SITE.dispatchPhone}</a> · 24/7
       </p>
       <p style="margin:24px 0 0;font-size:10px;color:#9CA3AF;line-height:1.6;">
         JetNine LLC · 14 CFR Part 295 indirect air carrier.

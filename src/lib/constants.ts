@@ -1,8 +1,8 @@
 export const SITE = {
   brand: "JetNine",
   brandSuffix: "09",
-  dispatchPhone: "+1 (818) 800-5678",
-  dispatchPhoneE164: "+18188005678",
+  dispatchPhone: "+1 (818) 900-5278",
+  dispatchPhoneE164: "+18189005278",
   email: "info@jetnine.com",
   address: {
     line1: "2934 Beverly Glen Circle #123",
@@ -10,7 +10,7 @@ export const SITE = {
   },
   legal: {
     part295: "JetNine is an indirect air carrier — Part 295 broker. All flights operated by FAA Part 135 certified carriers.",
-    foundedYear: 2025,
+    foundedYear: 2026,
   },
 } as const;
 

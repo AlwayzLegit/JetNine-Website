@@ -66,7 +66,7 @@ export default function GlobalError({
               color: "#C9C4B8",
             }}
           >
-            The site hit a top-level error. Refresh to retry, or call dispatch directly at +1 (888) 847-5669.
+            The site hit a top-level error. Refresh to retry, or call dispatch directly at +1 (818) 900-5278.
           </p>
           {error.digest ? (
             <p

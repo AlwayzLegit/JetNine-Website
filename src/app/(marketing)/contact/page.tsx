@@ -55,10 +55,10 @@ const CHANNELS = [
 ];
 
 const REGIONS = [
-  { id: "01", title: "North America · West", airports: "KVNY · KSFO · KSEA · KLAS · KASE · KSDL", person: "Catalina Vance", years: "14 yrs · West-coast lanes" },
-  { id: "02", title: "North America · East", airports: "KTEB · KJFK · KBOS · KMIA · KOPF · KIAD", person: "Daniel Hsieh", years: "17 yrs · East & Mid-Atlantic" },
-  { id: "03", title: "Europe", airports: "EGGW · EGLF · LFPB · LSGG · LIRA", person: "James Kowalski", years: "22 yrs · transatlantic ops" },
-  { id: "04", title: "Asia & Middle East", airports: "RJTT · RJBB · OMDB · VHHH · WSSS", person: "Aamir Talwar", years: "11 yrs · trans-pacific & ME" },
+  { id: "01", title: "North America · West", airports: "KVNY · KSFO · KSEA · KLAS · KASE · KSDL" },
+  { id: "02", title: "North America · East", airports: "KTEB · KJFK · KBOS · KMIA · KOPF · KIAD" },
+  { id: "03", title: "Europe", airports: "EGGW · EGLF · LFPB · LSGG · LIRA" },
+  { id: "04", title: "Asia & Middle East", airports: "RJTT · RJBB · OMDB · VHHH · WSSS" },
 ];
 
 const HQ_ROWS = [
@@ -68,17 +68,6 @@ const HQ_ROWS = [
   ["VISITS", "By appointment · same-day usually OK"],
   ["PRESS", "press@jetnine.com"],
 ] as const;
-
-const FBOS = [
-  { icao: "KVNY", fbo: "Signature Flight Support", sub: "FBO of record · home base", city: "Van Nuys, CA", notes: "Customs · 24h tower" },
-  { icao: "KTEB", fbo: "Meridian Teterboro", sub: "Northeast hub", city: "Teterboro, NJ", notes: "24h customs" },
-  { icao: "KSFO", fbo: "Signature SFO", sub: "Bay Area", city: "San Francisco, CA", notes: "Customs available" },
-  { icao: "KOPF", fbo: "Atlantic Aviation Opa-Locka", sub: "Miami, ex-MIA", city: "Opa-Locka, FL", notes: "24h customs" },
-  { icao: "KASE", fbo: "Atlantic Aviation Aspen", sub: "Mountain ops", city: "Aspen, CO", notes: "Slot-controlled" },
-  { icao: "EGGW", fbo: "Signature London Luton", sub: "Preferred London FBO", city: "London, UK", notes: "24h customs" },
-  { icao: "LFPB", fbo: "Universal Aviation Le Bourget", sub: "Paris", city: "Paris, FR", notes: "Schengen ops" },
-  { icao: "RJTT", fbo: "Universal Aviation Haneda", sub: "Tokyo, slot-restricted", city: "Tokyo, JP", notes: "Slot req'd · 96h notice" },
-];
 
 // LocalBusiness JSON-LD. Schema.org subtype for a brick-and-mortar
 // or local-service-area business. Reinforces Organization on the root
@@ -150,8 +139,11 @@ export default function ContactPage() {
             </span>
             Live · dispatch desk open
           </span>
-          <span>Catalina V. and Eli M. on the desk now · average pick-up under 20 seconds</span>
-          <span className="ml-auto text-steel">VAN NUYS · 14:08 PT</span>
+          {/* TODO: wire to a real on-duty API (who's on the desk + local time)
+              once dispatch staffing data is exposed. Until then, keep this
+              generic — no hardcoded names or clock. */}
+          <span>Senior dispatcher on the desk now · average pick-up under 20 seconds</span>
+          <span className="ml-auto text-steel">LOS ANGELES · 24/7</span>
         </div>
       </section>
 
@@ -285,17 +277,9 @@ export default function ContactPage() {
                 <h3 className="font-serif text-[22px] font-normal leading-[1.2] tracking-tight text-bone">
                   {r.title}
                 </h3>
-                <p className="font-mono text-[10px] uppercase tracking-[0.08em] text-clearance leading-[1.6]">
+                <p className="mt-auto font-mono text-[10px] uppercase tracking-[0.08em] text-clearance leading-[1.6]">
                   {r.airports}
                 </p>
-                <div className="mt-auto border-t border-ink-3 pt-5">
-                  <div className="font-serif text-[18px] font-normal leading-[1.2] text-bone">
-                    {r.person}
-                  </div>
-                  <div className="mt-1 font-mono text-[10px] tracking-[0.04em] text-bone-2">
-                    {r.years}
-                  </div>
-                </div>
               </Reveal>
             ))}
           </div>
@@ -333,65 +317,6 @@ export default function ContactPage() {
             <Reveal stagger={1}>
               <Placeholder caption="KVNY · VAN NUYS MAP" aspect="4/5" />
             </Reveal>
-          </div>
-        </div>
-      </section>
-
-      {/* FBO partners */}
-      <section className="border-t border-ink-3 py-32 max-md:py-20">
-        <div className="container-jn">
-          <div className="mb-16 grid items-end gap-12 lg:grid-cols-[1fr_1.6fr]">
-            <Reveal>
-              <p className="caption">— Preferred FBO partners</p>
-            </Reveal>
-            <div>
-              <Reveal as="h2" stagger={1} className="display-m max-w-[22ch]">
-                Where to find us on the ramp.
-              </Reveal>
-              <Reveal as="p" stagger={2} className="mt-6 max-w-[62ch] text-[18px] leading-[1.55] text-bone-2">
-                A short list of FBOs we route through most often. We hold accounts at all of them —
-                fueling, ramp, and ground are coordinated by your dispatcher before you arrive.
-              </Reveal>
-            </div>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[720px] border-collapse text-left">
-              <thead>
-                <tr>
-                  {["ICAO", "FBO", "City", "Notes"].map((h) => (
-                    <th
-                      key={h}
-                      className="border-b border-ink-3 px-6 py-4 font-mono text-[10px] uppercase tracking-[0.16em] text-bone-2"
-                    >
-                      {h}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {FBOS.map((f) => (
-                  <tr key={f.icao} className="border-b border-ink-3 transition-colors hover:bg-ink-2">
-                    <td className="px-6 py-5 font-mono text-[12px] tracking-[0.06em] text-clearance">
-                      {f.icao}
-                    </td>
-                    <td className="px-6 py-5">
-                      <div className="font-serif text-[17px] font-normal leading-[1.2] text-bone">
-                        {f.fbo}
-                      </div>
-                      <div className="mt-1 font-mono text-[10px] uppercase tracking-[0.08em] text-steel">
-                        {f.sub}
-                      </div>
-                    </td>
-                    <td className="px-6 py-5 font-mono text-[12px] tracking-[0.04em] text-bone-2">
-                      {f.city}
-                    </td>
-                    <td className="px-6 py-5 font-mono text-[12px] tracking-[0.04em] text-bone-2">
-                      {f.notes}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
           </div>
         </div>
       </section>

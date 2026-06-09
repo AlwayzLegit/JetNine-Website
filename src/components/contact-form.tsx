@@ -53,11 +53,11 @@ export function ContactForm() {
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
         <div className={`field-jn ${errors.first ? "error" : ""}`}>
           <label htmlFor="cf-first">First name</label>
-          <input id="cf-first" name="first" type="text" placeholder="Marcus" autoComplete="given-name" />
+          <input id="cf-first" name="first" type="text" placeholder="Alex" autoComplete="given-name" />
         </div>
         <div className={`field-jn ${errors.last ? "error" : ""}`}>
           <label htmlFor="cf-last">Last name</label>
-          <input id="cf-last" name="last" type="text" placeholder="Aldrich" autoComplete="family-name" />
+          <input id="cf-last" name="last" type="text" placeholder="Morgan" autoComplete="family-name" />
         </div>
         <div className={`field-jn ${errors.email ? "error" : ""}`}>
           <label htmlFor="cf-email">Email</label>

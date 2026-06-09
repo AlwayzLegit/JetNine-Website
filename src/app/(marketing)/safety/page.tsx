@@ -45,13 +45,6 @@ const FUNNEL = [
   { stage: "05", name: "JetNine approved operators", desc: "Operators currently flying for our clients. Re-audited every 12 months, spot-checked continuously, with a one-strike policy on safety events.", count: "380", unit: "CURRENT · IN NETWORK", highlight: true },
 ];
 
-const STATS = [
-  { period: "Lifetime", value: "0", body: "NTSB-reportable accidents on JetNine-arranged flights since founding (2014)." },
-  { period: "Last 12 months", value: "14,800", body: "Hours flown, network-wide. Zero significant events." },
-  { period: "Operator turnover", value: "~6%", body: "Annual rate at which approved operators drop out of the network. About half are voluntary, half are removed." },
-  { period: "Audit pass rate", value: "62%", body: "Of operators that submit for re-audit, the percentage that pass on the first attempt." },
-];
-
 export default function SafetyPage() {
   return (
     <>
@@ -238,45 +231,6 @@ export default function SafetyPage() {
               </Reveal>
             ))}
           </ul>
-        </div>
-      </section>
-
-      {/* B5. By the numbers */}
-      <section className="border-t border-ink-3 py-32 max-md:py-20">
-        <div className="container-jn">
-          <div className="mb-16 grid items-end gap-12 lg:grid-cols-[1fr_1.6fr]">
-            <Reveal>
-              <p className="caption">— By the numbers</p>
-            </Reveal>
-            <div>
-              <Reveal as="h2" stagger={1} className="display-m max-w-[22ch]">
-                Safety is a metric. Here are ours.
-              </Reveal>
-              <Reveal as="p" stagger={2} className="mt-6 max-w-[58ch] text-[18px] leading-[1.55] text-bone-2">
-                Reported quarterly, audited annually, available on request from any client.
-              </Reveal>
-            </div>
-          </div>
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-            {STATS.map((s, i) => (
-              <Reveal
-                key={s.period}
-                stagger={(i as 0 | 1 | 2)}
-                className="rounded-[4px] border border-ink-3 bg-ink-2 p-8"
-              >
-                <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-bone-2">
-                  — {s.period}
-                </span>
-                <div
-                  className="mt-4 font-serif text-[56px] font-light leading-none tracking-tight text-bone"
-                  style={{ letterSpacing: "-0.02em" }}
-                >
-                  {s.value}
-                </div>
-                <p className="mt-4 text-[14px] leading-[1.6] text-bone-2">{s.body}</p>
-              </Reveal>
-            ))}
-          </div>
         </div>
       </section>
 

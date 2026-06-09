@@ -112,10 +112,11 @@ The SDK lazy-loads on the client (no bundle cost when DSN is missing).
 
 | Env var | Notes |
 |---|---|
-| `NEXT_PUBLIC_PLAUSIBLE_DOMAIN` | e.g. `jetnine.com`. Plausible is cookieless — no GDPR banner needed. |
+| `NEXT_PUBLIC_POSTHOG_KEY` | PostHog → Project Settings → Project API key (`phc_…`). SDK lazy-loads client-side only when set. |
+| `NEXT_PUBLIC_POSTHOG_HOST` | Optional. Defaults to `https://us.i.posthog.com`; only set for EU cloud or self-hosted. |
 | `NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION` | Search Console → Add property → meta tag method → copy the `content="..."` value. |
 
-After Plausible is wired, submit the sitemap to Search Console at https://search.google.com/search-console → Sitemaps → Add `sitemap.xml`.
+After PostHog is wired, submit the sitemap to Search Console at https://search.google.com/search-console → Sitemaps → Add `sitemap.xml`.
 
 ## 8. Custom domain
 
@@ -148,7 +149,7 @@ Expected response shape:
     "email":     { "ok": true,  "provider": "resend", "outboundConfigured": true, "inboundConfigured": true, "fromConfigured": true },
     "twilio":    { "ok": true,  "smsConfigured": true, "whatsappConfigured": true },
     "sentry":    { "ok": true,  "browserConfigured": true, "serverConfigured": true },
-    "plausible": { "ok": true,  "configured": true }
+    "posthog":   { "ok": true,  "configured": true }
   }
 }
 ```
@@ -166,7 +167,7 @@ For broader verification, also check:
 - [ ] `/account/memberships` Activate Card · 100 → Stripe Checkout → return → membership active + balance shows $100k.
 - [ ] Flip a test trip from `confirmed` → `boarding`; member receives both email + SMS.
 - [ ] Member replies to either; thread shows `direction='in'` row.
-- [ ] Plausible dashboard shows pageviews.
+- [ ] PostHog activity feed shows pageviews.
 - [ ] Sentry dashboard shows a test error (trigger via `/admin/audit` if you've wired one).
 
 ## Diagnosing a sick deploy
@@ -177,7 +178,7 @@ If `/api/health` returns `status: "unhealthy"`, the only check that can flip it 
 2. **Supabase project paused.** Free tier auto-pauses after 7 days of zero queries. Resume from the Supabase dashboard; deploys start working again within seconds.
 3. **Region mismatch.** `DATABASE_URL` should be the **Transaction pooler** URL (port 6543), not the direct connection (port 5432). The pooler region must match your Supabase region — for us-east-2, that's `aws-0-us-east-2.pooler.supabase.com`.
 
-If `/api/health` returns `status: "degraded"`, the DB is fine but at least one optional integration (Stripe / email / Twilio / Sentry / Plausible) is unconfigured. Visit `/admin/health` for a per-integration breakdown with fix hints, or read `checks.*` in the JSON.
+If `/api/health` returns `status: "degraded"`, the DB is fine but at least one optional integration (Stripe / email / Twilio / Sentry / PostHog) is unconfigured. Visit `/admin/health` for a per-integration breakdown with fix hints, or read `checks.*` in the JSON.
 
 The post-deploy smoke workflow (`.github/workflows/smoke-after-deploy.yml`) fails when `/api/health` returns non-200 against a non-localhost target — so a degraded prod deploy will paint the merge commit red without manual checking. There's also a scheduled health monitor (`.github/workflows/health-monitor.yml`) that probes every 15 minutes for between-deploy regressions.
 

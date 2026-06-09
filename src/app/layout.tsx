@@ -129,7 +129,8 @@ const websiteJsonLd = {
   inLanguage: "en-US",
 };
 
-const plausibleDomain = process.env.NEXT_PUBLIC_PLAUSIBLE_DOMAIN;
+const posthogKey = process.env.NEXT_PUBLIC_POSTHOG_KEY;
+const posthogHost = process.env.NEXT_PUBLIC_POSTHOG_HOST ?? "https://us.i.posthog.com";
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 // Supabase requests use the project's REST + Realtime hosts. preconnect
 // kicks off the DNS + TLS handshake at HTML parse time so the first
@@ -152,23 +153,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <link rel="dns-prefetch" href={supabaseOrigin} />
           </>
         ) : null}
-        {plausibleDomain ? (
+        {/* PostHog initializes in instrumentation-client.ts (env-gated on
+            NEXT_PUBLIC_POSTHOG_KEY); these hints just warm the ingest
+            connection so the first capture doesn't pay the handshake. */}
+        {posthogKey ? (
           <>
-            <link rel="preconnect" href="https://plausible.io" crossOrigin="anonymous" />
-            <link rel="dns-prefetch" href="https://plausible.io" />
+            <link rel="preconnect" href={posthogHost} crossOrigin="anonymous" />
+            <link rel="dns-prefetch" href={posthogHost} />
           </>
-        ) : null}
-
-        {/* Plausible — cookieless, privacy-friendly analytics. Conditional
-            on env so localhost / preview deploys stay clean. CSP allows
-            plausible.io unconditionally; the script just doesn't load
-            when the domain isn't set. */}
-        {plausibleDomain ? (
-          <script
-            defer
-            data-domain={plausibleDomain}
-            src="https://plausible.io/js/script.js"
-          />
         ) : null}
       </head>
       <body>

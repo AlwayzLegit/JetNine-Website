@@ -5,7 +5,7 @@ import { snapshot, type HealthSnapshot } from "@/lib/health";
 // signal for the smoke runner, uptime monitors, on-call dashboards.
 //
 // Hard requirement: DB reachable. Everything else (Stripe, email,
-// Twilio, Sentry, Plausible) ships dark by design.
+// Twilio, Sentry, PostHog) ships dark by design.
 //
 // Public endpoint by design. Returns no secrets, no DB content, no
 // user data — only boolean configuration + a single SELECT 1 timing.

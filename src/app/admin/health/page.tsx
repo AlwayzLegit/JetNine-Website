@@ -95,11 +95,12 @@ const ROWS: Row[] = [
       "NEXT_PUBLIC_SENTRY_DSN + SENTRY_DSN (can be the same value from Sentry project Settings → Client Keys).",
   },
   {
-    key: "plausible",
-    label: "Plausible",
-    fields: (s) => [{ label: "Domain", ok: Boolean(s.configured) }],
+    key: "posthog",
+    label: "PostHog",
+    fields: (s) => [{ label: "Project key", ok: Boolean(s.configured) }],
     whyItMatters: "No analytics until configured. Won't know what's working.",
-    fixHint: "NEXT_PUBLIC_PLAUSIBLE_DOMAIN=jetnine.com",
+    fixHint:
+      "NEXT_PUBLIC_POSTHOG_KEY=phc_… (PostHog → Project Settings). Optional NEXT_PUBLIC_POSTHOG_HOST if not us.i.posthog.com.",
   },
 ];
 

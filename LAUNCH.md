@@ -152,13 +152,14 @@ invites (when dispatchers invite via `/admin/member`), you need your own SMTP.
 **WhatsApp:** defer until you actually want it. Needs Twilio WABA + Meta
 approval (~1 week). Set `TWILIO_WHATSAPP_FROM=whatsapp:+1…` when ready.
 
-## 🟢 Phase 8 — Plausible (analytics)
+## 🟢 Phase 8 — PostHog (analytics)
 
-- [ ] Sign up at https://plausible.io (or self-host)
-- [ ] Add `jetnine.com` (or your domain)
-- [ ] Set in Vercel: `NEXT_PUBLIC_PLAUSIBLE_DOMAIN` = `jetnine.com`
+- [ ] Create a project in the PostHog org at https://us.posthog.com
+- [ ] Copy the Project API key (`phc_…`) from Project Settings
+- [ ] Set in Vercel: `NEXT_PUBLIC_POSTHOG_KEY` = `phc_…`
+      (and `NEXT_PUBLIC_POSTHOG_HOST` only if not US cloud)
 - [ ] Redeploy + load any marketing page to fire a pageview
-- [ ] Verify the Plausible dashboard shows the hit within a minute
+- [ ] Verify the PostHog activity feed shows the hit within a minute
 
 ## 🟢 Phase 9 — Search Console (SEO)
 

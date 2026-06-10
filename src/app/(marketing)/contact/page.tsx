@@ -4,8 +4,9 @@ import { pageMetadata } from "@/lib/page-meta";
 import { PageHeader } from "@/components/page-header";
 import { ClosingCTA } from "@/components/closing-cta";
 import { Reveal } from "@/components/reveal";
-import { Placeholder } from "@/components/placeholder";
 import { ContactForm } from "@/components/contact-form";
+import { DeskClock } from "@/components/contact/desk-clock";
+import { KvnyMap } from "@/components/kvny-map";
 import { SITE } from "@/lib/constants";
 
 export const metadata: Metadata = pageMetadata({
@@ -139,11 +140,8 @@ export default function ContactPage() {
             </span>
             Live · dispatch desk open
           </span>
-          {/* TODO: wire to a real on-duty API (who's on the desk + local time)
-              once dispatch staffing data is exposed. Until then, keep this
-              generic — no hardcoded names or clock. */}
           <span>Senior dispatcher on the desk now · average pick-up under 20 seconds</span>
-          <span className="ml-auto text-steel">LOS ANGELES · 24/7</span>
+          <DeskClock />
         </div>
       </section>
 
@@ -315,7 +313,7 @@ export default function ContactPage() {
               </Reveal>
             </div>
             <Reveal stagger={1}>
-              <Placeholder caption="KVNY · VAN NUYS MAP" aspect="4/5" />
+              <KvnyMap />
             </Reveal>
           </div>
         </div>

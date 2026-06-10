@@ -167,7 +167,7 @@ function ContactStepInner() {
                     type="tel"
                     value={s.phone}
                     onChange={(e) => s.setContactField("phone", e.target.value)}
-                    placeholder="(818) 800-5678"
+                    placeholder="(818) 555-0142"
                     autoComplete="tel-national"
                   />
                 </div>

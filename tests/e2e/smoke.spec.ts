@@ -15,6 +15,35 @@ test.describe("public marketing surface", () => {
     await expect(page.getByText(/Part 295/i).first()).toBeVisible();
   });
 
+  // One render pass over every static marketing page. Anything that
+  // throws at request time (bad import, JSON-LD typo, missing data file)
+  // turns into a 500 here instead of being discovered post-deploy.
+  for (const path of [
+    "/about",
+    "/safety",
+    "/how-it-works",
+    "/faq",
+    "/memberships",
+    "/aircraft",
+    "/aircraft/light",
+    "/aircraft/ultra",
+  ]) {
+    test(`marketing page ${path} renders`, async ({ page }) => {
+      const response = await page.goto(path);
+      expect(response?.status()).toBe(200);
+      await expect(page.locator("h1").first()).toBeVisible();
+    });
+  }
+
+  test("robots.txt and sitemap.xml are served", async ({ request }) => {
+    const robots = await request.get("/robots.txt");
+    expect(robots.status()).toBe(200);
+    expect(await robots.text()).toContain("Sitemap");
+    const sitemap = await request.get("/sitemap.xml");
+    expect(sitemap.status()).toBe(200);
+    expect(await sitemap.text()).toContain("<urlset");
+  });
+
   test("404 page is branded", async ({ page }) => {
     const response = await page.goto("/this-route-does-not-exist");
     expect(response?.status()).toBe(404);
@@ -34,6 +63,46 @@ test.describe("public marketing surface", () => {
     await expect(page.getByText(/Repositioning legs/i).first()).toBeVisible();
     // Watchlist form is always present regardless of board state.
     await expect(page.getByText(/Set a route/i).first()).toBeVisible();
+  });
+});
+
+test.describe("contact page", () => {
+  test("renders the KVNY field diagram and live desk clock", async ({ page }) => {
+    const response = await page.goto("/contact");
+    expect(response?.status()).toBe(200);
+    await expect(page.getByTestId("kvny-map")).toBeVisible();
+    // Runway designators are factual content, not decoration — assert
+    // they survive any future redesign of the SVG.
+    await expect(page.getByTestId("kvny-map")).toContainText("16R");
+    await expect(page.getByTestId("desk-clock")).toBeVisible();
+    // Clock ticks after hydration: a real HH:MM:SS replaces the SSR
+    // placeholder within a tick or two.
+    await expect(page.getByTestId("desk-clock")).toContainText(/\d{2}:\d{2}:\d{2}/, {
+      timeout: 10_000,
+    });
+  });
+
+  test("contact form rejects an empty submit client-side", async ({ page }) => {
+    await page.goto("/contact");
+    await page.getByRole("button", { name: /send to dispatch/i }).click();
+    await expect(page.getByText(/CHECK —/)).toBeVisible();
+  });
+
+  test("contact form degrades gracefully when the DB is down", async ({ page }) => {
+    // The local smoke server runs with a dummy DATABASE_URL, so the
+    // Server Action's insert fails. Contract: the visitor sees an honest
+    // error — never a fake success, never a crash page.
+    await page.goto("/contact");
+    await page.getByLabel(/first name/i).fill("Smoke");
+    await page.getByLabel(/last name/i).fill("Local");
+    await page.getByLabel(/^email$/i).fill("smoke@example.com");
+    await page.getByLabel(/departing/i).fill("KVNY");
+    await page.getByLabel(/arriving/i).fill("KTEB");
+    await page.getByLabel(/date \/ window/i).fill("whenever");
+    await page.getByRole("button", { name: /send to dispatch/i }).click();
+    await expect(page.getByText(/NOT SENT — DB_INSERT_FAILED/)).toBeVisible({
+      timeout: 15_000,
+    });
   });
 });
 

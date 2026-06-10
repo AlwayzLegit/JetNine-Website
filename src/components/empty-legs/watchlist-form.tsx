@@ -2,6 +2,7 @@
 
 import { useState, useTransition, type FormEvent } from "react";
 import { createWatchlist } from "@/app/(marketing)/empty-legs/actions";
+import { track } from "@/lib/analytics";
 
 type FieldName = "from" | "to" | "earliest" | "latest" | "mobile" | "email";
 type Errors = Partial<Record<FieldName, true>>;
@@ -41,6 +42,7 @@ export function WatchlistForm() {
       const result = await createWatchlist(data);
       if (result.ok) {
         setMsg({ tone: "ok", text: `CLEARED — ${result.message}` });
+        track("empty_leg_watchlist_created", {});
         form.reset();
       } else {
         setMsg({ tone: "error", text: `MISSING / INVALID — ${result.error}` });

@@ -14,3 +14,4 @@ export * from "./memberships";
 export * from "./audit";
 export * from "./schedule-blocks";
 export * from "./airports";
+export * from "./contact";

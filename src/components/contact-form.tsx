@@ -1,6 +1,8 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useState, useTransition, type FormEvent } from "react";
+import { submitContactInquiry } from "@/app/(marketing)/contact/actions";
+import { track } from "@/lib/analytics";
 
 type FieldName = "first" | "last" | "email" | "mobile" | "from" | "to" | "date" | "pax" | "notes";
 type Reason = "quote" | "card" | "trip" | "other";
@@ -20,9 +22,13 @@ export function ContactForm() {
   const [reason, setReason] = useState<Reason>("quote");
   const [errors, setErrors] = useState<Errors>({});
   const [msg, setMsg] = useState<{ tone: "ok" | "error"; text: string } | null>(null);
+  const [pending, startTransition] = useTransition();
 
   function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    if (pending) return;
+    // Cheap client-side check so obvious misses don't round-trip to the
+    // server. The Server Action repeats the validation.
     const data = new FormData(e.currentTarget);
     const next: Errors = {};
     for (const k of REQUIRED) {
@@ -40,12 +46,26 @@ export function ContactForm() {
       return;
     }
     setErrors({});
-    setMsg({
-      tone: "ok",
-      text: `CLEARED — DISPATCH WILL REPLY WITHIN 30 MIN (${reason.toUpperCase()})`,
+    const form = e.currentTarget;
+    startTransition(async () => {
+      const result = await submitContactInquiry(data);
+      if (result.ok) {
+        setMsg({
+          tone: "ok",
+          text: `CLEARED — ${result.message} (${reason.toUpperCase()})`,
+        });
+        track("contact_inquiry_submitted", { reason });
+        form.reset();
+        setReason("quote");
+      } else if (result.error === "RATE_LIMITED") {
+        setMsg({
+          tone: "error",
+          text: "TOO MANY SENDS — WAIT A FEW MINUTES OR CALL DISPATCH",
+        });
+      } else {
+        setMsg({ tone: "error", text: `NOT SENT — ${result.error}` });
+      }
     });
-    (e.target as HTMLFormElement).reset();
-    setReason("quote");
   }
 
   return (
@@ -137,8 +157,8 @@ export function ContactForm() {
               {msg.text}
             </span>
           ) : null}
-          <button type="submit" className="btn btn-primary">
-            Send to dispatch <span className="arrow">→</span>
+          <button type="submit" className="btn btn-primary" disabled={pending}>
+            {pending ? "Sending…" : "Send to dispatch"} <span className="arrow">→</span>
           </button>
         </div>
       </div>

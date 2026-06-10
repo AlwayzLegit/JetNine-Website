@@ -5,6 +5,7 @@ import type { CurrentUser } from "@/lib/auth";
 
 const ADMIN_NAV = [
   { href: "/admin/dispatch", label: "Inbox" },
+  { href: "/admin/inquiries", label: "Inquiries" },
   { href: "/admin/quote", label: "Workbench" },
   { href: "/admin/ops", label: "Live ops" },
   { href: "/admin/trip", label: "Trips" },

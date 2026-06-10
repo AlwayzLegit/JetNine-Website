@@ -48,11 +48,19 @@ export async function checkRateLimit(
     // with the cause cut off — see the rate-limit investigation in #31.
     const detail = err instanceof Error ? `${err.name}: ${err.message}` : String(err);
     console.error(`[rate-limit] check failed (failing open) — ${detail} — bucket=${bucket}`);
-    // TEMP diagnostic (remove once the prod cause is identified): Vercel's
-    // log table truncates messages to ~28 chars, so emit the cause in
-    // short numbered chunks that each fit inside the truncation window.
-    for (let i = 0; i < Math.min(detail.length, 120); i += 20) {
-      console.error(`[rl${i / 20}] ${detail.slice(i, i + 20)}`);
+    // TEMP diagnostic (remove once the prod cause is identified): every
+    // log surface truncates the message, but DB writes succeed right
+    // after this first failed query — so persist the full error where it
+    // can be read back without truncation. Best-effort; never throws.
+    try {
+      const stack = err instanceof Error ? (err.stack ?? "").slice(0, 1500) : null;
+      await sql`
+        insert into public.audit_log (actor_role, action, subject_type, metadata)
+        values ('system', 'rate_limit.diagnostic', 'contact_inquiry',
+                ${JSON.stringify({ detail, stack, bucket })}::jsonb)
+      `;
+    } catch {
+      // Diagnostic write is best-effort only.
     }
     return { ok: true, remaining: max };
   }

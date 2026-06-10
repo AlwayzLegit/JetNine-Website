@@ -112,6 +112,68 @@ export async function assignDispatcher(
   return { ok: true };
 }
 
+// ─── attachMemberToQuote ──────────────────────────────────────────
+// The dispatcher-side half of member linkage (the customer-side half is
+// the signed-in auto-link in submitQuote). Pass null to detach. Locked
+// once the quote is converted — the trip + invoice already carry the
+// member, so a late re-link would desync the chain.
+
+export async function attachMemberToQuote(
+  quoteId: string,
+  memberId: string | null,
+): Promise<{ ok: true; memberCode: string | null } | { ok: false; error: string }> {
+  const actor = await requireStaff();
+
+  if (!UUID_RE.test(quoteId)) return { ok: false, error: "Bad quote id" };
+  if (memberId !== null && !UUID_RE.test(memberId)) {
+    return { ok: false, error: "Bad member id" };
+  }
+
+  const [q] = await db
+    .select({
+      id: quotes.id,
+      code: quotes.quoteCode,
+      memberId: quotes.memberId,
+      convertedTripId: quotes.convertedTripId,
+    })
+    .from(quotes)
+    .where(eq(quotes.id, quoteId));
+  if (!q) return { ok: false, error: "Quote not found" };
+  if (q.convertedTripId) {
+    return { ok: false, error: "Quote already converted — member is locked to the trip" };
+  }
+
+  let memberCode: string | null = null;
+  if (memberId) {
+    const [m] = await db
+      .select({ id: members.id, memberCode: members.memberCode })
+      .from(members)
+      .where(eq(members.id, memberId));
+    if (!m) return { ok: false, error: "Member not found" };
+    memberCode = m.memberCode;
+  }
+
+  await db
+    .update(quotes)
+    .set({ memberId, updatedAt: new Date() })
+    .where(eq(quotes.id, quoteId));
+
+  await logAudit({
+    actorUserId: actor.id,
+    actorRole: actor.role,
+    action: memberId ? "quote.member.attach" : "quote.member.detach",
+    subjectType: "quote",
+    subjectId: quoteId,
+    subjectCode: q.code,
+    diff: { memberId: { before: q.memberId, after: memberId } },
+    metadata: { memberCode },
+  });
+
+  revalidatePath(`/admin/quote/${quoteId}`);
+  revalidatePath("/admin/dispatch");
+  return { ok: true, memberCode };
+}
+
 // ─── convertQuoteToTrip ───────────────────────────────────────────
 // Promotes an accepted quote into a real trip + a draft invoice. Idempotent
 // against the quote (won't double-convert if already linked).

@@ -48,6 +48,12 @@ export async function checkRateLimit(
     // with the cause cut off — see the rate-limit investigation in #31.
     const detail = err instanceof Error ? `${err.name}: ${err.message}` : String(err);
     console.error(`[rate-limit] check failed (failing open) — ${detail} — bucket=${bucket}`);
+    // TEMP diagnostic (remove once the prod cause is identified): Vercel's
+    // log table truncates messages to ~28 chars, so emit the cause in
+    // short numbered chunks that each fit inside the truncation window.
+    for (let i = 0; i < Math.min(detail.length, 120); i += 20) {
+      console.error(`[rl${i / 20}] ${detail.slice(i, i + 20)}`);
+    }
     return { ok: true, remaining: max };
   }
 }

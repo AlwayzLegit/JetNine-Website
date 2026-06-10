@@ -7,8 +7,8 @@ LAUNCH.md / DEPLOY.md / TESTING.md cover deeper operational detail.
 
 Production: **https://jetnine.com** — Vercel project `jet-nine-website`
 (team `alwayzlegits-projects`), auto-deploys from `main`.
-Last major merge: PR #25 `fix(launch): replace all fabricated data`
-(sha `d0fe38f`). Site is data-clean and launch-ready pending env wiring below.
+Last major merge: PR #28 `feat(contact): wire contact form end-to-end`
+(sha `da9546f`). Site is data-clean and launch-ready pending env wiring below.
 
 ### Shipped over PRs #14–#25 (one long session)
 
@@ -31,6 +31,21 @@ Last major merge: PR #25 `fix(launch): replace all fabricated data`
   testimonials removed or replaced. Real values: dispatch
   **+1 (818) 900-5278**, founded **2026**, founders **Anna Agadzhanyan**
   (CEO · Dispatch) + **Arman Adamson** (COO · Operations).
+
+### Shipped after the handoff (PRs #27–#28)
+
+- **PR #27:** PostHog replaces Plausible (env-gated, ships dark until
+  `NEXT_PUBLIC_POSTHOG_KEY`); smoke CI green for the first time (tsx
+  devDependency + two stale e2e assertions); dispatch number in
+  email/SMS templates single-sourced from `src/lib/constants.ts`.
+- **PR #28:** contact form wired end-to-end. `contact_inquiries` table
+  (migration 0033, applied to prod Supabase) with RLS — anon/self
+  insert only, staff-only select + triage. Server action persists,
+  emails dispatch, links signed-in members, fires PostHog events.
+  `/admin/inquiries` triage queue (new → handled) with audit rows.
+  Also resolved two open items below: KVNY map (hand-drawn SVG checked
+  against the FAA airport diagram) and the contact live-status strip
+  (real local/Zulu desk clock, no fabricated staffing).
 
 ## MCP status (verified 2026-06-09 with whoami-style calls)
 
@@ -68,15 +83,15 @@ Last major merge: PR #25 `fix(launch): replace all fabricated data`
   "Where to", and quote codes are `JN-YYYY-NNNNN` not `QT-…` (the
   success matcher could never pass). The e2e now submits real [SMOKE]
   quotes end-to-end; rows land at status='cancelled' as designed.
-- **Contact-page KVNY map:** still CSS placeholder. AI maps draw the wrong
-  runway layout (KVNY is parallel, models draw X). Needs Mapbox embed
-  (API key) or hand-drawn SVG.
+- ~~Contact-page KVNY map~~ — **done in PR #28**: hand-drawn SVG
+  (`src/components/kvny-map.tsx`), every mark checked against the FAA
+  airport diagram. Mapbox embed still an option later if a key lands.
 - **Founder/team headshots:** CSS initials placeholders (honest, looks
   intentional). Replace with real photos via the hydrate pipeline or a
   zip upload whenever ready. Do NOT generate AI faces for real names.
-- **Contact live-status strip:** genericized with a TODO at
-  `src/app/(marketing)/contact/page.tsx` (~line 142) to wire a real
-  on-duty API.
+- ~~Contact live-status strip~~ — **done in PR #28**: live local/Zulu
+  desk clock (`src/components/contact/desk-clock.tsx`); the on-duty
+  API idea was dropped in favor of verifiably-real time only.
 - **Memberships pricing:** owner said "use these for now, we will change
   later" — flag for revisit before serious traffic.
 - ~~Hardcoded dispatch number in lib templates~~ — done 2026-06-09;

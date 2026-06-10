@@ -88,6 +88,22 @@ test.describe("contact page", () => {
     await expect(page.getByText(/CHECK —/)).toBeVisible();
   });
 
+  test("card inquiry does not require trip fields", async ({ page }) => {
+    // Trip fields are quote-only. With the local dummy DATABASE_URL the
+    // insert fails, so DB_INSERT_FAILED here proves validation PASSED
+    // without from/to/date — the regression this guards is the form
+    // bouncing a Card question with CHECK — FROM, TO, DATE.
+    await page.goto("/contact");
+    await page.getByRole("button", { name: /card \/ reserve/i }).click();
+    await page.getByLabel(/first name/i).fill("Smoke");
+    await page.getByLabel(/last name/i).fill("CardAsk");
+    await page.getByLabel(/^email$/i).fill("smoke@example.com");
+    await page.getByRole("button", { name: /send to dispatch/i }).click();
+    await expect(page.getByText(/NOT SENT — DB_INSERT_FAILED/)).toBeVisible({
+      timeout: 15_000,
+    });
+  });
+
   test("contact form degrades gracefully when the DB is down", async ({ page }) => {
     // The local smoke server runs with a dummy DATABASE_URL, so the
     // Server Action's insert fails. Contract: the visitor sees an honest

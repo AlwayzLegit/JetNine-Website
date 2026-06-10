@@ -33,13 +33,21 @@ export async function checkRateLimit(
       returning hits
     `;
     const hits = rows[0]?.hits ?? 1;
+    // First hit of a fresh window: piggyback a best-effort prune so the
+    // table can't grow unbounded. Nothing else calls pruneRateLimits.
+    if (hits === 1) void pruneRateLimits();
     if (hits > max) {
       const retryAfterMs = windowStartMs + windowSeconds * 1000 - nowMs;
       return { ok: false, retryAfterMs: Math.max(retryAfterMs, 0) };
     }
     return { ok: true, remaining: Math.max(max - hits, 0) };
   } catch (err) {
-    console.error("[rate-limit] check failed — failing open", { bucket, err });
+    // Lead with name+message so log pipelines that truncate long lines
+    // (Vercel's table view) still show the cause, not just the prefix.
+    // Production has logged this failure on every submit since launch
+    // with the cause cut off — see the rate-limit investigation in #31.
+    const detail = err instanceof Error ? `${err.name}: ${err.message}` : String(err);
+    console.error(`[rate-limit] check failed (failing open) — ${detail} — bucket=${bucket}`);
     return { ok: true, remaining: max };
   }
 }

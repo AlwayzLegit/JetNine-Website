@@ -15,6 +15,7 @@ import { StoreHydrationGate } from "@/components/quote/store-hydration";
 import { computeIndicative, formatHours, CRUISE_KT } from "@/lib/quote-pricing";
 import { getFleetEntry } from "@/lib/fleet";
 import { submitQuote } from "../actions";
+import { track } from "@/lib/analytics";
 
 const CABIN_LABELS: Record<string, string> = {
   wifi: "Wi-Fi",
@@ -115,6 +116,13 @@ function ReviewStepInner() {
       if (result.ok) {
         setRef(result.ref);
         setShowSuccess(true);
+        track("quote_submitted", {
+          tripType: draft.tripType,
+          legs: draft.legs.length,
+          pax: draft.pax,
+          category: draft.category,
+          deduped: result.deduped ?? false,
+        });
         // Wipe the persisted draft so back-nav or a new tab starts fresh.
         // The success overlay reads `ref` from local state, so clearing
         // the store doesn't blank the confirmation UI.

@@ -171,7 +171,7 @@ export async function sendQuoteAcknowledgmentEmail(
     `Route:      ${route}`,
     `Pax:        ${ctx.paxCount}`,
     ``,
-    `If you need to reach us sooner: dispatch is on +1 (818) 800-5678, 24/7.`,
+    `If you need to reach us sooner: dispatch is on ${SITE.dispatchPhone}, 24/7.`,
     ``,
     `JetNine LLC · 14 CFR Part 295 indirect air carrier · all flights operated by an FAA Part 135 direct air carrier.`,
   ].join("\n");
@@ -191,7 +191,7 @@ export async function sendQuoteAcknowledgmentEmail(
         <tr><td style="padding:4px 16px 4px 0;color:#6B7280;text-transform:uppercase;letter-spacing:0.08em;font-size:11px;">Pax</td><td style="padding:4px 0;">${ctx.paxCount}</td></tr>
       </table>
       <p style="margin:24px 0 8px;font-size:13px;color:#6B7280;">Need us sooner?</p>
-      <p style="margin:0;font-size:14px;"><a href="tel:+18188005678" style="color:#0F1115;">+1 (818) 800-5678</a> · 24/7</p>
+      <p style="margin:0;font-size:14px;"><a href="tel:${SITE.dispatchPhoneE164}" style="color:#0F1115;">${SITE.dispatchPhone}</a> · 24/7</p>
       <p style="margin:40px 0 0;font-size:11px;color:#9CA3AF;line-height:1.6;">
         JetNine LLC · 14 CFR Part 295 indirect air carrier. All flights operated by an FAA Part 135 direct air carrier.
       </p>
@@ -240,6 +240,73 @@ export async function sendDispatchNewQuoteNotification(
       <pre style="margin:0 0 16px;padding:12px;background:#F5F4F0;border-left:2px solid #C5CDD9;font-size:12px;line-height:1.6;white-space:pre-wrap;">${escapeHtml(text)}</pre>
       <p style="margin:24px 0 0;font-size:14px;">
         <a href="${escapeHtml(ctx.workbenchUrl)}" style="display:inline-block;padding:10px 16px;background:#0F1115;color:#F5F4F0;text-decoration:none;font-size:12px;letter-spacing:0.08em;text-transform:uppercase;">Open workbench →</a>
+      </p>
+    </div>
+  `.trim();
+
+  return sendEmail({
+    to: DISPATCH_NOTIFY,
+    subject,
+    html,
+    text,
+    replyTo: ctx.email,
+  });
+}
+
+type ContactInquiryContext = {
+  inquiryId: string;
+  reason: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone?: string | null;
+  fromText?: string | null;
+  toText?: string | null;
+  dateText?: string | null;
+  paxText?: string | null;
+  notes?: string | null;
+  inquiriesUrl: string;
+};
+
+/**
+ * Desk ping for a public contact-form submission. Single recipient
+ * (dispatch), replyTo = the visitor so a dispatcher can answer straight
+ * from their mail client without copy-pasting the address.
+ */
+export async function sendDispatchContactNotification(
+  ctx: ContactInquiryContext,
+): Promise<SendResult> {
+  const fullName = `${ctx.firstName} ${ctx.lastName}`.trim();
+  const route =
+    ctx.fromText || ctx.toText ? `${ctx.fromText ?? "—"} → ${ctx.toText ?? "—"}` : "—";
+
+  const subject = `[CONTACT] ${fullName} · ${ctx.reason.toUpperCase()}`;
+  const text = [
+    `New contact-form inquiry:`,
+    ``,
+    `Reason:    ${ctx.reason}`,
+    `Contact:   ${fullName}`,
+    `Email:     ${ctx.email}`,
+    `Phone:     ${ctx.phone ?? "—"}`,
+    `Route:     ${route}`,
+    `Date:      ${ctx.dateText ?? "—"}`,
+    `Pax:       ${ctx.paxText ?? "—"}`,
+    ctx.notes ? `\nNotes:\n${ctx.notes}` : ``,
+    ``,
+    `Inquiries board: ${ctx.inquiriesUrl}`,
+    ``,
+    `Form promises a reply within 30 minutes during business hours.`,
+  ].join("\n");
+
+  const html = `
+    <div style="font-family:'JetBrains Mono',ui-monospace,SF Mono,Menlo,Consolas,monospace;color:#0F1115;line-height:1.55;max-width:600px;margin:0 auto;padding:24px;">
+      <p style="margin:0 0 16px;font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:#0F1115;">— CONTACT FORM · ${escapeHtml(ctx.reason.toUpperCase())}</p>
+      <h2 style="margin:0 0 16px;font-family:'Fraunces',Georgia,serif;font-weight:300;font-size:24px;letter-spacing:-0.01em;">
+        ${escapeHtml(fullName)}
+      </h2>
+      <pre style="margin:0 0 16px;padding:12px;background:#F5F4F0;border-left:2px solid #C5CDD9;font-size:12px;line-height:1.6;white-space:pre-wrap;">${escapeHtml(text)}</pre>
+      <p style="margin:24px 0 0;font-size:14px;">
+        <a href="${escapeHtml(ctx.inquiriesUrl)}" style="display:inline-block;padding:10px 16px;background:#0F1115;color:#F5F4F0;text-decoration:none;font-size:12px;letter-spacing:0.08em;text-transform:uppercase;">Open inquiries →</a>
       </p>
     </div>
   `.trim();

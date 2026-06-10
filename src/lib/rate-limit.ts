@@ -22,24 +22,39 @@ export async function checkRateLimit(
   const { max, windowSeconds } = options;
   const nowMs = Date.now();
   const windowStartMs = Math.floor(nowMs / (windowSeconds * 1000)) * windowSeconds * 1000;
-  const windowStart = new Date(windowStartMs);
+  // Pass the timestamp as an ISO string, never a Date object. Raw Date
+  // params crash postgres.js inside the webpack server bundle
+  // (Buffer.byteLength receives the Date: instanceof-based type inference
+  // misses across bundle realms) — this was why the limiter failed open
+  // on every production request since launch. Drizzle callsites are safe
+  // because Drizzle serializes params itself; this file is the only raw
+  // postgres.js consumer.
+  const windowStart = new Date(windowStartMs).toISOString();
 
   try {
     const rows = await sql<{ hits: number }[]>`
       insert into public.request_rate_limits (bucket, window_start, hits)
-      values (${bucket}, ${windowStart}, 1)
+      values (${bucket}, ${windowStart}::timestamptz, 1)
       on conflict (bucket, window_start)
       do update set hits = public.request_rate_limits.hits + 1
       returning hits
     `;
     const hits = rows[0]?.hits ?? 1;
+    // First hit of a fresh window: piggyback a best-effort prune so the
+    // table can't grow unbounded. Nothing else calls pruneRateLimits.
+    if (hits === 1) void pruneRateLimits();
     if (hits > max) {
       const retryAfterMs = windowStartMs + windowSeconds * 1000 - nowMs;
       return { ok: false, retryAfterMs: Math.max(retryAfterMs, 0) };
     }
     return { ok: true, remaining: Math.max(max - hits, 0) };
   } catch (err) {
-    console.error("[rate-limit] check failed — failing open", { bucket, err });
+    // Lead with name+message so log pipelines that truncate long lines
+    // (Vercel's table view) still show the cause, not just the prefix.
+    // Production has logged this failure on every submit since launch
+    // with the cause cut off — see the rate-limit investigation in #31.
+    const detail = err instanceof Error ? `${err.name}: ${err.message}` : String(err);
+    console.error(`[rate-limit] check failed (failing open) — ${detail} — bucket=${bucket}`);
     return { ok: true, remaining: max };
   }
 }
@@ -50,8 +65,9 @@ export async function checkRateLimit(
  */
 export async function pruneRateLimits(olderThanSeconds = 3600): Promise<void> {
   try {
-    const cutoff = new Date(Date.now() - olderThanSeconds * 1000);
-    await sql`delete from public.request_rate_limits where window_start < ${cutoff}`;
+    // ISO string, not Date — see the serialization note in checkRateLimit.
+    const cutoff = new Date(Date.now() - olderThanSeconds * 1000).toISOString();
+    await sql`delete from public.request_rate_limits where window_start < ${cutoff}::timestamptz`;
   } catch (err) {
     console.error("[rate-limit] prune failed", err);
   }

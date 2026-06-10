@@ -62,6 +62,12 @@ const securityHeaders = [
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
+  // Keep postgres.js out of the webpack server bundle. Bundling broke its
+  // instanceof-based param type inference (Date params reached
+  // Buffer.byteLength raw), which silently disabled the rate limiter in
+  // production. Externalizing is the documented setup for native-protocol
+  // DB drivers and removes the whole class of realm-mismatch bugs.
+  serverExternalPackages: ["postgres"],
   images: {
     remotePatterns: [
       { protocol: "https", hostname: "jetnine.com" },

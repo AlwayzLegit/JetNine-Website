@@ -43,22 +43,32 @@ export async function submitContactInquiry(formData: FormData): Promise<ContactR
   const paxText = field("pax");
   const notes = field("notes");
 
+  const reason: Reason = isReason(reasonRaw) ? reasonRaw : "other";
+
+  // Honeypot: the visible form never exposes this field, so any value here
+  // is an autofill bot. Pretend success so the bot moves on; insert nothing.
+  if (field("company")) {
+    console.warn("submitContactInquiry honeypot tripped — dropping submission");
+    return { ok: true, message: "DISPATCH WILL REPLY WITHIN 30 MIN" };
+  }
+
   // Server-side validation — the client repeats this for fast feedback,
-  // but never gets trusted.
+  // but never gets trusted. Trip fields are only mandatory for quote
+  // requests; a Card question or general note has no route to declare.
   const errors: string[] = [];
   if (!firstName) errors.push("first");
   if (!lastName) errors.push("last");
   if (!email) errors.push("email");
   if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) errors.push("email-format");
-  if (!fromText) errors.push("from");
-  if (!toText) errors.push("to");
-  if (!dateText) errors.push("date");
+  if (reason === "quote") {
+    if (!fromText) errors.push("from");
+    if (!toText) errors.push("to");
+    if (!dateText) errors.push("date");
+  }
   if (notes.length > 2000) errors.push("notes-too-long");
   if (errors.length) {
     return { ok: false, error: errors.join(", ").toUpperCase() };
   }
-
-  const reason: Reason = isReason(reasonRaw) ? reasonRaw : "other";
 
   let clientIp = "unknown";
   try {

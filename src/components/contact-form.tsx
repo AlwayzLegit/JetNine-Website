@@ -14,7 +14,10 @@ const REASONS: { id: Reason; label: string }[] = [
   { id: "other", label: "Other" },
 ];
 
-const REQUIRED: FieldName[] = ["first", "last", "email", "from", "to", "date"];
+// Trip fields are only mandatory when the visitor is asking for a quote —
+// a Card question or a general note has no route to declare.
+const ALWAYS_REQUIRED: FieldName[] = ["first", "last", "email"];
+const QUOTE_REQUIRED: FieldName[] = ["from", "to", "date"];
 
 type Errors = Partial<Record<FieldName, true>>;
 
@@ -31,7 +34,9 @@ export function ContactForm() {
     // server. The Server Action repeats the validation.
     const data = new FormData(e.currentTarget);
     const next: Errors = {};
-    for (const k of REQUIRED) {
+    const required =
+      reason === "quote" ? [...ALWAYS_REQUIRED, ...QUOTE_REQUIRED] : ALWAYS_REQUIRED;
+    for (const k of required) {
       if (!(data.get(k) as string | null)?.trim()) next[k] = true;
     }
     const email = (data.get("email") as string)?.trim() ?? "";
@@ -68,24 +73,35 @@ export function ContactForm() {
     });
   }
 
+  // Suffix shown on trip-field labels when they're not mandatory for the
+  // selected reason.
+  const tripOptional = reason !== "quote";
+
   return (
-    <form noValidate onSubmit={onSubmit} className="flex flex-col gap-3">
+    <form noValidate onSubmit={onSubmit} className="relative flex flex-col gap-3">
+      {/* Honeypot — humans never see it, autofill bots fill everything.
+          The server silently drops submissions that include it. */}
+      <div aria-hidden="true" className="absolute -left-[9999px] h-0 w-0 overflow-hidden">
+        <label htmlFor="cf-company">Company</label>
+        <input id="cf-company" name="company" type="text" tabIndex={-1} autoComplete="off" />
+      </div>
+
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
         <div className={`field-jn ${errors.first ? "error" : ""}`}>
           <label htmlFor="cf-first">First name</label>
-          <input id="cf-first" name="first" type="text" placeholder="Alex" autoComplete="given-name" />
+          <input id="cf-first" name="first" type="text" placeholder="Alex" autoComplete="given-name" aria-invalid={errors.first || undefined} />
         </div>
         <div className={`field-jn ${errors.last ? "error" : ""}`}>
           <label htmlFor="cf-last">Last name</label>
-          <input id="cf-last" name="last" type="text" placeholder="Morgan" autoComplete="family-name" />
+          <input id="cf-last" name="last" type="text" placeholder="Morgan" autoComplete="family-name" aria-invalid={errors.last || undefined} />
         </div>
         <div className={`field-jn ${errors.email ? "error" : ""}`}>
           <label htmlFor="cf-email">Email</label>
-          <input id="cf-email" name="email" type="email" placeholder="m.aldrich@example.com" autoComplete="email" />
+          <input id="cf-email" name="email" type="email" placeholder="m.aldrich@example.com" autoComplete="email" aria-invalid={errors.email || undefined} />
         </div>
         <div className={`field-jn ${errors.mobile ? "error" : ""}`}>
           <label htmlFor="cf-mobile">Mobile</label>
-          <input id="cf-mobile" name="mobile" type="tel" placeholder="+1 (818) 555-0142" autoComplete="tel" />
+          <input id="cf-mobile" name="mobile" type="tel" placeholder="+1 (818) 555-0142" autoComplete="tel" aria-invalid={errors.mobile || undefined} />
         </div>
       </div>
 
@@ -115,20 +131,20 @@ export function ContactForm() {
 
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
         <div className={`field-jn ${errors.from ? "error" : ""}`}>
-          <label htmlFor="cf-from">Departing</label>
-          <input id="cf-from" name="from" type="text" placeholder="Los Angeles, KVNY" />
+          <label htmlFor="cf-from">Departing{tripOptional ? " · optional" : ""}</label>
+          <input id="cf-from" name="from" type="text" placeholder="Los Angeles, KVNY" aria-invalid={errors.from || undefined} />
         </div>
         <div className={`field-jn ${errors.to ? "error" : ""}`}>
-          <label htmlFor="cf-to">Arriving</label>
-          <input id="cf-to" name="to" type="text" placeholder="New York, KTEB" />
+          <label htmlFor="cf-to">Arriving{tripOptional ? " · optional" : ""}</label>
+          <input id="cf-to" name="to" type="text" placeholder="New York, KTEB" aria-invalid={errors.to || undefined} />
         </div>
         <div className={`field-jn ${errors.date ? "error" : ""}`}>
-          <label htmlFor="cf-date">Date / window</label>
-          <input id="cf-date" name="date" type="text" placeholder="Fri 14 Nov · flexible ±1 day" />
+          <label htmlFor="cf-date">Date / window{tripOptional ? " · optional" : ""}</label>
+          <input id="cf-date" name="date" type="text" placeholder="Fri 14 Nov · flexible ±1 day" aria-invalid={errors.date || undefined} />
         </div>
         <div className={`field-jn ${errors.pax ? "error" : ""}`}>
           <label htmlFor="cf-pax">Passengers</label>
-          <input id="cf-pax" name="pax" type="text" placeholder="4 adults" />
+          <input id="cf-pax" name="pax" type="text" placeholder="4 adults" aria-invalid={errors.pax || undefined} />
         </div>
       </div>
 
@@ -138,6 +154,8 @@ export function ContactForm() {
           id="cf-notes"
           name="notes"
           rows={4}
+          maxLength={2000}
+          aria-invalid={errors.notes || undefined}
           placeholder="Repositioning leg, multi-stop, pets, special catering — whatever the dispatcher should know up front."
         />
       </div>
@@ -147,16 +165,18 @@ export function ContactForm() {
           — Goes directly to the dispatch desk. Not a marketing list.
         </p>
         <div className="flex items-center gap-6">
-          {msg ? (
-            <span
-              className={[
-                "font-mono text-[11px] uppercase tracking-[0.12em]",
-                msg.tone === "error" ? "text-[var(--error)]" : "text-[var(--success)]",
-              ].join(" ")}
-            >
-              {msg.text}
-            </span>
-          ) : null}
+          {/* Always-mounted live region so screen readers announce the
+              outcome; visually empty until there's something to say. */}
+          <span
+            role="status"
+            aria-live="polite"
+            className={[
+              "font-mono text-[11px] uppercase tracking-[0.12em]",
+              msg?.tone === "error" ? "text-[var(--error)]" : "text-[var(--success)]",
+            ].join(" ")}
+          >
+            {msg?.text ?? ""}
+          </span>
           <button type="submit" className="btn btn-primary" disabled={pending}>
             {pending ? "Sending…" : "Send to dispatch"} <span className="arrow">→</span>
           </button>

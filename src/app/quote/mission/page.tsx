@@ -42,8 +42,19 @@ export default function MissionStep() {
   );
 }
 
+// Local-calendar today for the date pickers' floor. Local (not UTC) so a
+// late-evening US visitor can still pick their same-day date; the server
+// re-validates with an anywhere-on-earth floor.
+function localTodayIso(): string {
+  const d = new Date();
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${d.getFullYear()}-${mm}-${dd}`;
+}
+
 function MissionStepInner() {
   const router = useRouter();
+  const minDate = localTodayIso();
   const tripType = useQuoteStore((s) => s.tripType);
   const legs = useQuoteStore((s) => s.legs);
   const pax = useQuoteStore((s) => s.pax);
@@ -197,6 +208,7 @@ function MissionStepInner() {
                       <input
                         id={`date-${i}`}
                         type="date"
+                        min={minDate}
                         value={l.date ?? ""}
                         onChange={(e) => updateLeg(l.id, { date: e.target.value })}
                       />

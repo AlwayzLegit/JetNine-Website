@@ -136,3 +136,49 @@ export async function createEmptyLeg(formData: FormData): Promise<CreateEmptyLeg
     return { ok: false, error: "DB_INSERT_FAILED" };
   }
 }
+
+// ─── updateEmptyLegStatus ─────────────────────────────────────────
+// The board was create-only at launch: a sold or stale leg had no way off
+// the public /empty-legs page. Status drives public visibility (the board
+// only lists 'live'), so this is also the unlist control.
+
+type EmptyLegStatus = (typeof emptyLegStatusEnum.enumValues)[number];
+
+function isEmptyLegStatus(v: string): v is EmptyLegStatus {
+  return (emptyLegStatusEnum.enumValues as readonly string[]).includes(v);
+}
+
+export async function updateEmptyLegStatus(
+  legId: string,
+  status: string,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const user = await requireStaff();
+
+  if (!/^[0-9a-f-]{36}$/i.test(legId)) return { ok: false, error: "Bad leg id" };
+  if (!isEmptyLegStatus(status)) return { ok: false, error: "Invalid status" };
+
+  const [before] = await db
+    .select({ id: emptyLegs.id, code: emptyLegs.code, status: emptyLegs.status })
+    .from(emptyLegs)
+    .where(eq(emptyLegs.id, legId));
+  if (!before) return { ok: false, error: "Empty leg not found" };
+
+  await db
+    .update(emptyLegs)
+    .set({ status, updatedAt: new Date() })
+    .where(eq(emptyLegs.id, legId));
+
+  await logAudit({
+    actorUserId: user.id,
+    actorRole: user.role,
+    action: "empty_leg.status.update",
+    subjectType: "empty_leg",
+    subjectId: legId,
+    subjectCode: before.code,
+    diff: { status: { before: before.status, after: status } },
+  });
+
+  revalidatePath("/admin/empty-leg");
+  revalidatePath("/empty-legs");
+  return { ok: true };
+}

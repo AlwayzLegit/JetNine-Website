@@ -4,18 +4,10 @@ import { aircraft } from "@/db/schema/aircraft";
 import { operators } from "@/db/schema/operators";
 import { emptyLegs } from "@/db/schema/empty-legs";
 import { NewEmptyLegForm } from "./new-leg-form";
+import { EmptyLegStatusSelect } from "@/components/admin/empty-leg-status-select";
 import { formatUSD } from "@/lib/quote-pricing";
 
 export const dynamic = "force-dynamic";
-
-const STATUS_CLASS: Record<string, string> = {
-  draft: "border-ink-3 text-bone-2",
-  scheduled: "border-bone-2 text-bone-2",
-  live: "border-clearance text-clearance",
-  sold: "border-[var(--success)] text-[var(--success)]",
-  cancelled: "border-[var(--error)] text-[var(--error)]",
-  expired: "border-steel text-steel",
-};
 
 export default async function AdminEmptyLegPage() {
   const tails = await db
@@ -111,14 +103,7 @@ export default async function AdminEmptyLegPage() {
                     <span className="font-mono text-[12px] tracking-[0.04em] text-clearance">
                       {l.code}
                     </span>
-                    <span
-                      className={[
-                        "inline-block rounded-full border px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.14em]",
-                        STATUS_CLASS[l.status] ?? "border-ink-3 text-bone-2",
-                      ].join(" ")}
-                    >
-                      {l.status}
-                    </span>
+                    <EmptyLegStatusSelect legId={l.id} current={l.status} />
                   </div>
                   <div className="mt-2 font-serif text-[18px] leading-tight text-bone">
                     {l.fromIata ?? l.fromIcao} <span className="text-steel">→</span>{" "}

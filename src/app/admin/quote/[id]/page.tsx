@@ -8,8 +8,10 @@ import { users } from "@/db/schema/users";
 import { aircraft } from "@/db/schema/aircraft";
 import { operators } from "@/db/schema/operators";
 import { messages } from "@/db/schema/audit";
+import { members } from "@/db/schema/members";
 import { aircraftScheduleBlocks } from "@/db/schema/schedule-blocks";
 import { StatusSelect } from "@/components/admin/status-select";
+import { MemberAttach, type MemberOption } from "@/components/admin/member-attach";
 import { DispatcherAssign } from "@/components/admin/dispatcher-assign";
 import { ConvertQuoteButton } from "@/components/admin/convert-quote-button";
 import {
@@ -56,6 +58,30 @@ export default async function QuoteWorkbenchPage({ params }: Props) {
 
   const [quote] = await db.select().from(quotes).where(eq(quotes.id, id));
   if (!quote) notFound();
+
+  // Member linkage — roster for the attach control plus the currently
+  // linked row (kept separate from the active-only options so a paused
+  // member still displays on an old quote).
+  const memberRows = await db
+    .select({
+      id: members.id,
+      memberCode: members.memberCode,
+      preferredName: members.preferredName,
+      legalName: members.legalName,
+      status: members.status,
+    })
+    .from(members)
+    .orderBy(asc(members.memberCode));
+  const toOption = (m: (typeof memberRows)[number]): MemberOption => ({
+    id: m.id,
+    memberCode: m.memberCode,
+    label: m.preferredName ?? m.legalName ?? "—",
+  });
+  const memberOptions = memberRows.filter((m) => m.status === "active").map(toOption);
+  const linkedMemberRow = quote.memberId
+    ? memberRows.find((m) => m.id === quote.memberId)
+    : undefined;
+  const linkedMember = linkedMemberRow ? toOption(linkedMemberRow) : null;
 
   const legs = await db
     .select()
@@ -300,8 +326,19 @@ export default async function QuoteWorkbenchPage({ params }: Props) {
               <h2 className="font-mono text-[10px] uppercase tracking-[0.14em] text-bone-2">
                 — Contact
               </h2>
-              <span className="rounded-[2px] border border-ink-3 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.12em] text-steel">
-                {contact?.account === "returning" ? "RETURNING" : "GUEST"}
+              <span
+                className={[
+                  "rounded-[2px] border px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.12em]",
+                  quote.memberId
+                    ? "border-clearance text-clearance"
+                    : "border-ink-3 text-steel",
+                ].join(" ")}
+              >
+                {quote.memberId
+                  ? "MEMBER"
+                  : contact?.account === "returning"
+                    ? "RETURNING"
+                    : "GUEST"}
               </span>
             </div>
             <div className="font-serif text-[24px] font-normal leading-tight text-bone">
@@ -365,6 +402,12 @@ export default async function QuoteWorkbenchPage({ params }: Props) {
                 </>
               ) : null}
             </dl>
+            <MemberAttach
+              quoteId={quote.id}
+              current={linkedMember}
+              options={memberOptions}
+              locked={Boolean(quote.convertedTripId)}
+            />
           </section>
 
           {/* Legs */}

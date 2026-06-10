@@ -8,6 +8,8 @@ import { quotes, quoteLegs, type NewQuote, type NewQuoteLeg } from "@/db/schema/
 import { findAirport } from "@/lib/airports";
 import { toE164 } from "@/lib/phone";
 import type { QuoteDraft } from "@/lib/quote-store";
+import { getCurrentUser } from "@/lib/auth";
+import { getMemberByUserId } from "@/lib/member";
 import { logAudit } from "@/lib/audit";
 import { checkRateLimit } from "@/lib/rate-limit";
 import {
@@ -28,11 +30,12 @@ const QUOTE_RATE_LIMIT_WINDOW_SECONDS = 300;
 /**
  * Insert a quote (and its legs) submitted from the public wizard.
  *
- * RLS treats the SECURITY DEFINER path: this Server Action runs under the
- * anon Supabase context (via DATABASE_URL connection pool). The
- * quotes_anon_insert policy permits insert as long as member_id is null,
- * created_by_user_id is null, source is wizard/homepage/empty_leg, and
- * both required consents are true.
+ * Signed-in visitors get their member record linked at insert (session
+ * is the identity proof — see the IDOR note in convertQuoteToTrip);
+ * anonymous visitors land as GUEST quotes a dispatcher can attach later.
+ * RLS note: the quotes_anon_insert policy constrains the anon REST path
+ * (member_id null, wizard/homepage/empty_leg source, consents true);
+ * this Server Action writes through the pooled DATABASE_URL connection.
  */
 export async function submitQuote(draft: QuoteDraft): Promise<SubmitResult> {
   // Server-side validation guard — never trust the client.
@@ -50,9 +53,18 @@ export async function submitQuote(draft: QuoteDraft): Promise<SubmitResult> {
   if (draft.notes && draft.notes.length > 800) {
     return { ok: false, error: "NOTES_TOO_LONG" };
   }
+  // Floor the depart date at "today, anywhere on earth" (UTC-12). The
+  // wizard collects local dates with no timezone, so a strict UTC-today
+  // floor would wrongly reject a late-evening Hawaii booking for "today";
+  // the AoE floor never rejects a legitimate same-day mission while still
+  // blocking genuinely past dates.
+  const minDate = new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString().slice(0, 10);
   for (const l of draft.legs) {
     if (!l.fromIata || !l.toIata || !l.date || !l.time) {
       return { ok: false, error: "INCOMPLETE_LEG" };
+    }
+    if (l.date < minDate) {
+      return { ok: false, error: "DATE_IN_PAST" };
     }
   }
 
@@ -112,10 +124,30 @@ export async function submitQuote(draft: QuoteDraft): Promise<SubmitResult> {
   // skip both ack and dispatch-notification emails.
   const isSmoke = draft.firstName.trim().startsWith("[SMOKE]");
 
+  // Link the member when the visitor is signed in — the SESSION is the
+  // proof of identity, never the typed email (binding by contact email
+  // at convert-time was an IDOR; see convertQuoteToTrip). Without this
+  // link the quote lands as GUEST and convert-to-trip is gated until a
+  // dispatcher attaches a member by hand. Lookup failure degrades to an
+  // anonymous submit — the quote still lands.
+  let memberId: string | null = null;
+  let user: Awaited<ReturnType<typeof getCurrentUser>> = null;
+  try {
+    user = await getCurrentUser();
+    if (user) {
+      const m = await getMemberByUserId(user.id);
+      memberId = m?.id ?? null;
+    }
+  } catch (err) {
+    console.error("submitQuote auth lookup failed — treating as anon", err);
+  }
+
   try {
     const inserted = await db.transaction(async (tx) => {
       const values: NewQuote = {
           // quote_code is auto-filled by the quotes_default_quote_code trigger.
+          memberId,
+          createdByUserId: user?.id ?? null,
           source: "quote_wizard",
           tripType:
             draft.tripType === "roundtrip"
@@ -196,8 +228,8 @@ export async function submitQuote(draft: QuoteDraft): Promise<SubmitResult> {
     });
 
     await logAudit({
-      actorUserId: null,
-      actorRole: "anon",
+      actorUserId: user?.id ?? null,
+      actorRole: user?.role ?? "anon",
       action: "quote.submit",
       subjectType: "quote",
       subjectId: inserted.id,
@@ -208,6 +240,7 @@ export async function submitQuote(draft: QuoteDraft): Promise<SubmitResult> {
         legs: draft.legs.length,
         category: draft.category,
         contactEmail: draft.email,
+        memberId: memberId ?? undefined,
         source: "quote_wizard",
       },
     });

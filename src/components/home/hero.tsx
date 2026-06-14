@@ -1,19 +1,36 @@
+import Image from "next/image";
 import Link from "next/link";
 import { Reveal } from "@/components/reveal";
 import { SITE } from "@/lib/constants";
 
 export function Hero() {
   return (
-    <header className="relative flex min-h-screen min-h-[720px] items-center overflow-hidden">
-      {/* Background — gradients + scanlines + horizon glow */}
+    <header className="relative flex min-h-screen min-h-[720px] items-center overflow-hidden bg-ink">
+      {/* Background photo — full-bleed, LCP element so it preloads (priority).
+          The shot is dark on the left where the headline sits, so the scrim
+          below only needs to guarantee contrast, not rescue it. */}
+      <Image
+        src="/images/hero/runway-night.webp"
+        alt=""
+        aria-hidden
+        fill
+        priority
+        sizes="100vw"
+        className="object-cover object-[60%_center]"
+      />
+
+      {/* Contrast scrim — darker on the left (under the text) and along the
+          top/bottom edges (nav legibility + section blend), lighter mid-right
+          so the aircraft reads through. */}
       <div
         aria-hidden
         className="absolute inset-0"
         style={{
           background:
-            "radial-gradient(ellipse at 30% 50%, rgba(20,24,32,0) 0%, rgba(7,8,10,0.55) 60%, rgba(7,8,10,0.92) 100%), linear-gradient(180deg, rgba(7,8,10,0.4) 0%, rgba(7,8,10,0) 25%, rgba(7,8,10,0) 70%, rgba(7,8,10,0.85) 100%), linear-gradient(135deg, #0E1014 0%, #07080A 60%, #050608 100%)",
+            "linear-gradient(90deg, rgba(7,8,10,0.92) 0%, rgba(7,8,10,0.62) 34%, rgba(7,8,10,0.12) 64%, rgba(7,8,10,0.42) 100%), linear-gradient(180deg, rgba(7,8,10,0.72) 0%, rgba(7,8,10,0) 24%, rgba(7,8,10,0) 62%, rgba(7,8,10,0.9) 100%)",
         }}
       >
+        {/* Faint scanline texture, carried over for brand consistency */}
         <div
           aria-hidden
           className="absolute inset-0"
@@ -22,24 +39,7 @@ export function Hero() {
               "repeating-linear-gradient(45deg, rgba(255,255,255,0.012) 0px, rgba(255,255,255,0.012) 1px, transparent 1px, transparent 18px)",
           }}
         />
-        <div
-          aria-hidden
-          className="absolute inset-x-0 bottom-[18%] h-px"
-          style={{
-            background:
-              "linear-gradient(90deg, transparent, rgba(232,226,210,0.18), transparent)",
-          }}
-        />
       </div>
-
-      {/* Huge bg "9" glyph */}
-      <span
-        aria-hidden
-        className="pointer-events-none absolute right-16 top-1/2 -translate-y-1/2 font-serif font-light leading-none text-[rgba(232,226,210,0.045)] max-md:right-[-10vw] max-md:text-[96vw] md:text-[64vw]"
-        style={{ fontVariationSettings: '"opsz" 144', letterSpacing: "-0.05em" }}
-      >
-        9
-      </span>
 
       <div className="relative z-10 mx-auto w-full max-w-container px-[var(--pad-x)]">
         <Reveal stagger={1} className="mb-8 inline-flex items-center gap-3.5 font-mono text-[11px] uppercase tracking-[0.16em] text-bone-2">

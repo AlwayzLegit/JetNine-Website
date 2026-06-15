@@ -8,11 +8,12 @@ Deeper detail: `MANUAL.md` (how the system works end-to-end), `RBAC.md`,
 
 ## 0. TL;DR — what to do next
 
-1. **Marketing hero images** (the active task — §3). Homepage hero shipped
-   (PR #36). Five more pages need one each: `/aircraft`, `/memberships`,
-   `/about`, `/how-it-works`, `/safety`. **Blocked** on the Hugging Face
-   image MCP tool being permission-gated in the prior session — get it
-   allowed first (§2), then run the generate → manifest → hydrate pipeline (§3).
+1. **Marketing hero images** — **SHIPPED in PR #38** (open, awaiting merge).
+   All five pages (`/aircraft`, `/memberships`, `/about`, `/how-it-works`,
+   `/safety`) now have an on-brand hero photo, plus the homepage (#36). The
+   HF gate that blocked the prior session was **already clear** on a fresh
+   start — no action needed there. Only follow-up: eyeball the per-page
+   `imagePosition` crops on the preview and nudge if any subject sits wrong.
 2. **Owner-only items still open:** Phase F email audit (§4.1), and the SMOKE
    test-data purge awaiting the owner's "purge" go-ahead (§4.2).
 3. **Backlog issues:** #34 (admin invoice finalize + Pay-resume), #30 F/G
@@ -55,12 +56,14 @@ Deeper detail: `MANUAL.md` (how the system works end-to-end), `RBAC.md`,
 In the prior session these worked: **GitHub, Vercel, PostHog, git/Bash.**
 
 These were **gated behind the client's "MCP tool call requires approval"**
-wall — connected, but every call rejected until allowed: **Supabase,
-Stripe, Sentry, Hugging Face.** This is a client-side permission gate; it
-cannot be cleared by instruction — only by the user in their client
-(`/permissions` → set the server to always-allow, or approve the dialog).
-**The hero-image task is blocked precisely on the Hugging Face gate.**
-First action: confirm these are allowed, or ask the user to allow them.
+wall in the prior session — connected, but every call rejected until
+allowed: **Supabase, Stripe, Sentry, Hugging Face.** This is a client-side
+permission gate; it cannot be cleared by instruction — only by the user in
+their client (`/permissions` → always-allow, or approve the dialog).
+**Update (2026-06-15):** on a fresh session start the **Hugging Face gate
+was already clear** — `hf_whoami` and image generation ran with no prompt,
+which is how PR #38 got done. Re-confirm per server before assuming, but
+the gate is not a standing blocker.
 
 Gotcha: `mcp__Vercel__web_fetch_vercel_url` on a full HTML page exceeds the
 token limit and is saved to a temp file — slice it with Bash
@@ -71,7 +74,14 @@ no key management — all env/key values are entered via the dashboards.
 
 ---
 
-## 3. ACTIVE TASK — marketing hero images
+## 3. ~~ACTIVE TASK~~ SHIPPED (PR #38) — marketing hero images
+
+**Status:** done in **PR #38** (open, awaiting merge). The `PageHeader`
+opt-in image slot (`imageSrc`/`imageAlt`/`imagePosition`) and the five
+generated FLUX heroes are live on the branch preview; the detail below is
+kept as the record of how it was built (and the prompt set, if any need
+regenerating). The `/about` prompt was regenerated to an empty ops room —
+the verbatim §3c version rendered a visible face (issue #30 policy).
 
 **Goal:** give five marketing pages an individual, on-brand hero photo,
 mirroring the homepage hero shipped in **PR #36** (`cf564d7`).
@@ -202,7 +212,9 @@ there is a GitHub Actions bridge (this is the established flow — it produced
   attach control), empty-leg status control, past-date validation.
 - **PR #35:** `MANUAL.md` operator's guide (a PDF edition was generated for
   the owner; the throwaway render scripts are in `/tmp`, not committed).
-- **PR #36:** photographic homepage hero — the pattern to mirror for §3.
+- **PR #36:** photographic homepage hero — the pattern mirrored for §3.
+- **PR #38:** the five marketing-page heroes (§3) — `PageHeader` opt-in
+  image slot + FLUX generations via the manifest/hydrate pipeline.
 - Deep-test campaigns verified the whole quote→trip→invoice→Stripe chain in
   production; defects fixed in #33; remaining gap is #34. Issue #30 launch
   wiring A–E done (Stripe live, PostHog, Sentry, redeploy, leaked-pw

@@ -192,6 +192,8 @@ export default function HowItWorksPage() {
         kicker="How it works · operations"
         title="A senior dispatcher, not a chatbot. One number to call."
         lead="No app to download. No queue. No ten-minute hold music. Tell us the route — by phone, by form, by email — and a senior dispatcher with twenty years on the desk picks up. Specific airframes & pricing back within thirty minutes. The simplest model in the industry, on purpose."
+        imageSrc="/images/hero/how-it-works.webp"
+        imagePosition="70% center"
       />
 
       {/* Hero stat strip */}

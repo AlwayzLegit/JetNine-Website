@@ -106,5 +106,35 @@
     "source": "FLUX.1-Krea-dev",
     "note": "Dassault Falcon 8X midday three-quarter profile trijet",
     "url": "https://mcp-tools-flux-1-krea-dev.hf.space/--replicas/r9b4l/gradio_api/file=/tmp/gradio/b3210b9f6b57685e022c96e2fc18fd8b3ebc19bdee0e4365b4962f9b273e69c6/image.webp"
+  },
+  {
+    "dest": "public/images/hero/aircraft.webp",
+    "source": "FLUX.1-Krea-dev",
+    "note": "aircraft — blue-hour ramp lineup, jets receding, dark empty left third",
+    "url": "https://mcp-tools-flux-1-krea-dev.hf.space/--replicas/2hlwz/gradio_api/file=/tmp/gradio/692a1db9d3e7a7c31f31fe3848e8a8164803aff88855e89bd50fdb4909da51ab/image.webp"
+  },
+  {
+    "dest": "public/images/hero/memberships.webp",
+    "source": "FLUX.1-Krea-dev",
+    "note": "memberships — single jet, airstair down, warm cabin glow on wet night tarmac",
+    "url": "https://mcp-tools-flux-1-krea-dev.hf.space/--replicas/2hlwz/gradio_api/file=/tmp/gradio/c0aabb6d03f870bccd7d3715f4293e2bed5bf9f0cadba8b29698afef7a15833f/image.webp"
+  },
+  {
+    "dest": "public/images/hero/about.webp",
+    "source": "FLUX.1-Krea-dev",
+    "note": "about — empty night dispatch ops room, glowing monitors, ramp through window, no faces",
+    "url": "https://mcp-tools-flux-1-krea-dev.hf.space/--replicas/2hlwz/gradio_api/file=/tmp/gradio/54dd82489b486728b1b607af43fc433b99bd978cf5c36c46dd55e012c16f4065/image.webp"
+  },
+  {
+    "dest": "public/images/hero/how-it-works.webp",
+    "source": "FLUX.1-Krea-dev",
+    "note": "how-it-works — dispatcher workstation, cyan flight-tracking monitor, headset, no faces",
+    "url": "https://mcp-tools-flux-1-krea-dev.hf.space/--replicas/2hlwz/gradio_api/file=/tmp/gradio/04711a3579fdc92b09f62ceb43aab402372390daba2458327a323195fb22239b/image.webp"
+  },
+  {
+    "dest": "public/images/hero/safety.webp",
+    "source": "FLUX.1-Krea-dev",
+    "note": "safety — jet under pre-flight inspection in lit dark hangar, glossy floor",
+    "url": "https://mcp-tools-flux-1-krea-dev.hf.space/--replicas/2hlwz/gradio_api/file=/tmp/gradio/6e7050d7536f9190b5f59c1f8806fd86b1aeb04bc210adebde877ad8227afed5/image.webp"
   }
 ]

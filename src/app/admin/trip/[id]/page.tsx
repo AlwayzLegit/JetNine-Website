@@ -16,6 +16,7 @@ import {
   type ThreadMessage,
 } from "@/components/admin/message-thread";
 import { postTripMessage } from "@/app/admin/trip/[id]/actions";
+import { InvoiceFinalizeForm } from "@/components/admin/invoice-finalize-form";
 import { formatUSD } from "@/lib/quote-pricing";
 
 export const dynamic = "force-dynamic";
@@ -461,9 +462,29 @@ export default async function AdminTripDetailPage({ params }: Props) {
                   </span>
                 </Row>
               </dl>
-              <p className="mt-5 font-mono text-[10px] uppercase tracking-[0.08em] text-steel">
-                — Line-item editor + payment processing ship in C.3.
-              </p>
+              {tripInvoice.status === "draft" ? (
+                <div className="mt-5 border-t border-ink-3 pt-4">
+                  <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-steel">
+                    — Finalize
+                  </p>
+                  <InvoiceFinalizeForm
+                    invoiceId={tripInvoice.id}
+                    initial={{
+                      subtotalUsd: tripInvoice.subtotalUsd,
+                      fetUsd: tripInvoice.fetUsd,
+                      segmentFeeUsd: tripInvoice.segmentFeeUsd,
+                      totalUsd: tripInvoice.totalUsd,
+                      dueOn: tripInvoice.dueOn,
+                      notes: tripInvoice.notes,
+                    }}
+                  />
+                </div>
+              ) : (
+                <p className="mt-5 font-mono text-[10px] uppercase tracking-[0.08em] text-steel">
+                  — {tripInvoice.dueOn ? `Due ${tripInvoice.dueOn} · ` : ""}
+                  Figures locked once finalized.
+                </p>
+              )}
             </section>
           ) : null}
         </div>

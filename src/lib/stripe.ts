@@ -149,6 +149,21 @@ export async function createInvoiceCheckoutSession(input: CheckoutInput): Promis
 }
 
 /**
+ * Retrieve an existing Checkout Session by id. Used by the Pay-resume
+ * path: when an invoice already carries a real `cs_…` session, we ask
+ * Stripe for its current state instead of minting a duplicate (which
+ * could double-charge). Returns the lifecycle `status` (`open`,
+ * `complete`, `expired`) and the hosted `url` (present while `open`).
+ */
+export async function retrieveCheckoutSession(sessionId: string): Promise<{
+  status: Stripe.Checkout.Session["status"];
+  url: string | null;
+}> {
+  const session = await getStripe().checkout.sessions.retrieve(sessionId);
+  return { status: session.status, url: session.url };
+}
+
+/**
  * Verify a webhook payload + signature header. Throws if invalid; the
  * route handler converts the throw into a 400 response so Stripe stops
  * retrying corrupt deliveries.

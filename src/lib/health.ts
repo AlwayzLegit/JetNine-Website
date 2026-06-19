@@ -18,6 +18,7 @@ export type HealthSnapshot = {
   sha: string;
   checks: {
     db: CheckResult;
+    site: CheckResult;
     stripe: CheckResult;
     email: CheckResult;
     twilio: CheckResult;
@@ -52,6 +53,41 @@ export async function checkDb(): Promise<CheckResult> {
       error: err instanceof Error ? err.name : "unknown",
     };
   }
+}
+
+/**
+ * Domain / base-URL check. `ok` is intentionally always true (an
+ * informational row, like email/twilio) so it never trips the public
+ * /api/health `ok===false` smoke filter on a preview deploy. The
+ * /admin/health row decides green/amber from the sub-booleans.
+ *
+ * Mirrors getBaseUrl()'s precedence (NEXT_PUBLIC_SITE_URL → Vercel prod
+ * URL → Vercel URL → localhost) without importing the server-only stripe
+ * module. The host this resolves to is where Stripe checkout redirects
+ * and the links inside dispatch emails actually point — so if it isn't
+ * jetnine.com in production, members paying an invoice get bounced to the
+ * *.vercel.app host. Set NEXT_PUBLIC_SITE_URL=https://jetnine.com at the
+ * domain switchover to close that.
+ */
+export function checkSite(): CheckResult {
+  const explicit = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") || "";
+  const prodUrl = process.env.VERCEL_PROJECT_PRODUCTION_URL;
+  const vercelUrl = process.env.VERCEL_URL;
+  const base =
+    explicit ||
+    (prodUrl ? `https://${prodUrl}` : vercelUrl ? `https://${vercelUrl}` : "http://localhost:3000");
+  let host = "";
+  try {
+    host = new URL(base).host;
+  } catch {
+    host = "";
+  }
+  return {
+    ok: true,
+    siteUrlConfigured: Boolean(explicit),
+    canonical: host === "jetnine.com",
+    host,
+  };
 }
 
 export function checkStripe(): CheckResult {
@@ -130,7 +166,7 @@ export async function snapshot(): Promise<HealthSnapshot> {
     Promise.resolve(checkPosthog()),
   ]);
 
-  const checks = { db, stripe, email, twilio, sentry, posthog };
+  const checks = { db, site: checkSite(), stripe, email, twilio, sentry, posthog };
   const ok = db.ok;
   const allOptionalsConfigured =
     Boolean(stripe.configured) &&

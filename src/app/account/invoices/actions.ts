@@ -5,10 +5,11 @@ import { db } from "@/db";
 import { invoices } from "@/db/schema/invoices";
 import { members } from "@/db/schema/members";
 import { logAudit } from "@/lib/audit";
-import { requireUser } from "@/lib/auth";
+import { requireUser, type CurrentUser } from "@/lib/auth";
 import {
   createInvoiceCheckoutSession,
   isStripeConfigured,
+  retrieveCheckoutSession,
   StripeAmountTooLargeError,
 } from "@/lib/stripe";
 
@@ -17,6 +18,15 @@ export type PayResult =
   | { ok: false; error: string };
 
 const PAYABLE_STATUSES = new Set(["due", "overdue"]);
+
+// A claimed-but-not-yet-real session id looks like `pending:<uuid>` —
+// the sentinel stamped between claim and the Stripe round-trip. A real
+// hosted session id is `cs_…`. Distinguishing them is what lets the
+// resume path know whether another tab is genuinely mid-flight (pending)
+// or there's a reusable Stripe session to send the member back to (cs_).
+function isPlaceholderSession(id: string | null): boolean {
+  return !id || id.startsWith("pending:");
+}
 
 // How long to consider a stamped Stripe Checkout session "in flight"
 // before allowing a retry. Stripe Checkout sessions expire after 24 h
@@ -74,6 +84,36 @@ export async function startInvoiceCheckout(invoiceId: string): Promise<PayResult
     return { ok: false, error: "INVALID_AMOUNT" };
   }
 
+  return mintCheckout(
+    {
+      id: row.id,
+      invoiceCode: row.invoiceCode,
+      totalUsd: row.totalUsd,
+      memberId: row.memberId,
+    },
+    user,
+  );
+}
+
+type CheckoutRow = {
+  id: string;
+  invoiceCode: string;
+  totalUsd: number;
+  memberId: string;
+};
+
+/**
+ * Claim → create → stamp → audit. Splitting this out from
+ * `startInvoiceCheckout` lets the resume path re-enter it after clearing
+ * an expired session. `attempt` bounds the resume→re-mint recursion so a
+ * pathological race can't loop (one re-mint is enough; the second resume
+ * always terminates on a pending sentinel or a fresh `open` session).
+ */
+async function mintCheckout(
+  row: CheckoutRow,
+  user: CurrentUser,
+  attempt = 0,
+): Promise<PayResult> {
   // Claim the invoice for checkout. Conditional UPDATE wins exactly one
   // writer when two tabs race. The `pending:<uuid>` placeholder is a
   // sentinel — the real session id replaces it on the post-Stripe stamp
@@ -96,7 +136,11 @@ export async function startInvoiceCheckout(invoiceId: string): Promise<PayResult
     .returning({ id: invoices.id });
 
   if (claimed.length === 0) {
-    return { ok: false, error: "PAYMENT_IN_PROGRESS" };
+    // Another writer holds a fresh claim. Rather than dead-ending the
+    // member on PAYMENT_IN_PROGRESS, inspect what's actually there: a
+    // resumable open session, an already-complete payment, or a stale
+    // session we can clear and replace.
+    return resumeCheckout(row, user, attempt);
   }
 
   let session: { sessionId: string; url: string };
@@ -117,8 +161,8 @@ export async function startInvoiceCheckout(invoiceId: string): Promise<PayResult
         and(eq(invoices.id, row.id), eq(invoices.stripeCheckoutSessionId, claimToken)),
       );
     if (err instanceof StripeAmountTooLargeError) {
-      // Ops surfaces this in /admin/invoice/[id] and routes to wire +
-      // the customer sees a hint instead of a generic "something broke".
+      // Ops surfaces this on the trip sheet and routes to wire + the
+      // customer sees a hint instead of a generic "something broke".
       console.warn("stripe invoice exceeds per-line cap", {
         invoiceId: row.id,
         totalUsd: row.totalUsd,
@@ -153,4 +197,85 @@ export async function startInvoiceCheckout(invoiceId: string): Promise<PayResult
   });
 
   return { ok: true, url: session.url };
+}
+
+/**
+ * Resume path: an existing claim is in the way. Re-read the stored
+ * session and decide:
+ *   - still `due`/`overdue` + a real `cs_…` session that's still `open`
+ *     → redirect the member back to it (resume; no new charge minted)
+ *   - session `complete` (or invoice already `paid`) → tell them it's done
+ *   - session `expired`, or only a stale `pending:` sentinel past its
+ *     window → clear it and mint a fresh session
+ *   - a fresh `pending:` sentinel → another tab is genuinely mid-flight
+ */
+async function resumeCheckout(
+  row: CheckoutRow,
+  user: CurrentUser,
+  attempt: number,
+): Promise<PayResult> {
+  const [cur] = await db
+    .select({
+      sessionId: invoices.stripeCheckoutSessionId,
+      status: invoices.status,
+    })
+    .from(invoices)
+    .where(eq(invoices.id, row.id))
+    .limit(1);
+
+  if (!cur) return { ok: false, error: "NOT_FOUND" };
+
+  if (cur.status === "paid") {
+    return { ok: false, error: "PAYMENT_ALREADY_COMPLETE" };
+  }
+  if (!PAYABLE_STATUSES.has(cur.status)) {
+    return { ok: false, error: "INVOICE_NOT_PAYABLE" };
+  }
+
+  // Only a placeholder sentinel and still fresh (the claim above already
+  // failed the TTL test) → a real concurrent attempt is mid-flight.
+  if (isPlaceholderSession(cur.sessionId)) {
+    return { ok: false, error: "PAYMENT_IN_PROGRESS" };
+  }
+
+  let remote: { status: string | null; url: string | null };
+  try {
+    remote = await retrieveCheckoutSession(cur.sessionId!);
+  } catch (err) {
+    console.error("stripe session retrieve failed", err);
+    return { ok: false, error: "STRIPE_ERROR" };
+  }
+
+  if (remote.status === "open" && remote.url) {
+    await logAudit({
+      actorUserId: user.id,
+      actorRole: user.role,
+      action: "invoice.checkout.resume",
+      subjectType: "invoice",
+      subjectId: row.id,
+      subjectCode: row.invoiceCode,
+      metadata: { stripeSessionId: cur.sessionId, amountUsd: row.totalUsd },
+    });
+    return { ok: true, url: remote.url };
+  }
+
+  if (remote.status === "complete") {
+    // Paid on Stripe's side; the webhook will flip the row to `paid`.
+    return { ok: false, error: "PAYMENT_ALREADY_COMPLETE" };
+  }
+
+  // Expired (or an unexpected null status). Clear the stale binding —
+  // guarded to the exact id we just read so we don't clobber a racer —
+  // then mint a fresh session. Bounded to a single re-mint.
+  await db
+    .update(invoices)
+    .set({ stripeCheckoutSessionId: null, updatedAt: new Date() })
+    .where(
+      and(eq(invoices.id, row.id), eq(invoices.stripeCheckoutSessionId, cur.sessionId!)),
+    );
+
+  if (attempt >= 1) {
+    return { ok: false, error: "PAYMENT_IN_PROGRESS" };
+  }
+  return mintCheckout(row, user, attempt + 1);
 }

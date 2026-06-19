@@ -296,6 +296,154 @@ async function fireChannel(args: {
   return { status: "failed", error: result.error };
 }
 
+// ─── Invoice finalize (draft → due) ──────────────────────────────────────
+//
+// The last unbuilt segment of the money path (#34). convertQuoteToTrip
+// creates the invoice as `draft` (unless an immediate reserve drawdown
+// flips it straight to `paid`); a draft has no member-facing Pay button
+// until a dispatcher reviews the figures and finalizes it to `due`. This
+// action backs the editor on the trip sheet: edit the money fields + due
+// date, then either Save (stay draft) or Finalize (→ due). Editing is
+// locked once the invoice leaves `draft`.
+
+export type InvoiceUpdateResult =
+  | { ok: true; status: "draft" | "due" }
+  | { ok: false; error: string };
+
+// Stripe's per-line-item ceiling is 99,999,999 cents; our amounts are
+// whole USD, so the same number is a safe upper bound in dollars too.
+const MAX_INVOICE_USD = 99_999_999;
+
+// Parse a money field: empty → null (unknown), otherwise a rounded
+// integer. Returns NaN as an invalid-input sentinel the caller rejects.
+function parseUsdField(v: FormDataEntryValue | null): number | null {
+  if (v === null) return null;
+  const s = String(v).trim();
+  if (s === "") return null;
+  const n = Number(s);
+  if (!Number.isFinite(n)) return NaN;
+  return Math.round(n);
+}
+
+export async function updateInvoice(
+  invoiceId: string,
+  formData: FormData,
+): Promise<InvoiceUpdateResult> {
+  const actor = await requireStaff();
+
+  if (!/^[0-9a-f-]{36}$/i.test(invoiceId)) {
+    return { ok: false, error: "Bad invoice id" };
+  }
+
+  const intent = String(formData.get("intent") ?? "save");
+  if (intent !== "save" && intent !== "finalize") {
+    return { ok: false, error: "Bad intent" };
+  }
+
+  const [inv] = await db.select().from(invoices).where(eq(invoices.id, invoiceId));
+  if (!inv) return { ok: false, error: "Invoice not found" };
+  if (inv.status !== "draft") {
+    return { ok: false, error: `Invoice is ${inv.status} — only drafts are editable` };
+  }
+
+  const subtotalUsd = parseUsdField(formData.get("subtotalUsd"));
+  const fetUsd = parseUsdField(formData.get("fetUsd"));
+  const segmentFeeUsd = parseUsdField(formData.get("segmentFeeUsd"));
+  const totalUsd = parseUsdField(formData.get("totalUsd"));
+
+  for (const [label, val] of [
+    ["Subtotal", subtotalUsd],
+    ["FET", fetUsd],
+    ["Segment fee", segmentFeeUsd],
+    ["Total", totalUsd],
+  ] as const) {
+    if (typeof val === "number" && Number.isNaN(val)) {
+      return { ok: false, error: `${label} must be a number` };
+    }
+    if (val !== null && (val < 0 || val > MAX_INVOICE_USD)) {
+      return { ok: false, error: `${label} is out of range` };
+    }
+  }
+
+  const notesRaw = String(formData.get("notes") ?? "").trim();
+  const notes = notesRaw === "" ? null : notesRaw.slice(0, 2000);
+
+  const dueOnRaw = String(formData.get("dueOn") ?? "").trim();
+  let dueOn: string | null = null;
+  if (dueOnRaw !== "") {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(dueOnRaw) || Number.isNaN(Date.parse(dueOnRaw))) {
+      return { ok: false, error: "Due date must be a valid YYYY-MM-DD" };
+    }
+    dueOn = dueOnRaw;
+  }
+
+  if (intent === "finalize" && (totalUsd === null || totalUsd <= 0)) {
+    return { ok: false, error: "Total must be greater than zero to finalize" };
+  }
+
+  const patch: Partial<typeof invoices.$inferInsert> = {
+    subtotalUsd,
+    fetUsd,
+    segmentFeeUsd,
+    totalUsd,
+    notes,
+    updatedAt: new Date(),
+  };
+  if (dueOn !== null) patch.dueOn = dueOn;
+
+  if (intent === "finalize") {
+    patch.status = "due";
+    // A due invoice should carry a due date; default to +7 days when the
+    // dispatcher didn't set one and the row doesn't already have one.
+    if (dueOn === null && !inv.dueOn) {
+      const d = new Date();
+      d.setUTCDate(d.getUTCDate() + 7);
+      patch.dueOn = d.toISOString().slice(0, 10);
+    }
+  }
+
+  // Constrain to status='draft' so a concurrent finalize can't be
+  // double-applied; empty result means someone else moved it first.
+  const updated = await db
+    .update(invoices)
+    .set(patch)
+    .where(and(eq(invoices.id, invoiceId), eq(invoices.status, "draft")))
+    .returning({ id: invoices.id });
+
+  if (updated.length === 0) {
+    return { ok: false, error: "Invoice changed under you — reload the sheet" };
+  }
+
+  const diff: Record<string, unknown> = {
+    subtotalUsd: { before: inv.subtotalUsd, after: subtotalUsd },
+    fetUsd: { before: inv.fetUsd, after: fetUsd },
+    segmentFeeUsd: { before: inv.segmentFeeUsd, after: segmentFeeUsd },
+    totalUsd: { before: inv.totalUsd, after: totalUsd },
+  };
+  if (intent === "finalize") {
+    diff.status = { before: "draft", after: "due" };
+  }
+
+  await logAudit({
+    actorUserId: actor.id,
+    actorRole: actor.role,
+    action: intent === "finalize" ? "invoice.finalize" : "invoice.draft.update",
+    subjectType: "invoice",
+    subjectId: invoiceId,
+    subjectCode: inv.invoiceCode,
+    diff,
+    metadata: { intent, dueOn: patch.dueOn ?? inv.dueOn ?? null },
+  });
+
+  if (inv.tripId) {
+    revalidatePath(`/admin/trip/${inv.tripId}`);
+  }
+  revalidatePath("/admin/trip");
+  revalidatePath("/account/invoices");
+
+  return { ok: true, status: intent === "finalize" ? "due" : "draft" };
+}
+
 // ─── Messaging thread (subject_type='trip') ──────────────────────────────
 
 type Channel = (typeof messageChannelEnum.enumValues)[number];

@@ -9,6 +9,9 @@ const ERROR_COPY: Record<string, string> = {
   FORBIDDEN: "You can't pay this invoice.",
   INVOICE_NOT_PAYABLE: "This invoice isn't payable right now.",
   INVALID_AMOUNT: "Amount missing — call dispatch.",
+  INVOICE_TOO_LARGE_FOR_STRIPE: "Amount exceeds card limits — call dispatch to wire.",
+  PAYMENT_IN_PROGRESS: "A payment is already open in another tab — finish there, or wait a moment and retry.",
+  PAYMENT_ALREADY_COMPLETE: "This invoice is already paid — refresh to see it update.",
   STRIPE_ERROR: "Stripe couldn't open checkout — try again or call dispatch.",
 };
 

@@ -303,6 +303,8 @@ export default function MembershipsPage() {
         kicker="Memberships · jet card · on-demand"
         title="Three ways to fly. None of them require a membership."
         lead="Most charter brokers want you on a yearly retainer. We don't. The default is on-demand — pay per flight, locked pricing, zero commitment. The jet card and reserve programs exist because some clients want fixed hourly rates and guaranteed availability. Pick the one that fits your year."
+        imageSrc="/images/hero/memberships.webp"
+        imagePosition="58% center"
       />
 
       {/* Anchor row */}

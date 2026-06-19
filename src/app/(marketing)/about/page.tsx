@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import type { Metadata } from "next";
 import { pageMetadata } from "@/lib/page-meta";
@@ -104,8 +105,38 @@ export default function AboutPage() {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(aboutJsonLd) }}
       />
       {/* Hero — split text + stats */}
-      <header className="border-b border-ink-3 bg-ink pt-[200px] pb-24 max-md:pt-[140px] max-md:pb-16">
-        <div className="container-jn grid gap-16 lg:grid-cols-[1.2fr_1fr]">
+      <header className="relative overflow-hidden border-b border-ink-3 bg-ink pt-[200px] pb-24 max-md:pt-[140px] max-md:pb-16">
+        {/* Full-bleed hero photo — an empty night dispatch ops room (no
+            people/faces, per the issue #30 headshot policy). Mirrors the
+            homepage hero + PageHeader two-axis scrim so bone text and the
+            stat block stay AA-readable over the photo. */}
+        <Image
+          src="/images/hero/about.webp"
+          alt=""
+          aria-hidden
+          fill
+          priority
+          sizes="100vw"
+          className="object-cover object-center"
+        />
+        <div
+          aria-hidden
+          className="absolute inset-0"
+          style={{
+            background:
+              "linear-gradient(90deg, rgba(7,8,10,0.92) 0%, rgba(7,8,10,0.62) 34%, rgba(7,8,10,0.12) 64%, rgba(7,8,10,0.42) 100%), linear-gradient(180deg, rgba(7,8,10,0.72) 0%, rgba(7,8,10,0) 24%, rgba(7,8,10,0) 62%, rgba(7,8,10,0.9) 100%)",
+          }}
+        >
+          <div
+            aria-hidden
+            className="absolute inset-0"
+            style={{
+              backgroundImage:
+                "repeating-linear-gradient(45deg, rgba(255,255,255,0.012) 0px, rgba(255,255,255,0.012) 1px, transparent 1px, transparent 18px)",
+            }}
+          />
+        </div>
+        <div className="container-jn relative z-10 grid gap-16 lg:grid-cols-[1.2fr_1fr]">
           <div>
             <Reveal className="mb-6 inline-flex items-center gap-3 font-mono text-[11px] uppercase tracking-[0.16em] text-bone-2">
               <span className="block h-px w-8 bg-clearance" />

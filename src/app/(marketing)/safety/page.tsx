@@ -52,6 +52,8 @@ export default function SafetyPage() {
         kicker="Safety · standards & vetting"
         title="The floor is high. The ceiling is mandatory."
         lead="Every operator in our network meets a written safety floor before they're eligible for a single flight. We re-audit every twelve months. The protocol is below — the same one our chief pilot uses to vet his own family's flights."
+        imageSrc="/images/hero/safety.webp"
+        imagePosition="center"
       />
 
       {/* B1. Accreditations row */}

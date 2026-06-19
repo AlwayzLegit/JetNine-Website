@@ -21,6 +21,8 @@ export default function AircraftPage() {
         kicker="Aircraft"
         title="Choose your aircraft."
         lead="Six categories. Hundreds of airframes. Whether it’s a 90-minute hop or a transpacific mission, the right airframe matters more than the destination — and we surface it in minutes."
+        imageSrc="/images/hero/aircraft.webp"
+        imagePosition="62% center"
       />
 
       {/* ─── Quick compare table ─── */}

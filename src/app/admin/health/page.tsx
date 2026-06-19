@@ -46,6 +46,22 @@ const ROWS: Row[] = [
       "Check Vercel → Project → Environment Variables. DATABASE_URL must be the Supabase Transaction pooler URL (port 6543). If the DB password was rotated, update DATABASE_URL + DIRECT_URL.",
   },
   {
+    key: "site",
+    label: "Site / domain",
+    fields: (s) => [
+      { label: "NEXT_PUBLIC_SITE_URL", ok: Boolean(s.siteUrlConfigured) },
+      {
+        label: "canonical",
+        ok: Boolean(s.canonical),
+        detail: typeof s.host === "string" && s.host ? String(s.host) : undefined,
+      },
+    ],
+    whyItMatters:
+      "This is the host Stripe checkout redirects to and the links inside dispatch emails point at. If it isn't jetnine.com in production, members paying an invoice get bounced to the *.vercel.app host and email links go off-brand.",
+    fixHint:
+      "At the domain switchover, set NEXT_PUBLIC_SITE_URL=https://jetnine.com (Vercel → Production) and attach jetnine.com + www to the project. Amber here on preview deploys is expected — they aren't canonical.",
+  },
+  {
     key: "stripe",
     label: "Stripe",
     fields: (s) => [
@@ -66,9 +82,9 @@ const ROWS: Row[] = [
       { label: "EMAIL_FROM", ok: Boolean(s.fromConfigured) },
     ],
     whyItMatters:
-      "Without outbound: dispatcher thread messages log to stdout instead of sending. Without inbound: customer email replies don't thread back.",
+      "Without outbound: dispatcher thread messages log to stdout instead of sending. Without inbound: customer email replies don't thread back. NOTE: this row only covers the APP's transactional email (Resend). Login magic-links + member invites are sent by Supabase Auth, NOT this layer — see Fix.",
     fixHint:
-      "Pick Resend or Postmark. Set RESEND_API_KEY or POSTMARK_SERVER_TOKEN + EMAIL_FROM. For inbound replies, configure Postmark Inbound Stream → /api/email/inbound/<INBOUND_EMAIL_SECRET>.",
+      "Pick Resend or Postmark. Set RESEND_API_KEY or POSTMARK_SERVER_TOKEN + EMAIL_FROM (verify the jetnine.com domain in the provider). For inbound replies, configure Postmark Inbound Stream → /api/email/inbound/<INBOUND_EMAIL_SECRET>. SEPARATELY: point Supabase → Auth → SMTP at Resend so login/invite emails are branded + escape Supabase's built-in rate limits (dashboard-only, no env var here to probe).",
   },
   {
     key: "twilio",

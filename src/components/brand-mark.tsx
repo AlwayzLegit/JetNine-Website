@@ -1,17 +1,17 @@
+import Image from "next/image";
 import Link from "next/link";
 
 type Size = "sm" | "md" | "lg";
 
-const sizeClasses: Record<Size, string> = {
-  sm: "text-[18px]",
-  md: "text-[22px]",
-  lg: "text-[26px]",
-};
-
-const badgeClasses: Record<Size, string> = {
-  sm: "text-[9px] px-1 py-0.5",
-  md: "text-[11px] px-1.5 py-[3px]",
-  lg: "text-[12px] px-2 py-[3px]",
+// Rendered heights (px). Width follows the wordmark's intrinsic aspect
+// (~3.8:1) via `width:auto`, so these never distort. The bone wordmark is
+// a transparent webp keyed from logo-dark.png — it sits seamlessly on any
+// of the app's dark (ink) surfaces, which is everywhere BrandMark renders
+// (site nav, footer, admin shell, quote nav).
+const heightPx: Record<Size, number> = {
+  sm: 18,
+  md: 22,
+  lg: 28,
 };
 
 export function BrandMark({
@@ -23,18 +23,22 @@ export function BrandMark({
   href?: string;
   className?: string;
 }) {
+  const h = heightPx[size];
   return (
     <Link
       href={href}
-      className={`inline-flex items-baseline gap-1.5 font-serif font-normal leading-none tracking-tight text-bone ${sizeClasses[size]} ${className}`}
+      className={`inline-flex items-center ${className}`}
       aria-label="JetNine — Home"
     >
-      JetNine
-      <span
-        className={`font-mono tracking-[0.12em] text-clearance border border-ink-4 rounded-[2px] ${badgeClasses[size]}`}
-      >
-        09
-      </span>
+      <Image
+        src="/images/brand/wordmark-bone.webp"
+        alt=""
+        width={900}
+        height={237}
+        priority
+        sizes="120px"
+        style={{ height: `${h}px`, width: "auto" }}
+      />
     </Link>
   );
 }

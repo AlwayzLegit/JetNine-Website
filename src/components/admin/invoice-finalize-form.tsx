@@ -35,6 +35,10 @@ export function InvoiceFinalizeForm({ invoiceId, initial }: Props) {
 
   const [pending, startTransition] = useTransition();
   const [msg, setMsg] = useState<{ tone: "ok" | "error"; text: string } | null>(null);
+  // Inline two-step confirm for finalize. A native window.confirm() blocks
+  // the renderer thread — which froze headless/automation browsers and made
+  // the action never fire — so we gate finalize behind a visible confirm row.
+  const [confirmFinalize, setConfirmFinalize] = useState(false);
 
   function recompute() {
     const sub = Number(subtotal);
@@ -49,15 +53,7 @@ export function InvoiceFinalizeForm({ invoiceId, initial }: Props) {
     setMsg(null);
   }
 
-  function submit(intent: "save" | "finalize") {
-    if (
-      intent === "finalize" &&
-      !window.confirm(
-        "Finalize this invoice to DUE? The member will see a Pay button and the figures lock.",
-      )
-    ) {
-      return;
-    }
+  function persist(intent: "save" | "finalize") {
     const data = new FormData();
     data.set("intent", intent);
     data.set("subtotalUsd", subtotal);
@@ -67,6 +63,7 @@ export function InvoiceFinalizeForm({ invoiceId, initial }: Props) {
     data.set("dueOn", dueOn);
     data.set("notes", notes);
     setMsg(null);
+    setConfirmFinalize(false);
     startTransition(async () => {
       const result = await updateInvoice(invoiceId, data);
       if (result.ok) {
@@ -177,27 +174,50 @@ export function InvoiceFinalizeForm({ invoiceId, initial }: Props) {
           </span>
         ) : (
           <span className="font-mono text-[10px] uppercase tracking-[0.08em] text-steel">
-            — Save keeps it draft; Finalize opens the member Pay button.
+            {confirmFinalize
+              ? "— Finalize opens the member Pay button and locks the figures."
+              : "— Save keeps it draft; Finalize opens the member Pay button."}
           </span>
         )}
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => submit("save")}
-            disabled={pending}
-            className="btn btn-ghost btn-sm disabled:cursor-wait disabled:opacity-60"
-          >
-            {pending ? "Saving…" : "Save draft"}
-          </button>
-          <button
-            type="button"
-            onClick={() => submit("finalize")}
-            disabled={pending}
-            className="btn btn-primary btn-sm disabled:cursor-wait disabled:opacity-60"
-          >
-            {pending ? "Working…" : "Finalize → Due"} <span className="arrow">→</span>
-          </button>
-        </div>
+        {confirmFinalize ? (
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setConfirmFinalize(false)}
+              disabled={pending}
+              className="btn btn-ghost btn-sm disabled:cursor-wait disabled:opacity-60"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={() => persist("finalize")}
+              disabled={pending}
+              className="btn btn-primary btn-sm disabled:cursor-wait disabled:opacity-60"
+            >
+              {pending ? "Working…" : "Confirm finalize"} <span className="arrow">→</span>
+            </button>
+          </div>
+        ) : (
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => persist("save")}
+              disabled={pending}
+              className="btn btn-ghost btn-sm disabled:cursor-wait disabled:opacity-60"
+            >
+              {pending ? "Saving…" : "Save draft"}
+            </button>
+            <button
+              type="button"
+              onClick={() => setConfirmFinalize(true)}
+              disabled={pending}
+              className="btn btn-primary btn-sm disabled:cursor-wait disabled:opacity-60"
+            >
+              Finalize → Due <span className="arrow">→</span>
+            </button>
+          </div>
+        )}
       </div>
     </form>
   );

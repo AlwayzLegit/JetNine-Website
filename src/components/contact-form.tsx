@@ -78,10 +78,6 @@ export function ContactForm() {
   const tripOptional = reason !== "quote";
 
   return (
-    {/* noValidate: the conditional trip-field rules (required only for the
-        quote reason) can't be expressed natively, so submit validation runs
-        in JS and surfaces a single "CHECK —" summary. The `required`
-        attributes on the always-required fields stay for semantics/a11y. */}
     <form noValidate onSubmit={onSubmit} className="relative flex flex-col gap-3">
       {/* Honeypot — humans never see it, autofill bots fill everything.
           The server silently drops submissions that include it. */}

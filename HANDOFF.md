@@ -1,4 +1,4 @@
-# HANDOFF — JetNine Website (updated 2026-06-15)
+# HANDOFF — JetNine Website (updated 2026-06-20)
 
 Self-contained brief for the next working session. Read this first.
 Deeper detail: `MANUAL.md` (how the system works end-to-end), `RBAC.md`,
@@ -6,235 +6,146 @@ Deeper detail: `MANUAL.md` (how the system works end-to-end), `RBAC.md`,
 
 ---
 
-## 0. TL;DR — what to do next
+## 0. TL;DR — status: LAUNCHED ✈️
 
-1. **Marketing hero images** — **SHIPPED in PR #38** (open, awaiting merge).
-   All five pages (`/aircraft`, `/memberships`, `/about`, `/how-it-works`,
-   `/safety`) now have an on-brand hero photo, plus the homepage (#36). The
-   HF gate that blocked the prior session was **already clear** on a fresh
-   start — no action needed there. Only follow-up: eyeball the per-page
-   `imagePosition` crops on the preview and nudge if any subject sits wrong.
-2. **Owner-only items still open:** Phase F email audit (§4.1), and the SMOKE
-   test-data purge awaiting the owner's "purge" go-ahead (§4.2).
-3. **Backlog issues:** #34 (admin invoice finalize + Pay-resume), #30 F/G
-   (headshots, membership pricing), domain switchover (§4).
+The site is **live on its real domain with the full money path, real brand,
+and a clean database.** `https://jetnine.com` (+ `www`) serves with valid
+SSL. Everything that was blocking launch is done.
+
+**Open items (none blocking, mostly owner input):**
+- **#30 F** — founder/team headshots (real photos only; drop on the issue).
+- **#30 G** — confirm the three `/memberships` pricing tiers (one sentence).
+- **#9 (QA)** — member 360 shows tier (e.g. CARD·100) while the program block
+  reads "no active program". Arguably correct (tier set, no membership row);
+  needs a product call on wording before changing.
+- **Demo empty legs** `EL-2026-0001..0006` have **past dates** (May 2026) so the
+  public `/empty-legs` board shows them as stale — refresh or hide before
+  promoting that page.
+- **DMARC** is `p=none` (monitor-only) — tighten to `quarantine`→`reject` after
+  watching reports a couple weeks.
+- **Phase F** — eyeball the transactional emails in the inbox for branding/typos.
 
 ---
 
 ## 1. Production, deploy, IDs
 
 - **App:** Next.js (App Router) + Postgres via Supabase, hosted on Vercel.
-- **Live URL:** `https://jet-nine-website.vercel.app` — auto-deploys from
-  `main`. Custom domain **`jetnine.com`** is the canonical/SEO target baked
-  into the app (canonicals, OG, robots); the final DNS switchover to point
-  it at this Vercel project was the last launch step under discussion —
-  **confirm current DNS state before assuming it is already live.**
-- **Branch convention:** develop on `claude/exciting-euler-hptuen`; it is
+- **Live:** `https://jetnine.com` (canonical) + `https://www.jetnine.com`
+  (301 → apex). Auto-deploys from `main`. `NEXT_PUBLIC_SITE_URL=https://jetnine.com`
+  is set, so Stripe redirects + email links use the real domain.
+- **Branch convention:** develop on `claude/trusting-newton-vbxjlw`; it is
   **reset to `origin/main`** at the start of each task, so a force-push
-  (`--force-with-lease`) right after the reset is expected and safe (its
-  prior commits are already squash-merged into main). PRs squash-merge to
-  `main`; the owner's "go ahead / merge and deploy" = ship it.
-- **Commit/PR footer:** end commit messages and PR bodies with the
-  `https://claude.ai/code/session_…` line. Detailed "why" in the body; no AI
-  attribution beyond that footer.
+  (`--force-with-lease`) right after the reset is expected and safe. PRs
+  squash-merge to `main`; the owner's "go ahead / merge" = ship it.
+- **Commit/PR footer:** end with the `https://claude.ai/code/session_…` line.
 
 **Service IDs:**
 | Service | ID / slug |
 |---|---|
-| Vercel team | `team_di6oiEhCIT17lNXsonHt3mSc` (slug `alwayzlegits-projects`) |
+| Vercel team | `team_di6oiEhCIT17lNXsonHt3mSc` (`alwayzlegits-projects`) |
 | Vercel project | `prj_fcimzGWfsLIjGlYvQU3kmipbactr` (`jet-nine-website`) |
 | Supabase project | `szuztxfhkudcjzhrkfld` (us-east-2) |
 | Sentry | org `jetnine`, project `jetnine-website` |
-| PostHog | **shared** "Default project" id `392626` in org `jetnine` — also serves mattressstoreslosangeles.com + thelookhairsalonla.com. **Always filter `$host = jetnine.com`.** |
-| Stripe | account `acct_1TdCAEKCpHyfNVWt` — **LIVE mode**, webhook wired |
+| PostHog | **shared** "Default project" `392626` in org `jetnine` — also serves other sites. **Always filter `$host = jetnine.com`.** |
+| Stripe | `acct_1TdCAEKCpHyfNVWt` — **LIVE mode**, webhook wired |
 | GitHub | `alwayzlegit/jetnine-website` (only repo in MCP scope) |
 
 ---
 
-## 2. Access / MCP state — READ BEFORE STARTING
+## 2. The stack — all wired (per `/api/health` + `/admin/health`)
 
-In the prior session these worked: **GitHub, Vercel, PostHog, git/Bash.**
-
-These were **gated behind the client's "MCP tool call requires approval"**
-wall in the prior session — connected, but every call rejected until
-allowed: **Supabase, Stripe, Sentry, Hugging Face.** This is a client-side
-permission gate; it cannot be cleared by instruction — only by the user in
-their client (`/permissions` → always-allow, or approve the dialog).
-**Update (2026-06-15):** on a fresh session start the **Hugging Face gate
-was already clear** — `hf_whoami` and image generation ran with no prompt,
-which is how PR #38 got done. Re-confirm per server before assuming, but
-the gate is not a standing blocker.
-
-Gotcha: `mcp__Vercel__web_fetch_vercel_url` on a full HTML page exceeds the
-token limit and is saved to a temp file — slice it with Bash
-(`grep -o … "$f"`) instead of reading it whole.
-
-Note: the Vercel MCP has **no env-var tools** and Stripe/PostHog MCP expose
-no key management — all env/key values are entered via the dashboards.
+- **DB (Supabase):** ✅ connected.
+- **Stripe:** ✅ **live** secret + webhook. Money path verified.
+- **Email (Resend):** ✅ outbound for all app transactional mail. Resend
+  verified the **root `jetnine.com`** domain (DKIM at `resend._domainkey`,
+  `send.jetnine.com` is its bounce/Return-Path subdomain). `EMAIL_FROM =
+  JetNine <dispatch@jetnine.com>`, Reply-To = `dispatch@jetnine.com`.
+- **Google Workspace** owns the root **MX** (inbound `@jetnine.com`) and
+  coexists cleanly with Resend. **Never enable "Receiving" in Resend** — it
+  would add a root MX and hijack inbound mail.
+- **Supabase Auth → SMTP** is pointed at Resend (login/invite emails branded
+  + no built-in rate limits).
+- **Sentry / PostHog:** ✅ wired.
+- **Twilio (SMS/WhatsApp) + Postmark inbound:** off by design (optional;
+  that's the only reason `/api/health` reads `degraded`).
 
 ---
 
-## 3. ~~ACTIVE TASK~~ SHIPPED (PR #38) — marketing hero images
+## 3. Auth (magic-link, passwordless)
 
-**Status:** done in **PR #38** (open, awaiting merge). The `PageHeader`
-opt-in image slot (`imageSrc`/`imageAlt`/`imagePosition`) and the five
-generated FLUX heroes are live on the branch preview; the detail below is
-kept as the record of how it was built (and the prompt set, if any need
-regenerating). The `/about` prompt was regenerated to an empty ops room —
-the verbatim §3c version rendered a visible face (issue #30 policy).
-
-**Goal:** give five marketing pages an individual, on-brand hero photo,
-mirroring the homepage hero shipped in **PR #36** (`cf564d7`).
-
-### 3a. The homepage pattern to mirror (`src/components/home/hero.tsx`)
-Full-bleed `next/image` (`fill` + `priority`, `sizes="100vw"`,
-`object-cover`) behind the content, with a **two-axis scrim** (darker on the
-left third under the left-aligned headline, and along top/bottom edges) so
-bone text stays AA-readable. Image at `public/images/hero/runway-night.webp`.
-
-### 3b. The five pages + confirmed concepts
-All five use the shared `PageHeader` (`src/components/page-header.tsx`),
-which is currently **text-only** — so step one is adding an **opt-in image
-slot** to it (render photo + scrim layers only when an `imageSrc` prop is
-passed; utility pages `/faq`, `/legal`, `/contact` pass nothing, stay clean).
-
-| Page | Headline | Concept |
-|---|---|---|
-| `/aircraft` | "Choose your aircraft." | Blue-hour ramp **lineup**, 3 jets staggered (fleet/breadth) |
-| `/memberships` | "Three ways to fly." | Single jet, **airstair down, warm cabin glow** on wet night tarmac |
-| `/about` | "Built on one phone number." | **Night dispatch/ops room**, glowing monitors, ramp through window, **no faces** |
-| `/how-it-works` | "A senior dispatcher, not a chatbot." | Tight **dispatcher workstation**, flight-tracking screens, headset |
-| `/safety` | "The floor is high." | Jet under **pre-flight inspection on a lit hangar floor** |
-
-Brand rules in every prompt: ink-black base, cool blue + clearance-blue
-accent, **dark/low-detail left third**, 16:9 landscape, photoreal, **no AI
-faces presented as real staff** (issue #30 headshot policy — that's why
-/about and /how-it-works use rooms/screens, not portraits).
-
-### 3c. The exact prompts (FLUX.1 Krea-Dev, ~60–70 words each)
-
-**/aircraft:** Blue hour at a private jet ramp, three business jets parked
-in a staggered receding row, cool teal-blue twilight sky, wet reflective
-tarmac mirroring soft cyan light, dark cinematic aviation photography,
-subtle blue rim-light along polished fuselages, wide empty dark asphalt
-across the left third, distant runway edge lights, shot on Sony A7R IV 35mm
-f/2.8, ultra-sharp, high dynamic range, deep shadows, no people
-
-**/memberships:** Private jet at night on a wet ramp, airstair door open
-with warm golden cabin light spilling onto glistening tarmac, dark teal-blue
-sky behind, polished dark fuselage with cool blue rim light, cinematic moody
-aviation photography, empty dark asphalt across the left third, distant
-apron lights as soft bokeh, shot on Sony A7R IV 35mm f/2, ultra-sharp, high
-dynamic range, no people
-
-**/about:** Private aviation dispatch operations room at night, several
-glowing monitors showing flight-tracking maps casting cool blue light, an
-empty operator chair and headset at the desk, a large window revealing a
-dark ramp with a parked jet, moody cinematic interior photography, dark
-negative space across the left third, shot on Sony A7R IV 24mm f/2.8,
-ultra-sharp, deep shadows, no people, no faces
-
-**/how-it-works:** Close-up of a private jet dispatcher's workstation in a
-dark room, a curved monitor displaying a glowing cyan flight-tracking map
-and route lines, a headset resting beside a keyboard, warm desk-lamp glow
-against cool blue screen light, shallow depth of field, cinematic detail
-photography, dark empty space across the left third, shot on Sony A7R IV
-50mm f/1.8, ultra-sharp, no people, no faces
-
-**/safety:** A business jet inside a dark hangar at night undergoing
-pre-flight inspection, a bright clinical pool of light on the polished
-fuselage and landing gear, glossy reflective hangar floor, cool blue ambient
-shadows, precise rigorous mood, cinematic industrial aviation photography,
-wide dark empty floor across the left third, shot on Sony A7R IV 35mm f/4,
-ultra-sharp, high dynamic range, no people
-
-Homepage generation params: `guidance_scale 4.5`, `num_inference_steps 28`,
-`width 1344`, `height 768`. Push width higher if the tool allows (1344px
-softens on 4K).
-
-### 3d. The image pipeline (how a generated image reaches the repo)
-The sandbox **cannot reach `*.hf.space`** to download a generated image, so
-there is a GitHub Actions bridge (this is the established flow — it produced
-55 marketing webps in an earlier session):
-
-1. Call `mcp__Hugging_Face__gr1_flux_1_krea_dev_infer` → returns an
-   **ephemeral HF-space file URL** (expires within hours).
-2. Append to `scripts/marketing-assets/manifest.json` (a flat array,
-   append-only, skip-if-dest-exists):
-   `{ "dest": "public/images/hero/<name>.webp", "source": "FLUX.1-Krea-dev",
-   "note": "<page>", "url": "<hf url>" }`
-3. Push the manifest change → the **`.github/workflows/hydrate-marketing-images.yml`**
-   workflow downloads each URL on a GH runner, commits the binary to `dest`,
-   and pushes back. **Do this promptly — URLs expire within hours.**
-4. Add `imageSrc` (+ `object-position`/scrim tuning) per page via the new
-   `PageHeader` slot, then open one PR with a Vercel preview link.
-
-> The ONLY thing blocking this end-to-end now is step 1's permission gate (§2).
-> If it cannot be opened, the proven fallback is the owner supplying the five
-> files (drop in `public/images/hero/`, any format — sharp-convert to webp).
+- Sign-in (`/sign-in`) sends a magic link; member invites via admin.
+- **Supabase → Auth → URL Configuration is set:** Site URL =
+  `https://jetnine.com`; Redirect URLs include `https://jetnine.com/**` and
+  `https://www.jetnine.com/**`. This is what makes the magic-link + invite
+  redirects land on `/auth/callback` instead of the homepage.
+- **Safety net (shipped #42):** `src/lib/supabase/middleware.ts` forwards a
+  stray PKCE `?code=` on any non-callback page to `/auth/callback`, so login
+  survives config drift. Verified live. (Invite uses a URL hash the server
+  can't see → relies on the allowlist above.)
 
 ---
 
-## 4. Other open threads
+## 4. Database — clean, counters reset
 
-- **4.1 Phase F — email content audit (owner-only).** The system sent
-  magic-link, quote-ack, dispatch-alert, priced-option, and member-invite
-  emails (from `JetNine <dispatch@jetnine.com>` via Resend). Owner eyeballs
-  them in the inbox for sender/branding/links/typos. Delivery was verified
-  server-side (Resend message IDs in the audit log); only visual render is
-  unverified.
-- **4.2 SMOKE test-data purge — awaiting owner "purge" go-ahead.** Do NOT
-  delete until the owner confirms. Re-query Supabase to confirm the live set
-  first. Known artifacts: quotes `JN-2026-00021..00023` and `00026..00032`;
-  trip `JN-2026-0001` + legs; invoice `INV-2026-0001` (staged to `due`,
-  carries a live `cs_live_…` session); member `M-2026-0001` (+ its `users`
-  row); ~17 SMOKE `contact_inquiries`; the `empty_leg_watchlists` row for
-  `alwayzlegit+smoke1@gmail.com`; empty leg `EL-2026-0007` (already
-  `expired`); catalog rows aircraft `N0SMOKE`, airport `ZZSM`, operator
-  `SMOKE-OP-0610`. Audit-log history stays (immutable).
-- **Issue #34 — C.3:** no admin UI to finalize a `draft` invoice (line-items
-  / `draft→due`); plus a Pay-resume UX fix so a second Pay click
-  resumes/re-mints instead of erroring `PAYMENT_IN_PROGRESS`. Last unbuilt
-  segment of the money path — member Pay → Stripe checkout itself works
-  (verified live, session `cs_live_a1GJ…`).
-- **Issue #30 F/G:** founder/team headshots (real photos only — no AI faces);
-  confirm/revise the three `/memberships` pricing tiers.
-- **Domain switchover:** attach `jetnine.com` + `www` in Vercel → point DNS.
-  The app already assumes jetnine.com everywhere.
+Production DB was purged of all SMOKE/QA test data. Current live set:
+- **Real:** 18 aircraft · 43 airports · 12 operators · 6 demo empty legs
+  (`EL-2026-0001..0006` — note the stale dates, §0) · 1 owner user
+  (`alwayzlegit@gmail.com`, superadmin).
+- **Empty:** quotes, contact_inquiries, trips, invoices, members, watchlists,
+  messages — all 0. Reference counters (quote/trip/invoice/member) reset to
+  **0** so the first real record is `…-0001`. Audit log preserved (immutable).
+- **Cleanup convention:** quote/contact submissions whose first name starts
+  with `[SMOKE]` auto-cancel server-side and send no email. Test member
+  accounts use `alwayzlegit+<tag>@gmail.com` plus-aliases. Purge both via SQL
+  (Supabase MCP `execute_sql`) — delete child rows first (invoices→trips→
+  quotes→contacts→watchlists→members→users); FK rules in the schema.
 
 ---
 
-## 5. Shipped recently (2026-06-10 → 06-15)
+## 5. Shipped this session (2026-06-20)
 
-- **PR #31:** revived the silently-dead production rate limiter.
-- **PR #32:** mobile navigation menu (`SiteNav` hamburger).
-- **PR #33:** member↔quote linkage (auto-link signed-in members + dispatcher
-  attach control), empty-leg status control, past-date validation.
-- **PR #35:** `MANUAL.md` operator's guide (a PDF edition was generated for
-  the owner; the throwaway render scripts are in `/tmp`, not committed).
-- **PR #36:** photographic homepage hero — the pattern mirrored for §3.
-- **PR #38:** the five marketing-page heroes (§3) — `PageHeader` opt-in
-  image slot + FLUX generations via the manifest/hydrate pipeline.
-- Deep-test campaigns verified the whole quote→trip→invoice→Stripe chain in
-  production; defects fixed in #33; remaining gap is #34. Issue #30 launch
-  wiring A–E done (Stripe live, PostHog, Sentry, redeploy, leaked-pw
-  decision); F/G open.
+- **#38** — photographic hero images on 5 marketing pages.
+- **#34 (PR #39)** — admin invoice finalize (draft→due) + Stripe Pay-resume.
+- **#40** — real JetNine logo wordmark + `/admin/health` site/domain + auth-
+  email rows.
+- **#41** — logo fix: full mark with the low-opacity "9" overlay (bone-tinted
+  so it reads on the dark UI). Assets in `public/images/brand/`.
+- **#42** — QA fixes: auth `?code=` safety net + sign-in error handling, contact
+  validation/a11y, `/legal` OG, mobile-nav opacity, footer Turboprop, sign-in
+  copy, SLA timers no longer tick on settled quotes.
+- Domain switchover (jetnine.com + www), DB purge, full browser QA round.
 
 ---
 
-## 6. Conventions & gotchas
+## 6. QA — done; how to re-run
 
-- **Branch reset + force-push** is the normal flow (§1).
-- **HF image URLs expire in hours** — generate and hydrate in the same pass.
-- **PostHog:** shared project → always filter `$host = jetnine.com`.
-- **`[SMOKE]` first-name prefix** marks automated quote submissions
-  (pre-cancelled, no emails) — safe for testing.
-- **Large `web_fetch_vercel_url` output** is saved to a temp file; slice with
-  Bash rather than reading whole.
-- **Transient "Something went sideways" / Connection-closed on writes:** a
-  stream-level drop; the write commits — reload to confirm. Not a logic bug.
-- **AI imagery policy (owner-approved):** OK for aircraft/cabin/abstract/
-  editorial and the marketing heroes above. NOT OK for real people's faces,
-  factual maps, or anything implying a specific verifiable claim.
-- **Image processing:** convert to webp via `sharp`; never commit raw zips
-  (gitignored).
+A full browser QA pass was completed (all user sides + iPhone-14 responsive).
+The two blockers it found were **config, not code**: (1) the magic-link
+redirect (fixed by the Supabase URL config in §3), and (2) the invoice-
+finalize "freeze" — proven to be a downstream symptom of auth rate-limiting,
+not a billing bug (the exact DB UPDATE persists instantly). Both should be
+clear now; **re-test the two paths after any auth change**: sign-in → `/account`,
+and admin trip sheet → Invoice "Finalize → Due" → member "Pay now".
+
+**Re-running QA:** there's a pastable QA-agent brief (mission, scope, the
+magic-link-via-Gmail login, `[SMOKE]`/`+qa` data hygiene, the **Stripe-is-LIVE**
+"don't complete a real payment" warning). Ask the operator for it or re-derive
+from §4 conventions. Admin login = `alwayzlegit@gmail.com` (magic link in the
+owner's Gmail); provision test members by inviting `alwayzlegit+qaN@gmail.com`.
+
+---
+
+## 7. Conventions & gotchas
+
+- **Stripe is LIVE.** Any "Pay now" goes to a real Checkout. Never complete a
+  payment in testing — stop at the Stripe page.
+- **PostHog** is a shared project → always filter `$host = jetnine.com`.
+- **Branch reset + `--force-with-lease`** is the normal flow (§1).
+- **Vercel MCP** has no env-var tools; **Supabase MCP** has no auth-config
+  tools — those changes are dashboard-only.
+- **`web_fetch_vercel_url`** on a full HTML page can exceed the token limit —
+  it's saved to a temp file; slice with Bash.
+- **Never** mask a command's exit code behind a pipe (`cmd | tail`) when
+  gating on success — check `${PIPESTATUS[0]}` or write to a log + `echo $?`.
+- **AI imagery policy:** OK for aircraft/cabin/abstract/editorial + the
+  marketing heroes; NOT for real people's faces (issue #30) or factual maps.

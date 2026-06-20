@@ -78,7 +78,7 @@ export function ContactForm() {
   const tripOptional = reason !== "quote";
 
   return (
-    <form noValidate onSubmit={onSubmit} className="relative flex flex-col gap-3">
+    <form onSubmit={onSubmit} className="relative flex flex-col gap-3">
       {/* Honeypot — humans never see it, autofill bots fill everything.
           The server silently drops submissions that include it. */}
       <div aria-hidden="true" className="absolute -left-[9999px] h-0 w-0 overflow-hidden">
@@ -89,15 +89,15 @@ export function ContactForm() {
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
         <div className={`field-jn ${errors.first ? "error" : ""}`}>
           <label htmlFor="cf-first">First name</label>
-          <input id="cf-first" name="first" type="text" placeholder="Alex" autoComplete="given-name" aria-invalid={errors.first || undefined} />
+          <input id="cf-first" name="first" type="text" placeholder="Alex" autoComplete="given-name" required aria-invalid={errors.first || undefined} />
         </div>
         <div className={`field-jn ${errors.last ? "error" : ""}`}>
           <label htmlFor="cf-last">Last name</label>
-          <input id="cf-last" name="last" type="text" placeholder="Morgan" autoComplete="family-name" aria-invalid={errors.last || undefined} />
+          <input id="cf-last" name="last" type="text" placeholder="Morgan" autoComplete="family-name" required aria-invalid={errors.last || undefined} />
         </div>
         <div className={`field-jn ${errors.email ? "error" : ""}`}>
           <label htmlFor="cf-email">Email</label>
-          <input id="cf-email" name="email" type="email" placeholder="m.aldrich@example.com" autoComplete="email" aria-invalid={errors.email || undefined} />
+          <input id="cf-email" name="email" type="email" placeholder="m.aldrich@example.com" autoComplete="email" required aria-invalid={errors.email || undefined} />
         </div>
         <div className={`field-jn ${errors.mobile ? "error" : ""}`}>
           <label htmlFor="cf-mobile">Mobile</label>

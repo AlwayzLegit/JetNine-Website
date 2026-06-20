@@ -32,10 +32,6 @@ export function SiteNav() {
     return () => window.removeEventListener("keydown", onKey);
   }, [open]);
 
-  // The open panel needs the solid treatment even at scroll position 0 —
-  // links over a transparent header are unreadable on top of hero imagery.
-  const solid = scrolled || open;
-
   const linkClass = (href: string) => {
     const active = pathname === href || (href !== "/" && pathname.startsWith(href + "/"));
     return [
@@ -48,9 +44,13 @@ export function SiteNav() {
     <header
       className={[
         "fixed inset-x-0 top-0 z-50 transition-all duration-300 ease-out-quint",
-        solid
-          ? "border-b border-ink-3 bg-[rgba(7,8,10,0.92)] backdrop-blur-[14px]"
-          : "border-b border-transparent bg-transparent",
+        // Open mobile panel must be fully opaque — links over a translucent
+        // header bleed page text through on top of hero imagery.
+        open
+          ? "border-b border-ink-3 bg-ink"
+          : scrolled
+            ? "border-b border-ink-3 bg-[rgba(7,8,10,0.92)] backdrop-blur-[14px]"
+            : "border-b border-transparent bg-transparent",
       ].join(" ")}
     >
       <div className="container-jn flex h-20 items-center justify-between">

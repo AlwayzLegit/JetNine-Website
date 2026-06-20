@@ -7,6 +7,7 @@ const FOOTER_COLS: FooterCol[] = [
   {
     heading: "Aircraft",
     links: [
+      { label: "Turboprop", href: "/aircraft/turboprop" },
       { label: "Light jets", href: "/aircraft/light" },
       { label: "Midsize", href: "/aircraft/midsize" },
       { label: "Super-midsize", href: "/aircraft/supermid" },

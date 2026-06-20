@@ -15,7 +15,16 @@ export const dynamic = "force-dynamic";
 type LegRow = typeof quoteLegs.$inferSelect;
 type QuoteRow = typeof quotes.$inferSelect;
 
-function slaBucket(deadline: Date | null): { label: string; tone: "ok" | "warn" | "crit" | "lock" } {
+// Statuses where the first-reply SLA no longer applies — the quote is
+// resolved or closed, so a live countdown is noise (and was ticking on
+// cancelled quotes). Render a neutral dash instead.
+const SLA_SETTLED = new Set(["accepted", "declined", "expired", "cancelled", "converted"]);
+
+function slaBucket(
+  deadline: Date | null,
+  status: string,
+): { label: string; tone: "ok" | "warn" | "crit" | "lock" } {
+  if (SLA_SETTLED.has(status)) return { label: "—", tone: "lock" };
   if (!deadline) return { label: "—", tone: "ok" };
   const msLeft = deadline.getTime() - Date.now();
   const minutes = Math.round(msLeft / 60_000);
@@ -206,7 +215,7 @@ export default async function DispatchInboxPage() {
 }
 
 function Row({ q, legs }: { q: QuoteRow; legs: LegRow[] }) {
-  const sla = slaBucket(q.slaDeadlineAt);
+  const sla = slaBucket(q.slaDeadlineAt, q.status);
   const route = legs.length
     ? legs
         .sort((a, b) => a.legNumber - b.legNumber)

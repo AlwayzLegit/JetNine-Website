@@ -15,13 +15,20 @@ export function SignInForm({ next, initialError }: { next?: string; initialError
     setSuccess(null);
 
     const data = new FormData(e.currentTarget);
-    const result = await sendMagicLink(data);
-    if (result.ok) {
-      setSuccess(result.message);
-    } else {
-      setError(result.error);
+    try {
+      const result = await sendMagicLink(data);
+      if (result.ok) {
+        setSuccess(result.message);
+      } else {
+        setError(result.error);
+      }
+    } catch {
+      // A thrown action (e.g. an auth rate-limit 503 at the edge) must not
+      // leave the button stuck on "Sending…" — surface it and re-enable.
+      setError("Couldn't send the link just now — wait a moment and try again.");
+    } finally {
+      setSubmitting(false);
     }
-    setSubmitting(false);
   }
 
   return (

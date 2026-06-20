@@ -30,7 +30,7 @@ export default async function SignInPage({ searchParams }: Props) {
         </h1>
         <p className="mt-4 text-[14px] leading-[1.55] text-bone-2">
           We don&rsquo;t do passwords. Enter your email, click the link we send, you&rsquo;re in.
-          The link works once and expires after 10 minutes.
+          The link works once — if it expires, just request another.
         </p>
         <div className="mt-8">
           <SignInForm next={next} initialError={error} />

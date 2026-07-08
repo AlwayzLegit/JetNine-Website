@@ -1,6 +1,8 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
+import { useQuoteStore, type TripType } from "@/lib/quote-store";
 
 type Tab = "round" | "one" | "multi";
 
@@ -12,7 +14,14 @@ const TABS: { id: Tab; label: string }[] = [
   { id: "multi", label: "Multi-leg" },
 ];
 
+const TAB_TO_TRIP: Record<Tab, TripType> = {
+  round: "roundtrip",
+  one: "oneway",
+  multi: "multileg",
+};
+
 export function BookingWidget() {
+  const router = useRouter();
   const [tab, setTab] = useState<Tab>("round");
   const [errors, setErrors] = useState<FieldErrors>({});
   const [msg, setMsg] = useState<{ tone: "info" | "error" | "success"; text: string } | null>(
@@ -51,10 +60,30 @@ export function BookingWidget() {
     }
 
     setErrors({});
-    setMsg({
-      tone: "success",
-      text: `CLEARED — ${(data.get("from") as string).toUpperCase()} → ${(data.get("to") as string).toUpperCase()} · ${data.get("depart")} · ${data.get("pax")} PAX`,
-    });
+
+    // Seed the quote store, then hand off to the wizard. The store is a
+    // sessionStorage-backed client singleton, so these values survive the
+    // client-side navigation and the wizard's rehydrate. From/To are seeded
+    // as raw codes the user confirms in the mission step's airport picker
+    // (which resolves city/name/distance needed for pricing).
+    const trip = TAB_TO_TRIP[tab];
+    const store = useQuoteStore.getState();
+    store.setTripType(trip);
+    store.setPax(Number(data.get("pax")) || 1);
+
+    const legs = useQuoteStore.getState().legs;
+    const from = (data.get("from") as string).trim().toUpperCase();
+    const to = (data.get("to") as string).trim().toUpperCase();
+    const depart = data.get("depart") as string;
+    if (legs[0]) {
+      store.updateLeg(legs[0].id, { fromIata: from, toIata: to, date: depart });
+    }
+    if (trip === "roundtrip" && legs[1]) {
+      store.updateLeg(legs[1].id, { date: (data.get("return") as string) || undefined });
+    }
+
+    setMsg({ tone: "success", text: "CLEARED — OPENING YOUR QUOTE…" });
+    router.push("/quote/mission");
   }
 
   return (

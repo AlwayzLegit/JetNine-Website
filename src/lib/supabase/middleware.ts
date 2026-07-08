@@ -15,18 +15,25 @@ function isProtected(pathname: string): { kind: "account" | "admin" } | null {
 }
 
 export async function updateSession(request: NextRequest) {
-  // Auth resilience: a magic link sometimes lands a PKCE `?code=` on a page
+  // Auth resilience: a magic link sometimes lands its auth params on a page
   // other than the callback — e.g. when Supabase falls back to the Site URL
   // because the intended redirect isn't in its allowlist. Forward any stray
-  // code to /auth/callback so the session is still established instead of the
-  // code being silently dropped on the homepage. (The invite flow uses a URL
-  // hash, which the server can't see — that path relies on the Supabase
-  // redirect-URL allowlist being configured.)
-  const authCode = request.nextUrl.searchParams.get("code");
-  if (authCode && request.nextUrl.pathname !== "/auth/callback") {
+  // `?code=` (PKCE) or `?token_hash=&type=` (OTP) to /auth/callback so the
+  // session is still established instead of the params being silently dropped
+  // on the homepage. (The invite flow uses a URL hash, which the server can't
+  // see — that path relies on the Supabase redirect-URL allowlist.)
+  const sp = request.nextUrl.searchParams;
+  const authCode = sp.get("code");
+  const tokenHash = sp.get("token_hash");
+  if ((authCode || tokenHash) && request.nextUrl.pathname !== "/auth/callback") {
     const cb = new URL("/auth/callback", request.url);
-    cb.searchParams.set("code", authCode);
-    const nextParam = request.nextUrl.searchParams.get("next");
+    if (authCode) cb.searchParams.set("code", authCode);
+    if (tokenHash) {
+      cb.searchParams.set("token_hash", tokenHash);
+      const type = sp.get("type");
+      if (type) cb.searchParams.set("type", type);
+    }
+    const nextParam = sp.get("next");
     if (nextParam) cb.searchParams.set("next", nextParam);
     return NextResponse.redirect(cb);
   }

@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
   isAircraftComplete,
-  isContactComplete,
   isMissionComplete,
   useQuoteStore,
 } from "@/lib/quote-store";
@@ -346,11 +345,13 @@ function ContactStepInner() {
               <Link href="/quote/aircraft" className="btn btn-ghost">
                 ← Back
               </Link>
+              {/* Always clickable so onContinue can surface inline validation
+                  (esp. the required-consent message) — gating the button on
+                  completeness silently swallowed the click. */}
               <button
                 type="button"
                 onClick={onContinue}
-                disabled={!isContactComplete(s)}
-                className="btn btn-primary btn-lg disabled:cursor-not-allowed disabled:opacity-50"
+                className="btn btn-primary btn-lg"
               >
                 Continue to review <span className="arrow">→</span>
               </button>

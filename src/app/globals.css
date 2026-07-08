@@ -46,8 +46,9 @@
   * { margin: 0; padding: 0; }
 
   /* Offset in-page anchor jumps for the fixed h-20 (80px) header so section
-     headings aren't hidden underneath it. */
-  html { scroll-behavior: smooth; scroll-padding-top: 5.5rem; }
+     headings aren't hidden underneath it. 6.5rem (104px) leaves comfortable
+     clearance below the 80px header (5.5rem left only ~8px). */
+  html { scroll-behavior: smooth; scroll-padding-top: 6.5rem; }
 
   body {
     background: var(--ink);

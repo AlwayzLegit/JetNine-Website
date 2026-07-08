@@ -107,7 +107,9 @@ export default async function OperatorsPage() {
         </div>
       </header>
 
-      <div className="overflow-x-auto rounded-[4px] border border-ink-3 bg-ink-2">
+      {/* Desktop: table. Below md it swaps to stacked cards (the table needs
+          sideways-scroll to reach status / vetting / audit columns). */}
+      <div className="hidden overflow-x-auto rounded-[4px] border border-ink-3 bg-ink-2 md:block">
         <table className="w-full min-w-[1200px] border-collapse text-left">
           <thead>
             <tr className="border-b border-ink-3">
@@ -240,6 +242,96 @@ export default async function OperatorsPage() {
             })}
           </tbody>
         </table>
+      </div>
+
+      {/* Mobile: cards */}
+      <div className="flex flex-col gap-3 md:hidden">
+        {rows.map((r) => {
+          const audit = daysUntil(r.nextAuditOn);
+          const isAuditWarn = audit !== null && audit >= 0 && audit < 60;
+          const isAuditPast = audit !== null && audit < 0;
+          return (
+            <Link
+              key={r.id}
+              href={`/admin/operators/${r.id}`}
+              className={[
+                "block rounded-[4px] border border-ink-3 bg-ink-2 p-4 transition-colors hover:bg-ink",
+                r.status === "suspended" || r.status === "hold" ? "opacity-70" : "",
+              ].join(" ")}
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex items-baseline gap-2">
+                  <span className="font-serif text-[17px] font-normal text-bone">{r.name}</span>
+                  {r.isPreferred ? (
+                    <span className="rounded-[2px] bg-clearance px-1.5 py-0.5 font-mono text-[8px] uppercase tracking-[0.14em] text-ink">
+                      Preferred
+                    </span>
+                  ) : null}
+                </div>
+                <span
+                  className={[
+                    "inline-block shrink-0 rounded-full border px-2.5 py-0.5 font-mono text-[9px] uppercase tracking-[0.14em]",
+                    STATUS_CLASS[r.status] ?? "border-ink-3 text-bone-2",
+                  ].join(" ")}
+                >
+                  {r.status.replace(/_/g, " ")}
+                </span>
+              </div>
+              {r.suspendedReason ? (
+                <div className="mt-1 font-mono text-[10px] tracking-[0.04em] text-[var(--error)]">
+                  — {r.suspendedReason}
+                </div>
+              ) : null}
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                <span
+                  className={[
+                    "inline-block rounded-[2px] border px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.14em]",
+                    ARGUS_CLASS[r.argusRating] ?? "border-steel text-steel",
+                  ].join(" ")}
+                >
+                  ARG/US {r.argusRating}
+                </span>
+                {r.wyvernWingman ? (
+                  <span className="rounded-[2px] border border-clearance px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.14em] text-clearance">
+                    Wyvern
+                  </span>
+                ) : null}
+                {r.isbaoStage ? (
+                  <span className="rounded-[2px] border border-bone-2 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.14em] text-bone-2">
+                    IS-BAO {r.isbaoStage}
+                  </span>
+                ) : null}
+              </div>
+              <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 border-t border-ink-3 pt-3 font-mono text-[10px] uppercase tracking-[0.08em] text-bone-2">
+                <div>Base <span className="text-bone">{r.homeAirportIcao ?? "—"}</span></div>
+                <div>Fleet <span className="text-clearance">{fleetByOperator.get(r.id) ?? 0}</span></div>
+                <div>Cert <span className="text-bone">{r.certNumber ?? "—"}</span></div>
+                <div>
+                  Audit{" "}
+                  {r.nextAuditOn ? (
+                    <span
+                      className={
+                        isAuditPast
+                          ? "text-[var(--error)]"
+                          : isAuditWarn
+                            ? "text-[var(--warn)]"
+                            : "text-bone"
+                      }
+                    >
+                      {audit !== null
+                        ? isAuditPast
+                          ? `${Math.abs(audit)}d past`
+                          : `${audit}d`
+                        : String(r.nextAuditOn)}
+                    </span>
+                  ) : (
+                    <span className="text-steel">—</span>
+                  )}
+                </div>
+              </dl>
+            </Link>
+          );
+        })}
       </div>
     </div>
   );

@@ -134,7 +134,8 @@ export default async function AdminAircraftPage() {
                 {list.length} tail{list.length === 1 ? "" : "s"}
               </span>
             </div>
-            <div className="overflow-x-auto rounded-[4px] border border-ink-3 bg-ink-2">
+            {/* Desktop: table. Below md it swaps to stacked cards. */}
+            <div className="hidden overflow-x-auto rounded-[4px] border border-ink-3 bg-ink-2 md:block">
               <table className="w-full min-w-[1000px] border-collapse text-left">
                 <thead>
                   <tr className="border-b border-ink-3">
@@ -232,6 +233,67 @@ export default async function AdminAircraftPage() {
                   ))}
                 </tbody>
               </table>
+            </div>
+
+            {/* Mobile: cards */}
+            <div className="flex flex-col gap-3 md:hidden">
+              {list.map((r) => {
+                const cabin =
+                  [
+                    r.standupCabin ? "Stand-up" : null,
+                    r.lieflatCapable ? "Lie-flat" : null,
+                    r.petFriendly ? "Pet" : null,
+                  ]
+                    .filter(Boolean)
+                    .join(" · ") || "—";
+                return (
+                  <Link
+                    key={r.id}
+                    href={`/admin/aircraft/${r.id}`}
+                    className={[
+                      "block rounded-[4px] border border-ink-3 bg-ink-2 p-4 transition-colors hover:bg-ink",
+                      r.status === "aog" ? "bg-[rgba(164,69,58,0.06)]" : "",
+                      r.status === "sold" ? "opacity-50" : "",
+                    ].join(" ")}
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <span className="font-mono text-[12px] tracking-[0.04em] text-clearance">
+                          {r.tailNumber}
+                        </span>
+                        <div className="mt-0.5 font-serif text-[15px] text-bone">
+                          {r.makeModel}
+                          {r.yearManufactured ? (
+                            <span className="ml-2 font-mono text-[10px] text-bone-2">
+                              · {r.yearManufactured}
+                            </span>
+                          ) : null}
+                        </div>
+                      </div>
+                      <span
+                        className={[
+                          "inline-block shrink-0 rounded-full border px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.14em]",
+                          STATUS_CLASS[r.status] ?? "border-ink-3 text-bone-2",
+                        ].join(" ")}
+                      >
+                        {r.status}
+                      </span>
+                    </div>
+                    <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 font-mono text-[10px] uppercase tracking-[0.08em] text-bone-2">
+                      <div>Pax <span className="text-bone">{r.seats}</span></div>
+                      <div>Range <span className="text-bone">{r.rangeNm.toLocaleString()} NM</span></div>
+                      <div>Speed <span className="text-bone">{r.speedKt} KT</span></div>
+                      <div>Wi-Fi <span className="text-bone">{WIFI_LABEL[r.wifiType] ?? r.wifiType}</span></div>
+                      <div>Base <span className="text-bone">{r.baseIcao ?? "—"}</span></div>
+                      <div>Hours <span className="text-bone">{r.totalHours ? r.totalHours.toLocaleString() : "—"}</span></div>
+                    </dl>
+                    <div className="mt-3 border-t border-ink-3 pt-3 text-[11px] text-bone-2">
+                      {cabin !== "—" ? <span className="text-bone-2">{cabin} · </span> : null}
+                      <span className="text-bone">{r.operatorName}</span>
+                    </div>
+                  </Link>
+                );
+              })}
             </div>
           </section>
         ))}

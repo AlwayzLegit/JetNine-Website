@@ -166,27 +166,38 @@ export default async function DispatchInboxPage() {
           </p>
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-[4px] border border-ink-3 bg-ink-2">
-          <table className="w-full min-w-[1080px] border-collapse text-left">
-            <thead>
-              <tr className="border-b border-ink-3">
-                {["Ref", "Route", "Pax", "Category", "Contact", "Received", "SLA", "Status", ""].map((h) => (
-                  <th
-                    key={h || Math.random()}
-                    className="px-5 py-4 font-mono text-[10px] uppercase tracking-[0.14em] text-bone-2"
-                  >
-                    {h}
-                  </th>
+        <>
+          {/* Desktop: table. Below md it would need sideways-scroll to see
+              key columns, so we swap to stacked cards. */}
+          <div className="hidden overflow-x-auto rounded-[4px] border border-ink-3 bg-ink-2 md:block">
+            <table className="w-full min-w-[1080px] border-collapse text-left">
+              <thead>
+                <tr className="border-b border-ink-3">
+                  {["Ref", "Route", "Pax", "Category", "Contact", "Received", "SLA", "Status", ""].map((h) => (
+                    <th
+                      key={h || Math.random()}
+                      className="px-5 py-4 font-mono text-[10px] uppercase tracking-[0.14em] text-bone-2"
+                    >
+                      {h}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((q) => (
+                  <Row key={q.id} q={q} legs={legsByQuote.get(q.id) ?? []} />
                 ))}
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((q) => (
-                <Row key={q.id} q={q} legs={legsByQuote.get(q.id) ?? []} />
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </tbody>
+            </table>
+          </div>
+
+          {/* Mobile: cards */}
+          <div className="flex flex-col gap-3 md:hidden">
+            {rows.map((q) => (
+              <Card key={q.id} q={q} legs={legsByQuote.get(q.id) ?? []} />
+            ))}
+          </div>
+        </>
       )}
 
       <section className="mt-14">
@@ -214,7 +225,9 @@ export default async function DispatchInboxPage() {
   );
 }
 
-function Row({ q, legs }: { q: QuoteRow; legs: LegRow[] }) {
+// Shared per-quote derivation used by both the desktop table row and the
+// mobile card.
+function deriveQuote(q: QuoteRow, legs: LegRow[]) {
   const sla = slaBucket(q.slaDeadlineAt, q.status);
   const route = legs.length
     ? legs
@@ -230,6 +243,48 @@ function Row({ q, legs }: { q: QuoteRow; legs: LegRow[] }) {
     q.indicativeLowUsd && q.indicativeHighUsd
       ? `${formatUSD(q.indicativeLowUsd)} – ${formatUSD(q.indicativeHighUsd)}`
       : null;
+  return { sla, route, contactName, indicative };
+}
+
+function statusBadgeClass(status: string) {
+  return [
+    "inline-block rounded-full border px-2.5 py-0.5 font-mono text-[9px] uppercase tracking-[0.14em]",
+    STATUS_CLASS[status] ?? "border-ink-3 text-bone-2",
+  ].join(" ");
+}
+
+// Mobile card — the whole card is a tap target linking to the workbench.
+function Card({ q, legs }: { q: QuoteRow; legs: LegRow[] }) {
+  const { sla, route, contactName, indicative } = deriveQuote(q, legs);
+  return (
+    <Link
+      href={`/admin/quote/${q.id}`}
+      className="block rounded-[4px] border border-ink-3 bg-ink-2 p-4 transition-colors hover:bg-ink"
+    >
+      <div className="flex items-start justify-between gap-3">
+        <span className="font-mono text-[12px] tracking-[0.04em] text-clearance">{q.quoteCode}</span>
+        <span className={statusBadgeClass(q.status)}>{q.status}</span>
+      </div>
+      <div className="mt-2 font-mono text-[12px] tracking-[0.04em] text-bone">{route}</div>
+      {indicative ? (
+        <div className="mt-1 font-mono text-[10px] tracking-[0.04em] text-bone-2">{indicative}</div>
+      ) : null}
+      <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 font-mono text-[10px] uppercase tracking-[0.08em] text-bone-2">
+        <div>Pax <span className="text-bone">{q.paxCount}</span></div>
+        <div>Cat <span className="text-bone">{q.requestedCategory ?? "—"}</span></div>
+        <div>Recv <span className="text-bone">{q.receivedAt ? relativeTime(q.receivedAt) : "—"}</span></div>
+        <div>SLA <span className={TONE_CLASS[sla.tone]}>{sla.label}</span></div>
+      </dl>
+      <div className="mt-3 flex items-center justify-between border-t border-ink-3 pt-3">
+        <span className="text-[13px] text-bone">{contactName}</span>
+        <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-clearance">Open →</span>
+      </div>
+    </Link>
+  );
+}
+
+function Row({ q, legs }: { q: QuoteRow; legs: LegRow[] }) {
+  const { sla, route, contactName, indicative } = deriveQuote(q, legs);
 
   return (
     <tr className="border-b border-ink-3 transition-colors hover:bg-ink">

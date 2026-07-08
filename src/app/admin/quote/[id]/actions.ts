@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, eq, ilike, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { quotes, quoteLegs, quoteStatusEnum } from "@/db/schema/quotes";
 import { trips, tripLegs, type NewTrip, type NewTripLeg } from "@/db/schema/trips";
@@ -9,6 +9,10 @@ import { invoices, type NewInvoice } from "@/db/schema/invoices";
 import { members } from "@/db/schema/members";
 import { staff } from "@/db/schema/staff";
 import { aircraft } from "@/db/schema/aircraft";
+import { operators } from "@/db/schema/operators";
+import { sourcedOptions, type NewSourcedOption } from "@/db/schema/sourced-option";
+import { DEFAULT_MARKUP_PCT } from "@/lib/constants";
+import { isSourcingEligible, normalizeCategory } from "@/lib/operator-eligibility";
 import {
   aircraftScheduleBlocks,
   type NewAircraftScheduleBlock,
@@ -218,12 +222,21 @@ export async function convertQuoteToTrip(
     .orderBy(asc(quoteLegs.legNumber));
   if (legs.length === 0) return { ok: false, error: "Quote has no legs" };
 
-  // Pricing — derive a subtotal from the indicative midpoint until the
-  // dispatcher fills in real numbers from the operator.
+  // Pricing — if a sourced option has been chosen, its client price +
+  // operator cost drive the trip/invoice; otherwise fall back to the
+  // indicative midpoint (backward compatible with pre-Avinode quotes).
+  const [chosen] = await db
+    .select()
+    .from(sourcedOptions)
+    .where(and(eq(sourcedOptions.quoteId, quoteId), eq(sourcedOptions.isChosen, true)))
+    .limit(1);
+
   const subtotal =
-    quote.indicativeLowUsd && quote.indicativeHighUsd
-      ? Math.round((quote.indicativeLowUsd + quote.indicativeHighUsd) / 2)
-      : null;
+    chosen?.clientPriceUsd != null
+      ? chosen.clientPriceUsd
+      : quote.indicativeLowUsd && quote.indicativeHighUsd
+        ? Math.round((quote.indicativeLowUsd + quote.indicativeHighUsd) / 2)
+        : null;
   // FET is 7.5% of subtotal. Use null-check (not truthy) so a $0
   // subtotal correctly produces fet=0 instead of fet=null — the
   // downstream `fetUsd is known iff subtotalUsd is known` invariant
@@ -231,6 +244,24 @@ export async function convertQuoteToTrip(
   const fet = subtotal !== null ? Math.round(subtotal * 0.075) : null;
   const seg = Math.round(SEGMENT_FEE_USD * quote.paxCount * legs.length);
   const total = subtotal !== null ? subtotal + (fet ?? 0) + seg : null;
+
+  // Operator cost + true margin + tail/operator linkage from the chosen
+  // option (all null when converting without a sourced option).
+  const operatorCostUsd = chosen?.operatorCostUsd ?? null;
+  const marginPct =
+    chosen && subtotal && subtotal > 0 && operatorCostUsd != null
+      ? String(Math.round(((subtotal - operatorCostUsd) / subtotal) * 10000) / 100)
+      : null;
+  const tripOperatorId = chosen?.operatorId ?? null;
+  let tripAircraftId: string | null = null;
+  if (chosen?.tailNumber) {
+    const [ac] = await db
+      .select({ id: aircraft.id })
+      .from(aircraft)
+      .where(eq(aircraft.tailNumber, chosen.tailNumber))
+      .limit(1);
+    tripAircraftId = ac?.id ?? null;
+  }
 
   let inserted: {
     trip: { id: string; tripCode: string };
@@ -256,6 +287,10 @@ export async function convertQuoteToTrip(
         ),
         status: "confirmed",
         revenueUsd: subtotal,
+        operatorCostUsd,
+        marginPct,
+        aircraftId: tripAircraftId,
+        operatorId: tripOperatorId,
       };
       // Insert the trip first — the partial unique index
       // `trips_quote_id_uniq` (migration 0032) makes this the
@@ -836,4 +871,265 @@ function isInternationalIcao(icao: string | null): boolean {
   if (!icao) return false;
   if (US_DOMESTIC_FULL_ICAO.has(icao)) return false;
   return !US_DOMESTIC_ICAO_PREFIXES.some((p) => icao.startsWith(p));
+}
+
+// ─── Sourced options (Avinode paste-in) ────────────────────────────────────
+// Airframes a dispatcher pastes from Avinode during a quote's `sourcing`
+// state. On save we reconcile the pasted seller name against the operators
+// table, snapshot its vetting, enforce the safety floor, and apply markup to
+// turn operator cost into client price. The chosen option drives trip +
+// invoice pricing at convert (see convertQuoteToTrip above).
+
+export type SourcedOptionResult =
+  | { ok: true; optionId: string }
+  | { ok: false; error: string };
+
+function soStr(v: FormDataEntryValue | null): string | null {
+  const s = v == null ? "" : String(v).trim();
+  return s === "" ? null : s;
+}
+function soInt(v: FormDataEntryValue | null): number | null {
+  const s = v == null ? "" : String(v).trim();
+  if (s === "") return null;
+  const n = Math.round(Number(s));
+  return Number.isFinite(n) ? n : null;
+}
+function soBool(v: FormDataEntryValue | null): boolean {
+  const s = String(v ?? "").toLowerCase();
+  return s === "on" || s === "true" || s === "1";
+}
+
+function computeClientPrice(
+  costUsd: number | null,
+  markupType: "percent" | "flat",
+  markupValue: number,
+): number | null {
+  if (costUsd == null) return null;
+  return markupType === "flat"
+    ? costUsd + Math.round(markupValue)
+    : Math.round(costUsd * (1 + markupValue / 100));
+}
+
+type MatchedOperator = {
+  id: string;
+  name: string;
+  status: string;
+  argusRating: (typeof operators.$inferSelect)["argusRating"];
+  wyvernWingman: boolean;
+  isbaoStage: number | null;
+  insuranceRenewsOn: string | null;
+  nextAuditOn: string | null;
+};
+
+// Fuzzy-match a pasted Avinode seller name against the operators table: try
+// a full contains-match, then fall back to the first token.
+async function reconcileOperator(nameRaw: string | null): Promise<MatchedOperator | null> {
+  const q = nameRaw?.trim();
+  if (!q || q.length < 2) return null;
+  const cols = {
+    id: operators.id,
+    name: operators.name,
+    status: operators.status,
+    argusRating: operators.argusRating,
+    wyvernWingman: operators.wyvernWingman,
+    isbaoStage: operators.isbaoStage,
+    insuranceRenewsOn: operators.insuranceRenewsOn,
+    nextAuditOn: operators.nextAuditOn,
+  };
+  const [full] = await db.select(cols).from(operators).where(ilike(operators.name, `%${q}%`)).limit(1);
+  if (full) return full;
+  const first = q.split(/\s+/)[0];
+  if (first.length >= 3) {
+    const [tok] = await db.select(cols).from(operators).where(ilike(operators.name, `%${first}%`)).limit(1);
+    if (tok) return tok;
+  }
+  return null;
+}
+
+// Shared field extraction + reconciliation + pricing for add/update.
+async function buildOptionValues(
+  formData: FormData,
+): Promise<
+  | { fields: Partial<NewSourcedOption>; meta: { operatorMatched: boolean; safetyFloorPassed: boolean } }
+  | { error: string }
+> {
+  const operatorCostUsd = soInt(formData.get("operatorCostUsd"));
+  const markupType: "percent" | "flat" =
+    String(formData.get("markupType") ?? "percent") === "flat" ? "flat" : "percent";
+  const rawMarkup = soStr(formData.get("markupValue"));
+  const markupValue = rawMarkup === null ? DEFAULT_MARKUP_PCT : Number(rawMarkup);
+  if (!Number.isFinite(markupValue) || markupValue < 0) {
+    return { error: "Markup must be a non-negative number" };
+  }
+
+  const operatorNameRaw = soStr(formData.get("operatorNameRaw"));
+  const op = await reconcileOperator(operatorNameRaw);
+  const operatorMatched = op !== null;
+  const eligibility = op ? isSourcingEligible(op) : null;
+  // Safety floor passes only for a matched, eligible operator. An unmatched
+  // seller stays false → the UI shows "screen before send" and choose blocks.
+  const safetyFloorPassed = operatorMatched && eligibility!.eligible;
+
+  const fields: Partial<NewSourcedOption> = {
+    avinodeRef: soStr(formData.get("avinodeRef")),
+    aircraftType: soStr(formData.get("aircraftType")),
+    tailNumber: soStr(formData.get("tailNumber")),
+    isFloatingFleet: soBool(formData.get("isFloatingFleet")),
+    yearOfMake: soInt(formData.get("yearOfMake")),
+    category: normalizeCategory(soStr(formData.get("category"))),
+    paxCapacity: soInt(formData.get("paxCapacity")),
+    refurbInteriorYear: soInt(formData.get("refurbInteriorYear")),
+    refurbExteriorYear: soInt(formData.get("refurbExteriorYear")),
+    operatorNameRaw,
+    operatorId: op?.id ?? null,
+    operatorMatched,
+    argusRating: op?.argusRating ?? null,
+    wyvernWingman: op?.wyvernWingman ?? null,
+    isbaoStage: op?.isbaoStage ?? null,
+    safetyFloorPassed,
+    positioningTimeMin: soInt(formData.get("positioningTimeMin")),
+    positioningAirport: soStr(formData.get("positioningAirport")),
+    totalFlightTimeMin: soInt(formData.get("totalFlightTimeMin")),
+    operatorCostUsd,
+    markupType,
+    markupValue: String(markupValue),
+    clientPriceUsd: computeClientPrice(operatorCostUsd, markupType, markupValue),
+    dispatcherNotes: soStr(formData.get("dispatcherNotes")),
+  };
+  return { fields, meta: { operatorMatched, safetyFloorPassed } };
+}
+
+export async function addSourcedOption(
+  quoteId: string,
+  formData: FormData,
+): Promise<SourcedOptionResult> {
+  const actor = await requireStaff();
+  if (!/^[0-9a-f-]{36}$/i.test(quoteId)) return { ok: false, error: "Bad quote id" };
+  const [quote] = await db
+    .select({ id: quotes.id, code: quotes.quoteCode })
+    .from(quotes)
+    .where(eq(quotes.id, quoteId));
+  if (!quote) return { ok: false, error: "Quote not found" };
+
+  const built = await buildOptionValues(formData);
+  if ("error" in built) return { ok: false, error: built.error };
+
+  const [{ maxNum }] = await db
+    .select({ maxNum: sql<number>`coalesce(max(${sourcedOptions.optionNumber}), 0)` })
+    .from(sourcedOptions)
+    .where(eq(sourcedOptions.quoteId, quoteId));
+  const optionNumber = Number(maxNum) + 1;
+
+  const [row] = await db
+    .insert(sourcedOptions)
+    .values({ quoteId, optionNumber, ...built.fields })
+    .returning({ id: sourcedOptions.id });
+
+  await logAudit({
+    actorUserId: actor.id,
+    actorRole: actor.role,
+    action: "quote.option.add",
+    subjectType: "quote",
+    subjectId: quoteId,
+    subjectCode: quote.code,
+    metadata: {
+      optionId: row.id,
+      optionNumber,
+      ...built.meta,
+      operatorCostUsd: built.fields.operatorCostUsd,
+      clientPriceUsd: built.fields.clientPriceUsd,
+    },
+  });
+  revalidatePath(`/admin/quote/${quoteId}`);
+  return { ok: true, optionId: row.id };
+}
+
+export async function updateSourcedOption(
+  optionId: string,
+  formData: FormData,
+): Promise<SourcedOptionResult> {
+  const actor = await requireStaff();
+  if (!/^[0-9a-f-]{36}$/i.test(optionId)) return { ok: false, error: "Bad option id" };
+  const [opt] = await db
+    .select({ id: sourcedOptions.id, quoteId: sourcedOptions.quoteId })
+    .from(sourcedOptions)
+    .where(eq(sourcedOptions.id, optionId));
+  if (!opt) return { ok: false, error: "Option not found" };
+
+  const built = await buildOptionValues(formData);
+  if ("error" in built) return { ok: false, error: built.error };
+
+  await db
+    .update(sourcedOptions)
+    .set({ ...built.fields, updatedAt: new Date() })
+    .where(eq(sourcedOptions.id, optionId));
+  await logAudit({
+    actorUserId: actor.id,
+    actorRole: actor.role,
+    action: "quote.option.update",
+    subjectType: "quote",
+    subjectId: opt.quoteId,
+    metadata: { optionId, ...built.meta },
+  });
+  revalidatePath(`/admin/quote/${opt.quoteId}`);
+  return { ok: true, optionId };
+}
+
+export async function chooseSourcedOption(optionId: string): Promise<SourcedOptionResult> {
+  const actor = await requireStaff();
+  if (!/^[0-9a-f-]{36}$/i.test(optionId)) return { ok: false, error: "Bad option id" };
+  const [opt] = await db.select().from(sourcedOptions).where(eq(sourcedOptions.id, optionId));
+  if (!opt) return { ok: false, error: "Option not found" };
+  if (!opt.safetyFloorPassed) {
+    return {
+      ok: false,
+      error: opt.operatorMatched
+        ? "Operator fails the safety floor — cannot choose"
+        : "Operator unmatched — screen + match before choosing",
+    };
+  }
+  if (opt.clientPriceUsd == null || opt.clientPriceUsd <= 0) {
+    return { ok: false, error: "Set operator cost + markup before choosing" };
+  }
+  await db.transaction(async (tx) => {
+    await tx
+      .update(sourcedOptions)
+      .set({ isChosen: false, updatedAt: new Date() })
+      .where(eq(sourcedOptions.quoteId, opt.quoteId));
+    await tx
+      .update(sourcedOptions)
+      .set({ isChosen: true, status: "shortlisted", updatedAt: new Date() })
+      .where(eq(sourcedOptions.id, optionId));
+  });
+  await logAudit({
+    actorUserId: actor.id,
+    actorRole: actor.role,
+    action: "quote.option.choose",
+    subjectType: "quote",
+    subjectId: opt.quoteId,
+    metadata: { optionId, clientPriceUsd: opt.clientPriceUsd, operatorCostUsd: opt.operatorCostUsd },
+  });
+  revalidatePath(`/admin/quote/${opt.quoteId}`);
+  return { ok: true, optionId };
+}
+
+export async function deleteSourcedOption(optionId: string): Promise<SourcedOptionResult> {
+  const actor = await requireStaff();
+  if (!/^[0-9a-f-]{36}$/i.test(optionId)) return { ok: false, error: "Bad option id" };
+  const [opt] = await db
+    .select({ id: sourcedOptions.id, quoteId: sourcedOptions.quoteId })
+    .from(sourcedOptions)
+    .where(eq(sourcedOptions.id, optionId));
+  if (!opt) return { ok: false, error: "Option not found" };
+  await db.delete(sourcedOptions).where(eq(sourcedOptions.id, optionId));
+  await logAudit({
+    actorUserId: actor.id,
+    actorRole: actor.role,
+    action: "quote.option.remove",
+    subjectType: "quote",
+    subjectId: opt.quoteId,
+    metadata: { optionId },
+  });
+  revalidatePath(`/admin/quote/${opt.quoteId}`);
+  return { ok: true, optionId };
 }

@@ -1,9 +1,10 @@
 import Link from "next/link";
-import { asc, eq, ne } from "drizzle-orm";
+import { asc, eq, notInArray } from "drizzle-orm";
 import { db } from "@/db";
 import { aircraft } from "@/db/schema/aircraft";
 import { operators } from "@/db/schema/operators";
 import { AircraftForm } from "@/components/admin/aircraft-form";
+import { SOURCING_INELIGIBLE_STATUSES } from "@/lib/operator-eligibility";
 
 export const dynamic = "force-dynamic";
 
@@ -63,14 +64,12 @@ export default async function AdminAircraftPage() {
     byCategory.set(r.category, arr);
   }
 
-  // Operator options for the create form — exclude suspended/banned.
+  // Operator options for the create form — exclude sourcing-ineligible
+  // operators (suspended / banned / hold) via the shared safety-floor list.
   const operatorOptions = await db
     .select({ id: operators.id, name: operators.name })
     .from(operators)
-    .where(
-      // ne(status, banned) AND ne(status, suspended) — keep the dropdown clean
-      ne(operators.status, "banned"),
-    )
+    .where(notInArray(operators.status, [...SOURCING_INELIGIBLE_STATUSES]))
     .orderBy(asc(operators.name));
 
   const totals = {

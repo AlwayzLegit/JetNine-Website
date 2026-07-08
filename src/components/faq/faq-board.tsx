@@ -6,6 +6,19 @@ import { FAQ, FAQ_QUICK_TAGS, matchesQuery } from "@/lib/faq";
 export function FaqBoard() {
   const [query, setQuery] = useState("");
 
+  // Native hash-jump doesn't scroll on mobile here — `body { overflow-x:
+  // hidden }` makes <body> (not the viewport) the scroll element, so the
+  // browser's default anchor scroll and `scroll-padding-top` (set on <html>)
+  // don't apply. scrollIntoView targets the element in the actual scroller,
+  // and the section's `scroll-mt` supplies the fixed-header offset.
+  function onTocClick(e: React.MouseEvent<HTMLAnchorElement>, id: string) {
+    const el = document.getElementById(id);
+    if (!el) return; // section filtered out by search — let the default run
+    e.preventDefault();
+    el.scrollIntoView({ behavior: "smooth" });
+    history.replaceState(null, "", `#${id}`);
+  }
+
   const filtered = useMemo(() => {
     if (!query) return FAQ;
     return FAQ.map((cat) => ({
@@ -25,6 +38,7 @@ export function FaqBoard() {
               <li key={cat.id}>
                 <a
                   href={`#${cat.id}`}
+                  onClick={(e) => onTocClick(e, cat.id)}
                   className="block py-1 font-mono text-[11px] uppercase tracking-[0.08em] text-bone-2 transition-colors hover:text-bone"
                 >
                   <span className="mr-3 text-clearance">
@@ -94,7 +108,7 @@ export function FaqBoard() {
         ) : (
           <div className="flex flex-col gap-16">
             {filtered.map((cat, ci) => (
-              <section key={cat.id} id={cat.id}>
+              <section key={cat.id} id={cat.id} className="scroll-mt-[6.5rem]">
                 <div className="mb-6 flex items-baseline gap-4 border-b border-ink-3 pb-4">
                   <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-clearance">
                     {String(FAQ.findIndex((c) => c.id === cat.id) + 1).padStart(2, "0")}

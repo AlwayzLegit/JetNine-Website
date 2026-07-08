@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { and, asc, desc, eq, gt, lt, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gt, lt, notInArray, or, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { aircraft } from "@/db/schema/aircraft";
 import { operators } from "@/db/schema/operators";
@@ -8,6 +8,7 @@ import { aircraftScheduleBlocks } from "@/db/schema/schedule-blocks";
 import { trips } from "@/db/schema/trips";
 import { formatUSD } from "@/lib/quote-pricing";
 import { AircraftForm } from "@/components/admin/aircraft-form";
+import { SOURCING_INELIGIBLE_STATUSES } from "@/lib/operator-eligibility";
 
 export const dynamic = "force-dynamic";
 
@@ -111,10 +112,19 @@ export default async function AdminAircraftDetailPage({ params }: Props) {
     .where(eq(aircraft.id, id));
   if (!row) notFound();
 
-  // Operator options for the editor's operator-swap dropdown.
+  // Operator options for the editor's operator-swap dropdown — exclude
+  // sourcing-ineligible operators (suspended / banned / hold) via the shared
+  // safety-floor list, but always keep this aircraft's current operator so an
+  // existing assignment to an ineligible operator still renders in the select.
   const operatorOptions = await db
     .select({ id: operators.id, name: operators.name })
     .from(operators)
+    .where(
+      or(
+        notInArray(operators.status, [...SOURCING_INELIGIBLE_STATUSES]),
+        eq(operators.id, row.operatorId),
+      ),
+    )
     .orderBy(asc(operators.name));
 
   const today = startOfUtcDay(new Date());

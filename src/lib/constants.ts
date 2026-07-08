@@ -14,6 +14,12 @@ export const SITE = {
   },
 } as const;
 
+// Default broker markup applied to an operator's all-in cost when a
+// dispatcher pastes an Avinode sourced option (client_price = cost × (1 +
+// pct/100)). Overridable per option in the workbench. Kept as a constant
+// for now; promote to a configurable admin setting later if needed.
+export const DEFAULT_MARKUP_PCT = 12;
+
 export const TRUST_BAR = [
   { value: 20000, label: "Aircraft network", suffix: "+" },
   { value: 170, label: "Countries", suffix: "+" },

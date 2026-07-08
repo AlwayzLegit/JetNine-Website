@@ -6,6 +6,16 @@ export const dynamic = "force-dynamic";
 
 type Row<T extends object> = T;
 
+// Smoke/QA quotes are flagged at write time by a "[SMOKE]" first-name prefix
+// and a "smoke+…" email (see src/app/quote/actions.ts); they auto-cancel and
+// otherwise pollute totals. This excludes them from quote counts so post-deploy
+// smoke tests don't skew KPIs. (Postgres LIKE treats "[" literally — only
+// % and _ are wildcards — so "[SMOKE]%" matches the literal prefix.)
+const NOT_SMOKE = sql`not (
+  contact_snapshot->>'firstName' ilike '[SMOKE]%'
+  or contact_snapshot->>'email' ilike 'smoke+%'
+)`;
+
 async function getCounts() {
   const [counts] = await db.execute<
     Row<{
@@ -24,7 +34,7 @@ async function getCounts() {
     }>
   >(sql`
     select
-      (select count(*)::int from public.quotes)                                            as quotes_total,
+      (select count(*)::int from public.quotes where ${NOT_SMOKE})                         as quotes_total,
       (select count(*)::int from public.quotes
         where status in ('submitted','triaged','sourcing','options_sent','held'))          as quotes_open,
       (select count(*)::int from public.quotes where status = 'converted')                 as quotes_converted,
@@ -45,27 +55,43 @@ async function getCounts() {
 }
 
 async function getRevenue() {
+  // True margin subtracts operator cost (from the trip) on top of the FET +
+  // segment pass-throughs. Operator cost only lands on trips converted with a
+  // chosen sourced option, so it's summed over the cost-known cohort only, and
+  // margin_covered/margin_total report coverage for an honest caveat.
   const [row] = await db.execute<
     Row<{
       revenue_30: number;
       revenue_ytd: number;
       outstanding: number;
       margin_30: number;
+      true_margin_30: number;
+      margin_covered: number;
+      margin_total: number;
     }>
   >(sql`
     select
-      coalesce(sum(case when issued_on >= current_date - interval '30 days'
-                        and status in ('paid','due','overdue')
-                  then total_usd else 0 end), 0)::int as revenue_30,
-      coalesce(sum(case when extract(year from issued_on) = extract(year from current_date)
-                        and status in ('paid','due','overdue')
-                  then total_usd else 0 end), 0)::int as revenue_ytd,
-      coalesce(sum(case when status in ('due','overdue') then total_usd else 0 end), 0)::int as outstanding,
-      coalesce(sum(case when issued_on >= current_date - interval '30 days'
-                        and status = 'paid'
-                  then total_usd - coalesce(fet_usd,0) - coalesce(segment_fee_usd,0)
-                  else 0 end), 0)::int as margin_30
-    from public.invoices
+      coalesce(sum(case when i.issued_on >= current_date - interval '30 days'
+                        and i.status in ('paid','due','overdue')
+                  then i.total_usd else 0 end), 0)::int as revenue_30,
+      coalesce(sum(case when extract(year from i.issued_on) = extract(year from current_date)
+                        and i.status in ('paid','due','overdue')
+                  then i.total_usd else 0 end), 0)::int as revenue_ytd,
+      coalesce(sum(case when i.status in ('due','overdue') then i.total_usd else 0 end), 0)::int as outstanding,
+      coalesce(sum(case when i.issued_on >= current_date - interval '30 days'
+                        and i.status = 'paid'
+                  then i.total_usd - coalesce(i.fet_usd,0) - coalesce(i.segment_fee_usd,0)
+                  else 0 end), 0)::int as margin_30,
+      coalesce(sum(case when i.issued_on >= current_date - interval '30 days'
+                        and i.status = 'paid' and t.operator_cost_usd is not null
+                  then i.total_usd - coalesce(i.fet_usd,0) - coalesce(i.segment_fee_usd,0) - t.operator_cost_usd
+                  else 0 end), 0)::int as true_margin_30,
+      count(*) filter (where i.issued_on >= current_date - interval '30 days'
+                        and i.status = 'paid' and t.operator_cost_usd is not null)::int as margin_covered,
+      count(*) filter (where i.issued_on >= current_date - interval '30 days'
+                        and i.status = 'paid')::int as margin_total
+    from public.invoices i
+    left join public.trips t on t.id = i.trip_id
   `);
   return row;
 }
@@ -74,6 +100,7 @@ async function getQuoteFunnel() {
   const rows = await db.execute<Row<{ status: string; n: number }>>(sql`
     select status, count(*)::int as n
     from public.quotes
+    where ${NOT_SMOKE}
     group by status
     order by case status
       when 'submitted' then 1
@@ -165,12 +192,13 @@ export default async function ReportsPage() {
       {/* Revenue */}
       <section className="mb-12 rounded-[4px] border border-ink-3 bg-ink-2 p-8">
         <h2 className="caption mb-6">— Revenue</h2>
-        <dl className="grid grid-cols-2 gap-x-6 gap-y-6 md:grid-cols-4">
+        <dl className="grid grid-cols-2 gap-x-6 gap-y-6 md:grid-cols-3 lg:grid-cols-5">
           {[
             ["30-day issued", revenue.revenue_30],
             ["YTD issued", revenue.revenue_ytd],
             ["Outstanding", revenue.outstanding],
             ["30-day margin", revenue.margin_30],
+            ["30-day true margin", revenue.true_margin_30],
           ].map(([lbl, val]) => (
             <div key={String(lbl)}>
               <dt className="font-mono text-[10px] uppercase tracking-[0.14em] text-steel">
@@ -192,7 +220,11 @@ export default async function ReportsPage() {
         </dl>
         <p className="mt-6 font-mono text-[10px] uppercase tracking-[0.08em] text-steel">
           — Revenue counts invoices in paid/due/overdue status. Margin excludes FET + segment fees
-          (those pass through to the IRS).
+          (those pass through to the IRS). True margin also subtracts operator cost, over the{" "}
+          {revenue.margin_total > 0
+            ? `${revenue.margin_covered} of ${revenue.margin_total} paid`
+            : "0"}{" "}
+          trip{revenue.margin_covered === 1 ? "" : "s"} with operator cost recorded.
         </p>
       </section>
 

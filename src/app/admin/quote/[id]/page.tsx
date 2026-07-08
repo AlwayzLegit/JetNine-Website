@@ -10,6 +10,7 @@ import { operators } from "@/db/schema/operators";
 import { messages } from "@/db/schema/audit";
 import { members } from "@/db/schema/members";
 import { aircraftScheduleBlocks } from "@/db/schema/schedule-blocks";
+import { sourcedOptions } from "@/db/schema/sourced-option";
 import { StatusSelect } from "@/components/admin/status-select";
 import { MemberAttach, type MemberOption } from "@/components/admin/member-attach";
 import { DispatcherAssign } from "@/components/admin/dispatcher-assign";
@@ -23,8 +24,14 @@ import {
   SoftHoldList,
   type HeldAircraft,
 } from "@/components/admin/soft-hold-list";
+import {
+  SourcedOptions,
+  type SourcedOptionRow,
+} from "@/components/admin/sourced-options";
+import { AvinodeSearchCopy } from "@/components/admin/avinode-search-copy";
 import { postQuoteMessage } from "@/app/admin/quote/[id]/actions";
 import { formatUSD } from "@/lib/quote-pricing";
+import { DEFAULT_MARKUP_PCT } from "@/lib/constants";
 
 export const dynamic = "force-dynamic";
 
@@ -258,6 +265,28 @@ export default async function QuoteWorkbenchPage({ params }: Props) {
         )
         .limit(8)
     : [];
+
+  // ── Sourced options (Avinode paste-ins) for this quote ──
+  const sourcedRows = await db
+    .select({
+      id: sourcedOptions.id,
+      optionNumber: sourcedOptions.optionNumber,
+      aircraftType: sourcedOptions.aircraftType,
+      tailNumber: sourcedOptions.tailNumber,
+      operatorNameRaw: sourcedOptions.operatorNameRaw,
+      operatorMatched: sourcedOptions.operatorMatched,
+      safetyFloorPassed: sourcedOptions.safetyFloorPassed,
+      category: sourcedOptions.category,
+      operatorCostUsd: sourcedOptions.operatorCostUsd,
+      clientPriceUsd: sourcedOptions.clientPriceUsd,
+      markupType: sourcedOptions.markupType,
+      markupValue: sourcedOptions.markupValue,
+      isChosen: sourcedOptions.isChosen,
+    })
+    .from(sourcedOptions)
+    .where(eq(sourcedOptions.quoteId, id))
+    .orderBy(asc(sourcedOptions.optionNumber));
+  const sourced: SourcedOptionRow[] = sourcedRows;
 
   return (
     <div className="container-jn py-8">
@@ -636,6 +665,30 @@ export default async function QuoteWorkbenchPage({ params }: Props) {
             <p className="mt-5 font-mono text-[10px] uppercase tracking-[0.08em] text-steel">
               — Sorted by preferred · ARG/US tier · Wyvern. Soft-hold appears on the planner.
             </p>
+          </section>
+
+          {/* Sourced options — Avinode paste-ins */}
+          <section className="rounded-[4px] border border-ink-3 bg-ink-2 p-6">
+            <div className="mb-4 flex items-baseline justify-between gap-4">
+              <h2 className="font-mono text-[10px] uppercase tracking-[0.14em] text-bone-2">
+                — Sourcing · Avinode options
+              </h2>
+              <div className="flex items-baseline gap-4">
+                <AvinodeSearchCopy
+                  paxCount={quote.paxCount}
+                  requestedCategory={quote.requestedCategory}
+                  legs={legs}
+                />
+                <span className="font-mono text-[10px] uppercase tracking-[0.08em] text-clearance">
+                  {sourced.length} sourced
+                </span>
+              </div>
+            </div>
+            <SourcedOptions
+              quoteId={quote.id}
+              initial={sourced}
+              defaultMarkupPct={DEFAULT_MARKUP_PCT}
+            />
           </section>
 
           {/* Soft holds */}

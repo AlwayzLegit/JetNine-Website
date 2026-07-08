@@ -32,6 +32,16 @@ export function SiteNav() {
     return () => window.removeEventListener("keydown", onKey);
   }, [open]);
 
+  // Lock background scroll while the full-screen mobile panel is open.
+  useEffect(() => {
+    if (!open) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [open]);
+
   const linkClass = (href: string) => {
     const active = pathname === href || (href !== "/" && pathname.startsWith(href + "/"));
     return [
@@ -100,12 +110,14 @@ export function SiteNav() {
         </div>
       </div>
 
+      {/* Full-height opaque overlay below the header bar — covers the hero so
+          page text never bleeds through, and scrolls if the list is long. */}
       <nav
         id="mobile-nav"
         aria-label="Primary"
         className={[
-          "lg:hidden",
-          open ? "block border-t border-ink-3" : "hidden",
+          "lg:hidden fixed inset-x-0 top-20 bottom-0 z-40 overflow-y-auto bg-ink",
+          open ? "block" : "hidden",
         ].join(" ")}
       >
         <div className="container-jn flex flex-col py-3">
@@ -113,14 +125,14 @@ export function SiteNav() {
             <Link
               key={href}
               href={href}
-              className={`${linkClass(href)} border-b border-ink-3 py-4 last:border-b-0`}
+              className={`${linkClass(href)} border-b border-ink-3 py-5 last:border-b-0`}
             >
               {label}
             </Link>
           ))}
           <a
             href={`tel:${SITE.dispatchPhoneE164}`}
-            className="flex items-center gap-3 py-4 font-mono text-[11px] uppercase tracking-[0.14em] text-bone-2 transition-colors hover:text-bone"
+            className="mt-2 flex min-h-[44px] items-center gap-3 py-5 font-mono text-[11px] uppercase tracking-[0.14em] text-bone-2 transition-colors hover:text-bone"
           >
             <span className="relative flex h-2 w-2">
               <span className="absolute inset-0 animate-ping rounded-full bg-clearance opacity-75" />

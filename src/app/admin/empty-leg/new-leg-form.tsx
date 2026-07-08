@@ -39,7 +39,7 @@ export function NewEmptyLegForm({ tails }: { tails: Tail[] }) {
       {/* Aircraft */}
       <Section n="01" title="Aircraft">
         <div className="field-jn">
-          <label htmlFor="aircraftTail">Tail (must already exist in /admin/aircraft)</label>
+          <label htmlFor="aircraftTail">Tail</label>
           <select id="aircraftTail" name="aircraftTail" required defaultValue="">
             <option value="" disabled>
               — Pick a tail —
@@ -51,6 +51,9 @@ export function NewEmptyLegForm({ tails }: { tails: Tail[] }) {
             ))}
           </select>
         </div>
+        <p className="mt-1.5 font-mono text-[10px] uppercase tracking-[0.08em] text-steel">
+          — Must already exist in /admin/aircraft
+        </p>
       </Section>
 
       {/* Route */}
@@ -64,7 +67,7 @@ export function NewEmptyLegForm({ tails }: { tails: Tail[] }) {
           <TextField name="toCity" label="To city" placeholder="New York" />
         </div>
         <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-3">
-          <DateTimeField name="wheelsUpAt" label="Wheels-up (local of origin)" required />
+          <DateTimeField name="wheelsUpAt" label="Wheels-up (local)" required />
           <NumberField name="flightMinutes" label="Flight time (min)" placeholder="290" />
           <NumberField name="distanceNm" label="Distance (NM)" placeholder="2151" />
         </div>
@@ -118,7 +121,7 @@ export function NewEmptyLegForm({ tails }: { tails: Tail[] }) {
           </div>
           <NumberField
             name="minDiscountPct"
-            label="Min discount (auto-decay floor)"
+            label="Min discount (floor)"
             placeholder="30"
             min={0}
             max={80}
@@ -135,7 +138,7 @@ export function NewEmptyLegForm({ tails }: { tails: Tail[] }) {
       <Section n="04" title="Copy">
         <TextField
           name="headline"
-          label="Headline (shown on board card)"
+          label="Headline"
           placeholder="Tonight, Van Nuys to Teterboro — 60% off"
         />
         <TextareaField

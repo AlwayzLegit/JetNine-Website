@@ -59,6 +59,10 @@ create unique index "sourced_options_quote_option_uq"
 create index "sourced_options_quote_idx"
   on public.sourced_options ("quote_id");
 
+create trigger "sourced_options_set_updated_at"
+  before update on public.sourced_options
+  for each row execute function public.set_updated_at();
+
 -- ─── RLS ─────────────────────────────────────────────────────────────────
 
 alter table public.sourced_options enable row level security;

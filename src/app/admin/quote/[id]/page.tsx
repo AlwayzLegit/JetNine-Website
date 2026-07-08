@@ -28,6 +28,7 @@ import {
   SourcedOptions,
   type SourcedOptionRow,
 } from "@/components/admin/sourced-options";
+import { AvinodeSearchCopy } from "@/components/admin/avinode-search-copy";
 import { postQuoteMessage } from "@/app/admin/quote/[id]/actions";
 import { formatUSD } from "@/lib/quote-pricing";
 import { DEFAULT_MARKUP_PCT } from "@/lib/constants";
@@ -668,13 +669,20 @@ export default async function QuoteWorkbenchPage({ params }: Props) {
 
           {/* Sourced options — Avinode paste-ins */}
           <section className="rounded-[4px] border border-ink-3 bg-ink-2 p-6">
-            <div className="mb-4 flex items-baseline justify-between">
+            <div className="mb-4 flex items-baseline justify-between gap-4">
               <h2 className="font-mono text-[10px] uppercase tracking-[0.14em] text-bone-2">
                 — Sourcing · Avinode options
               </h2>
-              <span className="font-mono text-[10px] uppercase tracking-[0.08em] text-clearance">
-                {sourced.length} sourced
-              </span>
+              <div className="flex items-baseline gap-4">
+                <AvinodeSearchCopy
+                  paxCount={quote.paxCount}
+                  requestedCategory={quote.requestedCategory}
+                  legs={legs}
+                />
+                <span className="font-mono text-[10px] uppercase tracking-[0.08em] text-clearance">
+                  {sourced.length} sourced
+                </span>
+              </div>
             </div>
             <SourcedOptions
               quoteId={quote.id}

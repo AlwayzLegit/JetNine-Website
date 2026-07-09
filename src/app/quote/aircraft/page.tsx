@@ -349,7 +349,8 @@ function AircraftStepInner() {
               </span>
               <SavedIndicator />
             </div>
-            <div className="flex items-center gap-6">
+            {/* flex-wrap: see mission step — prevents mobile sideways scroll. */}
+            <div className="flex flex-wrap items-center justify-end gap-x-6 gap-y-3">
               <Link href="/quote/mission" className="btn btn-ghost">
                 ← Back
               </Link>

@@ -6,17 +6,21 @@ import { FAQ, FAQ_QUICK_TAGS, matchesQuery } from "@/lib/faq";
 export function FaqBoard() {
   const [query, setQuery] = useState("");
 
-  // Native hash-jump doesn't scroll on mobile here — `body { overflow-x:
-  // hidden }` makes <body> (not the viewport) the scroll element, so the
-  // browser's default anchor scroll and `scroll-padding-top` (set on <html>)
-  // don't apply. scrollIntoView targets the element in the actual scroller,
-  // and the section's `scroll-mt` supplies the fixed-header offset.
+  // Scroll a Contents link to its section. We compute the absolute document
+  // position and use window.scrollTo (which always drives the viewport)
+  // rather than scrollIntoView — the latter picks a "nearest scrollable
+  // ancestor" and mis-fired here, landing back near the top. HEADER_OFFSET
+  // clears the 80px fixed header with breathing room. (Pairs with
+  // `body { overflow-x: clip }` in globals.css, which keeps the viewport —
+  // not <body> — as the scroll container.)
   function onTocClick(e: React.MouseEvent<HTMLAnchorElement>, id: string) {
     const el = document.getElementById(id);
     if (!el) return; // section filtered out by search — let the default run
     e.preventDefault();
-    el.scrollIntoView({ behavior: "smooth" });
-    history.replaceState(null, "", `#${id}`);
+    const HEADER_OFFSET = 96;
+    const top = el.getBoundingClientRect().top + window.scrollY - HEADER_OFFSET;
+    window.scrollTo({ top, behavior: "smooth" });
+    history.pushState(null, "", `#${id}`);
   }
 
   const filtered = useMemo(() => {

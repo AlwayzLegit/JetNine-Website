@@ -119,7 +119,10 @@ function MissionStepInner() {
   return (
     <div className="container-jn py-12 lg:py-16">
       <div className="grid gap-10 lg:grid-cols-[1fr_380px] lg:gap-12">
-        <div>
+        {/* min-w-0: grid items default to min-width:auto, so a wide child
+            (or a native date/time input's intrinsic min width) can drag the
+            single mobile column past the viewport and clip text. */}
+        <div className="min-w-0">
           <header className="mb-10">
             <p className="caption mb-4">— Step 01 · Mission</p>
             <h1 className="display-l max-w-[18ch]">Where, when, how many.</h1>

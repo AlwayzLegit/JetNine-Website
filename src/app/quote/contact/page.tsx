@@ -81,7 +81,7 @@ function ContactStepInner() {
   return (
     <div className="container-jn py-12 lg:py-16">
       <div className="grid gap-10 lg:grid-cols-[1fr_380px] lg:gap-12">
-        <div className="flex flex-col gap-12">
+        <div className="flex min-w-0 flex-col gap-12">
           <header>
             <p className="caption mb-4">— Step 03 · Contact</p>
             <h1 className="display-l max-w-[18ch]">How to reach you.</h1>

@@ -1,0 +1,20 @@
+# JetNine
+
+> JetNine is a private-aviation charter brokerage: access to roughly 20,000 aircraft worldwide, curated down to a few vetted airframes per trip and arranged by a 24/7 human dispatch desk.
+
+JetNine arranges on-demand private jet charter, discounted empty-leg flights, and membership programs. Trips fly on independently vetted operators (ARGUS / Wyvern / IS-BAO standards). Quotes are generated through the on-site wizard, and the dispatch desk is reachable by phone around the clock.
+
+## Main pages
+- [Home](https://jetnine.com/): What JetNine is and how the desk works.
+- [Fleet & aircraft](https://jetnine.com/aircraft): Categories from turboprop to ultra-long-range, with cabin specs and photography.
+- [How it works](https://jetnine.com/how-it-works): The quote-to-flight process, step by step.
+- [Memberships](https://jetnine.com/memberships): Membership and jet-card programs.
+- [Empty legs](https://jetnine.com/empty-legs): Discounted repositioning flights.
+- [Safety](https://jetnine.com/safety): Operator vetting and safety standards.
+- [FAQ](https://jetnine.com/faq): Common questions about booking, pricing, pets, and safety.
+- [About](https://jetnine.com/about): Company background.
+- [Request a quote](https://jetnine.com/quote/mission): Start a charter quote.
+
+## Contact
+- [Contact the dispatch desk](https://jetnine.com/contact): Get in touch or request help choosing an aircraft.
+- [Legal & policies](https://jetnine.com/legal): Terms, privacy, and disclosures.

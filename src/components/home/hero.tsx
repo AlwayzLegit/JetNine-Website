@@ -56,7 +56,7 @@ export function Hero() {
           number to call.
         </Reveal>
         <Reveal stagger={3} className="mt-12 flex flex-wrap items-center gap-6">
-          <Link href="/quote" className="btn btn-primary btn-lg">
+          <Link href="/quote/mission" className="btn btn-primary btn-lg">
             Request a quote <span className="arrow">→</span>
           </Link>
           <a

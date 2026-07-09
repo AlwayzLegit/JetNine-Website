@@ -323,7 +323,9 @@ function MissionStepInner() {
               </span>
               <SavedIndicator />
             </div>
-            <div className="flex items-center gap-6">
+            {/* flex-wrap: the btn-lg primary is ~330px wide; without wrap the
+                pair overflows the 430px mobile viewport (~5px sideways scroll). */}
+            <div className="flex flex-wrap items-center justify-end gap-x-6 gap-y-3">
               <Link href="/" className="btn btn-ghost">
                 Cancel
               </Link>

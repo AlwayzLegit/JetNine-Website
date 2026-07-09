@@ -119,7 +119,7 @@ export default async function AircraftCategoryPage({ params }: RouteParams) {
               </div>
 
               <Reveal stagger={3} className="mt-12 flex flex-wrap items-center gap-6">
-                <Link href="/quote" className="btn btn-primary btn-lg">
+                <Link href="/quote/mission" className="btn btn-primary btn-lg">
                   Request a quote <span className="arrow">→</span>
                 </Link>
                 <Link href="/aircraft" className="btn btn-ghost">

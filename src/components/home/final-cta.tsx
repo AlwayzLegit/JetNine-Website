@@ -33,7 +33,7 @@ export function FinalCTA() {
           have airframes in front of you in minutes.
         </Reveal>
         <Reveal stagger={2} className="mt-12 flex flex-wrap items-center justify-center gap-6">
-          <Link href="/quote" className="btn btn-primary btn-lg">
+          <Link href="/quote/mission" className="btn btn-primary btn-lg">
             Request a quote <span className="arrow">→</span>
           </Link>
           <a href={`tel:${SITE.dispatchPhoneE164}`} className="btn btn-secondary btn-lg">

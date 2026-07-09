@@ -81,7 +81,7 @@ export function SiteNav() {
           >
             {SITE.dispatchPhone}
           </a>
-          <Link href="/quote" className="btn btn-primary btn-sm">
+          <Link href="/quote/mission" className="btn btn-primary btn-sm">
             Request quote <span className="arrow">→</span>
           </Link>
           <button

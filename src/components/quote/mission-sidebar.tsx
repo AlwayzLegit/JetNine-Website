@@ -23,7 +23,7 @@ export function MissionSidebar() {
   const hasRoute = legs.some((l) => l.fromIata && l.toIata);
 
   return (
-    <aside className="sticky top-32 self-start rounded-[4px] border border-ink-3 bg-ink-2 p-7">
+    <aside className="sticky top-32 min-w-0 self-start rounded-[4px] border border-ink-3 bg-ink-2 p-7">
       <div className="mb-6 flex items-baseline justify-between">
         <p className="caption">— Mission preview</p>
         <span className="rounded-[2px] bg-ink-3 px-2 py-1 font-mono text-[9px] uppercase tracking-[0.14em] text-clearance">

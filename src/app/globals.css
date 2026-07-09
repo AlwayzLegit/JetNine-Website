@@ -58,7 +58,11 @@
     line-height: 1.6;
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
-    overflow-x: hidden;
+    /* `clip` (not `hidden`) prevents horizontal overflow WITHOUT turning
+       <body> into a scroll container — `overflow-x: hidden` made <body> the
+       scroller on mobile, which broke in-page anchor scrolling (the viewport
+       stopped responding to scroll-padding-top / programmatic scrolls). */
+    overflow-x: clip;
   }
 
   ::selection {

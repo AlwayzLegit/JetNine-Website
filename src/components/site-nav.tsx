@@ -75,6 +75,14 @@ export function SiteNav() {
         </nav>
 
         <div className="flex items-center gap-4">
+          {/* /account is auth-guarded: signed-out lands on /sign-in?next=/account,
+              signed-in goes straight to the portal — one link serves both. */}
+          <Link
+            href="/account"
+            className="hidden lg:inline-block font-mono text-[11px] uppercase tracking-[0.14em] text-bone-2 transition-colors hover:text-bone"
+          >
+            Sign in
+          </Link>
           <a
             href={`tel:${SITE.dispatchPhoneE164}`}
             className="hidden lg:inline-block font-mono text-[12px] text-bone-2 transition-colors hover:text-bone"
@@ -130,6 +138,12 @@ export function SiteNav() {
               {label}
             </Link>
           ))}
+          <Link
+            href="/account"
+            className="flex min-h-[44px] items-center border-b border-ink-3 py-5 font-mono text-[11px] uppercase tracking-[0.14em] text-bone-2 transition-colors hover:text-bone"
+          >
+            Sign in / My account
+          </Link>
           <a
             href={`tel:${SITE.dispatchPhoneE164}`}
             className="mt-2 flex min-h-[44px] items-center gap-3 py-5 font-mono text-[11px] uppercase tracking-[0.14em] text-bone-2 transition-colors hover:text-bone"

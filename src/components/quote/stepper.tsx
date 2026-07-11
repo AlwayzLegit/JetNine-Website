@@ -69,7 +69,11 @@ export function QuoteStepper() {
           return (
             <div key={s.idx} className="flex items-center gap-6">
               {clickable ? (
-                <Link href={s.href}>{content}</Link>
+                // aria-label: on mobile the text label is max-md:hidden and the
+                // number circle is aria-hidden, leaving the link nameless.
+                <Link href={s.href} aria-label={`Step ${s.idx}: ${s.label}`}>
+                  {content}
+                </Link>
               ) : (
                 content
               )}

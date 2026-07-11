@@ -500,8 +500,11 @@ function ReviewStepInner() {
               <Link href="/" className="btn btn-secondary">
                 Back to home
               </Link>
-              <Link href="/aircraft" className="btn btn-primary">
-                Explore aircraft <span className="arrow">→</span>
+              {/* /account is auth-guarded — signed-out users get the sign-in
+                  form (magic link on the same email they just submitted with),
+                  signed-in members land directly on their quote list. */}
+              <Link href="/account/quotes" className="btn btn-primary">
+                Track your quote <span className="arrow">→</span>
               </Link>
             </div>
           </div>

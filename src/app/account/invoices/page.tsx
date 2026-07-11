@@ -144,7 +144,7 @@ export default async function AccountInvoicesPage({
           {rows.map((i) => (
             <li
               key={i.id}
-              className="grid grid-cols-[auto_1fr_auto_auto_auto] items-center gap-6 rounded-[4px] border border-ink-3 bg-ink-2 px-6 py-5"
+              className="flex flex-col gap-3 rounded-[4px] border border-ink-3 bg-ink-2 px-6 py-5 md:grid md:grid-cols-[auto_1fr_auto_auto_auto] md:items-center md:gap-6"
             >
               <span className="font-mono text-[12px] tracking-[0.04em] text-clearance">
                 {i.invoiceCode}

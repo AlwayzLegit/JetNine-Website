@@ -1,12 +1,13 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   CATEGORY_LABELS,
   formatUSD,
   type EmptyLegView,
 } from "@/lib/empty-legs";
+import { useQuoteStore } from "@/lib/quote-store";
 
 type CategoryFilter = "all" | EmptyLegView["category"];
 type TimeFilter = "any" | "48h" | "week";
@@ -39,8 +40,33 @@ function countByCategory(legs: EmptyLegView[]): Record<CategoryFilter, number> {
 }
 
 export function LegsBoard({ legs }: { legs: EmptyLegView[] }) {
+  const router = useRouter();
   const [category, setCategory] = useState<CategoryFilter>("all");
   const [time, setTime] = useState<TimeFilter>("any");
+
+  // Seed the quote wizard with this leg's route/date and reference the leg
+  // code in the notes so dispatch prices against the board offer. (The old
+  // `/quote?leg=CODE` link passed a param the wizard never read.)
+  function bookLeg(l: EmptyLegView) {
+    const store = useQuoteStore.getState();
+    store.setTripType("oneway");
+    const first = useQuoteStore.getState().legs[0];
+    if (first) {
+      store.updateLeg(first.id, {
+        fromIata: l.fromIata,
+        fromCity: l.fromCity,
+        fromName: l.fromAirport,
+        toIata: l.toIata,
+        toCity: l.toCity,
+        toName: l.toAirport,
+        date: l.isoDate,
+      });
+    }
+    store.setNotes(
+      `Empty leg ${l.code} — ${l.fromIata} → ${l.toIata} ${l.date}, board price ${formatUSD(l.priceNow)}.`,
+    );
+    router.push("/quote/mission");
+  }
 
   const counts = useMemo(() => countByCategory(legs), [legs]);
   const filtered = useMemo(
@@ -217,21 +243,13 @@ export function LegsBoard({ legs }: { legs: EmptyLegView[] }) {
                       {formatUSD(l.priceNow)}
                     </div>
                   </div>
-                  <div className="flex flex-col items-end gap-2">
-                    <button
-                      type="button"
-                      className="font-mono text-[11px] uppercase tracking-[0.14em] text-bone-2 transition-colors hover:text-bone"
-                      onClick={() => alert(`${l.code} · details`)}
-                    >
-                      Details →
-                    </button>
-                    <Link
-                      href={`/quote?leg=${l.code}`}
-                      className="btn btn-primary btn-sm"
-                    >
-                      Book this leg <span className="arrow">→</span>
-                    </Link>
-                  </div>
+                  <button
+                    type="button"
+                    onClick={() => bookLeg(l)}
+                    className="btn btn-primary btn-sm"
+                  >
+                    Book this leg <span className="arrow">→</span>
+                  </button>
                 </div>
               </article>
             ))}

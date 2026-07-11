@@ -530,7 +530,10 @@ export default function LegalPage() {
             <div className="border-t border-ink-3 pt-12 text-center">
               <p className="font-mono text-[11px] uppercase tracking-[0.12em] text-bone-2">
                 Questions about these documents?{" "}
-                <a href="mailto:legal@jetnine.com" className="text-clearance">
+                <a
+                  href="mailto:legal@jetnine.com"
+                  className="text-clearance underline underline-offset-2"
+                >
                   legal@jetnine.com
                 </a>
               </p>

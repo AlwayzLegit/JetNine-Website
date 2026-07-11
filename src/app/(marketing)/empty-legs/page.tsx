@@ -102,6 +102,7 @@ async function getLiveLegs(): Promise<EmptyLegView[]> {
         toCity: r.toCity ?? "—",
         toAirport: r.toName ?? r.toIcao ?? "—",
         date: formatDate(wheelsUp),
+        isoDate: wheelsUp.toISOString().slice(0, 10),
         duration: formatDuration(r.flightMinutes),
         seats: r.seats,
         priceWas,
@@ -194,7 +195,7 @@ export default async function EmptyLegsPage() {
                 <span className="absolute inset-0 animate-ping rounded-full bg-clearance opacity-75" />
                 <span className="relative h-2 w-2 rounded-full bg-clearance" />
               </span>
-              Live · last update 4 min ago
+              Live board · refreshed on every visit
             </div>
             <div
               className="font-serif text-[88px] font-light leading-none tracking-tight text-bone"

@@ -412,7 +412,8 @@ export default function MembershipsPage() {
               here&rsquo;s how the math works out.
             </Reveal>
           </div>
-          <div className="overflow-x-auto">
+          {/* tabIndex + role: keyboard users must be able to scroll this. */}
+          <div className="overflow-x-auto" tabIndex={0} role="region" aria-label="Program cost comparison">
             <table className="w-full min-w-[820px] border-collapse text-left">
               <thead>
                 <tr>
@@ -478,7 +479,8 @@ export default function MembershipsPage() {
               </Reveal>
             </div>
           </div>
-          <div className="overflow-x-auto">
+          {/* tabIndex + role: keyboard users must be able to scroll this. */}
+          <div className="overflow-x-auto" tabIndex={0} role="region" aria-label="Locked card rate comparison">
             <table className="w-full min-w-[820px] border-collapse text-left">
               <thead>
                 <tr>

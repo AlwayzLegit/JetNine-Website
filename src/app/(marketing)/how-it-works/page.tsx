@@ -306,7 +306,8 @@ export default function HowItWorksPage() {
             ones. It&rsquo;s how charter has worked at the high end since the 1970s. It still works.
           </Reveal>
 
-          <div className="overflow-x-auto">
+          {/* tabIndex + role: keyboard users must be able to scroll this. */}
+          <div className="overflow-x-auto" tabIndex={0} role="region" aria-label="Charter model comparison">
             <table className="w-full min-w-[700px] border-collapse text-left">
               <thead>
                 <tr>

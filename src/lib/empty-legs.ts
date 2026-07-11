@@ -13,6 +13,7 @@ export type EmptyLegView = {
   toCity: string;
   toAirport: string;
   date: string; // already formatted for the board
+  isoDate: string; // YYYY-MM-DD — used to prefill the quote wizard
   duration: string;
   seats: number;
   priceWas: number;

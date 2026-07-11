@@ -44,11 +44,13 @@ export default async function AccountPage({ searchParams }: Props) {
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
         {[
+          { label: "Quotes", href: "/account/quotes", desc: "Submitted & in progress." },
           { label: "Trips", href: "/account/trips", desc: "Past, upcoming, in-flight." },
           { label: "Invoices", href: "/account/invoices", desc: "Outstanding & paid." },
           { label: "Preferences", href: "/account/preferences", desc: "Cabin, catering, ground." },
           { label: "Membership", href: "/account/members", desc: "Tier, balance, activity." },
-          { label: "Request a quote", href: "/quote", desc: "Start the four-step wizard." },
+          { label: "Buy / top up", href: "/account/memberships", desc: "Card checkout & reserve top-up." },
+          { label: "Request a quote", href: "/quote/mission", desc: "Start the four-step wizard." },
         ].map((t) => (
           <Link
             key={t.href}

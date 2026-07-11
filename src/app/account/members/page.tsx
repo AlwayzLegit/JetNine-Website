@@ -187,9 +187,14 @@ export default async function AccountMembersPage() {
                 for itself in locked rates and avoided peak pricing. Talk to dispatch about the
                 math.
               </p>
-              <Link href="/memberships" className="btn btn-primary btn-sm mt-6">
-                See programs <span className="arrow">→</span>
-              </Link>
+              <div className="mt-6 flex flex-wrap gap-3">
+                <Link href="/account/memberships" className="btn btn-primary btn-sm">
+                  Buy the card <span className="arrow">→</span>
+                </Link>
+                <Link href="/memberships" className="btn btn-ghost btn-sm">
+                  Compare programs
+                </Link>
+              </div>
             </section>
           )}
 

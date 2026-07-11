@@ -32,6 +32,7 @@ const FOOTER_COLS: FooterCol[] = [
       { label: "Contact", href: "/contact" },
       { label: "FAQ", href: "/faq" },
       { label: "Legal", href: "/legal" },
+      { label: "My account", href: "/account" },
     ],
   },
 ];

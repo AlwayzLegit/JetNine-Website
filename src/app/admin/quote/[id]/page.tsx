@@ -282,6 +282,7 @@ export default async function QuoteWorkbenchPage({ params }: Props) {
       markupType: sourcedOptions.markupType,
       markupValue: sourcedOptions.markupValue,
       isChosen: sourcedOptions.isChosen,
+      status: sourcedOptions.status,
     })
     .from(sourcedOptions)
     .where(eq(sourcedOptions.quoteId, id))

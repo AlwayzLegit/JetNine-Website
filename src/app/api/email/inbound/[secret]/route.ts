@@ -199,7 +199,12 @@ type RouteTarget = {
 };
 
 async function resolveRoute(code: string): Promise<RouteTarget | null> {
-  if (code.startsWith("QT-")) {
+  // Quote codes AND trip codes both use the JN- prefix (JN-YYYY-NNNNN for
+  // quotes, JN-YYYY-NNNN for trips — see migrations 0003/0008), so a JN-
+  // code must be tried against BOTH tables: quotes first (the options-sheet
+  // reply is the highest-volume inbound), then trips. QT- is kept for
+  // backward compatibility with any older outbound subjects.
+  if (code.startsWith("QT-") || code.startsWith("JN-")) {
     const [row] = await db
       .select({
         id: quotes.id,
@@ -209,8 +214,9 @@ async function resolveRoute(code: string): Promise<RouteTarget | null> {
       .from(quotes)
       .leftJoin(members, eq(members.id, quotes.memberId))
       .where(eq(quotes.quoteCode, code));
-    if (!row) return null;
-    return { subjectType: "quote", subjectId: row.id, toUserId: row.memberUserId ?? null };
+    if (row) {
+      return { subjectType: "quote", subjectId: row.id, toUserId: row.memberUserId ?? null };
+    }
   }
   if (code.startsWith("JN-")) {
     const [row] = await db

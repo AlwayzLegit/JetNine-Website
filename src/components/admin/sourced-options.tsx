@@ -6,6 +6,7 @@ import {
   addSourcedOption,
   chooseSourcedOption,
   deleteSourcedOption,
+  sendOptionsToClient,
 } from "@/app/admin/quote/[id]/actions";
 import { parseAvinodeOption } from "@/lib/avinode-parse";
 import { formatUSD } from "@/lib/quote-pricing";
@@ -24,6 +25,7 @@ export type SourcedOptionRow = {
   markupType: "percent" | "flat";
   markupValue: string | null;
   isChosen: boolean;
+  status: string;
 };
 
 const CATEGORIES = ["turboprop", "light", "midsize", "supermid", "heavy", "ulr"] as const;
@@ -76,9 +78,35 @@ export function SourcedOptions({
   const [msg, setMsg] = useState<{ tone: "ok" | "error"; text: string } | null>(null);
   const [paste, setPaste] = useState("");
   const [adding, setAdding] = useState(false);
+  const [confirmSend, setConfirmSend] = useState(false);
   const [form, setForm] = useState<FormState>(emptyForm(defaultMarkupPct));
 
   const set = (k: keyof FormState, v: string) => setForm((f) => ({ ...f, [k]: v }));
+
+  // Sendable = vetted + priced; mirrors the server-side filter.
+  const sendableCount = initial.filter(
+    (o) => o.safetyFloorPassed && o.clientPriceUsd != null && o.clientPriceUsd > 0,
+  ).length;
+
+  function onSend() {
+    setMsg(null);
+    setConfirmSend(false);
+    startTransition(async () => {
+      const result = await sendOptionsToClient(quoteId);
+      if (result.ok) {
+        setMsg({
+          tone: "ok",
+          text:
+            result.delivery === "sent"
+              ? `SENT ${result.count} OPTION${result.count === 1 ? "" : "S"} TO ${result.to.toUpperCase()}`
+              : "QUEUED — EMAIL CHANNEL NOT CONFIGURED (LOGGED ONLY)",
+        });
+        router.refresh();
+      } else {
+        setMsg({ tone: "error", text: `BLOCKED — ${result.error.toUpperCase()}` });
+      }
+    });
+  }
 
   function onParse() {
     const p = parseAvinodeOption(paste);
@@ -193,6 +221,11 @@ export function SourcedOptions({
                   </span>
                 </div>
                 <div className="mt-2 flex items-center justify-end gap-3">
+                  {o.status === "sent_to_client" ? (
+                    <span className="mr-auto font-mono text-[9px] uppercase tracking-[0.12em] text-bone-2">
+                      ✉ Sent to client
+                    </span>
+                  ) : null}
                   {o.isChosen ? (
                     <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-clearance">
                       ✓ Chosen
@@ -221,6 +254,44 @@ export function SourcedOptions({
           })}
         </ul>
       )}
+
+      {/* Send to client — the action that closes the funnel. Sends every
+          vetted + priced option as a branded quote sheet email. */}
+      {initial.length > 0 ? (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-[3px] border border-ink-3 bg-ink p-3">
+          <span className="font-mono text-[10px] uppercase tracking-[0.1em] text-steel">
+            — {sendableCount} sendable (vetted + priced)
+          </span>
+          {confirmSend ? (
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => setConfirmSend(false)}
+                className="font-mono text-[10px] uppercase tracking-[0.14em] text-bone-2 transition-colors hover:text-bone"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={onSend}
+                disabled={pending}
+                className="btn btn-primary btn-sm disabled:cursor-wait disabled:opacity-60"
+              >
+                {pending ? "Sending…" : "Confirm send"} <span className="arrow">→</span>
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setConfirmSend(true)}
+              disabled={pending || sendableCount === 0}
+              className="btn btn-primary btn-sm disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Send {sendableCount || ""} to client <span className="arrow">→</span>
+            </button>
+          )}
+        </div>
+      ) : null}
 
       {/* Paste box */}
       <div className="flex flex-col gap-2 border-t border-ink-3 pt-3">

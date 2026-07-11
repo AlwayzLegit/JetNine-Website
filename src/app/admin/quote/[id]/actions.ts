@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { and, asc, eq, ilike, sql } from "drizzle-orm";
+import { and, asc, eq, ilike, inArray, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { quotes, quoteLegs, quoteStatusEnum } from "@/db/schema/quotes";
 import { trips, tripLegs, type NewTrip, type NewTripLeg } from "@/db/schema/trips";
@@ -22,8 +22,10 @@ import {
   messages,
   type NewMessage,
 } from "@/db/schema/audit";
+import { users } from "@/db/schema/users";
 import { requireStaff } from "@/lib/auth";
 import { logAudit } from "@/lib/audit";
+import { sendQuoteOptionsEmail, type QuoteOptionEmailItem } from "@/lib/email";
 import { attemptInvoiceDrawdown, type DrawdownOutcome } from "@/lib/membership-balance";
 import { dispatchThreadMessage, type ThreadChannel } from "@/lib/message-delivery";
 import { isE164, toE164 } from "@/lib/phone";
@@ -1132,4 +1134,178 @@ export async function deleteSourcedOption(optionId: string): Promise<SourcedOpti
   });
   revalidatePath(`/admin/quote/${opt.quoteId}`);
   return { ok: true, optionId };
+}
+
+// ─── Send options to the client ───────────────────────────────────────────
+// The action that closes the funnel: emails every sendable sourced option
+// (safety floor passed + priced) to the client as a branded quote sheet,
+// records the send on the message thread with an HONEST delivery status
+// (a dark email channel records `queued`, not a false `sent`), flips the
+// sent options to `sent_to_client`, and advances the quote to
+// `options_sent` when it's still in an earlier state.
+
+const CATEGORY_EMAIL_LABEL: Record<string, string> = {
+  turboprop: "Turboprop",
+  light: "Light jet",
+  midsize: "Midsize jet",
+  supermid: "Super-midsize jet",
+  heavy: "Heavy jet",
+  ulr: "Ultra long range",
+};
+
+const ARGUS_LABEL: Record<string, string> = {
+  platinum: "ARG/US Platinum",
+  gold: "ARG/US Gold",
+  silver: "ARG/US Silver",
+};
+
+export type SendOptionsResult =
+  | { ok: true; count: number; to: string; delivery: "sent" | "queued" }
+  | { ok: false; error: string };
+
+export async function sendOptionsToClient(quoteId: string): Promise<SendOptionsResult> {
+  const actor = await requireStaff();
+  if (!/^[0-9a-f-]{36}$/i.test(quoteId)) return { ok: false, error: "Bad quote id" };
+
+  const [q] = await db
+    .select({
+      id: quotes.id,
+      code: quotes.quoteCode,
+      status: quotes.status,
+      paxCount: quotes.paxCount,
+      memberId: quotes.memberId,
+      contactSnapshot: quotes.contactSnapshot,
+    })
+    .from(quotes)
+    .where(eq(quotes.id, quoteId));
+  if (!q) return { ok: false, error: "Quote not found" };
+
+  // Recipient: contact snapshot first, member's account email as fallback.
+  let toEmail = q.contactSnapshot?.email?.trim() || null;
+  let toUserId: string | null = null;
+  if (q.memberId) {
+    const [m] = await db
+      .select({ userId: members.userId, email: users.email })
+      .from(members)
+      .innerJoin(users, eq(users.id, members.userId))
+      .where(eq(members.id, q.memberId));
+    toUserId = m?.userId ?? null;
+    if (!toEmail) toEmail = m?.email ?? null;
+  }
+  if (!toEmail) return { ok: false, error: "No client email on this quote" };
+
+  // Sendable = vetted operator + priced. Blocked/unmatched options never
+  // reach the client by construction.
+  const opts = await db
+    .select()
+    .from(sourcedOptions)
+    .where(and(eq(sourcedOptions.quoteId, quoteId), eq(sourcedOptions.safetyFloorPassed, true)))
+    .orderBy(asc(sourcedOptions.optionNumber));
+  const sendable = opts.filter((o) => o.clientPriceUsd != null && o.clientPriceUsd > 0);
+  if (sendable.length === 0) {
+    return { ok: false, error: "No sendable options — need vetted + priced" };
+  }
+
+  const legs = await db
+    .select({ fromIata: quoteLegs.fromIata, toIata: quoteLegs.toIata })
+    .from(quoteLegs)
+    .where(eq(quoteLegs.quoteId, quoteId))
+    .orderBy(asc(quoteLegs.legNumber));
+  const route =
+    legs.map((l) => `${l.fromIata ?? "—"} → ${l.toIata ?? "—"}`).join(" · ") || "your route";
+
+  const items: QuoteOptionEmailItem[] = sendable.map((o) => {
+    const vetting = [
+      o.argusRating && o.argusRating !== "none" ? ARGUS_LABEL[o.argusRating] : null,
+      o.wyvernWingman ? "Wyvern Wingman" : null,
+    ]
+      .filter(Boolean)
+      .join(" · ");
+    return {
+      optionNumber: o.optionNumber,
+      aircraftType: o.aircraftType,
+      yearOfMake: o.yearOfMake,
+      paxCapacity: o.paxCapacity,
+      categoryLabel: o.category ? (CATEGORY_EMAIL_LABEL[o.category] ?? o.category) : null,
+      vetting: vetting || null,
+      clientPriceUsd: o.clientPriceUsd!,
+    };
+  });
+
+  const firstName = q.contactSnapshot?.firstName?.trim() || "Hello";
+  const result = await sendQuoteOptionsEmail({
+    quoteCode: q.code,
+    firstName,
+    to: toEmail,
+    route,
+    paxCount: q.paxCount,
+    options: items,
+  });
+  if (!result.ok) {
+    return { ok: false, error: `Email failed: ${result.error.slice(0, 120)}` };
+  }
+
+  // Honest status: logger mode means nothing actually left the building.
+  const delivery: "sent" | "queued" = result.provider === "logger" ? "queued" : "sent";
+  const summary = `Options sheet — ${sendable.length} airframe${sendable.length === 1 ? "" : "s"}: ${sendable
+    .map((o) => `${o.aircraftType ?? "aircraft"} ${formatUSDShort(o.clientPriceUsd!)}`)
+    .join(", ")}`;
+  const preview = summary.length > 140 ? `${summary.slice(0, 139)}…` : summary;
+
+  await db.insert(messages).values({
+    subjectType: "quote",
+    subjectId: quoteId,
+    channel: "email",
+    direction: "out",
+    fromAddress: null,
+    toAddress: toEmail,
+    fromUserId: actor.id,
+    toUserId,
+    preview,
+    body: summary,
+    isRead: false,
+    deliveryStatus: delivery,
+    deliveryProvider: result.provider,
+    deliveryMessageId: result.messageId ?? null,
+    deliveryError:
+      delivery === "queued" ? "email channel not configured — logged only, not delivered" : null,
+    deliveredAt: delivery === "sent" ? new Date() : null,
+  });
+
+  // Flip the sent options + advance the quote (never regress a later state).
+  await db
+    .update(sourcedOptions)
+    .set({ status: "sent_to_client", updatedAt: new Date() })
+    .where(
+      and(
+        eq(sourcedOptions.quoteId, quoteId),
+        inArray(
+          sourcedOptions.id,
+          sendable.map((o) => o.id),
+        ),
+      ),
+    );
+  if (["submitted", "triaged", "sourcing"].includes(q.status)) {
+    await db
+      .update(quotes)
+      .set({ status: "options_sent", respondedAt: new Date(), updatedAt: new Date() })
+      .where(eq(quotes.id, quoteId));
+  }
+
+  await logAudit({
+    actorUserId: actor.id,
+    actorRole: actor.role,
+    action: "quote.options.send",
+    subjectType: "quote",
+    subjectId: quoteId,
+    subjectCode: q.code,
+    metadata: { count: sendable.length, to: toEmail, provider: result.provider, delivery },
+  });
+
+  revalidatePath(`/admin/quote/${quoteId}`);
+  return { ok: true, count: sendable.length, to: toEmail, delivery };
+}
+
+function formatUSDShort(n: number): string {
+  return `$${Math.round(n / 1000)}k`;
 }

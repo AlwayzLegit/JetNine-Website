@@ -160,7 +160,9 @@ async function resolveInboundRoute(body: string): Promise<InboundRoute | null> {
   if (!match) return null;
   const code = match[1].toUpperCase();
 
-  if (code.startsWith("QT-")) {
+  // Quote codes AND trip codes both use the JN- prefix (5- vs 4-digit
+  // ordinals), so JN- must be tried against quotes first, then trips.
+  if (code.startsWith("QT-") || code.startsWith("JN-")) {
     const [q] = await db
       .select({
         id: quotes.id,
@@ -169,13 +171,14 @@ async function resolveInboundRoute(body: string): Promise<InboundRoute | null> {
       .from(quotes)
       .leftJoin(members, eq(members.id, quotes.memberId))
       .where(eq(quotes.quoteCode, code));
-    if (!q) return null;
-    return {
-      subjectType: "quote",
-      subjectId: q.id,
-      subjectCode: code,
-      toUserId: q.memberUserId ?? null,
-    };
+    if (q) {
+      return {
+        subjectType: "quote",
+        subjectId: q.id,
+        subjectCode: code,
+        toUserId: q.memberUserId ?? null,
+      };
+    }
   }
   if (code.startsWith("JN-")) {
     const [t] = await db

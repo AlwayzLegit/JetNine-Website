@@ -538,6 +538,126 @@ export async function sendTripStatusEmail(ctx: TripStatusContext): Promise<SendR
   });
 }
 
+// ─── Quote options → client ────────────────────────────────────────────
+// The email that delivers on the core promise: 3–5 vetted airframes with
+// all-in pricing. Deliberately omits tail numbers and operator names —
+// standard broker practice pre-booking (and the operator cost never leaves
+// the building). Vetting credentials are shown without naming the operator.
+// The bracketed quote code in the subject is what threads any reply back
+// into the workbench via the inbound-email router.
+
+export type QuoteOptionEmailItem = {
+  optionNumber: number;
+  aircraftType: string | null;
+  yearOfMake: number | null;
+  paxCapacity: number | null;
+  categoryLabel: string | null;
+  vetting: string | null; // e.g. "ARG/US Platinum · Wyvern Wingman"
+  clientPriceUsd: number;
+};
+
+export type QuoteOptionsEmailContext = {
+  quoteCode: string;
+  firstName: string;
+  to: string;
+  route: string;
+  paxCount: number;
+  options: QuoteOptionEmailItem[];
+};
+
+const usdFmt = new Intl.NumberFormat("en-US", {
+  style: "currency",
+  currency: "USD",
+  maximumFractionDigits: 0,
+});
+
+export async function sendQuoteOptionsEmail(
+  ctx: QuoteOptionsEmailContext,
+): Promise<SendResult> {
+  const n = ctx.options.length;
+  const subject = `[${ctx.quoteCode}] Your aircraft options — ${n} vetted airframe${n === 1 ? "" : "s"}`;
+
+  const optText = ctx.options
+    .map((o) => {
+      const specs = [
+        o.yearOfMake ? String(o.yearOfMake) : null,
+        o.categoryLabel,
+        o.paxCapacity ? `${o.paxCapacity} seats` : null,
+      ]
+        .filter(Boolean)
+        .join(" · ");
+      return [
+        `Option ${String(o.optionNumber).padStart(2, "0")} — ${o.aircraftType ?? "Aircraft"}`,
+        specs ? `  ${specs}` : null,
+        o.vetting ? `  Operator vetting: ${o.vetting}` : null,
+        `  All-in price: ${usdFmt.format(o.clientPriceUsd)}`,
+      ]
+        .filter(Boolean)
+        .join("\n");
+    })
+    .join("\n\n");
+
+  const text = [
+    `${ctx.firstName},`,
+    ``,
+    `Here are your options for ${ctx.route} (${ctx.paxCount} pax). Every airframe below flies with an independently vetted FAA Part 135 operator, and every price is all-in — fuel, taxes, FET, repositioning, crew.`,
+    ``,
+    optText,
+    ``,
+    `To hold an aircraft, reply to this email or call dispatch on ${SITE.dispatchPhone} — we answer 24/7. Availability moves fast; a soft hold costs nothing.`,
+    ``,
+    `Reference: ${ctx.quoteCode}`,
+    ``,
+    `JetNine LLC · 14 CFR Part 295 indirect air carrier · all flights operated by an FAA Part 135 direct air carrier.`,
+  ].join("\n");
+
+  const optionsHtml = ctx.options
+    .map((o) => {
+      const specs = [
+        o.yearOfMake ? String(o.yearOfMake) : null,
+        o.categoryLabel,
+        o.paxCapacity ? `${o.paxCapacity} seats` : null,
+      ]
+        .filter(Boolean)
+        .join(" · ");
+      return `
+        <div style="border:1px solid #E5E7EB;border-radius:4px;padding:16px 20px;margin:0 0 12px;">
+          <p style="margin:0 0 2px;font-size:10px;letter-spacing:0.14em;text-transform:uppercase;color:#6B7280;">Option ${String(o.optionNumber).padStart(2, "0")}</p>
+          <p style="margin:0 0 4px;font-family:'Fraunces',Georgia,serif;font-size:20px;font-weight:400;">${escapeHtml(o.aircraftType ?? "Aircraft")}</p>
+          ${specs ? `<p style="margin:0 0 4px;font-size:13px;color:#374151;">${escapeHtml(specs)}</p>` : ""}
+          ${o.vetting ? `<p style="margin:0 0 8px;font-size:11px;letter-spacing:0.06em;text-transform:uppercase;color:#6B7280;">${escapeHtml(o.vetting)} vetted operator</p>` : ""}
+          <p style="margin:8px 0 0;font-size:22px;font-family:'Fraunces',Georgia,serif;font-weight:300;">${usdFmt.format(o.clientPriceUsd)} <span style="font-size:11px;color:#6B7280;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Inter,sans-serif;">all-in</span></p>
+        </div>`;
+    })
+    .join("");
+
+  const html = `
+    <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Inter,sans-serif;color:#0F1115;line-height:1.55;max-width:560px;margin:0 auto;padding:24px;">
+      <p style="margin:0 0 16px;font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:#6B7280;">— ${escapeHtml(ctx.quoteCode)} · Options</p>
+      <h1 style="margin:0 0 16px;font-family:'Fraunces',Georgia,serif;font-weight:300;font-size:28px;letter-spacing:-0.01em;line-height:1.2;">
+        ${escapeHtml(ctx.firstName)} — your aircraft are in.
+      </h1>
+      <p style="margin:0 0 20px;font-size:15px;">
+        ${escapeHtml(ctx.route)} · ${ctx.paxCount} pax. Every airframe below flies with an
+        independently vetted FAA Part 135 operator, and every price is
+        <strong>all-in</strong> — fuel, taxes, FET, repositioning, crew.
+      </p>
+      ${optionsHtml}
+      <p style="margin:20px 0 0;font-size:14px;">
+        To hold an aircraft, <strong>reply to this email</strong> or call
+        <a href="tel:${SITE.dispatchPhoneE164}" style="color:#0F1115;">${SITE.dispatchPhone}</a> — 24/7.
+        Availability moves fast; a soft hold costs nothing.
+      </p>
+      <hr style="margin:32px 0 16px;border:none;border-top:1px solid #E5E7EB;"/>
+      <p style="margin:24px 0 0;font-size:10px;color:#9CA3AF;line-height:1.6;">
+        JetNine LLC · 14 CFR Part 295 indirect air carrier. All flights operated by an FAA Part 135 direct air carrier.
+      </p>
+    </div>
+  `.trim();
+
+  return sendEmail({ to: ctx.to, subject, html, text, replyTo: DISPATCH_NOTIFY });
+}
+
 function escapeHtml(s: string): string {
   return s
     .replace(/&/g, "&amp;")

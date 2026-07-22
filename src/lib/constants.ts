@@ -1,11 +1,11 @@
 export const SITE = {
   brand: "JetNine",
   brandSuffix: "09",
-  dispatchPhone: "+1 (818) 900-5278",
-  dispatchPhoneE164: "+18189005278",
+  dispatchPhone: "+1 (424) 487-2707",
+  dispatchPhoneE164: "+14244872707",
   email: "info@jetnine.com",
   address: {
-    line1: "2934 Beverly Glen Circle #123",
+    line1: "2934 Beverly Glen Circle Suite 123",
     cityState: "Los Angeles, CA 90077",
   },
   legal: {

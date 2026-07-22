@@ -83,7 +83,7 @@ URL trick around them.
 ### 5.1 Pages
 Marketing pages: `/` (home), `/aircraft` (+ `/aircraft/light|midsize|supermid|heavy|ultra`),
 `/memberships`, `/how-it-works`, `/about`, `/safety`, `/faq`, `/legal`,
-`/contact`, `/empty-legs`. The dispatch phone (+1 818 900-5278) appears in the
+`/contact`, `/empty-legs`. The dispatch phone (+1 424 487-2707) appears in the
 header/footer site-wide.
 
 ### 5.2 The quote wizard (`/quote`)

@@ -27,7 +27,7 @@ export default function RouteError({
         <h1 className="display-l">Something went sideways.</h1>
         <p className="mx-auto mt-6 max-w-[52ch] text-[15px] leading-[1.65] text-bone-2">
           The page hit an unexpected error. Dispatch has been notified. You can retry,
-          head back to the homepage, or call us at <a className="text-clearance underline underline-offset-2" href="tel:+18189005278">+1 (818) 900-5278</a>.
+          head back to the homepage, or call us at <a className="text-clearance underline underline-offset-2" href="tel:+14244872707">+1 (424) 487-2707</a>.
         </p>
         {error.digest ? (
           <p className="mx-auto mt-4 inline-block rounded-[3px] border border-ink-3 bg-ink-2 px-4 py-2 font-mono text-[11px] tracking-[0.06em] text-steel">

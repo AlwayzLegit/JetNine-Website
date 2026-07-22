@@ -89,7 +89,7 @@ export default function OpengraphImage() {
           }}
         >
           <span>jetnine.com</span>
-          <span style={{ color: "#E8E2D2" }}>+1 (818) 900-5278</span>
+          <span style={{ color: "#E8E2D2" }}>+1 (424) 487-2707</span>
         </div>
       </div>
     ),

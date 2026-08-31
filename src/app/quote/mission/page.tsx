@@ -36,9 +36,60 @@ function paxHint(pax: number): string {
 
 export default function MissionStep() {
   return (
-    <StoreHydrationGate>
-      <MissionStepInner />
-    </StoreHydrationGate>
+    <>
+      <StoreHydrationGate>
+        <MissionStepInner />
+      </StoreHydrationGate>
+      <HowQuotingWorks />
+    </>
+  );
+}
+
+// Static copy rendered outside the hydration gate so it's always in the
+// server HTML. /quote/mission is the wizard's one indexable step, and the
+// form itself only appears after client rehydration — without this block
+// the crawlable page is nearly empty (Semrush: low word count).
+function HowQuotingWorks() {
+  return (
+    <section
+      aria-label="How quoting works"
+      className="container-jn mt-20 border-t border-ink-3 pt-10 pb-4"
+    >
+      <h2 className="caption mb-6">— How quoting works</h2>
+      <div className="grid gap-8 text-[14px] leading-[1.6] text-bone-2 sm:grid-cols-3">
+        <div>
+          <h3 className="mb-2 font-mono text-[11px] uppercase tracking-[0.12em] text-bone">
+            Tell us the mission
+          </h3>
+          <p>
+            Route, dates, and passenger count are enough to start. Round trip,
+            one way, or multi-leg — the wizard prices each leg as you type and
+            saves your draft automatically, so you can come back anytime.
+          </p>
+        </div>
+        <div>
+          <h3 className="mb-2 font-mono text-[11px] uppercase tracking-[0.12em] text-bone">
+            Dispatch goes to work
+          </h3>
+          <p>
+            A senior dispatcher sources three to five vetted airframes that fit
+            the mission — ARG/US or Wyvern audited operators only — and returns
+            all-in pricing within 30 minutes during operating hours.
+          </p>
+        </div>
+        <div>
+          <h3 className="mb-2 font-mono text-[11px] uppercase tracking-[0.12em] text-bone">
+            Fly on your terms
+          </h3>
+          <p>
+            Review the options, pick an aircraft, and confirm. No membership
+            required, and every quote is the all-in number — fuel, FET,
+            repositioning, crew, catering, and ground included. Questions
+            first? Call dispatch any time.
+          </p>
+        </div>
+      </div>
+    </section>
   );
 }
 

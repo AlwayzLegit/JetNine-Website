@@ -28,7 +28,10 @@ export default function robots(): MetadataRoute.Robots {
         userAgent: "*",
         allow: "/",
         disallow: [
-          "/account/",
+          // No trailing slash: covers the bare /account path the nav and
+          // footer link to, which 307s to /sign-in for the (logged-out)
+          // crawler — Semrush flagged those as 17 temporary-redirect hits.
+          "/account",
           "/admin/",
           "/api/",
           "/auth/",

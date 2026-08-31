@@ -16,7 +16,7 @@ type Props = {
 export function ClosingCTA({
   heading,
   body,
-  primary = { label: "Request a quote", href: "/quote" },
+  primary = { label: "Request a quote", href: "/quote/mission" },
   secondary,
 }: Props) {
   const secondaryCta = secondary ?? {

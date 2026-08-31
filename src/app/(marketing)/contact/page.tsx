@@ -323,7 +323,7 @@ export default function ContactPage() {
         heading="Easiest path: pick up the phone."
         body="Senior dispatcher answers. Same one for the life of the trip."
         primary={{ label: SITE.dispatchPhone, href: `tel:${SITE.dispatchPhoneE164}` }}
-        secondary={{ label: "Request a quote", href: "/quote" }}
+        secondary={{ label: "Request a quote", href: "/quote/mission" }}
       />
     </>
   );

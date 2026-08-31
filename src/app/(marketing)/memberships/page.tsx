@@ -35,7 +35,7 @@ const PROGRAMS = [
       "Empty-leg watchlist included free; no SMS-alert fees.",
       "Best fit for under 25 flight hours per year.",
     ],
-    cta: { label: "Request a quote", href: "/quote" },
+    cta: { label: "Request a quote", href: "/quote/mission" },
     highlight: false,
   },
   {
@@ -662,7 +662,7 @@ export default function MembershipsPage() {
         heading="Talk to dispatch. We'll model the right program for you."
         body="Annual hours, typical lanes, peak-day exposure — fifteen minutes on the phone and we'll show you which program saves you money in writing."
         primary={{ label: "Call dispatch", href: `tel:${SITE.dispatchPhoneE164}` }}
-        secondary={{ label: "Request a quote", href: "/quote" }}
+        secondary={{ label: "Request a quote", href: "/quote/mission" }}
       />
     </>
   );

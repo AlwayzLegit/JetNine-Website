@@ -341,7 +341,7 @@ export default function SafetyPage() {
         heading="Questions about the protocol?"
         body="Our chief pilot will take your call. The vetting documents for any specific operator are available on request."
         primary={{ label: "Call dispatch", href: `tel:${SITE.dispatchPhoneE164}` }}
-        secondary={{ label: "Request a quote", href: "/quote" }}
+        secondary={{ label: "Request a quote", href: "/quote/mission" }}
       />
     </>
   );

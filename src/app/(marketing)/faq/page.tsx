@@ -80,7 +80,7 @@ export default function FaqPage() {
                 title: "Start a quote.",
                 strap: "Four-step form. Specific aircraft and pricing back inside thirty minutes.",
                 big: "Begin →",
-                href: "/quote",
+                href: "/quote/mission",
               },
             ].map((c, i) => (
               <Reveal

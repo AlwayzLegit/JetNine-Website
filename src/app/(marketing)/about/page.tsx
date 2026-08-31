@@ -378,7 +378,7 @@ export default function AboutPage() {
         heading="Talk to a dispatcher. Same one, every flight."
         body="Tell us the route. We'll be in touch within thirty minutes."
         primary={{ label: "Call dispatch", href: `tel:${SITE.dispatchPhoneE164}` }}
-        secondary={{ label: "Request a quote", href: "/quote" }}
+        secondary={{ label: "Request a quote", href: "/quote/mission" }}
       />
     </>
   );

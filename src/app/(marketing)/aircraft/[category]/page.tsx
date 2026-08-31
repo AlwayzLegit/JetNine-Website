@@ -9,6 +9,7 @@ import { QuoteLauncher } from "@/components/quote-launcher";
 import { ProofStrip } from "@/components/proof-strip";
 import { SITE } from "@/lib/constants";
 import { FLEET, formatNm, formatPax, getFleetEntry } from "@/lib/fleet";
+import { MODELS } from "@/lib/models";
 import { pageMetadata } from "@/lib/page-meta";
 
 type RouteParams = { params: Promise<{ category: string }> };
@@ -348,6 +349,18 @@ export default async function AircraftCategoryPage({ params }: RouteParams) {
                       </div>
                     ))}
                   </div>
+                  {/* Deep link to the model page when the sample has one. */}
+                  {(() => {
+                    const model = MODELS.find((mm) => mm.sample.name === s.name);
+                    return model ? (
+                      <Link
+                        href={`/aircraft/${model.category}/${model.slug}`}
+                        className="mt-4 border-t border-ink-3 pt-4 font-mono text-[10px] uppercase tracking-[0.14em] text-clearance transition-colors hover:text-bone"
+                      >
+                        Full specs, rates &amp; routes <span className="arrow">→</span>
+                      </Link>
+                    ) : null;
+                  })()}
                 </div>
               </Reveal>
             ))}

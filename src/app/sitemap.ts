@@ -1,5 +1,6 @@
 import type { MetadataRoute } from "next";
 import { FLEET } from "@/lib/fleet";
+import { GUIDE_CHAPTERS } from "@/lib/guides";
 
 // Marketing pages — static, change infrequently, every URL should be indexable.
 const MARKETING_ROUTES: { path: string; priority: number; changeFreq: "daily" | "weekly" | "monthly" }[] = [
@@ -8,6 +9,14 @@ const MARKETING_ROUTES: { path: string; priority: number; changeFreq: "daily" | 
   { path: "/memberships",      priority: 0.8, changeFreq: "monthly" },
   { path: "/empty-legs",       priority: 0.7, changeFreq: "daily"   },
   { path: "/cost-calculator",  priority: 0.8, changeFreq: "monthly" },
+  { path: "/guides",           priority: 0.8, changeFreq: "monthly" },
+  // The pricing-guide chapters (cornerstone first) — registry-driven so
+  // a new chapter is one entry in src/lib/guides.ts.
+  ...GUIDE_CHAPTERS.map((c) => ({
+    path: c.href,
+    priority: c.chapter === 1 ? 0.8 : 0.6,
+    changeFreq: "monthly" as const,
+  })),
   { path: "/how-it-works",     priority: 0.7, changeFreq: "monthly" },
   { path: "/safety",           priority: 0.7, changeFreq: "monthly" },
   { path: "/safety/operator-vetting",  priority: 0.6, changeFreq: "monthly" },

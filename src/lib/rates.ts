@@ -25,6 +25,20 @@ export type RateRow = {
 // claim stays true — a stale year-stamp is worse than none.
 export const RATES_UPDATED = "August 2026";
 
+// The itemized sample quote shown on /how-it-works and reused as the
+// pricing guide's worked example — one source so the two never drift.
+// KVNY ⇄ KJFK round trip, midsize, ~10h block-time.
+export type PriceStackRow = { n: string; label: string; desc: string; val: string };
+export const PRICE_STACK: PriceStackRow[] = [
+  { n: "01", label: "AIRFRAME", desc: "Midsize · ~10h block-time · KVNY ⇄ KJFK round-trip", val: "$36,400" },
+  { n: "02", label: "FUEL SURCHARGE", desc: "Variable component · indexed to weekly Jet-A spot", val: "$5,800" },
+  { n: "03", label: "REPOSITIONING", desc: "Ferry leg if applicable · zero on this mission", val: "$0" },
+  { n: "04", label: "CREW & CATERING", desc: "Two-pilot crew · standard cold catering · standard bar", val: "$1,400" },
+  { n: "05", label: "FET (7.5%)", desc: "Federal Excise Tax on domestic charter", val: "$3,300" },
+  { n: "06", label: "GROUND TRANSPORT", desc: "Black sedan · both legs · curb-to-FBO", val: "$360" },
+];
+export const PRICE_STACK_TOTAL = "$47,260";
+
 export const RATES: RateRow[] = [
   {
     category: "Light",

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { pageMetadata } from "@/lib/page-meta";
+import { PRICE_STACK, PRICE_STACK_TOTAL } from "@/lib/rates";
 import { PageHeader } from "@/components/page-header";
 import { ClosingCTA } from "@/components/closing-cta";
 import { QuoteLauncher } from "@/components/quote-launcher";
@@ -97,15 +98,6 @@ const VS_ROWS: { row: string; app: string; jn: string }[] = [
   { row: "Who you talk to", app: "Tier-1 support, rotating", jn: "Same dispatcher, every flight" },
   { row: "In-flight changes", app: "Submit ticket, wait", jn: "Direct cell, no queue" },
   { row: "After-hours", app: "Voicemail, email auto-reply", jn: "Live, 24/7/365" },
-];
-
-const PRICE_STACK = [
-  { n: "01", label: "AIRFRAME", desc: "Midsize · ~10h block-time · KVNY ⇄ KJFK round-trip", val: "$36,400" },
-  { n: "02", label: "FUEL SURCHARGE", desc: "Variable component · indexed to weekly Jet-A spot", val: "$5,800" },
-  { n: "03", label: "REPOSITIONING", desc: "Ferry leg if applicable · zero on this mission", val: "$0" },
-  { n: "04", label: "CREW & CATERING", desc: "Two-pilot crew · standard cold catering · standard bar", val: "$1,400" },
-  { n: "05", label: "FET (7.5%)", desc: "Federal Excise Tax on domestic charter", val: "$3,300" },
-  { n: "06", label: "GROUND TRANSPORT", desc: "Black sedan · both legs · curb-to-FBO", val: "$360" },
 ];
 
 const PROMISES = [
@@ -390,7 +382,7 @@ export default function HowItWorksPage() {
                   className="font-serif text-[36px] font-light leading-none tracking-tight text-bone"
                   style={{ letterSpacing: "-0.01em" }}
                 >
-                  $47,260
+                  {PRICE_STACK_TOTAL}
                 </span>
               </li>
             </ul>

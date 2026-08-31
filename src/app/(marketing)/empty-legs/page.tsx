@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { pageMetadata } from "@/lib/page-meta";
-import { asc, eq } from "drizzle-orm";
+import { asc, desc, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { Reveal } from "@/components/reveal";
 import { LegsBoard } from "@/components/empty-legs/legs-board";
@@ -8,13 +8,13 @@ import { WatchlistForm } from "@/components/empty-legs/watchlist-form";
 import { emptyLegs } from "@/db/schema/empty-legs";
 import { operators } from "@/db/schema/operators";
 import { aircraft } from "@/db/schema/aircraft";
-import type { EmptyLegView } from "@/lib/empty-legs";
+import type { EmptyLegView, SoldLegView } from "@/lib/empty-legs";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 60; // refresh every minute
 
 export const metadata: Metadata = pageMetadata({
-  title: "Empty legs",
+  title: "Empty Leg Flights — Private Jets Up to 60% Off",
   description:
     "Repositioning legs at up to 60% off. Live board, updated every fifteen minutes from operator dispatch.",
   path: "/empty-legs",
@@ -152,6 +152,69 @@ async function queryLiveLegs() {
     .orderBy(asc(emptyLegs.wheelsUpAt));
 }
 
+// Compact relative durations for the sold strip ("14h", "3 days").
+function formatSpanShort(ms: number): string {
+  const hours = Math.max(1, Math.round(ms / 3_600_000));
+  if (hours < 48) return `${hours}h`;
+  return `${Math.round(hours / 24)} days`;
+}
+
+// Last few sold legs feed the board's empty state — proof the board
+// moves even when nothing is listed right now. Same degrade-to-empty
+// posture as the live query: a DB blip must not 500 a marketing page.
+async function getRecentlySold(): Promise<SoldLegView[]> {
+  let rows;
+  try {
+    rows = await db
+      .select({
+        id: emptyLegs.id,
+        code: emptyLegs.code,
+        category: emptyLegs.category,
+        fromIata: emptyLegs.fromIata,
+        fromIcao: emptyLegs.fromIcao,
+        fromCity: emptyLegs.fromCity,
+        toIata: emptyLegs.toIata,
+        toIcao: emptyLegs.toIcao,
+        toCity: emptyLegs.toCity,
+        priceNow: emptyLegs.listedPriceUsd,
+        discountPct: emptyLegs.discountPct,
+        soldAt: emptyLegs.soldAt,
+        boardGoLiveAt: emptyLegs.boardGoLiveAt,
+        createdAt: emptyLegs.createdAt,
+      })
+      .from(emptyLegs)
+      .where(eq(emptyLegs.status, "sold"))
+      .orderBy(desc(emptyLegs.soldAt))
+      .limit(3);
+  } catch (err) {
+    console.error("[empty-legs] recently-sold query failed", err);
+    return [];
+  }
+
+  const now = Date.now();
+  const out: SoldLegView[] = [];
+  for (const r of rows) {
+    if (!r.soldAt) continue;
+    const soldAt = r.soldAt instanceof Date ? r.soldAt : new Date(r.soldAt);
+    const listedAtRaw = r.boardGoLiveAt ?? r.createdAt;
+    const listedAt = listedAtRaw instanceof Date ? listedAtRaw : new Date(listedAtRaw);
+    out.push({
+      id: r.id,
+      code: r.code,
+      category: (MARKETING_CATEGORIES[r.category] ?? "midsize") as SoldLegView["category"],
+      fromIata: r.fromIata ?? r.fromIcao ?? "—",
+      fromCity: r.fromCity ?? "—",
+      toIata: r.toIata ?? r.toIcao ?? "—",
+      toCity: r.toCity ?? "—",
+      priceNow: r.priceNow ?? 0,
+      discountPct: r.discountPct ?? 0,
+      timeToSale: `sold in ${formatSpanShort(soldAt.getTime() - listedAt.getTime())}`,
+      soldAgo: `${formatSpanShort(now - soldAt.getTime())} ago`,
+    });
+  }
+  return out;
+}
+
 function liveStats(legs: EmptyLegView[]) {
   const sorted = [...legs].sort((a, b) => a.hoursOut - b.hoursOut);
   const next = sorted[0];
@@ -166,7 +229,7 @@ function liveStats(legs: EmptyLegView[]) {
 }
 
 export default async function EmptyLegsPage() {
-  const legs = await getLiveLegs();
+  const [legs, recentlySold] = await Promise.all([getLiveLegs(), getRecentlySold()]);
   const s = liveStats(legs);
 
   return (
@@ -223,7 +286,7 @@ export default async function EmptyLegsPage() {
         </div>
       </header>
 
-      <LegsBoard legs={legs} />
+      <LegsBoard legs={legs} recentlySold={recentlySold} />
 
       {/* ─── How it works ─── */}
       <section className="border-t border-ink-3 py-32 max-md:py-20">
@@ -288,7 +351,9 @@ export default async function EmptyLegsPage() {
       </section>
 
       {/* ─── Watchlist form ─── */}
-      <section className="border-t border-ink-3 bg-ink-2 py-32 max-md:py-20">
+      {/* scroll-mt clears the fixed 80px header when the board's empty-state
+          CTA jumps here via the #watchlist anchor. */}
+      <section id="watchlist" className="scroll-mt-24 border-t border-ink-3 bg-ink-2 py-32 max-md:py-20">
         <div className="container-jn">
           <div className="mb-12">
             <Reveal>

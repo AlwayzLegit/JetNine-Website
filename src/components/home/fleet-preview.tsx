@@ -14,6 +14,7 @@ export function FleetPreview() {
           <div>
             <Reveal as="h2" stagger={1} className="display-m max-w-[18ch]">
               Your jet,
+              {" "}
               <br />
               your choice.
             </Reveal>

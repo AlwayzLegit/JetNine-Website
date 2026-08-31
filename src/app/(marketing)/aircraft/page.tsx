@@ -8,7 +8,7 @@ import { Placeholder } from "@/components/placeholder";
 import { FLEET, formatKt, formatNm, formatPax } from "@/lib/fleet";
 
 export const metadata: Metadata = pageMetadata({
-  title: "Aircraft",
+  title: "Charter Fleet — Turboprop to Ultra-Long-Range Jets",
   description:
     "Six categories, hundreds of airframes. Turboprop through ultra long range — match the airframe to the mission.",
   path: "/aircraft",

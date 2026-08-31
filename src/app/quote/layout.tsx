@@ -10,7 +10,7 @@ import { SkipLink } from "@/components/skip-link";
 // layout's defaults verbatim — Semrush flagged / and /quote/mission as
 // duplicate-title and duplicate-meta-description pairs.
 export const metadata: Metadata = {
-  title: "Request a quote",
+  title: "Request a Private Jet Charter Quote",
   description:
     "Route, timing, and aircraft preferences in four short steps — a senior dispatcher returns three to five vetted airframes with all-in pricing within 30 minutes during operating hours.",
   alternates: { canonical: "/quote/mission" },

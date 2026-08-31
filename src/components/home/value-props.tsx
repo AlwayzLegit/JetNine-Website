@@ -93,6 +93,7 @@ export function ValueProps() {
           </Reveal>
           <Reveal as="h2" stagger={1} className="display-m max-w-[20ch]">
             The standard,
+            {" "}
             <br />
             every flight.
           </Reveal>

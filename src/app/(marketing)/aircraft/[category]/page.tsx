@@ -15,6 +15,27 @@ export function generateStaticParams() {
   return FLEET.map((f) => ({ category: f.slug }));
 }
 
+// Query-first titles: category-intent searches are "light jet charter",
+// "turboprop charter", not the bare category name the old brand-first
+// titles carried ("Light · JetNine"). The root template appends "· JetNine".
+const SEO_TITLES: Record<string, string> = {
+  turboprop: "Turboprop Charter — Aircraft, Range & Rates",
+  light: "Light Jet Charter — Aircraft, Range & Rates",
+  midsize: "Midsize Jet Charter — Aircraft, Range & Rates",
+  supermid: "Super-Midsize Jet Charter — Aircraft & Rates",
+  heavy: "Heavy Jet Charter — Aircraft, Range & Rates",
+  ultra: "Ultra-Long-Range Jet Charter — Aircraft & Rates",
+};
+
+// Meta descriptions come from the entry lead, which can run past the
+// ~160-char limit. A blunt slice() cut mid-word ("...quicker to dispa");
+// cut at the last word boundary instead and mark the elision.
+function truncateAtWord(text: string, max = 158): string {
+  if (text.length <= max) return text;
+  const cut = text.slice(0, max - 1);
+  return `${cut.slice(0, cut.lastIndexOf(" "))}…`;
+}
+
 export async function generateMetadata({ params }: RouteParams): Promise<Metadata> {
   const { category } = await params;
   const entry = getFleetEntry(category);
@@ -24,8 +45,8 @@ export async function generateMetadata({ params }: RouteParams): Promise<Metadat
   // category-specific OG card (photo + headline + spec line) at
   // 1200×630. That beats the raw 4:5 fleet photo for social cropping.
   return pageMetadata({
-    title: entry.name,
-    description: entry.lead.slice(0, 160),
+    title: SEO_TITLES[entry.slug] ?? `${entry.name} Charter`,
+    description: truncateAtWord(entry.lead),
     path: entry.href,
   });
 }
@@ -151,6 +172,7 @@ export default async function AircraftCategoryPage({ params }: RouteParams) {
             </Reveal>
             <Reveal as="h2" stagger={1} className="display-m max-w-[20ch]">
               {entry.cabin.headline[0]}
+              {" "}
               <br />
               {entry.cabin.headline[1]}
             </Reveal>
@@ -189,6 +211,7 @@ export default async function AircraftCategoryPage({ params }: RouteParams) {
               <div>
                 <Reveal as="h2" stagger={1} className="display-m max-w-[20ch]">
                   {entry.reach.headline[0]}
+                  {" "}
                   <br />
                   {entry.reach.headline[1]}
                 </Reveal>
@@ -274,6 +297,7 @@ export default async function AircraftCategoryPage({ params }: RouteParams) {
             <div>
               <Reveal as="h2" stagger={1} className="display-m max-w-[22ch]">
                 A few airframes
+                {" "}
                 <br />
                 in the network.
               </Reveal>
@@ -338,6 +362,7 @@ export default async function AircraftCategoryPage({ params }: RouteParams) {
             </Reveal>
             <Reveal as="h2" stagger={1} className="display-m max-w-[22ch]">
               The missions
+              {" "}
               <br />
               {entry.shortName.toLowerCase()} does best.
             </Reveal>
@@ -372,6 +397,7 @@ export default async function AircraftCategoryPage({ params }: RouteParams) {
             </Reveal>
             <Reveal as="h2" stagger={1} className="display-m max-w-[24ch]">
               Compare the categories
+              {" "}
               <br />
               on either side.
             </Reveal>

@@ -89,6 +89,27 @@ export function SiteNav() {
           >
             {SITE.dispatchPhone}
           </a>
+          {/* Mobile: dispatch (20-second pick-up SLA) must be one tap away,
+              not buried behind the hamburger. Icon-only to fit the bar. */}
+          <a
+            href={`tel:${SITE.dispatchPhoneE164}`}
+            aria-label={`Call dispatch, ${SITE.dispatchPhone}`}
+            className="flex h-10 w-10 items-center justify-center rounded-[2px] border border-ink-4 text-bone-2 transition-colors hover:border-bone-2 hover:text-bone lg:hidden"
+          >
+            <svg
+              aria-hidden="true"
+              width="15"
+              height="15"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.8"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z" />
+            </svg>
+          </a>
           <Link href="/quote/mission" className="btn btn-primary btn-sm">
             Request quote <span className="arrow">→</span>
           </Link>

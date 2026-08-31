@@ -8,7 +8,7 @@ import { Placeholder } from "@/components/placeholder";
 import { SITE } from "@/lib/constants";
 
 export const metadata: Metadata = pageMetadata({
-  title: "About",
+  title: "About Our Private Jet Charter Brokerage",
   description:
     "JetNine is a senior-dispatcher charter brokerage in Los Angeles. One number, one desk, ready when you are.",
   path: "/about",
@@ -349,6 +349,7 @@ export default function AboutPage() {
                 <address className="mt-2 not-italic">
                   <span className="font-serif text-[18px] font-normal leading-[1.4] text-bone">
                     {SITE.address.line1}
+                    {" "}
                     <br />
                     {SITE.address.cityState}
                   </span>

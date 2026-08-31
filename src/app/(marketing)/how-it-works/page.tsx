@@ -7,7 +7,7 @@ import { Reveal } from "@/components/reveal";
 import { SITE } from "@/lib/constants";
 
 export const metadata: Metadata = pageMetadata({
-  title: "How it works",
+  title: "How Private Jet Charter Works",
   description:
     "A senior dispatcher, not a chatbot. One number to call. Specific airframes & pricing back within thirty minutes.",
   path: "/how-it-works",
@@ -397,6 +397,7 @@ export default function HowItWorksPage() {
               <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-clearance">
                 — Note
               </span>
+              {" "}
               <br />
               <strong className="font-medium text-bone">
                 No memberships, no hourly minimums, no annual fees.

@@ -24,6 +24,25 @@ export type EmptyLegView = {
   featured: boolean;
 };
 
+// Recently-sold legs shown in the board's empty state. A bare
+// "0 available" undercuts the "first call wins" framing; recent fills
+// prove the board moves and give the empty state real prices to show.
+export type SoldLegView = {
+  id: string;
+  code: string;
+  category: EmptyLegView["category"];
+  fromIata: string;
+  fromCity: string;
+  toIata: string;
+  toCity: string;
+  priceNow: number;
+  discountPct: number;
+  /** "sold in 14h" — listing go-live to soldAt. */
+  timeToSale: string;
+  /** "2 days ago" — soldAt to now. */
+  soldAgo: string;
+};
+
 export const CATEGORY_LABELS: Record<EmptyLegView["category"], string> = {
   turboprop: "Turboprop",
   light: "Light",

@@ -27,7 +27,9 @@ const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://jetnine.com";
 
 export const metadata: Metadata = {
   title: {
-    default: "JetNine — Private aviation, ready when you are",
+    // Query-first: "private jet charter" is the head term the homepage
+    // should carry; the brand tagline keeps the voice after the dash.
+    default: "Private Jet Charter — Ready When You Are | JetNine",
     template: "%s · JetNine",
   },
   description:
@@ -53,13 +55,13 @@ export const metadata: Metadata = {
     locale: "en_US",
     url: SITE_URL,
     siteName: "JetNine",
-    title: "JetNine — Private aviation, ready when you are",
+    title: "Private Jet Charter — Ready When You Are | JetNine",
     description:
       "Part 295 indirect air carrier. Senior-dispatcher charter brokerage on ARG/US Platinum Part 135 operators. Quote returned in under 30 minutes.",
   },
   twitter: {
     card: "summary_large_image",
-    title: "JetNine — Private aviation, ready when you are",
+    title: "Private Jet Charter — Ready When You Are | JetNine",
     description:
       "Part 295 indirect air carrier. Senior-dispatcher charter brokerage. Quote returned in under 30 minutes.",
   },

@@ -50,6 +50,7 @@ export function SiteFooter() {
             </p>
             <p className="mt-6 font-mono text-[11px] uppercase tracking-[0.12em] text-steel">
               — Operating hours
+              {" "}
               <br />
               <span className="text-bone-2">24 / 7 · always answered</span>
             </p>

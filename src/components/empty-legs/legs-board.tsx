@@ -6,6 +6,7 @@ import {
   CATEGORY_LABELS,
   formatUSD,
   type EmptyLegView,
+  type SoldLegView,
 } from "@/lib/empty-legs";
 import { useQuoteStore } from "@/lib/quote-store";
 
@@ -39,7 +40,25 @@ function countByCategory(legs: EmptyLegView[]): Record<CategoryFilter, number> {
   return out;
 }
 
-export function LegsBoard({ legs }: { legs: EmptyLegView[] }) {
+// The empty-state CTA hands the visitor's date-window filter to the
+// watchlist form (below on the same page) so "we'll text you" starts
+// pre-filled from what they just asked for.
+export const WATCHLIST_PREFILL_EVENT = "jn:watchlist-prefill";
+export type WatchlistPrefill = { earliest?: string; latest?: string };
+
+function isoDaysAhead(days: number): string {
+  const d = new Date();
+  d.setDate(d.getDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+
+export function LegsBoard({
+  legs,
+  recentlySold = [],
+}: {
+  legs: EmptyLegView[];
+  recentlySold?: SoldLegView[];
+}) {
   const router = useRouter();
   const [category, setCategory] = useState<CategoryFilter>("all");
   const [time, setTime] = useState<TimeFilter>("any");
@@ -143,14 +162,77 @@ export function LegsBoard({ legs }: { legs: EmptyLegView[] }) {
       {/* Grid */}
       <div className="container-jn py-16">
         {filtered.length === 0 ? (
-          <div className="mx-auto max-w-[48ch] rounded-[4px] border border-ink-3 bg-ink-2 p-12 text-center">
-            <h3 className="font-serif text-[26px] font-normal leading-tight text-bone">
-              No legs match those filters right now.
-            </h3>
-            <p className="mt-4 text-[15px] leading-[1.55] text-bone-2">
-              Try widening the timeframe or category — or set a watchlist below and we&rsquo;ll text
-              you when something shows up.
-            </p>
+          <div className="mx-auto max-w-[820px]">
+            <div className="rounded-[4px] border border-ink-3 bg-ink-2 p-12 text-center">
+              <h3 className="font-serif text-[26px] font-normal leading-tight text-bone">
+                {legs.length === 0
+                  ? "The board is clear — every listed leg sold."
+                  : "No legs match those filters right now."}
+              </h3>
+              <p className="mx-auto mt-4 max-w-[52ch] text-[15px] leading-[1.55] text-bone-2">
+                {legs.length === 0
+                  ? "Legs go the moment a confirmation comes through — first call wins. Set a watchlist and we'll text the second one matching your lanes hits the board."
+                  : "Try widening the timeframe or category — or set a watchlist and we'll text you when something shows up."}
+              </p>
+              <a
+                href="#watchlist"
+                onClick={() => {
+                  const detail: WatchlistPrefill =
+                    time === "48h"
+                      ? { earliest: isoDaysAhead(0), latest: isoDaysAhead(2) }
+                      : time === "week"
+                        ? { earliest: isoDaysAhead(0), latest: isoDaysAhead(7) }
+                        : {};
+                  window.dispatchEvent(
+                    new CustomEvent<WatchlistPrefill>(WATCHLIST_PREFILL_EVENT, { detail }),
+                  );
+                }}
+                className="btn btn-primary mt-8"
+              >
+                Set a watchlist — 1 SMS per match <span className="arrow">→</span>
+              </a>
+            </div>
+
+            {recentlySold.length > 0 ? (
+              <div className="mt-10">
+                <p className="mb-4 text-center font-mono text-[10px] uppercase tracking-[0.14em] text-bone-2">
+                  — The board moves · recent fills
+                </p>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                  {recentlySold.map((l) => (
+                    <div
+                      key={l.id}
+                      className="rounded-[4px] border border-ink-3 bg-ink-2 p-6 opacity-80"
+                    >
+                      <div className="flex items-baseline justify-between gap-3">
+                        <span className="font-mono text-[13px] tracking-[0.04em] text-bone">
+                          {l.fromIata} → {l.toIata}
+                        </span>
+                        <span className="shrink-0 rounded-[2px] border border-ink-4 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.12em] text-steel">
+                          Sold
+                        </span>
+                      </div>
+                      <div className="mt-1 font-mono text-[10px] uppercase tracking-[0.08em] text-steel">
+                        {CATEGORY_LABELS[l.category]} · {l.fromCity} → {l.toCity}
+                      </div>
+                      <div className="mt-4 flex items-baseline justify-between gap-3 border-t border-ink-3 pt-4">
+                        <span className="font-serif text-[24px] font-light leading-none tracking-tight text-bone">
+                          {formatUSD(l.priceNow)}
+                        </span>
+                        {l.discountPct > 0 ? (
+                          <span className="font-mono text-[10px] uppercase tracking-[0.1em] text-clearance">
+                            {l.discountPct}% off
+                          </span>
+                        ) : null}
+                      </div>
+                      <div className="mt-2 font-mono text-[10px] uppercase tracking-[0.08em] text-bone-2">
+                        {l.timeToSale} · {l.soldAgo}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : null}
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">

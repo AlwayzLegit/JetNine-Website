@@ -7,7 +7,7 @@ import { Reveal } from "@/components/reveal";
 import { SITE } from "@/lib/constants";
 
 export const metadata: Metadata = pageMetadata({
-  title: "Safety",
+  title: "Private Jet Safety — ARG/US & Wyvern Vetting",
   description:
     "The floor is high. The ceiling is mandatory. Every operator audited every twelve months, with spot-checks in between.",
   path: "/safety",

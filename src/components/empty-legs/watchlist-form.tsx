@@ -1,8 +1,12 @@
 "use client";
 
-import { useState, useTransition, type FormEvent } from "react";
+import { useEffect, useState, useTransition, type FormEvent } from "react";
 import { createWatchlist } from "@/app/(marketing)/empty-legs/actions";
 import { track } from "@/lib/analytics";
+import {
+  WATCHLIST_PREFILL_EVENT,
+  type WatchlistPrefill,
+} from "@/components/empty-legs/legs-board";
 
 type FieldName = "from" | "to" | "earliest" | "latest" | "mobile" | "email";
 type Errors = Partial<Record<FieldName, true>>;
@@ -11,6 +15,22 @@ export function WatchlistForm() {
   const [errors, setErrors] = useState<Errors>({});
   const [msg, setMsg] = useState<{ tone: "ok" | "error"; text: string } | null>(null);
   const [pending, startTransition] = useTransition();
+
+  // The board's empty-state CTA carries the visitor's date-window filter
+  // here so the form starts pre-filled with what they just searched for.
+  // Uncontrolled inputs, so set .value directly rather than lifting state.
+  useEffect(() => {
+    const onPrefill = (e: Event) => {
+      const detail = (e as CustomEvent<WatchlistPrefill>).detail;
+      if (!detail) return;
+      const earliest = document.getElementById("wl-earliest") as HTMLInputElement | null;
+      const latest = document.getElementById("wl-latest") as HTMLInputElement | null;
+      if (detail.earliest && earliest && !earliest.value) earliest.value = detail.earliest;
+      if (detail.latest && latest && !latest.value) latest.value = detail.latest;
+    };
+    window.addEventListener(WATCHLIST_PREFILL_EVENT, onPrefill);
+    return () => window.removeEventListener(WATCHLIST_PREFILL_EVENT, onPrefill);
+  }, []);
 
   function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();

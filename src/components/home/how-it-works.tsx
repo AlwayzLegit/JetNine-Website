@@ -57,6 +57,7 @@ export function HowItWorks() {
           </Reveal>
           <Reveal as="h2" stagger={1} className="display-m max-w-[20ch]">
             From request
+            {" "}
             <br />
             to wheels-up.
           </Reveal>

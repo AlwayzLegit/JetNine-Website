@@ -8,7 +8,7 @@ import { SITE } from "@/lib/constants";
 import { FAQ } from "@/lib/faq";
 
 export const metadata: Metadata = pageMetadata({
-  title: "FAQ",
+  title: "Private Jet Charter FAQ",
   description:
     "Answers to the questions before the call. Written by the dispatch desk for the kind of question that comes in at 11pm on a Sunday.",
   path: "/faq",

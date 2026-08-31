@@ -7,7 +7,7 @@ import { Reveal } from "@/components/reveal";
 import { SITE } from "@/lib/constants";
 
 export const metadata: Metadata = pageMetadata({
-  title: "Memberships",
+  title: "Jet Card & Memberships — Locked Hourly Rates",
   description:
     "Three ways to fly — on-demand, JetNine Card, or Reserve. None of them require a membership. Locked rates, refundable deposits, no peak surcharges.",
   path: "/memberships",

@@ -10,7 +10,7 @@ import { KvnyMap } from "@/components/kvny-map";
 import { SITE } from "@/lib/constants";
 
 export const metadata: Metadata = pageMetadata({
-  title: "Contact",
+  title: "Contact 24/7 Private Jet Dispatch",
   description:
     "One desk. One number. Open every hour of every day. Senior dispatcher picks up — average pick-up under twenty seconds.",
   path: "/contact",

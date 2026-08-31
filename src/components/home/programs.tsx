@@ -44,6 +44,7 @@ export function Programs() {
           </Reveal>
           <Reveal as="h2" stagger={1} className="display-m max-w-[22ch]">
             Three ways
+            {" "}
             <br />
             to fly with JetNine.
           </Reveal>

@@ -48,6 +48,7 @@ export function Hero() {
         </Reveal>
         <Reveal stagger={2} as="h1" className="display-xl max-w-[16ch] text-bone">
           Ready when
+          {" "}
           <br />
           you are.
         </Reveal>

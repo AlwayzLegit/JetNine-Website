@@ -122,7 +122,7 @@ export const FLEET: FleetEntry[] = [
     index: 1,
     total: TOTAL_CATEGORIES,
     kicker: "Turboprop · category 01 of 06",
-    title: "Turboprops.",
+    title: "Turboprop charter.",
     lead:
       "Short runways, mountain airports, unpaved strips — the airframes that fly where jets can't. Lower hourly than light jets, longer endurance for slow-cruise missions. The right answer when the destination is the problem, not the distance.",
     heroImageCaption: "— TURBOPROP, RAMP MIDDAY",
@@ -245,7 +245,7 @@ export const FLEET: FleetEntry[] = [
     index: 2,
     total: TOTAL_CATEGORIES,
     kicker: "Light · category 02 of 06",
-    title: "Light jets.",
+    title: "Light jet charter.",
     lead:
       "The fastest way to skip the airline. Six to seven seats, three-hour legs, smaller airports the big iron can't touch. Lower hourly than midsize, quicker to dispatch, ideal for one-hop business trips and short-range family flights.",
     heroImageCaption: "— LIGHT, RAMP DAWN",
@@ -368,7 +368,7 @@ export const FLEET: FleetEntry[] = [
     index: 3,
     total: TOTAL_CATEGORIES,
     kicker: "Midsize · category 03 of 06",
-    title: "Midsize jets.",
+    title: "Midsize jet charter.",
     lead:
       "The everyday choice. Stand-up cabin, real galley, a flight attendant when you want one. Coast-to-coast across the US, transcontinental Europe, transatlantic with a single fuel stop. The category most missions land on — for good reason.",
     heroImageCaption: "— MIDSIZE, OVERWING DUSK",
@@ -491,7 +491,7 @@ export const FLEET: FleetEntry[] = [
     index: 4,
     total: TOTAL_CATEGORIES,
     kicker: "Super-mid · category 04 of 06",
-    title: "Super-midsize.",
+    title: "Super-mid charter.",
     lead:
       "Faster, longer, and a flat-floor cabin. Transatlantic non-stop on most sectors. The category that disappears the difference between coast-to-coast and Europe — and feels heavy-jet inside without the heavy-jet hourly.",
     heroImageCaption: "— SUPER-MID, IN CRUISE",
@@ -614,7 +614,7 @@ export const FLEET: FleetEntry[] = [
     index: 5,
     total: TOTAL_CATEGORIES,
     kicker: "Heavy · category 05 of 06",
-    title: "Heavy jets.",
+    title: "Heavy jet charter.",
     lead:
       "Two cabins, a galley a chef can work in, beds that are actually beds. Twelve to fourteen passengers transoceanic with crew rest. The category for full-night sectors and groups that need to arrive ready, not recovering.",
     heroImageCaption: "— HEAVY, NIGHT TURN",
@@ -737,7 +737,7 @@ export const FLEET: FleetEntry[] = [
     index: 6,
     total: TOTAL_CATEGORIES,
     kicker: "Ultra · category 06 of 06",
-    title: "Ultra long range.",
+    title: "Ultra-long-range charter.",
     lead:
       "The longest reach in civil aviation. Sixteen-passenger cabin, three zones, Mach 0.90 cruise. Non-stop city pairs no other category can fly without a stop. The category for when \"non-stop\" is the brief.",
     heroImageCaption: "— ULTRA, OCEAN CRUISE",

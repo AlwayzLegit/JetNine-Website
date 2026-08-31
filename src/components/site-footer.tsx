@@ -21,6 +21,7 @@ const FOOTER_COLS: FooterCol[] = [
     links: [
       { label: "JetNine Card", href: "/memberships" },
       { label: "On-demand", href: "/how-it-works" },
+      { label: "Cost calculator", href: "/cost-calculator" },
       { label: "Empty legs", href: "/empty-legs" },
       { label: "Safety", href: "/safety" },
     ],

@@ -7,6 +7,7 @@ const MARKETING_ROUTES: { path: string; priority: number; changeFreq: "daily" | 
   { path: "/aircraft",         priority: 0.8, changeFreq: "monthly" },
   { path: "/memberships",      priority: 0.8, changeFreq: "monthly" },
   { path: "/empty-legs",       priority: 0.7, changeFreq: "daily"   },
+  { path: "/cost-calculator",  priority: 0.8, changeFreq: "monthly" },
   { path: "/how-it-works",     priority: 0.7, changeFreq: "monthly" },
   { path: "/safety",           priority: 0.7, changeFreq: "monthly" },
   { path: "/about",            priority: 0.7, changeFreq: "monthly" },

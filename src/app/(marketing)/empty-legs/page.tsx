@@ -228,9 +228,49 @@ function liveStats(legs: EmptyLegView[]) {
   };
 }
 
+// On-page FAQ + FAQPage schema. Questions mirror what people actually
+// search around empty legs; answers keep the site's claims (up to 60%
+// off, 15-minute refresh) so no page contradicts another.
+const EMPTY_LEG_FAQ: { q: string; a: string }[] = [
+  {
+    q: "What is an empty leg flight?",
+    a: "A positioning flight. An aircraft dropped a charter passenger somewhere and has to fly home — or to its next pickup — empty. That flight is for sale at a steep discount because the operator flies it either way. Same airframe, same crew, same service; the only difference is the price and that the schedule is fixed.",
+  },
+  {
+    q: "How much cheaper is an empty leg than a normal charter?",
+    a: "Typically 30–60% off the equivalent on-demand charter price on our board, and occasionally deeper when departure is close. Some legs price below the equivalent first-class commercial fare for the same route.",
+  },
+  {
+    q: "Do I get the entire aircraft?",
+    a: "Yes. An empty leg is the whole cabin, not a seat. Bring your party up to the listed seat count — the price is per aircraft, not per person.",
+  },
+  {
+    q: "Can I change the departure time or route?",
+    a: "No — that's the trade. Empty legs are date- and route-locked because the aircraft is already scheduled to fly that sector. Departure typically holds within an hour of the listed time. If you need flexibility, a regular on-demand quote is the right tool.",
+  },
+  {
+    q: "What happens if the empty leg cancels?",
+    a: "If the outbound charter that created the leg falls through, the leg falls through with it. Your payment is refunded in full and you receive a credit toward a regular charter. We recommend a backup plan for anything time-critical.",
+  },
+  {
+    q: "How do the SMS alerts work?",
+    a: "Set a watchlist with your city pair and date window. We match it against the live board every fifteen minutes and text you the moment a leg fits — one SMS per match, no marketing blasts, cancel any time.",
+  },
+];
+
 export default async function EmptyLegsPage() {
   const [legs, recentlySold] = await Promise.all([getLiveLegs(), getRecentlySold()]);
   const s = liveStats(legs);
+
+  const faqJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    mainEntity: EMPTY_LEG_FAQ.map((f) => ({
+      "@type": "Question",
+      name: f.q,
+      acceptedAnswer: { "@type": "Answer", text: f.a },
+    })),
+  };
 
   return (
     <>
@@ -242,8 +282,15 @@ export default async function EmptyLegsPage() {
               <span className="block h-px w-8 bg-clearance" />
               Empty legs · live board
             </Reveal>
+            {/* Live count in the H1 — the "Search 4,792 Empty Leg Flights"
+                credibility device from the page that ranks #1 for this
+                query. Server-rendered on every visit, so the number is
+                real and crawlable. Falls back to the evergreen headline
+                when the board is empty. */}
             <Reveal as="h1" stagger={1} className="display-xl max-w-[14ch]">
-              Repositioning legs. Up to 60% off.
+              {s.count > 0
+                ? `${s.count} empty leg${s.count === 1 ? "" : "s"}, live now.`
+                : "Empty leg flights. Up to 60% off."}
             </Reveal>
             <Reveal as="p" stagger={2} className="mt-8 max-w-[58ch] text-[18px] leading-[1.55] text-bone-2">
               When an aircraft has dropped a passenger somewhere and needs to fly home empty, that
@@ -350,6 +397,35 @@ export default async function EmptyLegsPage() {
         </div>
       </section>
 
+      {/* ─── FAQ ─── */}
+      <section className="border-t border-ink-3 bg-ink py-32 max-md:py-20">
+        <script
+          type="application/ld+json"
+          // Build-time stringified site copy — not user-controlled.
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }}
+        />
+        <div className="container-jn">
+          <div className="mb-14">
+            <Reveal>
+              <p className="caption mb-6">— Before you book</p>
+            </Reveal>
+            <Reveal as="h2" stagger={1} className="display-m max-w-[24ch]">
+              Empty legs, answered straight.
+            </Reveal>
+          </div>
+          <div className="grid grid-cols-1 gap-x-12 gap-y-10 md:grid-cols-2">
+            {EMPTY_LEG_FAQ.map((f) => (
+              <Reveal key={f.q} className="border-t border-ink-3 pt-6">
+                <h3 className="font-serif text-[19px] font-normal leading-[1.3] tracking-tight text-bone">
+                  {f.q}
+                </h3>
+                <p className="mt-3 max-w-[62ch] text-[15px] leading-[1.6] text-bone-2">{f.a}</p>
+              </Reveal>
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* ─── Watchlist form ─── */}
       {/* scroll-mt clears the fixed 80px header when the board's empty-state
           CTA jumps here via the #watchlist anchor. */}
@@ -366,6 +442,21 @@ export default async function EmptyLegsPage() {
               If the lanes you fly are predictable, this is the simplest way to get the discount.
               Tell us the city pair and date window, we&rsquo;ll match against the live board every
               fifteen minutes, and SMS the moment something fits. No spam, only matches.
+            </Reveal>
+            {/* No competitor offers route alerts at all — spell the
+                mechanics out as scannable proof, not just prose. */}
+            <Reveal stagger={2} as="ul" className="mt-8 grid max-w-[820px] grid-cols-1 gap-3 sm:grid-cols-2">
+              {[
+                "Matched against the live board every 15 minutes",
+                "One SMS per match — never a marketing blast",
+                "First-call advantage: the text lands the moment the leg lists",
+                "No fees, no account required, cancel with one reply",
+              ].map((b) => (
+                <li key={b} className="flex items-start gap-3 text-[14px] leading-[1.5] text-bone-2">
+                  <span aria-hidden className="mt-[3px] font-mono text-[12px] text-clearance">✓</span>
+                  {b}
+                </li>
+              ))}
             </Reveal>
           </div>
           <Reveal stagger={1} className="mx-auto max-w-[820px] rounded-[4px] border border-ink-3 bg-ink p-8 sm:p-10">

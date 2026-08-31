@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { pageMetadata } from "@/lib/page-meta";
 import { PageHeader } from "@/components/page-header";
 import { ClosingCTA } from "@/components/closing-cta";
+import { QuoteLauncher } from "@/components/quote-launcher";
 import { Reveal } from "@/components/reveal";
 import { SITE } from "@/lib/constants";
 
@@ -473,6 +474,8 @@ export default function HowItWorksPage() {
           </div>
         </div>
       </section>
+
+      <QuoteLauncher context="how-it-works" />
 
       <ClosingCTA
         heading="One number. One conversation. One number on the invoice."

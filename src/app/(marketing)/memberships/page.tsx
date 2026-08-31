@@ -1,8 +1,10 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { pageMetadata } from "@/lib/page-meta";
+import { RATES } from "@/lib/rates";
 import { PageHeader } from "@/components/page-header";
 import { ClosingCTA } from "@/components/closing-cta";
+import { QuoteLauncher } from "@/components/quote-launcher";
 import { Reveal } from "@/components/reveal";
 import { SITE } from "@/lib/constants";
 
@@ -120,44 +122,6 @@ const COMPARE_ROWS: { label: string; cells: [string, string, string, string] }[]
   {
     label: "Best for",
     cells: ["Under 25h / year", "25–100h / year", "25–50h / year, fixed routes", "200h+ / year"],
-  },
-];
-
-const RATES = [
-  {
-    category: "Light",
-    mission: "3–4 pax · 1,500 NM · regional hops",
-    sample: "KVNY → KASE",
-    market: "$3,200–3,600/hr",
-    locked: "$2,950/HR",
-  },
-  {
-    category: "Midsize",
-    mission: "5–6 pax · 2,500 NM · transcon",
-    sample: "KVNY → KTEB",
-    market: "$4,200–4,600/hr",
-    locked: "$3,950/HR",
-  },
-  {
-    category: "Super-mid",
-    mission: "6–8 pax · 3,500 NM · transcon nonstop",
-    sample: "KSFO → KMIA",
-    market: "$5,400–5,900/hr",
-    locked: "$5,100/HR",
-  },
-  {
-    category: "Heavy",
-    mission: "8–12 pax · 4,500 NM · transatlantic",
-    sample: "KJFK → EGLL",
-    market: "$7,800–8,400/hr",
-    locked: "$7,400/HR",
-  },
-  {
-    category: "Ultra long range",
-    mission: "12–16 pax · 6,500+ NM · transpacific",
-    sample: "KLAX → RJTT",
-    market: "$10,400–11,200/hr",
-    locked: "$9,850/HR",
   },
 ];
 
@@ -657,6 +621,8 @@ export default function MembershipsPage() {
           </div>
         </div>
       </section>
+
+      <QuoteLauncher context="memberships" heading="Price a mission before you commit." body="See the on-demand number first — every program above starts from the same live quote. No membership required." />
 
       <ClosingCTA
         heading="Talk to dispatch. We'll model the right program for you."

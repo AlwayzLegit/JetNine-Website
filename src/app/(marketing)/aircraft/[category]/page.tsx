@@ -5,6 +5,7 @@ import { Reveal } from "@/components/reveal";
 import { Placeholder } from "@/components/placeholder";
 import { BestForIcon } from "@/components/best-for-icon";
 import { ClosingCTA } from "@/components/closing-cta";
+import { QuoteLauncher } from "@/components/quote-launcher";
 import { SITE } from "@/lib/constants";
 import { FLEET, formatNm, formatPax, getFleetEntry } from "@/lib/fleet";
 import { pageMetadata } from "@/lib/page-meta";
@@ -426,6 +427,13 @@ export default async function AircraftCategoryPage({ params }: RouteParams) {
           </div>
         </div>
       </section>
+
+      <QuoteLauncher
+        context={`aircraft-${entry.slug}`}
+        category={entry.slug}
+        heading={`Price a ${entry.shortName.toLowerCase()} mission.`}
+        body="Route, date, and passenger count — the wizard opens with this category pre-selected and prices as you type."
+      />
 
       <ClosingCTA
         heading={entry.finalCta.heading}

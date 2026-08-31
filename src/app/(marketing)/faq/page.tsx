@@ -6,6 +6,7 @@ import { Reveal } from "@/components/reveal";
 import { FaqBoard } from "@/components/faq/faq-board";
 import { SITE } from "@/lib/constants";
 import { FAQ } from "@/lib/faq";
+import { QuoteLauncher } from "@/components/quote-launcher";
 
 export const metadata: Metadata = pageMetadata({
   title: "Private Jet Charter FAQ",
@@ -102,6 +103,12 @@ export default function FaqPage() {
           </div>
         </div>
       </section>
+
+      <QuoteLauncher
+        context="faq"
+        heading="Answered enough? Price the trip."
+        body="Four steps, live indicative pricing, and a senior dispatcher on the other end within 30 minutes."
+      />
     </>
   );
 }

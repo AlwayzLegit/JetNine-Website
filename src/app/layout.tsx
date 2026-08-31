@@ -32,8 +32,11 @@ export const metadata: Metadata = {
     default: "Private Jet Charter — Ready When You Are | JetNine",
     template: "%s · JetNine",
   },
+  // Trust hook in the SERP snippet (audit: the best competitor leads its
+  // meta description with third-party proof). Ours is the vetting funnel
+  // and published rates — swap in a review score once real ratings exist.
   description:
-    "JetNine is a Part 295 indirect air carrier brokering on-demand private charter on Part 135 operators. One number, one desk, ready when you are.",
+    "Private jet charter on ARG/US & Wyvern-vetted operators — 380 approved of ~5,000 screened. Published rates from $2,950/hr, live pricing in 4 steps, no callback.",
   metadataBase: new URL(SITE_URL),
   applicationName: "JetNine",
   keywords: [

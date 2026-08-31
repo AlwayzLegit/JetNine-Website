@@ -4,7 +4,8 @@ import { pageMetadata } from "@/lib/page-meta";
 import { Reveal } from "@/components/reveal";
 import { ClosingCTA } from "@/components/closing-cta";
 import { QuoteLauncher, RouteQuoteLink } from "@/components/quote-launcher";
-import { RATES } from "@/lib/rates";
+import { ProofStrip } from "@/components/proof-strip";
+import { RATES, RATES_UPDATED } from "@/lib/rates";
 import { findAirport, distanceNm } from "@/lib/airports";
 import { computeIndicative, formatHours } from "@/lib/quote-pricing";
 import type { AircraftCategorySlug } from "@/lib/fleet";
@@ -184,6 +185,8 @@ export default function CostCalculatorPage() {
         </div>
       </header>
 
+      <ProofStrip />
+
       {/* ─── Estimator entry ─── */}
       <QuoteLauncher
         context="cost-calculator"
@@ -245,7 +248,7 @@ export default function CostCalculatorPage() {
           <p className="mt-5 max-w-[70ch] font-mono text-[11px] uppercase tracking-[0.1em] leading-[1.8] text-steel">
             — Included: flight time, fuel, crew, landing, repositioning, 7.5% FET, standard
             catering, sedan transfer · Itemized separately: premium catering, de-icing,
-            international handling · Rates reviewed quarterly
+            international handling · Rates reviewed quarterly · Updated {RATES_UPDATED}
           </p>
         </div>
       </section>

@@ -67,6 +67,11 @@ export function Hero() {
             {SITE.dispatchPhone}
           </a>
         </Reveal>
+        {/* Counter-position the industry's callback funnel: competitors'
+            "instant quotes" end at an advisor phone call. Ours doesn't. */}
+        <Reveal stagger={3} className="mt-6 font-mono text-[11px] uppercase tracking-[0.14em] text-bone-2">
+          — Live pricing in 4 steps · rates from $2,950/hr · no callback required
+        </Reveal>
       </div>
 
       {/* Scroll cue */}

@@ -5,6 +5,7 @@ import { RATES } from "@/lib/rates";
 import { PageHeader } from "@/components/page-header";
 import { ClosingCTA } from "@/components/closing-cta";
 import { QuoteLauncher } from "@/components/quote-launcher";
+import { ProofStrip } from "@/components/proof-strip";
 import { Reveal } from "@/components/reveal";
 import { SITE } from "@/lib/constants";
 
@@ -270,6 +271,8 @@ export default function MembershipsPage() {
         imageSrc="/images/hero/memberships.webp"
         imagePosition="58% center"
       />
+
+      <ProofStrip />
 
       {/* Anchor row */}
       <section className="border-b border-ink-3 py-6">

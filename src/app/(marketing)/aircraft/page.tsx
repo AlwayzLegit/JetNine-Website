@@ -4,6 +4,7 @@ import { pageMetadata } from "@/lib/page-meta";
 import { PageHeader } from "@/components/page-header";
 import { ClosingCTA } from "@/components/closing-cta";
 import { QuoteLauncher } from "@/components/quote-launcher";
+import { ProofStrip } from "@/components/proof-strip";
 import { Reveal } from "@/components/reveal";
 import { Placeholder } from "@/components/placeholder";
 import { FLEET, formatKt, formatNm, formatPax } from "@/lib/fleet";
@@ -25,6 +26,8 @@ export default function AircraftPage() {
         imageSrc="/images/hero/aircraft.webp"
         imagePosition="62% center"
       />
+
+      <ProofStrip />
 
       {/* ─── Quick compare table ─── */}
       <section className="py-24 sm:py-16">

@@ -6,6 +6,7 @@ import { Placeholder } from "@/components/placeholder";
 import { BestForIcon } from "@/components/best-for-icon";
 import { ClosingCTA } from "@/components/closing-cta";
 import { QuoteLauncher } from "@/components/quote-launcher";
+import { ProofStrip } from "@/components/proof-strip";
 import { SITE } from "@/lib/constants";
 import { FLEET, formatNm, formatPax, getFleetEntry } from "@/lib/fleet";
 import { pageMetadata } from "@/lib/page-meta";
@@ -427,6 +428,8 @@ export default async function AircraftCategoryPage({ params }: RouteParams) {
           </div>
         </div>
       </section>
+
+      <ProofStrip />
 
       <QuoteLauncher
         context={`aircraft-${entry.slug}`}

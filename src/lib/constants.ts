@@ -26,6 +26,9 @@ export const TRUST_BAR = [
   { value: 24, label: "Dispatch", suffix: "/7" },
   { value: 4, label: "Avg. response", suffix: " min" },
   { static: "ARGUS", label: "Wyvern vetted" },
+  // The vetting funnel is the strongest proof the site has — surface the
+  // headline number on the homepage, not two clicks deep on /safety.
+  { value: 380, label: "Approved of ~5,000 vetted", suffix: "" },
   { static: "295", label: "Part 295 broker" },
 ] as const;
 

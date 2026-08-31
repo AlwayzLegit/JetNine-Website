@@ -180,7 +180,7 @@ function MissionStepInner() {
             <p className="mt-5 max-w-[60ch] text-[17px] leading-[1.55] text-bone-2">
               The basics. The more precise the better — but it doesn&rsquo;t have to be perfect.
               Dispatch will follow up to refine. Every quote returns within 30 minutes during
-              operating hours.
+              operating hours — a real number in four steps, not a phone call.
             </p>
           </header>
 

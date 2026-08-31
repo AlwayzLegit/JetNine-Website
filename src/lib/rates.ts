@@ -20,6 +20,11 @@ export type RateRow = {
   lockedUsd: number;
 };
 
+// Shown wherever the rate card renders ("Rates reviewed quarterly ·
+// Updated <stamp>"). Bump on each quarterly review so the freshness
+// claim stays true — a stale year-stamp is worse than none.
+export const RATES_UPDATED = "August 2026";
+
 export const RATES: RateRow[] = [
   {
     category: "Light",

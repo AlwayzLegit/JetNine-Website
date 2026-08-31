@@ -338,6 +338,49 @@ export default function SafetyPage() {
         </div>
       </section>
 
+      {/* Go deeper — the safety cluster subpages */}
+      <section className="border-t border-ink-3 py-24 max-md:py-16">
+        <div className="container-jn">
+          <Reveal>
+            <p className="caption mb-10">— Go deeper</p>
+          </Reveal>
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+            {[
+              {
+                href: "/safety/operator-vetting",
+                h: "How we vet operators",
+                p: "The 5,000 → 380 funnel, filter by filter — and what removes an operator once they're in.",
+              },
+              {
+                href: "/safety/pilot-standards",
+                h: "Pilot standards",
+                p: "Two ATP pilots, 3,500-hour PIC floor, 90-day currency. Who's actually flying you.",
+              },
+              {
+                href: "/safety/ratings-explained",
+                h: "Ratings, explained",
+                p: "What ARG/US Gold and Platinum, Wyvern Wingman, and IS-BAO Stage 2 certify in plain language.",
+              },
+            ].map((c, i) => (
+              <Reveal key={c.href} stagger={(i % 3) as 0 | 1 | 2}>
+                <Link
+                  href={c.href}
+                  className="group flex h-full flex-col rounded-[4px] border border-ink-3 bg-ink-2 p-8 transition-colors hover:border-[rgba(232,226,210,0.3)]"
+                >
+                  <h3 className="font-serif text-[20px] font-normal leading-[1.25] tracking-tight text-bone">
+                    {c.h}
+                  </h3>
+                  <p className="mt-3 flex-1 text-[14px] leading-[1.6] text-bone-2">{c.p}</p>
+                  <span className="mt-5 font-mono text-[10px] uppercase tracking-[0.14em] text-clearance">
+                    Read <span className="arrow">→</span>
+                  </span>
+                </Link>
+              </Reveal>
+            ))}
+          </div>
+        </div>
+      </section>
+
       <QuoteLauncher context="safety" heading="Fly the standard, not the average." />
 
       <ClosingCTA

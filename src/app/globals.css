@@ -136,6 +136,95 @@
     color: var(--bone-2);
   }
 
+  /* Long-form article body — markdown-rendered blog posts. The HTML is
+     produced by src/lib/markdown.ts, so these element selectors are the
+     whole styling contract for /blog/[slug]. */
+  .blog-prose {
+    font-size: 17px;
+    line-height: 1.7;
+    color: var(--bone-2);
+    max-width: 70ch;
+  }
+  .blog-prose h2,
+  .blog-prose h3,
+  .blog-prose h4 {
+    font-family: theme("fontFamily.serif");
+    font-weight: 400;
+    letter-spacing: -0.01em;
+    color: var(--bone);
+    scroll-margin-top: 96px;
+  }
+  .blog-prose h2 { font-size: 30px; line-height: 1.2; margin: 56px 0 20px; }
+  .blog-prose h3 { font-size: 23px; line-height: 1.25; margin: 40px 0 16px; }
+  .blog-prose h4 { font-size: 18px; line-height: 1.3; margin: 32px 0 12px; }
+  .blog-prose p { margin: 0 0 20px; }
+  .blog-prose a {
+    color: var(--clearance);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    text-decoration-color: color-mix(in srgb, var(--clearance) 40%, transparent);
+    transition: text-decoration-color 200ms;
+  }
+  .blog-prose a:hover { text-decoration-color: var(--clearance); }
+  .blog-prose strong { color: var(--bone); font-weight: 600; }
+  .blog-prose ul,
+  .blog-prose ol { margin: 0 0 20px; padding-left: 24px; }
+  .blog-prose li { margin-bottom: 8px; }
+  .blog-prose li::marker { color: var(--clearance); }
+  .blog-prose blockquote {
+    margin: 32px 0;
+    padding: 4px 0 4px 24px;
+    border-left: 2px solid var(--clearance);
+    font-family: theme("fontFamily.serif");
+    font-size: 20px;
+    line-height: 1.45;
+    color: var(--bone);
+  }
+  .blog-prose blockquote p:last-child { margin-bottom: 0; }
+  .blog-prose hr { border: none; border-top: 1px solid var(--ink-3); margin: 48px 0; }
+  .blog-prose code {
+    font-family: theme("fontFamily.mono");
+    font-size: 0.88em;
+    background: var(--ink-3);
+    border-radius: 2px;
+    padding: 2px 6px;
+  }
+  .blog-prose pre {
+    background: var(--ink-3);
+    border-radius: 2px;
+    padding: 20px;
+    overflow-x: auto;
+    margin: 0 0 20px;
+  }
+  .blog-prose pre code { background: transparent; padding: 0; }
+  .blog-prose img {
+    max-width: 100%;
+    height: auto;
+    border-radius: 2px;
+    margin: 32px 0;
+  }
+  .blog-prose table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 32px 0;
+    font-size: 15px;
+  }
+  .blog-prose th {
+    font-family: theme("fontFamily.mono");
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--bone-2);
+    text-align: left;
+    padding: 10px 16px 10px 0;
+    border-bottom: 1px solid var(--steel);
+  }
+  .blog-prose td {
+    padding: 12px 16px 12px 0;
+    border-bottom: 1px solid var(--ink-3);
+    color: var(--bone);
+  }
+
   /* Buttons */
   .btn {
     display: inline-flex;

@@ -33,6 +33,7 @@ const FOOTER_COLS: FooterCol[] = [
     heading: "Company",
     links: [
       { label: "About", href: "/about" },
+      { label: "Blog", href: "/blog" },
       { label: "Contact", href: "/contact" },
       { label: "FAQ", href: "/faq" },
       { label: "Good questions", href: "/questions" },

@@ -1,4 +1,5 @@
 import type { MetadataRoute } from "next";
+import { getPublishedPosts } from "@/lib/blog";
 import { FLEET } from "@/lib/fleet";
 import { GUIDE_CHAPTERS } from "@/lib/guides";
 import { MODELS } from "@/lib/models";
@@ -33,11 +34,41 @@ const MARKETING_ROUTES: { path: string; priority: number; changeFreq: "daily" | 
   { path: "/quote/mission",    priority: 0.9, changeFreq: "monthly" },
 ];
 
-export default function sitemap(): MetadataRoute.Sitemap {
+// Blog posts live in the DB, so the sitemap re-generates hourly instead of
+// only at build time.
+export const revalidate = 3600;
+
+export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const base = (process.env.NEXT_PUBLIC_SITE_URL || "https://jetnine.com").replace(/\/$/, "");
   const now = new Date();
 
+  // Local builds run without a reachable DB (see src/db/index.ts) — the
+  // registry-driven URLs must still emit, so blog entries just drop out.
+  let blogEntries: MetadataRoute.Sitemap = [];
+  try {
+    const posts = await getPublishedPosts();
+    blogEntries = [
+      {
+        url: `${base}/blog`,
+        lastModified: posts[0]?.publishedAt ?? now,
+        changeFrequency: "weekly" as const,
+        priority: 0.7,
+      },
+      ...posts.map((p) => ({
+        url: `${base}/blog/${p.slug}`,
+        lastModified: p.updatedAt,
+        changeFrequency: "monthly" as const,
+        priority: 0.6,
+      })),
+    ];
+  } catch {
+    blogEntries = [
+      { url: `${base}/blog`, lastModified: now, changeFrequency: "weekly" as const, priority: 0.7 },
+    ];
+  }
+
   return [
+    ...blogEntries,
     ...MARKETING_ROUTES.map((r) => ({
       url: `${base}${r.path}`,
       lastModified: now,

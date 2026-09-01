@@ -5,6 +5,7 @@ import { Reveal } from "@/components/reveal";
 import { ClosingCTA } from "@/components/closing-cta";
 import { QuoteLauncher } from "@/components/quote-launcher";
 import { ProofStrip } from "@/components/proof-strip";
+import { GuideGate } from "@/components/guide-gate";
 import { GUIDE_CHAPTERS } from "@/lib/guides";
 import { RATES_UPDATED } from "@/lib/rates";
 
@@ -98,6 +99,8 @@ export default function GuidesHubPage() {
           </p>
         </div>
       </section>
+
+      <GuideGate context="guides-hub" />
 
       <QuoteLauncher
         context="guides-hub"

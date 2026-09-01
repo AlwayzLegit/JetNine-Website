@@ -34,6 +34,9 @@ export default function robots(): MetadataRoute.Robots {
     "/quote/aircraft",
     "/quote/contact",
     "/quote/review",
+    // Gated assets (the pricing-guide PDF) — reachable only via the
+    // capture form's unguessable path; keep crawlers from indexing it.
+    "/downloads/",
   ];
 
   return {

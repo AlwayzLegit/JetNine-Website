@@ -5,6 +5,7 @@ import { PRICE_STACK, PRICE_STACK_TOTAL } from "@/lib/rates";
 import { PageHeader } from "@/components/page-header";
 import { ClosingCTA } from "@/components/closing-cta";
 import { QuoteLauncher } from "@/components/quote-launcher";
+import { GuideGate } from "@/components/guide-gate";
 import { Reveal } from "@/components/reveal";
 import { SITE } from "@/lib/constants";
 
@@ -466,6 +467,8 @@ export default function HowItWorksPage() {
           </div>
         </div>
       </section>
+
+      <GuideGate context="how-it-works" />
 
       <QuoteLauncher context="how-it-works" />
 

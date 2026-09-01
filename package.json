@@ -19,7 +19,8 @@
     "e2e:install": "playwright install --with-deps chromium",
     "audit:a11y": "tsx scripts/audit-mobile-a11y.mts",
     "smoke": "tsx scripts/smoke-prod.mts",
-    "smoke:e2e": "playwright test --config playwright.prod.config.ts"
+    "smoke:e2e": "playwright test --config playwright.prod.config.ts",
+    "guide:pdf": "tsx scripts/build-pricing-guide.mts"
   },
   "dependencies": {
     "@sentry/nextjs": "^10.53.1",
@@ -39,12 +40,14 @@
     "@eslint/eslintrc": "^3.3.5",
     "@playwright/test": "^1.60.0",
     "@types/node": "^22.10.5",
+    "@types/pdfkit": "^0.17.6",
     "@types/react": "^19.0.7",
     "@types/react-dom": "^19.0.3",
     "autoprefixer": "^10.4.20",
     "drizzle-kit": "^0.31.10",
     "eslint": "^9.18.0",
     "eslint-config-next": "^15.1.6",
+    "pdfkit": "^0.20.2",
     "postcss": "^8.5.1",
     "sharp": "^0.34.5",
     "tailwindcss": "^3.4.17",

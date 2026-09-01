@@ -104,6 +104,7 @@ export async function PUT(req: Request, ctx: Ctx) {
       ...(input.heroImageUrl !== undefined ? { heroImageUrl: input.heroImageUrl } : {}),
       ...(input.heroImageAlt !== undefined ? { heroImageAlt: input.heroImageAlt } : {}),
       ...(input.tags !== undefined ? { tags: input.tags } : {}),
+      ...(input.faq !== undefined ? { faq: input.faq } : {}),
       ...(input.author !== undefined ? { author: input.author } : {}),
       status: nextStatus,
       publishedAt,

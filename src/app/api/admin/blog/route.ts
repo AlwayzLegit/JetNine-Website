@@ -106,6 +106,7 @@ export async function POST(req: Request) {
       heroImageUrl: input.heroImageUrl ?? null,
       heroImageAlt: input.heroImageAlt ?? null,
       tags: input.tags ?? [],
+      faq: input.faq ?? [],
       author: input.author ?? BLOG_DEFAULT_AUTHOR,
       status,
       publishedAt,

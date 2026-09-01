@@ -74,3 +74,24 @@ export function readingMinutes(markdown: string): number {
     .filter(Boolean).length;
   return Math.max(1, Math.round(words / 220));
 }
+
+// Pull the H2 anchors out of rendered HTML for the on-page table of
+// contents. Only H2s — the TOC should read like a chapter list, not an
+// outline.
+export function extractToc(html: string): { id: string; text: string }[] {
+  const out: { id: string; text: string }[] = [];
+  const re = /<h2 id="([^"]+)">([\s\S]*?)<\/h2>/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(html))) {
+    const text = m[2]
+      .replace(/<[^>]+>/g, "")
+      .replace(/&amp;/g, "&")
+      .replace(/&lt;/g, "<")
+      .replace(/&gt;/g, ">")
+      .replace(/&quot;/g, '"')
+      .replace(/&#39;/g, "'")
+      .trim();
+    if (text) out.push({ id: m[1], text });
+  }
+  return out;
+}

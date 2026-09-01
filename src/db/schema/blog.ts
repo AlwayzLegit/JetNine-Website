@@ -40,6 +40,11 @@ export const blogPosts = pgTable(
 
     tags: jsonb("tags").$type<string[]>().notNull().default([]),
 
+    // Optional Q&A block rendered under the article and emitted as
+    // FAQPage JSON-LD — the same "people also ask" capture the guide and
+    // question pages get, but per-post.
+    faq: jsonb("faq").$type<{ q: string; a: string }[]>().notNull().default([]),
+
     // Site convention: no invented staff names — default byline is the desk.
     author: text("author").notNull().default("JetNine dispatch desk"),
 

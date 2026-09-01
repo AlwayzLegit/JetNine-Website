@@ -1,4 +1,4 @@
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, ne } from "drizzle-orm";
 import { db } from "@/db";
 import { blogPosts, type BlogPost } from "@/db/schema/blog";
 
@@ -27,6 +27,7 @@ export type BlogPostInput = {
   heroImageUrl?: string | null;
   heroImageAlt?: string | null;
   tags?: string[];
+  faq?: { q: string; a: string }[];
   author?: string;
   status?: "draft" | "published";
   publishedAt?: string | null;
@@ -105,6 +106,25 @@ export function validatePostInput(
       out.tags = (b.tags as string[]).map((t) => t.trim());
     }
 
+    if (b.faq !== undefined) {
+      const bad =
+        !Array.isArray(b.faq) ||
+        b.faq.length > 12 ||
+        b.faq.some((f) => {
+          if (typeof f !== "object" || f === null) return true;
+          const { q, a } = f as { q?: unknown; a?: unknown };
+          return (
+            typeof q !== "string" || typeof a !== "string" ||
+            q.trim().length === 0 || a.trim().length === 0 ||
+            q.length > 200 || a.length > 1500
+          );
+        });
+      if (bad) {
+        return { ok: false, error: '"faq" must be an array of up to 12 {q, a} objects (q ≤200 chars, a ≤1500).' };
+      }
+      out.faq = (b.faq as { q: string; a: string }[]).map((f) => ({ q: f.q.trim(), a: f.a.trim() }));
+    }
+
     if (b.status !== undefined) {
       if (b.status !== "draft" && b.status !== "published") {
         return { ok: false, error: '"status" must be "draft" or "published".' };
@@ -140,4 +160,21 @@ export async function getPublishedPost(slug: string): Promise<BlogPost | undefin
     .where(and(eq(blogPosts.slug, slug), eq(blogPosts.status, "published")))
     .limit(1);
   return row;
+}
+
+// Up to `limit` other published posts, ranked by shared tags then recency —
+// the "keep reading" band under every article.
+export async function getRelatedPosts(post: BlogPost, limit = 3): Promise<BlogPost[]> {
+  const others = await db
+    .select()
+    .from(blogPosts)
+    .where(and(eq(blogPosts.status, "published"), ne(blogPosts.id, post.id)))
+    .orderBy(desc(blogPosts.publishedAt))
+    .limit(40);
+  const mine = new Set(post.tags.map((t) => t.toLowerCase()));
+  return others
+    .map((p, i) => ({ p, score: p.tags.filter((t) => mine.has(t.toLowerCase())).length * 10 - i * 0.01 }))
+    .sort((a, b) => b.score - a.score)
+    .slice(0, limit)
+    .map((x) => x.p);
 }

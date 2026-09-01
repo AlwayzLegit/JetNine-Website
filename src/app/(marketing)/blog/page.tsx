@@ -84,29 +84,41 @@ export default async function BlogIndexPage() {
               </p>
             </Reveal>
           ) : (
-            <div className="border-y border-ink-3 divide-y divide-ink-3">
-              {posts.map((p) => (
-                <Reveal key={p.slug}>
+            <div className="grid grid-cols-1 gap-x-8 gap-y-14 md:grid-cols-2 lg:grid-cols-3">
+              {posts.map((p, i) => (
+                <Reveal key={p.slug} className={i === 0 ? "md:col-span-2 lg:col-span-3" : ""}>
                   <Link
                     href={`/blog/${p.slug}`}
-                    className="group grid grid-cols-[1fr_auto] items-baseline gap-6 py-8 max-md:grid-cols-1 max-md:gap-3"
+                    className={`group block ${i === 0 ? "grid grid-cols-1 items-end gap-8 lg:grid-cols-[3fr_2fr]" : ""}`}
                   >
-                    <div>
+                    <div className="aspect-[16/9] w-full overflow-hidden rounded-[2px] bg-ink-3">
+                      {p.heroImageUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={p.heroImageUrl}
+                          alt={p.heroImageAlt ?? p.title}
+                          loading={i === 0 ? "eager" : "lazy"}
+                          className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
+                        />
+                      ) : null}
+                    </div>
+                    <div className={i === 0 ? "" : "mt-5"}>
                       <p className="caption mb-3">
-                        {p.publishedAt ? dateFmt.format(p.publishedAt) : ""}
-                        {p.tags.length > 0 ? ` · ${p.tags.slice(0, 3).join(" · ")}` : ""}
+                        {p.tags[0] ?? "Notes from the desk"}
+                        {p.publishedAt ? ` · ${dateFmt.format(p.publishedAt)}` : ""}
+                        {` · ${readingMinutes(p.bodyMd)} min read`}
                       </p>
-                      <h2 className="font-serif text-[26px] font-normal leading-[1.2] tracking-tight text-bone transition-colors group-hover:text-clearance max-md:text-[21px]">
+                      <h2
+                        className={`font-serif font-normal leading-[1.2] tracking-tight text-bone transition-colors group-hover:text-clearance ${
+                          i === 0 ? "text-[34px] max-md:text-[24px]" : "text-[22px]"
+                        }`}
+                      >
                         {p.title}
                       </h2>
-                      <p className="mt-3 max-w-[70ch] text-[15px] leading-[1.6] text-bone-2">
+                      <p className="mt-3 max-w-[60ch] text-[15px] leading-[1.6] text-bone-2">
                         {p.description}
                       </p>
                     </div>
-                    <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-steel max-md:hidden">
-                      {readingMinutes(p.bodyMd)} min read{" "}
-                      <span className="arrow text-clearance">→</span>
-                    </span>
                   </Link>
                 </Reveal>
               ))}

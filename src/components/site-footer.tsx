@@ -34,6 +34,7 @@ const FOOTER_COLS: FooterCol[] = [
       { label: "About", href: "/about" },
       { label: "Contact", href: "/contact" },
       { label: "FAQ", href: "/faq" },
+      { label: "Good questions", href: "/questions" },
       { label: "Legal", href: "/legal" },
       { label: "My account", href: "/account" },
     ],

@@ -74,6 +74,17 @@ converts to 1536×864 webp, and stores it in the public `blog` bucket. Pass the
 returned `url` as `heroImageUrl`. Without `HF_TOKEN` it returns 503 **with the
 library embedded** so a caller can fall back in one step.
 
+**Ingest** (no token needed) — hand the endpoint any https image URL, e.g. one
+produced by an image-generation tool whose hosting is temporary, and it stores
+a durable 1536×864 webp copy in the bucket:
+
+```bash
+curl -sS -X POST https://jetnine.com/api/admin/blog/image \
+  -H "Authorization: Bearer $BLOG_ADMIN_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"slug": "how-empty-leg-flights-work", "sourceUrl": "https://example.org/generated.png"}'
+```
+
 **Library** — seven pre-generated heroes keyed by topic cluster:
 
 ```bash

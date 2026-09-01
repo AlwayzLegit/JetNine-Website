@@ -2,6 +2,7 @@ import type { MetadataRoute } from "next";
 import { FLEET } from "@/lib/fleet";
 import { GUIDE_CHAPTERS } from "@/lib/guides";
 import { MODELS } from "@/lib/models";
+import { ROUTES } from "@/lib/routes";
 
 // Marketing pages — static, change infrequently, every URL should be indexable.
 const MARKETING_ROUTES: { path: string; priority: number; changeFreq: "daily" | "weekly" | "monthly" }[] = [
@@ -45,6 +46,19 @@ export default function sitemap(): MetadataRoute.Sitemap {
     // Image extension: list the hero + 3 cabin shots Google can index
     // for image search. Helps surface real fleet photography in
     // category-intent visual queries ("light jet interior", etc.).
+    // Route landing pages + hub.
+    {
+      url: `${base}/routes`,
+      lastModified: now,
+      changeFrequency: "monthly" as const,
+      priority: 0.7,
+    },
+    ...ROUTES.map((r) => ({
+      url: `${base}/routes/${r.slug}`,
+      lastModified: now,
+      changeFrequency: "monthly" as const,
+      priority: 0.6,
+    })),
     // Aircraft model pages under each category.
     ...MODELS.map((m) => ({
       url: `${base}/aircraft/${m.category}/${m.slug}`,

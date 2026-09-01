@@ -320,7 +320,7 @@ const SEEDS: ModelSeed[] = [
     baggageCuFt: 195,
     ceilingFt: 51000,
     routes: [
-      { from: "LAX", to: "HND", label: "LA to Tokyo" },
+      { from: "LAX", to: "RJTT", label: "LA to Tokyo" },
       { from: "JFK", to: "DXB", label: "New York to Dubai" },
       { from: "SFO", to: "SYD", label: "San Francisco to Sydney" },
     ],
@@ -340,7 +340,7 @@ const SEEDS: ModelSeed[] = [
     routes: [
       { from: "LAX", to: "SYD", label: "LA to Sydney" },
       { from: "JFK", to: "HKG", label: "New York to Hong Kong" },
-      { from: "LAX", to: "HND", label: "LA to Tokyo" },
+      { from: "LAX", to: "RJTT", label: "LA to Tokyo" },
     ],
   },
   {

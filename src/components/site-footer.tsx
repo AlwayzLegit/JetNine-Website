@@ -23,6 +23,7 @@ const FOOTER_COLS: FooterCol[] = [
       { label: "On-demand", href: "/how-it-works" },
       { label: "Cost calculator", href: "/cost-calculator" },
       { label: "Pricing guide", href: "/guides" },
+      { label: "Routes", href: "/routes" },
       { label: "Empty legs", href: "/empty-legs" },
       { label: "Safety", href: "/safety" },
     ],

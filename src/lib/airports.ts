@@ -28,6 +28,7 @@ export const AIRPORTS: Airport[] = [
   { iata: "JAC", icao: "KJAC", city: "Jackson Hole", name: "Jackson Hole", lat: 43.61, lon: -110.74, tz: "MT" },
 
   // North America · Central & South
+  { iata: "MDW", icao: "KMDW", city: "Chicago", name: "Chicago Midway", lat: 41.79, lon: -87.75, tz: "CT" },
   { iata: "DAL", icao: "KDAL", city: "Dallas", name: "Dallas Love", lat: 32.85, lon: -96.85, tz: "CT" },
   { iata: "DFW", icao: "KDFW", city: "Dallas", name: "Dallas-Fort Worth Intl.", lat: 32.90, lon: -97.04, tz: "CT" },
   { iata: "HOU", icao: "KHOU", city: "Houston", name: "Hobby", lat: 29.65, lon: -95.28, tz: "CT" },
@@ -46,9 +47,12 @@ export const AIRPORTS: Airport[] = [
   { iata: "MIA", icao: "KMIA", city: "Miami", name: "Miami Intl.", lat: 25.79, lon: -80.29, tz: "ET" },
   { iata: "OPF", icao: "KOPF", city: "Miami", name: "Opa-Locka Exec.", lat: 25.91, lon: -80.28, tz: "ET" },
   { iata: "PBI", icao: "KPBI", city: "Palm Beach", name: "Palm Beach Intl.", lat: 26.68, lon: -80.10, tz: "ET" },
+  { iata: "JAX", icao: "KJAX", city: "Jacksonville", name: "Jacksonville Intl.", lat: 30.49, lon: -81.69, tz: "ET" },
 
-  // Canada / LATAM
+  // Canada / LATAM / Caribbean
   { iata: "YYZ", icao: "CYYZ", city: "Toronto", name: "Toronto Pearson", lat: 43.68, lon: -79.63, tz: "ET" },
+  { iata: "NAS", icao: "MYNN", city: "Nassau", name: "Lynden Pindling Intl.", lat: 25.04, lon: -77.47, tz: "ET" },
+  { iata: "SJD", icao: "MMSD", city: "Los Cabos", name: "Los Cabos Intl.", lat: 23.15, lon: -109.72, tz: "MT" },
   { iata: "GIG", icao: "SBGL", city: "Rio de Janeiro", name: "Rio Galeão", lat: -22.81, lon: -43.25, tz: "BRT" },
 
   // Europe

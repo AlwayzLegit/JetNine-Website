@@ -4,6 +4,7 @@ import { GUIDE_CHAPTERS } from "@/lib/guides";
 import { MODELS } from "@/lib/models";
 import { ROUTES } from "@/lib/routes";
 import { QUESTIONS } from "@/lib/questions";
+import { CITIES } from "@/lib/cities";
 
 // Marketing pages — static, change infrequently, every URL should be indexable.
 const MARKETING_ROUTES: { path: string; priority: number; changeFreq: "daily" | "weekly" | "monthly" }[] = [
@@ -59,6 +60,19 @@ export default function sitemap(): MetadataRoute.Sitemap {
       lastModified: now,
       changeFrequency: "monthly" as const,
       priority: q.slug === "what-does-a-private-jet-broker-do" ? 0.7 : 0.5,
+    })),
+    // City charter pages + hub.
+    {
+      url: `${base}/private-jet-charter`,
+      lastModified: now,
+      changeFrequency: "monthly" as const,
+      priority: 0.7,
+    },
+    ...CITIES.map((c) => ({
+      url: `${base}/private-jet-charter/${c.slug}`,
+      lastModified: now,
+      changeFrequency: "monthly" as const,
+      priority: 0.6,
     })),
     // Route landing pages + hub.
     {

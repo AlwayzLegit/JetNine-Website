@@ -7,6 +7,7 @@ import { ProofStrip } from "@/components/proof-strip";
 import { QuoteLauncher, RouteQuoteLink } from "@/components/quote-launcher";
 import { pageMetadata } from "@/lib/page-meta";
 import { ROUTES, getRoute, relatedRoutes, type CharterRoute } from "@/lib/routes";
+import { CITIES } from "@/lib/cities";
 import { FLEET, formatNm, type AircraftCategorySlug } from "@/lib/fleet";
 import { MODELS } from "@/lib/models";
 import { distanceNm } from "@/lib/airports";
@@ -337,6 +338,24 @@ export default async function RoutePage({ params }: RouteParams) {
             {route.to.city} to {route.from.city} identically; repositioning differences show up in
             the firm quote, not a different rate card.
           </p>
+          {(() => {
+            const guides = CITIES.filter(
+              (c) => c.name === route.from.city || c.name === route.to.city,
+            );
+            return guides.length > 0 ? (
+              <p className="mt-3 max-w-[70ch] text-[13px] leading-[1.6] text-steel">
+                City guides:{" "}
+                {guides.map((c, i) => (
+                  <span key={c.slug}>
+                    {i > 0 ? " · " : ""}
+                    <Link href={`/private-jet-charter/${c.slug}`} className="text-clearance">
+                      {c.name} airports &amp; lanes
+                    </Link>
+                  </span>
+                ))}
+              </p>
+            ) : null;
+          })()}
         </div>
       </section>
 

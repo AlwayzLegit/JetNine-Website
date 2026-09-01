@@ -23,6 +23,8 @@ export const AIRPORTS: Airport[] = [
   { iata: "SEA", icao: "KSEA", city: "Seattle", name: "Seattle-Tacoma Intl.", lat: 47.45, lon: -122.31, tz: "PT" },
   { iata: "LAS", icao: "KLAS", city: "Las Vegas", name: "Harry Reid Intl.", lat: 36.08, lon: -115.15, tz: "PT" },
   { iata: "HND", icao: "KHND", city: "Las Vegas", name: "Henderson Exec.", lat: 35.97, lon: -115.13, tz: "PT" },
+  { iata: "SAN", icao: "KSAN", city: "San Diego", name: "San Diego Intl.", lat: 32.73, lon: -117.19, tz: "PT" },
+  { iata: "CRQ", icao: "KCRQ", city: "Carlsbad", name: "McClellan-Palomar", lat: 33.13, lon: -117.28, tz: "PT" },
   { iata: "SDL", icao: "KSDL", city: "Scottsdale", name: "Scottsdale", lat: 33.62, lon: -111.91, tz: "MT" },
   { iata: "ASE", icao: "KASE", city: "Aspen", name: "Aspen-Pitkin", lat: 39.22, lon: -106.87, tz: "MT" },
   { iata: "JAC", icao: "KJAC", city: "Jackson Hole", name: "Jackson Hole", lat: 43.61, lon: -110.74, tz: "MT" },
@@ -33,6 +35,8 @@ export const AIRPORTS: Airport[] = [
   { iata: "DFW", icao: "KDFW", city: "Dallas", name: "Dallas-Fort Worth Intl.", lat: 32.90, lon: -97.04, tz: "CT" },
   { iata: "HOU", icao: "KHOU", city: "Houston", name: "Hobby", lat: 29.65, lon: -95.28, tz: "CT" },
   { iata: "BHM", icao: "KBHM", city: "Birmingham", name: "Birmingham-Shuttlesworth", lat: 33.56, lon: -86.75, tz: "CT" },
+  { iata: "PDK", icao: "KPDK", city: "Atlanta", name: "DeKalb-Peachtree", lat: 33.88, lon: -84.30, tz: "ET" },
+  { iata: "FTY", icao: "KFTY", city: "Atlanta", name: "Fulton County Exec.", lat: 33.78, lon: -84.52, tz: "ET" },
 
   // North America · East
   { iata: "TEB", icao: "KTEB", city: "New York", name: "Teterboro", lat: 40.85, lon: -74.06, tz: "ET" },

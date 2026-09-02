@@ -40,5 +40,6 @@ export const PRIMARY_NAV = [
   { href: "/memberships", label: "Programs" },
   { href: "/how-it-works", label: "Why JetNine" },
   { href: "/about", label: "About" },
+  { href: "/blog", label: "Blog" },
   { href: "/contact", label: "Contact" },
 ] as const;

@@ -2,10 +2,10 @@ import Fastify, { type FastifyReply, type FastifyRequest } from "fastify";
 import formbody from "@fastify/formbody";
 import websocket from "@fastify/websocket";
 import twilio from "twilio";
-import { config, urls } from "./config.js";
+import { config, isConfigured, missingEnv, urls } from "./config.js";
 import { CallSession } from "./relay/session.js";
 import type { HandoffData } from "./relay/messages.js";
-import { escalationDialTwiml, escalationFallbackTwiml, hangupTwiml, relayTwiml } from "./twiml.js";
+import { escalationDialTwiml, escalationFallbackTwiml, hangupTwiml, relayTwiml, unavailableTwiml } from "./twiml.js";
 import { getCallBySid, setRecording, updateCall } from "./db/queries.js";
 import { leadSummarySms, sendAlertSms } from "./escalation.js";
 
@@ -43,11 +43,25 @@ function assertTwilioSignature(req: FastifyRequest, reply: FastifyReply): boolea
 
 const xml = (reply: FastifyReply, body: string) => reply.type("text/xml").send(body);
 
-app.get("/health", async () => ({ ok: true, service: "jetnine-voice", model: config.anthropic.model }));
+app.get("/health", async (_req, reply) => {
+  const ready = isConfigured();
+  return reply.code(ready ? 200 : 503).send({
+    ok: ready,
+    service: "jetnine-voice",
+    model: config.anthropic.model,
+    tts: `${config.voice.ttsProvider}/${config.voice.ttsVoice || "default"}`,
+    stt: `${config.voice.sttProvider}/${config.voice.sttModel}`,
+    missingEnv,
+  });
+});
 
 app.post("/twiml", async (req, reply) => {
   if (!assertTwilioSignature(req, reply)) return;
   const body = req.body as TwilioBody;
+  if (!isConfigured()) {
+    req.log.error({ missingEnv }, "twiml: call received but service is not configured");
+    return xml(reply, unavailableTwiml());
+  }
   req.log.info({ callSid: body.CallSid, from: body.From }, "twiml: inbound call");
   return xml(reply, relayTwiml());
 });
@@ -129,5 +143,6 @@ app.get("/relay", { websocket: true }, (socket, req) => {
 });
 
 app.listen({ port: config.port, host: "0.0.0.0" }).then(() => {
+  if (!isConfigured()) app.log.warn({ missingEnv }, "NOT call-ready: set the missing env vars");
   app.log.info({ wss: urls.wss, model: config.anthropic.model, tts: config.voice.ttsVoice || "(catalog default)" }, "jetnine-voice listening");
 });

@@ -20,7 +20,7 @@ export function relayTwiml(): string {
     transcriptionProvider: config.voice.sttProvider,
     speechModel: config.voice.sttModel,
     language: config.voice.language,
-    interruptible: "true",
+    interruptible: "any",
     dtmfDetection: "true",
     reportInputDuringAgentSpeech: "none",
   };
@@ -60,4 +60,13 @@ export function escalationFallbackTwiml(): string {
 export function hangupTwiml(): string {
   return `<?xml version="1.0" encoding="UTF-8"?>
 <Response><Hangup/></Response>`;
+}
+
+/** Service booted without its credentials: never leave a caller in silence. */
+export function unavailableTwiml(): string {
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<Response>
+  <Say voice="Polly.Matthew-Neural">Thank you for calling JetNine. Our line is temporarily unavailable. Please try again shortly.</Say>
+  <Hangup/>
+</Response>`;
 }

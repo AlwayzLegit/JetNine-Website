@@ -3,9 +3,16 @@
 // here in one obvious place so swapping the voice (or, later, Jet's cloned
 // ElevenLabs voice) is an env change, not a code change.
 
+// Missing required vars are collected, not thrown: the HTTP server still
+// boots so /health can report exactly what is unset, and Render shows a
+// live (if not yet call-ready) service instead of a crash loop.
+export const missingEnv: string[] = [];
 function required(name: string): string {
   const v = process.env[name];
-  if (!v) throw new Error(`Missing required env var ${name} (see .env.example)`);
+  if (!v) {
+    missingEnv.push(name);
+    return "";
+  }
   return v;
 }
 const optional = (name: string, fallback: string) => process.env[name] ?? fallback;
@@ -53,11 +60,14 @@ export const config = {
     ttsVoice: optional("TTS_VOICE", ""),
     ttsModel: optional("TTS_MODEL", "flash_v2_5"),
     sttProvider: optional("STT_PROVIDER", "Deepgram"),
-    sttModel: optional("STT_MODEL", "nova-3"),
+    sttModel: optional("STT_MODEL", "nova-3-general"),
     language: optional("VOICE_LANGUAGE", "en-US"),
     recordingEnabled: flag("RECORDING_ENABLED", true),
   },
 } as const;
+
+/** True once every variable a live call needs is present. */
+export const isConfigured = () => missingEnv.length === 0;
 
 export const urls = {
   wss: `wss://${config.publicHost}/relay`,

@@ -7,11 +7,20 @@ import type { TranscriptTurn } from "./db/queries.js";
 // action> URL, and server.ts answers with <Dial> to the broker. This file
 // holds the REST-side pieces: recording start and the alert SMS.
 
-export const twilioClient = twilio(config.twilio.accountSid, config.twilio.authToken);
+let twilioClient: ReturnType<typeof twilio> | null = null;
+export function getTwilio() {
+  if (!twilioClient) {
+    if (!config.twilio.accountSid || !config.twilio.authToken) {
+      throw new Error("Twilio is not configured (TWILIO_ACCOUNT_SID / TWILIO_AUTH_TOKEN)");
+    }
+    twilioClient = twilio(config.twilio.accountSid, config.twilio.authToken);
+  }
+  return twilioClient;
+}
 
 export async function startRecording(callSid: string): Promise<void> {
   if (!config.voice.recordingEnabled) return;
-  await twilioClient.calls(callSid).recordings.create({
+  await getTwilio().calls(callSid).recordings.create({
     recordingChannels: "dual",
     recordingStatusCallback: urls.https("/recording-status"),
     recordingStatusCallbackEvent: ["completed"],
@@ -46,7 +55,7 @@ export async function sendAlertSms(body: string, log: { info: (o: unknown, m?: s
     return;
   }
   try {
-    await twilioClient.messages.create({ to: config.escalation.alertPhone, from: config.twilio.number, body });
+    await getTwilio().messages.create({ to: config.escalation.alertPhone, from: config.twilio.number, body });
     log.info({ to: config.escalation.alertPhone }, "SMS alert sent");
   } catch (err) {
     // Most likely cause on a new number: A2P/toll-free registration pending.

@@ -28,7 +28,7 @@ type State = "connecting" | "active" | "ending" | "escalating" | "closed";
 
 // Safety net under the model's own judgement: an explicit ask for a person
 // transfers without waiting for the LLM to agree.
-const HUMAN_ASK = /\b(?:speak|talk|connect(?:ed)?|get me|transfer(?: me)?)\s+(?:to|with)\s+(?:a |an |the )?(?:human|person|someone|agent|representative|broker|live person)\b|\b(?:real|actual|live) (?:person|human|agent)\b|\boperator\b|\bnot a (?:bot|robot|machine)\b/i;
+export const HUMAN_ASK = /\b(?:speak|talk|connect(?:ed)?|transfer(?: me)?)\s+(?:to|with)\s+(?:a |an |the )?(?:human|person|someone|agent|representative|broker|live person)\b|\bget me (?:a |an |the )?(?:human|person|someone|agent|representative|broker)\b|\b(?:real|actual|live) (?:person|human|agent)\b|\boperator\b|\bnot a (?:bot|robot|machine)\b/i;
 
 const FILLER = "One moment.";
 

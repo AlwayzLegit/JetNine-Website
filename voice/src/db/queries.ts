@@ -1,4 +1,4 @@
-import { db } from "./client.js";
+import { getDb } from "./client.js";
 
 export type TranscriptTurn = {
   role: "user" | "assistant" | "system";
@@ -24,7 +24,7 @@ export type TripRow = {
 };
 
 export async function createCall(input: { callSid: string; from: string; to: string }) {
-  const { data, error } = await db
+  const { data, error } = await getDb()
     .from("voice_calls")
     .upsert(
       { call_sid: input.callSid, from_number: input.from, to_number: input.to },
@@ -38,7 +38,7 @@ export async function createCall(input: { callSid: string; from: string; to: str
 
 /** Returning-caller match: most recent lead for this number plus its open trips. */
 export async function lookupCaller(phone: string): Promise<{ lead: LeadRow | null; trips: TripRow[] }> {
-  const { data: lead } = await db
+  const { data: lead } = await getDb()
     .from("voice_leads")
     .select("id, phone, name, email")
     .eq("phone", phone)
@@ -46,7 +46,7 @@ export async function lookupCaller(phone: string): Promise<{ lead: LeadRow | nul
     .limit(1)
     .maybeSingle();
   if (!lead) return { lead: null, trips: [] };
-  const { data: trips } = await db
+  const { data: trips } = await getDb()
     .from("voice_trip_requests")
     .select("id, origin, destination, depart_date, depart_date_iso, return_date, pax, status, created_at")
     .eq("lead_id", lead.id)
@@ -76,11 +76,11 @@ export async function upsertLead(input: {
     if (input.name) patch.name = input.name;
     if (input.email) patch.email = input.email;
     if (input.phone) patch.phone = input.phone;
-    const { error } = await db.from("voice_leads").update(patch).eq("id", input.leadId);
+    const { error } = await getDb().from("voice_leads").update(patch).eq("id", input.leadId);
     if (error) throw error;
     return input.leadId;
   }
-  const { data, error } = await db
+  const { data, error } = await getDb()
     .from("voice_leads")
     .insert({ phone: input.phone, name: input.name ?? null, email: input.email ?? null })
     .select("id")
@@ -110,14 +110,14 @@ export async function upsertTripRequest(input: {
     Object.entries(input.fields).filter(([, v]) => v !== undefined && v !== null && v !== ""),
   );
   if (input.tripId) {
-    const { error } = await db
+    const { error } = await getDb()
       .from("voice_trip_requests")
       .update({ ...clean, updated_at: new Date().toISOString() })
       .eq("id", input.tripId);
     if (error) throw error;
     return input.tripId;
   }
-  const { data, error } = await db
+  const { data, error } = await getDb()
     .from("voice_trip_requests")
     .insert({ lead_id: input.leadId, call_id: input.callId, ...clean })
     .select("id")
@@ -133,7 +133,7 @@ export async function saveMessage(input: {
   reason: string;
   callback?: string | null;
 }) {
-  const { error } = await db.from("voice_messages").insert({
+  const { error } = await getDb().from("voice_messages").insert({
     call_id: input.callId,
     name: input.name ?? null,
     company: input.company ?? null,
@@ -144,7 +144,7 @@ export async function saveMessage(input: {
 }
 
 export async function updateCall(callId: string, patch: Record<string, unknown>) {
-  const { error } = await db
+  const { error } = await getDb()
     .from("voice_calls")
     .update({ ...patch, updated_at: new Date().toISOString() })
     .eq("id", callId);
@@ -173,7 +173,7 @@ export async function finalizeCall(input: {
 }
 
 export async function setRecording(callSid: string, recordingSid: string, recordingUrl: string) {
-  const { error } = await db
+  const { error } = await getDb()
     .from("voice_calls")
     .update({ recording_sid: recordingSid, recording_url: recordingUrl, updated_at: new Date().toISOString() })
     .eq("call_sid", callSid);
@@ -181,7 +181,7 @@ export async function setRecording(callSid: string, recordingSid: string, record
 }
 
 export async function getCallBySid(callSid: string) {
-  const { data } = await db
+  const { data } = await getDb()
     .from("voice_calls")
     .select("id, lead_id, from_number, summary, transcript, outcome")
     .eq("call_sid", callSid)

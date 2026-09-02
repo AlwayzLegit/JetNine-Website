@@ -121,6 +121,37 @@ once registration clears. Voice webhooks need no registration.
    `completed` plays the callback reassurance, hangs up, and sends the
    "broker missed" SMS.
 
+## Going live — runbook
+
+1. **Render** (done): service `jetnine-voice`, https://jetnine-voice.onrender.com,
+   root directory `voice`. `/health` returns 503 with `missingEnv` until every
+   secret is set, then 200. Move the plan from free to starter before pointing
+   real traffic at it — free instances sleep after 15 idle minutes and a
+   sleeping service misses Twilio's webhook timeout.
+2. **Secrets** in Render → Environment: `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`,
+   `TWILIO_NUMBER`, `ANTHROPIC_API_KEY`, `SUPABASE_SERVICE_ROLE_KEY`,
+   `ESCALATION_PHONE`, `ALERT_PHONE`. Render redeploys on save.
+3. **Twilio number.** Buy a voice-capable number (a fresh one for testing is
+   fine). Console → Phone Numbers → the number → Voice → *A call comes in*:
+   Webhook, `https://jetnine-voice.onrender.com/twiml`, HTTP POST. Save.
+   ConversationRelay needs the account's AI/ML features addendum accepted once
+   (Console prompts for it on first use).
+4. **Existing JetNine number on a SIM.** Keep it. Set carrier call forwarding
+   from the SIM number to the Twilio number — unconditional for a full
+   takeover, or busy/no-answer if a human should get first pick. Twilio passes
+   the original caller ID through and the `setup` message carries
+   `forwardedFrom`. If forwarding is unconditional, `ESCALATION_PHONE` must be
+   a different number or the transfer loops back to the agent.
+5. **First calls.** Run three scripted calls and check Supabase after each:
+   - "Flying tomorrow" → expect a `voice_leads` + `voice_trip_requests` row with
+     `urgency = within_48h`, an `escalated` call outcome, and a transfer.
+   - Ordinary quote, dates next month → lead saved, call ends with `lead`.
+   - "Let me talk to a person" → immediate transfer.
+6. **Voice.** Audition with `TTS_VOICE` set to each candidate (see
+   `.env.example`), one redeploy per voice. Empty means Twilio's default.
+7. **SMS alerts.** Complete A2P 10DLC or toll-free verification for the number,
+   then set `SMS_ALERTS_ENABLED=true`.
+
 ## Open items (see the hand-off brief)
 
 Twilio number choice, `ESCALATION_PHONE` / `ALERT_PHONE` values, recording

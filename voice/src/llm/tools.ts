@@ -107,7 +107,7 @@ export type ToolContext = {
 
 const HOURS_48 = 48 * 60 * 60 * 1000;
 
-function withinFortyEightHours(iso: string | undefined): boolean {
+export function withinFortyEightHours(iso: string | undefined): boolean {
   if (!iso) return false;
   const t = Date.parse(iso);
   if (Number.isNaN(t)) return false;

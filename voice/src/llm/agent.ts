@@ -7,7 +7,11 @@ import { TOOLS, runTool, type ToolContext } from "./tools.js";
 // caller, run any tools it asks for, and loop until it stops. Streaming
 // manual loop (non-beta) so an interrupt can abort the in-flight request.
 
-const client = new Anthropic({ apiKey: config.anthropic.apiKey });
+let client: Anthropic | null = null;
+function getClient(): Anthropic {
+  if (!client) client = new Anthropic({ apiKey: config.anthropic.apiKey || undefined });
+  return client;
+}
 
 export type TurnCallbacks = {
   /** A text delta to speak now. */
@@ -38,7 +42,7 @@ export async function runTurn(
   for (let iteration = 0; iteration < 6; iteration++) {
     if (signal.aborted) return { spokenText, aborted: true };
 
-    const stream = client.messages.stream(
+    const stream = getClient().messages.stream(
       {
         model: config.anthropic.model,
         max_tokens: config.anthropic.maxTokens,

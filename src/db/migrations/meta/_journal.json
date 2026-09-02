@@ -267,6 +267,13 @@
       "when": 1781500000000,
       "tag": "0037_blog_storage_bucket",
       "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "7",
+      "when": 1781600000000,
+      "tag": "0038_voice_agent",
+      "breakpoints": true
     }
   ]
 }

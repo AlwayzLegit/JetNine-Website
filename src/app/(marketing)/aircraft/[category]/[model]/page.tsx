@@ -5,6 +5,7 @@ import { Reveal } from "@/components/reveal";
 import { Placeholder } from "@/components/placeholder";
 import { ClosingCTA } from "@/components/closing-cta";
 import { ProofStrip } from "@/components/proof-strip";
+import { DeskNotes } from "@/components/desk-notes";
 import { QuoteLauncher, RouteQuoteLink } from "@/components/quote-launcher";
 import { pageMetadata } from "@/lib/page-meta";
 import { MODELS, getModel, siblingModels } from "@/lib/models";
@@ -19,6 +20,9 @@ import { SITE } from "@/lib/constants";
 // audited competitor forgot at least one of: the hourly rate up front,
 // valid numeric Product+Offer schema, and FAQPage markup.
 type RouteParams = { params: Promise<{ category: string; model: string }> };
+
+// Blog band is DB-backed: regenerate hourly so new posts surface without a deploy.
+export const revalidate = 3600;
 
 export function generateStaticParams() {
   return MODELS.map((m) => ({ category: m.category, model: m.slug }));
@@ -385,6 +389,8 @@ export default async function ModelPage({ params }: RouteParams) {
           </div>
         </div>
       </section>
+
+      <DeskNotes terms={[m.shortName, m.manufacturer, entry.name, "aircraft", "range"]} heading={`From the desk · ${entry.name}`} />
 
       <QuoteLauncher
         context={`model-${m.slug}`}

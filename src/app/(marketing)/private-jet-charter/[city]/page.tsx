@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { Reveal } from "@/components/reveal";
 import { ClosingCTA } from "@/components/closing-cta";
 import { ProofStrip } from "@/components/proof-strip";
+import { DeskNotes } from "@/components/desk-notes";
 import { QuoteLauncher, RouteQuoteLink } from "@/components/quote-launcher";
 import { RateTable } from "@/components/rate-table";
 import { pageMetadata } from "@/lib/page-meta";
@@ -26,6 +27,9 @@ import { SITE } from "@/lib/constants";
 // chain city → route pages → category/model pages. Scoped to the deep
 // top markets; the registry grows only after these index.
 type RouteParams = { params: Promise<{ city: string }> };
+
+// Blog band is DB-backed: regenerate hourly so new posts surface without a deploy.
+export const revalidate = 3600;
 
 export function generateStaticParams() {
   return CITIES.map((c) => ({ city: c.slug }));
@@ -385,6 +389,8 @@ export default async function CityPage({ params }: RouteParams) {
           </ul>
         </div>
       </section>
+
+      <DeskNotes terms={[city.name, "cities", "airports"]} heading={`From the desk · ${city.name}`} />
 
       <QuoteLauncher
         context={`city-${city.slug}`}

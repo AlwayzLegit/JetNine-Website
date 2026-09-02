@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Reveal } from "@/components/reveal";
 import { ClosingCTA } from "@/components/closing-cta";
+import { DeskNotes } from "@/components/desk-notes";
 import { QuoteLauncher } from "@/components/quote-launcher";
 import { pageMetadata } from "@/lib/page-meta";
 import { QUESTIONS, getQuestion, relatedQuestions } from "@/lib/questions";
@@ -14,6 +15,9 @@ import { RATES_UPDATED } from "@/lib/rates";
 // snippets and AI answers lift — and robots.txt explicitly invites the
 // AI crawlers to lift it.
 type RouteParams = { params: Promise<{ slug: string }> };
+
+// Blog band is DB-backed: regenerate hourly so new posts surface without a deploy.
+export const revalidate = 3600;
 
 export function generateStaticParams() {
   return QUESTIONS.map((q) => ({ slug: q.slug }));
@@ -168,6 +172,8 @@ export default async function QuestionPage({ params }: RouteParams) {
           </aside>
         </div>
       </section>
+
+      <DeskNotes terms={[question.category, ...question.q.toLowerCase().split(/\W+/).filter((w) => w.length > 4)]} />
 
       <QuoteLauncher
         context={`question-${question.slug}`}

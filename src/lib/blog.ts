@@ -184,3 +184,27 @@ export async function getRelatedPosts(post: BlogPost, limit = 3): Promise<BlogPo
     .slice(0, limit)
     .map((x) => x.p);
 }
+
+// Up to `limit` published posts relevant to a page, by tag/title match on
+// the page's terms, newest first as the tiebreak and as the fallback when
+// nothing matches. Cached per request so a page rendering several bands
+// hits the DB once.
+import { cache } from "react";
+const cachedPublished = cache(async () => getPublishedPosts());
+
+export async function getPostsForTopics(terms: string[], limit = 3): Promise<BlogPost[]> {
+  const posts = await cachedPublished();
+  const needles = terms.map((t) => t.toLowerCase().trim()).filter((t) => t.length > 2);
+  const scored = posts.map((p, i) => {
+    const tags = p.tags.map((t) => t.toLowerCase());
+    const title = p.title.toLowerCase();
+    let score = 0;
+    for (const n of needles) {
+      if (tags.some((t) => t === n || t.includes(n) || n.includes(t))) score += 3;
+      if (title.includes(n)) score += 1;
+    }
+    return { p, score: score * 100 - i };
+  });
+  scored.sort((a, b) => b.score - a.score);
+  return scored.slice(0, limit).map((x) => x.p);
+}

@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { Reveal } from "@/components/reveal";
 import { ClosingCTA } from "@/components/closing-cta";
 import { ProofStrip } from "@/components/proof-strip";
+import { DeskNotes } from "@/components/desk-notes";
 import { QuoteLauncher, RouteQuoteLink } from "@/components/quote-launcher";
 import { pageMetadata } from "@/lib/page-meta";
 import { ROUTES, getRoute, relatedRoutes, type CharterRoute } from "@/lib/routes";
@@ -27,6 +28,9 @@ import { SITE } from "@/lib/constants";
 // incumbents leave out, computed by the quote engine so no route page
 // can contradict the wizard.
 type RouteParams = { params: Promise<{ slug: string }> };
+
+// Blog band is DB-backed: regenerate hourly so new posts surface without a deploy.
+export const revalidate = 3600;
 
 export function generateStaticParams() {
   return ROUTES.map((r) => ({ slug: r.slug }));
@@ -410,6 +414,8 @@ export default async function RoutePage({ params }: RouteParams) {
           </div>
         </section>
       ) : null}
+
+      <DeskNotes terms={[route.from.city, route.to.city, "routes"]} heading={`From the desk · ${route.from.city} and ${route.to.city}`} />
 
       <QuoteLauncher
         context={`route-${route.slug}`}

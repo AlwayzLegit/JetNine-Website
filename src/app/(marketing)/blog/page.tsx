@@ -11,12 +11,16 @@ import { readingMinutes } from "@/lib/markdown";
 // DB-touching route; see the comment in src/db/index.ts).
 export const dynamic = "force-dynamic";
 
-export const metadata: Metadata = pageMetadata({
+const base = pageMetadata({
   title: "Private Jet Charter Blog — Notes From the Desk",
   description:
     "Charter pricing moves, route intel, aircraft picks, and the occasional strong opinion — written by the JetNine dispatch desk, with the numbers left in.",
   path: "/blog",
 });
+export const metadata: Metadata = {
+  ...base,
+  alternates: { ...base.alternates, types: { "application/rss+xml": "/blog/feed.xml" } },
+};
 
 const dateFmt = new Intl.DateTimeFormat("en-US", {
   year: "numeric",

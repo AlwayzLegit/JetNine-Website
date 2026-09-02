@@ -12,7 +12,7 @@ import { SITE } from "@/lib/constants";
 export const metadata: Metadata = pageMetadata({
   title: "Jet Card & Memberships — Locked Hourly Rates",
   description:
-    "Three ways to fly — on-demand, JetNine Card, or Reserve. None of them require a membership. Locked rates, refundable deposits, no peak surcharges.",
+    "JetNine jet card and memberships: locked hourly rates, refundable deposits, no peak surcharges — or fly on-demand with no commitment at all.",
   path: "/memberships",
 });
 
@@ -266,7 +266,7 @@ export default function MembershipsPage() {
       />
       <PageHeader
         kicker="Memberships · jet card · on-demand"
-        title="Three ways to fly. None of them require a membership."
+        title="Jet card, reserve, or on-demand: three ways to fly, no membership required."
         lead="Most charter brokers want you on a yearly retainer. We don't. The default is on-demand — pay per flight, locked pricing, zero commitment. The jet card and reserve programs exist because some clients want fixed hourly rates and guaranteed availability. Pick the one that fits your year."
         imageSrc="/images/hero/memberships.webp"
         imagePosition="58% center"

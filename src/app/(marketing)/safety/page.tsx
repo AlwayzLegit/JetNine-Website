@@ -10,7 +10,7 @@ import { SITE } from "@/lib/constants";
 export const metadata: Metadata = pageMetadata({
   title: "Private Jet Safety — ARG/US & Wyvern Vetting",
   description:
-    "The floor is high. The ceiling is mandatory. Every operator audited every twelve months, with spot-checks in between.",
+    "Private jet safety at JetNine: every operator vetted against a written floor — ARG/US or Wyvern audited, re-checked every twelve months, spot-checked between.",
   path: "/safety",
 });
 
@@ -51,7 +51,7 @@ export default function SafetyPage() {
     <>
       <PageHeader
         kicker="Safety · standards & vetting"
-        title="The floor is high. The ceiling is mandatory."
+        title="Private jet safety standards: the floor is high, the ceiling is mandatory."
         lead="Every operator in our network meets a written safety floor before they're eligible for a single flight. We re-audit every twelve months. The protocol is below — the same one our chief pilot uses to vet his own family's flights."
         imageSrc="/images/hero/safety.webp"
         imagePosition="center"

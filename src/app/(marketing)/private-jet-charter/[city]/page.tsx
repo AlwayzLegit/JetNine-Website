@@ -364,6 +364,28 @@ export default async function CityPage({ params }: RouteParams) {
         </div>
       </section>
 
+      {/* ─── Other markets — every city links every other city, so no
+             market page depends on the hub alone for its inbound links. */}
+      <section className="border-t border-ink-3 py-20 max-md:py-14">
+        <div className="container-jn">
+          <Reveal>
+            <p className="caption mb-8">— Also flying from</p>
+          </Reveal>
+          <ul className="grid grid-cols-2 gap-x-8 gap-y-3 md:grid-cols-3 lg:grid-cols-5">
+            {CITIES.filter((c) => c.slug !== city.slug).map((c) => (
+              <li key={c.slug}>
+                <Link
+                  href={`/private-jet-charter/${c.slug}`}
+                  className="text-[14px] text-bone-2 transition-colors hover:text-clearance"
+                >
+                  {c.name}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </section>
+
       <QuoteLauncher
         context={`city-${city.slug}`}
         defaultFrom={city.primary.iata}

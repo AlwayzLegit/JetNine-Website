@@ -100,38 +100,6 @@ export default function CostCalculatorPage() {
   const trips = sampleTrips();
   const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL || "https://jetnine.com").replace(/\/$/, "");
 
-  // WebApplication: this page is a working estimator, not an article.
-  // AggregateOffer carries the numeric rate card (audit: three of four
-  // competitors ship malformed or missing Offer schema; valid numeric
-  // values are an easy structured-data edge).
-  const appJsonLd = {
-    "@context": "https://schema.org",
-    "@type": "WebApplication",
-    name: "JetNine Private Jet Cost Calculator",
-    url: `${siteUrl}/cost-calculator`,
-    applicationCategory: "TravelApplication",
-    operatingSystem: "Web",
-    offers: {
-      "@type": "AggregateOffer",
-      priceCurrency: "USD",
-      lowPrice: RATES[0].lockedUsd,
-      highPrice: RATES[RATES.length - 1].marketHighUsd,
-      offerCount: RATES.length,
-      offers: RATES.map((r) => ({
-        "@type": "Offer",
-        name: `${r.category} jet charter`,
-        priceCurrency: "USD",
-        priceSpecification: {
-          "@type": "UnitPriceSpecification",
-          price: r.marketLowUsd,
-          priceCurrency: "USD",
-          unitText: "hour",
-        },
-      })),
-    },
-    provider: { "@id": `${siteUrl}/#organization` },
-  };
-
   const faqJsonLd = {
     "@context": "https://schema.org",
     "@type": "FAQPage",
@@ -153,11 +121,6 @@ export default function CostCalculatorPage() {
 
   return (
     <>
-      <script
-        type="application/ld+json"
-        // Build-time stringified site data — not user-controlled.
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(appJsonLd) }}
-      />
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }}

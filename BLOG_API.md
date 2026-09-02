@@ -35,7 +35,7 @@ get a plain 401.
 
 | Field | Required | Notes |
 | --- | --- | --- |
-| `title` | yes | ≤200 chars; becomes the H1 and `<title>` |
+| `title` | yes | ≤60 chars (the site appends ` · JetNine`); becomes the H1 and `<title>` |
 | `description` | yes | ≤160 chars; meta description + on-page standfirst |
 | `bodyMd` | yes | Full article as markdown (GFM: tables, lists, images) |
 | `slug` | no | Lowercase-hyphenated; derived from `title` if omitted |

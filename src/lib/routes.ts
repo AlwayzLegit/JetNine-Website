@@ -179,12 +179,17 @@ export function getRoute(slug: string): CharterRoute | undefined {
 }
 
 export function relatedRoutes(route: CharterRoute, limit = 3): CharterRoute[] {
-  return ROUTES.filter(
+  const shared = ROUTES.filter(
     (r) =>
       r.slug !== route.slug &&
       (r.from.city === route.from.city ||
         r.to.city === route.to.city ||
         r.from.city === route.to.city ||
         r.to.city === route.from.city),
-  ).slice(0, limit);
+  );
+  // Lanes that share no city with this one (Jackson Hole, say) still get
+  // a full band — back-fill with the strongest remaining routes so every
+  // route page carries at least `limit` internal links to siblings.
+  const fill = ROUTES.filter((r) => r.slug !== route.slug && !shared.includes(r));
+  return [...shared, ...fill].slice(0, limit);
 }

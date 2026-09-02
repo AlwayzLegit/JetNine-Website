@@ -172,11 +172,14 @@ export default async function ModelPage({ params }: RouteParams) {
 
   return (
     <>
-      <script
-        type="application/ld+json"
-        // Build-time stringified site data — not user-controlled.
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(productJsonLd) }}
-      />
+      {/* Product rich results require offers; turboprops have no published rate, so they get no Product block rather than an invalid one. */}
+      {rate ? (
+        <script
+          type="application/ld+json"
+          // Build-time stringified site data — not user-controlled.
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(productJsonLd) }}
+        />
+      ) : null}
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}

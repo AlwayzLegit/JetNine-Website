@@ -54,12 +54,18 @@ export function validatePostInput(
     if (typeof v !== "string" || v.trim().length === 0) {
       throw new Error(`"${key}" must be a non-empty string.`);
     }
-    if (v.length > max) throw new Error(`"${key}" exceeds ${max} characters.`);
+    if (v.length > max) {
+      throw new Error(
+        key === "title"
+          ? `"title" exceeds ${max} characters — the site appends " · JetNine", and titles over ~70 total get truncated in search results.`
+          : `"${key}" exceeds ${max} characters.`,
+      );
+    }
     return v.trim();
   };
 
   try {
-    const title = str("title", 200, true);
+    const title = str("title", 60, true);
     if (title !== null) out.title = title;
 
     const description = str("description", 160, true);

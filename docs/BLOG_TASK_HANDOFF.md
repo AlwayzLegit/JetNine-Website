@@ -20,11 +20,13 @@ the owner's machine.
   daily poster.
 
 **Needs the owner**
-- Create the scheduled task in Cowork with the prompt below (no connectors,
-  no folder — only HTTPS requests).
+- Create the scheduled task in Cowork with the prompt below (no folder —
+  only HTTPS requests plus the Hugging Face connector for the hero image).
 - Paste the blog API key (`BLOG_ADMIN_API_KEY` in Vercel) into the prompt.
-- Recommended: add `HF_TOKEN` to Vercel so every post gets a unique
-  generated hero instead of a library image.
+- Enable the Hugging Face MCP connector on the task. Its Z-Image-Turbo tool
+  generates the hero; the site's image endpoint then ingests it (no
+  `HF_TOKEN` on Vercel needed — that variable only matters for a caller
+  with no image tool of its own).
 - Keep the machine awake at the run time (Cowork tasks run locally).
 
 ## Setting up the task in Cowork
@@ -41,7 +43,7 @@ the owner's machine.
 ## Prompt
 
 ```text
-Write and publish today's article on the JetNine blog (https://jetnine.com/blog). Today's date is in your context — use it for seasonal angles. Everything you need is on the live site and its API; you need no connectors and no local files, only the ability to make HTTPS requests (curl or an equivalent).
+Write and publish today's article on the JetNine blog (https://jetnine.com/blog). Today's date is in your context — use it for seasonal angles. Everything you need is on the live site and its API plus the Hugging Face connector for the hero image; you need no local files, only the ability to make HTTPS requests (curl or an equivalent).
 
 Credentials: the blog API key is <<BLOG_ADMIN_API_KEY>>. Send it as an "Authorization: Bearer <key>" header on every request to https://jetnine.com/api/admin/blog and its sub-paths.
 
@@ -52,7 +54,7 @@ Credentials: the blog API key is <<BLOG_ADMIN_API_KEY>>. Send it as an "Authoriz
 3. WRITE. 900–1,400 words in the JetNine desk voice: direct, concrete, first-person-plural dispatch-desk perspective, dry wit welcome, no marketing fluff. GitHub-flavored markdown with 4–6 "##" sections (the page builds a table of contents from them). Put the target phrase naturally in the title, the description and the first paragraph. Include 3–6 internal links as site-relative paths taken from the sitemap (for example /cost-calculator, /guides, /empty-legs, /routes/…, /private-jet-charter/…, /aircraft/…, /questions/…, /safety/…, /blog/…). Before posting, request every internal link target on https://jetnine.com and confirm it returns HTTP 200; fix or drop any that fail.
    Hard rules: never hand-type charter prices, hourly rates or discount percentages that can go stale — link to /cost-calculator, /guides or the relevant route or city page instead; statutory numbers (7.5% federal excise tax, FAA Part 135 / Part 295) are fine. Never invent reviews, ratings, statistics, staff names, client stories or testimonials. Leave the author field unset. title ≤ 60 characters (the site appends " · JetNine"); description ≤ 160 characters; 2–4 tags; slug lowercase-hyphenated; faq: 3–5 {q, a} pairs answering the questions a reader of this topic actually asks, each answer 1–3 sentences.
 
-4. HERO IMAGE — every post ships with one. First POST https://jetnine.com/api/admin/blog/image with JSON {"slug": "<slug>", "prompt": "<an editorial private-aviation photograph specific to the article's subject, natural light, no text, no logos, no visible faces>"}. On 201, use the returned "url" as heroImageUrl. On 503 (generation not configured), the response includes a "library" array — or GET https://jetnine.com/api/admin/blog/library — pick the entry whose clusters best match the topic and use its url and alt. Always set a specific one-sentence heroImageAlt.
+4. HERO IMAGE — every post ships with one, generated for this article. Call the Hugging Face tool gr2_z_image_turbo_generate (Z-Image-Turbo) with resolution "1536x864 ( 16:9 )", steps 8, random_seed true, and a prompt of the form: "Editorial private-aviation photograph: <the article's specific subject — aircraft type, airport, season, time of day>. Natural light, cinematic, realistic, no text, no logos, no visible faces." The tool returns an https image URL. Then POST https://jetnine.com/api/admin/blog/image with JSON {"slug": "<slug>", "sourceUrl": "<that https URL>"}. On 201 the response "url" is the durable hero URL — use it as heroImageUrl. If the tool or the ingest fails twice, fall back to GET https://jetnine.com/api/admin/blog/library and pick the entry whose clusters best match the topic (use its url and alt). Always set a specific one-sentence heroImageAlt describing what the image shows.
 
 5. PUBLISH. POST https://jetnine.com/api/admin/blog with Content-Type application/json and a body containing title, description, slug, tags, faq, heroImageUrl, heroImageAlt, bodyMd and "status": "published". On 409 choose a different slug — never overwrite. Never PUT or DELETE any existing post in this task.
 
@@ -67,13 +69,13 @@ Finish with a three-line summary: the URL, the topic cluster chosen, and the her
 | --- | --- | --- | --- |
 | `BLOG_ADMIN_API_KEY` | Vercel | set | Bearer token for every admin blog endpoint |
 | `SUPABASE_SERVICE_ROLE_KEY` | Vercel | set | Image endpoint stores heroes in the public `blog` bucket |
-| `HF_TOKEN` | Vercel | recommended | Server-side hero generation via `POST /api/admin/blog/image {"prompt"}`; without it posts use the library |
-| `BLOG_IMAGE_MODEL` | Vercel | optional | Override the Inference-router model (default FLUX.1-schnell) |
+| `HF_TOKEN` | Vercel | not needed | Only for server-side generation via `POST /api/admin/blog/image {"prompt"}` when the caller has no image tool; the Cowork task generates through the Hugging Face connector and ingests with `sourceUrl` |
+| `BLOG_IMAGE_MODEL` | Vercel | optional | Override the Inference-router model for the `prompt` path (default FLUX.1-schnell) |
 
 ## Daily bar
 
 - One new URL under /blog, HTTP 200, listed on the index with a hero thumbnail.
-- A hero specific to the article when `HF_TOKEN` is set; library otherwise.
+- A hero generated for the article (Z-Image-Turbo via the Hugging Face connector); library only as the fallback.
 - Title ≤ 60 chars; title/description/opening paragraph carry the target phrase.
 - 3–6 internal links, all verified 200, all taken from the live sitemap.
 - FAQ of 3–5 real questions, emitted as FAQPage schema.

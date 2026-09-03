@@ -187,9 +187,18 @@ export function relatedRoutes(route: CharterRoute, limit = 3): CharterRoute[] {
         r.from.city === route.to.city ||
         r.to.city === route.from.city),
   );
-  // Lanes that share no city with this one (Jackson Hole, say) still get
-  // a full band — back-fill with the strongest remaining routes so every
-  // route page carries at least `limit` internal links to siblings.
+  // Lanes that share no city with this one still get a full band —
+  // back-fill with the remaining routes so every route page carries at
+  // least `limit` internal links to siblings.
   const fill = ROUTES.filter((r) => r.slug !== route.slug && !shared.includes(r));
-  return [...shared, ...fill].slice(0, limit);
+  // Rotate from this route's own position instead of always taking the
+  // first `limit` in file order: with ten Los Angeles lanes and a band of
+  // three, file order meant the same three lanes collected every inbound
+  // link and the rest (LA–Jackson Hole) were reachable only from the hub.
+  // Walking forward from the route's index spreads the links so each
+  // lane is linked from the `limit` lanes preceding it.
+  const i = ROUTES.findIndex((r) => r.slug === route.slug);
+  const forward = (r: CharterRoute) => (ROUTES.indexOf(r) - i + ROUTES.length) % ROUTES.length;
+  const byForward = (a: CharterRoute, b: CharterRoute) => forward(a) - forward(b);
+  return [...shared.sort(byForward), ...fill.sort(byForward)].slice(0, limit);
 }

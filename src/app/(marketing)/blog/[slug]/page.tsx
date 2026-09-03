@@ -5,7 +5,7 @@ import { pageMetadata } from "@/lib/page-meta";
 import { Reveal } from "@/components/reveal";
 import { ClosingCTA } from "@/components/closing-cta";
 import { QuoteLauncher } from "@/components/quote-launcher";
-import { getPublishedPost, getRelatedPosts } from "@/lib/blog";
+import { getPublishedPost, getPublishedPosts, getRelatedPosts } from "@/lib/blog";
 import { renderMarkdown, readingMinutes, extractToc } from "@/lib/markdown";
 
 // Individual blog article — DB-backed, cached via ISR (see the note in
@@ -17,6 +17,21 @@ import { renderMarkdown, readingMinutes, extractToc } from "@/lib/markdown";
 // contents beside the body, FAQ (FAQPage JSON-LD), related posts, quote
 // launcher, closing CTA.
 export const revalidate = 3600;
+// Without generateStaticParams a dynamic segment is rendered on demand on
+// every request and the revalidate window never applies (the Vercel build
+// table lists it as dynamic). Seed the published slugs at build; anything
+// newer renders on first request and is cached under the same window.
+export const dynamicParams = true;
+export async function generateStaticParams() {
+  try {
+    const posts = await getPublishedPosts();
+    return posts.map((p) => ({ slug: p.slug }));
+  } catch {
+    // No DATABASE_URL at build (see src/db/index.ts): every slug renders on
+    // its first request instead.
+    return [];
+  }
+}
 
 type Props = { params: Promise<{ slug: string }> };
 

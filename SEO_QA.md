@@ -38,6 +38,14 @@ programmatic pages (routes, cities, aircraft models) ship.
 - [ ] **Internal links**: at least one crawlable link from an existing page
       (footer, hub, or cross-link module) — sitemap presence alone is weak.
 - [ ] **Sitemap**: page added to `src/app/sitemap.ts` with sane priority.
+- [ ] **Rendering mode**: public pages are static or ISR (`export const
+      revalidate = N`), never `force-dynamic`. Next skips `next/font` preloads
+      on force-dynamic pages (visible font swap, worse LCP) and the CDN
+      cannot cache them. A dynamic segment also needs `generateStaticParams`
+      (an empty list is fine) or it renders on demand on every request and the
+      revalidate window never applies — check the Vercel build table: public
+      routes should show ○ or ●, not ƒ. DB-backed pages revalidate on write
+      (`revalidateBlog` in `src/lib/blog.ts` is the pattern).
 
 ## Programmatic templates (routes, cities, aircraft models), additionally
 

@@ -94,6 +94,14 @@ curl -sS https://jetnine.com/api/admin/blog/library -H "Authorization: Bearer $B
 
 Pick the entry whose `clusters` best match the post and pass its `url` + `alt`.
 
+## Caching
+
+Public blog pages are ISR-cached (hourly window) so they ship font preloads
+and serve from the CDN. Every `POST`, `PUT` and `DELETE` revalidates `/blog`,
+`/blog/feed.xml` and the affected slug(s) — a publish or edit is visible on the
+next request, no deploy or wait needed. The "from the desk" bands on route,
+city, aircraft and question pages pick up new posts within an hour.
+
 ## Page anatomy
 
 Each article renders: breadcrumb → category/read-time/date → title + standfirst

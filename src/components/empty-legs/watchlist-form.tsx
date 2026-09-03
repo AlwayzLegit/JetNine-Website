@@ -71,7 +71,13 @@ export function WatchlistForm() {
   }
 
   return (
-    <form noValidate onSubmit={onSubmit} className="grid grid-cols-1 gap-3 md:grid-cols-2">
+    <form noValidate onSubmit={onSubmit} className="relative grid grid-cols-1 gap-3 md:grid-cols-2">
+      {/* Honeypot — humans never see it, autofill bots fill everything.
+          The server silently drops submissions that include it. */}
+      <div aria-hidden="true" className="absolute -left-[9999px] h-0 w-0 overflow-hidden">
+        <label htmlFor="wl-company">Company</label>
+        <input id="wl-company" name="company" type="text" tabIndex={-1} autoComplete="off" />
+      </div>
       <div className={`field-jn ${errors.from ? "error" : ""}`}>
         <label htmlFor="wl-from">Departing</label>
         <input id="wl-from" name="from" type="text" placeholder="KVNY or Los Angeles" />
@@ -82,7 +88,7 @@ export function WatchlistForm() {
       </div>
       <div className={`field-jn ${errors.earliest ? "error" : ""}`}>
         <label htmlFor="wl-earliest">Earliest date</label>
-        <input id="wl-earliest" name="earliest" type="date" />
+        <input id="wl-earliest" name="earliest" type="date" min={new Date().toISOString().slice(0, 10)} />
       </div>
       <div className={`field-jn ${errors.latest ? "error" : ""}`}>
         <label htmlFor="wl-latest">Latest date</label>

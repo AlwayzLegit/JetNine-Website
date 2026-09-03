@@ -1,40 +1,67 @@
 "use server";
 
+import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { db } from "@/db";
 import { emptyLegWatchlists, type NewEmptyLegWatchlist } from "@/db/schema/empty-legs";
 import { getCurrentUser } from "@/lib/auth";
 import { getMemberByUserId } from "@/lib/member";
 import { logAudit } from "@/lib/audit";
+import { checkRateLimit } from "@/lib/rate-limit";
+import { validateWatchlistInput } from "@/lib/watchlist-validation";
 
 export type WatchlistResult =
   | { ok: true; message: string }
   | { ok: false; error: string };
 
+// Per-IP ceiling. A person creates one or two watchlists; the August 2026
+// bot created ~15 a day from rotating addresses, so the limit is a
+// backstop — the validation in src/lib/watchlist-validation.ts is the
+// primary defence.
+const WATCHLIST_RATE_LIMIT_MAX = 3;
+const WATCHLIST_RATE_LIMIT_WINDOW_SECONDS = 600;
+
 export async function createWatchlist(formData: FormData): Promise<WatchlistResult> {
-  const from = (formData.get("from") as string | null)?.trim();
-  const to = (formData.get("to") as string | null)?.trim();
-  const earliest = (formData.get("earliest") as string | null)?.trim();
-  const latest = (formData.get("latest") as string | null)?.trim();
-  const mobile = (formData.get("mobile") as string | null)?.trim();
-  const email = (formData.get("email") as string | null)?.trim();
+  const field = (k: string) => (formData.get(k) as string | null)?.trim() ?? "";
 
-  // Validation
-  const errors: string[] = [];
-  if (!from) errors.push("departing");
-  if (!to) errors.push("arriving");
-  if (!earliest) errors.push("earliest");
-  if (!latest) errors.push("latest");
-  if (!mobile) errors.push("mobile");
-  if (mobile && !/^\+?[\d\s().-]{7,}$/.test(mobile)) errors.push("mobile-format");
-  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) errors.push("email-format");
-
-  if (errors.length) {
-    return { ok: false, error: errors.join(", ").toUpperCase() };
+  // Honeypot: the visible form never exposes this field, so any value here
+  // is an autofill bot. Pretend success so the bot moves on; insert nothing.
+  if (field("company")) {
+    console.warn("createWatchlist honeypot tripped — dropping submission");
+    return { ok: true, message: "WATCHLIST CREATED" };
   }
 
-  // ICAO heuristic: 4 uppercase letters means we treat the field as a code.
-  const isIcao = (s?: string | null) => !!s && /^[A-Z]{4}$/.test(s.toUpperCase());
+  const parsed = validateWatchlistInput({
+    from: field("from"),
+    to: field("to"),
+    earliest: field("earliest"),
+    latest: field("latest"),
+    mobile: field("mobile"),
+    email: field("email"),
+  });
+  if (!parsed.ok) {
+    return { ok: false, error: parsed.errors.join(", ").toUpperCase() };
+  }
+  const v = parsed.value;
+  const from = v.fromText;
+  const to = v.toText;
+  const earliest = v.earliestOn;
+  const latest = v.latestOn;
+
+  let clientIp = "unknown";
+  try {
+    const hdrs = await headers();
+    clientIp = hdrs.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
+  } catch {
+    // headers() can throw outside a request scope; proceed without limiting.
+  }
+  if (clientIp !== "unknown") {
+    const rl = await checkRateLimit(`watchlist_submit:${clientIp}`, {
+      max: WATCHLIST_RATE_LIMIT_MAX,
+      windowSeconds: WATCHLIST_RATE_LIMIT_WINDOW_SECONDS,
+    });
+    if (!rl.ok) return { ok: false, error: "RATE_LIMITED" };
+  }
 
   // If the visitor is signed in and has a member profile, link the watchlist
   // so they can manage it from /account/preferences later.
@@ -51,18 +78,18 @@ export async function createWatchlist(formData: FormData): Promise<WatchlistResu
 
   const values: NewEmptyLegWatchlist = {
     memberId,
-    email: email || null,
-    phoneE164: mobile,
-    fromIcao: isIcao(from) ? from!.toUpperCase() : null,
-    fromText: from!,
-    toIcao: isIcao(to) ? to!.toUpperCase() : null,
-    toText: to!,
-    earliestOn: earliest!,
-    latestOn: latest!,
+    email: v.email,
+    phoneE164: v.mobile,
+    fromIcao: v.fromIcao,
+    fromText: from,
+    toIcao: v.toIcao,
+    toText: to,
+    earliestOn: earliest,
+    latestOn: latest,
     minDiscountPct: 30,
     notifyChannels: {
-      email: !!email,
-      sms: !!mobile,
+      email: !!v.email,
+      sms: true,
     },
     active: true,
   };
@@ -102,6 +129,6 @@ export async function createWatchlist(formData: FormData): Promise<WatchlistResu
   revalidatePath("/account/preferences");
   return {
     ok: true,
-    message: `WATCHLIST CREATED — ${(from || "").toUpperCase()} → ${(to || "").toUpperCase()}`,
+    message: `WATCHLIST CREATED — ${from.toUpperCase()} → ${to.toUpperCase()}`,
   };
 }

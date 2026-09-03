@@ -3,7 +3,7 @@ import { desc, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { blogPosts } from "@/db/schema/blog";
 import { authorizeBlogAdmin } from "@/lib/blog-admin-auth";
-import { slugify, validatePostInput, BLOG_DEFAULT_AUTHOR } from "@/lib/blog";
+import { slugify, validatePostInput, revalidateBlog, BLOG_DEFAULT_AUTHOR } from "@/lib/blog";
 import { renderMarkdown } from "@/lib/markdown";
 
 // Admin blog API — collection endpoints.
@@ -113,6 +113,7 @@ export async function POST(req: Request) {
     })
     .returning();
 
+  revalidateBlog([post.slug]);
   const base = (process.env.NEXT_PUBLIC_SITE_URL || "https://jetnine.com").replace(/\/$/, "");
   return NextResponse.json(
     { ok: true, post, url: `${base}/blog/${post.slug}` },

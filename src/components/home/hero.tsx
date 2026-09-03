@@ -15,6 +15,7 @@ export function Hero() {
         aria-hidden
         fill
         priority
+        fetchPriority="high"
         sizes="100vw"
         className="object-cover object-[60%_center]"
       />

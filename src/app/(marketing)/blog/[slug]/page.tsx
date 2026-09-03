@@ -8,13 +8,15 @@ import { QuoteLauncher } from "@/components/quote-launcher";
 import { getPublishedPost, getRelatedPosts } from "@/lib/blog";
 import { renderMarkdown, readingMinutes, extractToc } from "@/lib/markdown";
 
-// Individual blog article — DB-backed, rendered per-request. Drafts and
-// unknown slugs 404 so nothing unpublished ever has a public URL.
+// Individual blog article — DB-backed, cached via ISR (see the note in
+// ../page.tsx: force-dynamic drops font preloads). Drafts and unknown
+// slugs 404 so nothing unpublished ever has a public URL; the admin API
+// revalidates the slug on every write so publishing is immediate.
 //
 // Anatomy (top to bottom): breadcrumb, header, hero, sticky table of
 // contents beside the body, FAQ (FAQPage JSON-LD), related posts, quote
 // launcher, closing CTA.
-export const dynamic = "force-dynamic";
+export const revalidate = 3600;
 
 type Props = { params: Promise<{ slug: string }> };
 

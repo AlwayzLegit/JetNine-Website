@@ -3,7 +3,7 @@ import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { blogPosts } from "@/db/schema/blog";
 import { authorizeBlogAdmin } from "@/lib/blog-admin-auth";
-import { SLUG_RE, validatePostInput } from "@/lib/blog";
+import { SLUG_RE, validatePostInput, revalidateBlog } from "@/lib/blog";
 import { renderMarkdown } from "@/lib/markdown";
 
 // Admin blog API — single-post endpoints, addressed by slug.
@@ -113,6 +113,7 @@ export async function PUT(req: Request, ctx: Ctx) {
     .where(eq(blogPosts.id, post.id))
     .returning();
 
+  revalidateBlog([post.slug, updated.slug]);
   const base = (process.env.NEXT_PUBLIC_SITE_URL || "https://jetnine.com").replace(/\/$/, "");
   return NextResponse.json({ ok: true, post: updated, url: `${base}/blog/${updated.slug}` });
 }
@@ -126,5 +127,6 @@ export async function DELETE(req: Request, ctx: Ctx) {
   if (!post) return notFound();
 
   await db.delete(blogPosts).where(eq(blogPosts.id, post.id));
+  revalidateBlog([post.slug]);
   return NextResponse.json({ ok: true, deleted: post.slug });
 }

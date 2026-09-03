@@ -1,4 +1,5 @@
 import { and, desc, eq, ne } from "drizzle-orm";
+import { revalidatePath } from "next/cache";
 import { db } from "@/db";
 import { blogPosts, type BlogPost } from "@/db/schema/blog";
 
@@ -149,6 +150,17 @@ export function validatePostInput(
   }
 
   return { ok: true, value: out };
+}
+
+// The public blog pages are ISR-cached; every admin write calls this so a
+// publish, edit, hero swap or delete is visible immediately. `slugs` should
+// include the old slug too when a PUT renames a post.
+export function revalidateBlog(slugs: (string | null | undefined)[] = []): void {
+  revalidatePath("/blog");
+  revalidatePath("/blog/feed.xml");
+  for (const s of new Set(slugs.filter((s): s is string => Boolean(s)))) {
+    revalidatePath(`/blog/${s}`);
+  }
 }
 
 export async function getPublishedPosts(): Promise<BlogPost[]> {

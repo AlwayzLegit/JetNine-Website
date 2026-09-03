@@ -2,7 +2,7 @@ import { getPublishedPosts } from "@/lib/blog";
 
 // RSS 2.0 for the blog. Discovery + syndication; also a clean signal to
 // crawlers that new posts exist between sitemap refreshes.
-export const dynamic = "force-dynamic";
+export const revalidate = 3600; // plus on-write revalidation from the admin API
 
 const esc = (s: string) =>
   s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");

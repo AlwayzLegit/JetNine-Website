@@ -10,7 +10,8 @@ import { operators } from "@/db/schema/operators";
 import { aircraft } from "@/db/schema/aircraft";
 import type { EmptyLegView, SoldLegView } from "@/lib/empty-legs";
 
-export const dynamic = "force-dynamic";
+// ISR, not force-dynamic: force-dynamic overrode the revalidate window and
+// also made Next skip the font preloads for this page.
 export const revalidate = 60; // refresh every minute
 
 export const metadata: Metadata = pageMetadata({

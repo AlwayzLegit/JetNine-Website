@@ -7,9 +7,12 @@ import { QuoteLauncher } from "@/components/quote-launcher";
 import { getPublishedPosts } from "@/lib/blog";
 import { readingMinutes } from "@/lib/markdown";
 
-// Blog index — DB-backed, so rendered per-request (same contract as every
-// DB-touching route; see the comment in src/db/index.ts).
-export const dynamic = "force-dynamic";
+// Blog index — DB-backed but served from the ISR cache: Next skips font
+// preloads (and the CDN skips caching) on force-dynamic pages, so the blog
+// templates rendered with a visible font swap. The admin API revalidates
+// /blog, /blog/[slug] and the feed on every write, so the hourly window
+// only matters for edits made directly in the database.
+export const revalidate = 3600;
 
 const base = pageMetadata({
   title: "Private Jet Charter Blog — Notes From the Desk",
@@ -31,7 +34,14 @@ const dateFmt = new Intl.DateTimeFormat("en-US", {
 
 export default async function BlogIndexPage() {
   const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL || "https://jetnine.com").replace(/\/$/, "");
-  const posts = await getPublishedPosts();
+  let posts: Awaited<ReturnType<typeof getPublishedPosts>> = [];
+  try {
+    posts = await getPublishedPosts();
+  } catch {
+    // Build-time render without DATABASE_URL (see src/db/index.ts) falls
+    // through to the empty state; the first real request fills the cache.
+    posts = [];
+  }
 
   const blogJsonLd = {
     "@context": "https://schema.org",
@@ -102,6 +112,7 @@ export default async function BlogIndexPage() {
                           src={p.heroImageUrl}
                           alt={p.heroImageAlt ?? p.title}
                           loading={i === 0 ? "eager" : "lazy"}
+                          fetchPriority={i === 0 ? "high" : "auto"}
                           className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
                         />
                       ) : null}

@@ -281,6 +281,13 @@
       "when": 1781700000000,
       "tag": "0039_empty_leg_watchlist_matches",
       "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "7",
+      "when": 1781800000000,
+      "tag": "0040_watchlist_deactivation_reason",
+      "breakpoints": true
     }
   ]
 }

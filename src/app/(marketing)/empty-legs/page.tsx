@@ -17,7 +17,7 @@ export const revalidate = 60; // refresh every minute
 export const metadata: Metadata = pageMetadata({
   title: "Empty Leg Flights — Private Jets Up to 60% Off",
   description:
-    "Repositioning legs at up to 60% off. Live board, updated every fifteen minutes from operator dispatch.",
+    "Repositioning legs at up to 60% off. Posted by the desk as operators release them, with SMS alerts on your lanes.",
   path: "/empty-legs",
 });
 
@@ -296,7 +296,7 @@ export default async function EmptyLegsPage() {
             <Reveal as="p" stagger={2} className="mt-8 max-w-[58ch] text-[18px] leading-[1.55] text-bone-2">
               When an aircraft has dropped a passenger somewhere and needs to fly home empty, that
               flight is for sale. Date-locked, route-locked, but priced like nothing else in the air.
-              Updated every fifteen minutes from operator dispatch.
+              The desk posts them as operators release them.
             </Reveal>
           </div>
 
@@ -306,7 +306,7 @@ export default async function EmptyLegsPage() {
                 <span className="absolute inset-0 animate-ping rounded-full bg-clearance opacity-75" />
                 <span className="relative h-2 w-2 rounded-full bg-clearance" />
               </span>
-              Live board · refreshed on every visit
+              Live board · refreshed every minute
             </div>
             <div
               className="font-serif text-[88px] font-light leading-none tracking-tight text-bone"
@@ -372,7 +372,7 @@ export default async function EmptyLegsPage() {
                 n: "03",
                 k: "FIRST CALL WINS",
                 h: "One booking per leg.",
-                p: "Empty legs aren't held — they're sold the moment a confirmation comes through. The list updates every fifteen minutes; if you see one you want, call the dispatch line and we'll lock it on the spot. No soft-hold, no waitlist.",
+                p: "Empty legs aren't held — they're sold the moment a confirmation comes through. If you see one you want, call the dispatch line and we'll lock it on the spot. No soft-hold, no waitlist.",
               },
             ].map((c, i) => (
               <Reveal

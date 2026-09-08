@@ -93,7 +93,30 @@ skipping everything the first one sent.
 
 ## Opt-outs
 
-Every SMS ends with "reply STOP to end alerts". Twilio handles STOP at
-the account level and stops delivering to that number, but it does **not**
-flip `active` on our row. Wiring the inbound STOP webhook to deactivate
-the matching watchlist is the obvious next piece of work.
+Every SMS ends with "reply STOP to end alerts". Twilio enforces the block
+at the account level regardless of what we do, and the inbound webhook at
+`/api/twilio/inbound` now keeps our own rows in step:
+
+- **STOP** (or STOPALL, UNSUBSCRIBE, CANCEL, END, QUIT) deactivates every
+  active watchlist on that number and stamps `deactivated_reason =
+  'sms_stop'`.
+- **START** (or YES, UNSTOP) resumes only the rows STOP paused. A
+  watchlist switched off for any other reason stays off, which is why the
+  reason column exists.
+- **HELP** changes nothing; Twilio answers it.
+
+Keyword matching is on the whole message after stripping case, whitespace
+and punctuation, the way carriers do it: "stop." opts out, "please stop
+texting me" is treated as a human reply and threaded normally. The rules
+are in `src/lib/sms-optout.ts` and covered by `pnpm check:watchlist`.
+
+Carrier keywords are handled before subject-code threading, because a STOP
+carries no `[QT-...]` code and would otherwise be logged as unmatched and
+dropped.
+
+## What is still not true
+
+The board no longer claims an operator feed it does not have. Legs appear
+when someone creates them in the admin, and the copy now says the desk
+posts them as operators release them. An automated operator ingest remains
+unbuilt.

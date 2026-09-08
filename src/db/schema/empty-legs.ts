@@ -156,6 +156,9 @@ export const emptyLegWatchlists = pgTable(
     } | null>(),
 
     active: boolean("active").notNull().default(true),
+    deactivatedAt: timestamp("deactivated_at", { withTimezone: true }),
+    /** "sms_stop" when an inbound STOP switched it off. See src/lib/sms-optout.ts. */
+    deactivatedReason: text("deactivated_reason"),
 
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
@@ -164,6 +167,7 @@ export const emptyLegWatchlists = pgTable(
   (t) => [
     index("empty_leg_watchlists_member_idx").on(t.memberId),
     index("empty_leg_watchlists_route_idx").on(t.fromIcao, t.toIcao),
+    index("empty_leg_watchlists_phone_idx").on(t.phoneE164),
   ],
 );
 

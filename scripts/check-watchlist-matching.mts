@@ -14,6 +14,7 @@ import {
   type MatchableLeg,
   type MatchableWatchlist,
 } from "../src/lib/watchlist-matching.ts";
+import { optOutKeyword } from "../src/lib/sms-optout.ts";
 
 const NOW = new Date("2026-09-08T12:00:00Z");
 
@@ -196,6 +197,20 @@ check(
   true,
 );
 console.log(`\n  sms preview: ${body}\n  (${body.length} chars)`);
+
+console.log("carrier keywords");
+check("bare stop", optOutKeyword("STOP"), "stop");
+check("lowercase with punctuation", optOutKeyword("stop."), "stop");
+check("padded", optOutKeyword("  Stop  "), "stop");
+check("stopall", optOutKeyword("STOPALL"), "stop");
+check("unsubscribe", optOutKeyword("unsubscribe"), "stop");
+check("cancel", optOutKeyword("Cancel"), "stop");
+check("start resumes", optOutKeyword("START"), "start");
+check("unstop resumes", optOutKeyword("unstop"), "start");
+check("help", optOutKeyword("HELP"), "help");
+check("a sentence containing stop is a human reply", optOutKeyword("please stop texting me"), null);
+check("a real reply", optOutKeyword("Can you hold that Vegas leg?"), null);
+check("empty body", optOutKeyword("   "), null);
 
 console.log(failures === 0 ? "\nAll checks passed." : `\n${failures} check(s) FAILED.`);
 process.exit(failures === 0 ? 0 : 1);

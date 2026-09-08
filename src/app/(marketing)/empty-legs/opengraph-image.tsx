@@ -11,7 +11,7 @@ export default function OgImage() {
     ogCardJsx({
       kicker: "Empty legs",
       title: "Repositioning legs. Up to 60% off.",
-      lead: "Live board, updated every fifteen minutes from operator dispatch. Watchlist alerts included.",
+      lead: "Posted by the desk as operators release them. Watchlist alerts on your lanes included.",
       bgImageUrl: `${siteBase()}/images/programs/reposition-sector.webp`,
     }),
     { ...size },

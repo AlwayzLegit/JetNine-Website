@@ -1,12 +1,14 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { messages, type NewMessage } from "@/db/schema/audit";
+import { emptyLegWatchlists } from "@/db/schema/empty-legs";
 import { members } from "@/db/schema/members";
 import { quotes } from "@/db/schema/quotes";
 import { trips } from "@/db/schema/trips";
 import { logAudit } from "@/lib/audit";
 import { isTwilioConfigured, verifyTwilioSignature } from "@/lib/twilio";
+import { DEACTIVATED_BY_SMS_STOP, optOutKeyword } from "@/lib/sms-optout";
 
 // Inbound SMS / WhatsApp webhook — Twilio POSTs form-urlencoded data
 // here when a customer replies to one of our outbound numbers.
@@ -66,6 +68,32 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   const body = (params.Body ?? "").slice(0, 4000);
   const isWhatsApp = from.startsWith("whatsapp:");
   const fromE164 = isWhatsApp ? from.slice("whatsapp:".length) : from;
+
+  // Carrier keywords first: a STOP carries no subject code, so left to
+  // the threading path below it would be logged as unmatched and lost,
+  // and the empty-leg watchlist behind it would stay active.
+  const keyword = optOutKeyword(body);
+  if (keyword) {
+    const updated = await applyWatchlistKeyword(keyword, fromE164);
+    console.log("[twilio:inbound] carrier keyword", { keyword, from: fromE164, updated });
+    if (updated > 0) {
+      try {
+        await logAudit({
+          actorUserId: null,
+          actorRole: "system",
+          action: `empty_leg_watchlist.sms.${keyword}`,
+          subjectType: "empty_leg_watchlist",
+          subjectId: null,
+          metadata: { fromAddress: fromE164, providerMessageId: messageSid, updated },
+        });
+      } catch (err) {
+        console.error("[twilio:inbound] opt-out audit failed (non-fatal)", err);
+      }
+    }
+    // Twilio sends its own STOP/HELP confirmation; answering with our
+    // own body here would double-text someone who just asked us not to.
+    return NextResponse.json({ received: true, keyword, watchlistsUpdated: updated });
+  }
 
   const route = await resolveInboundRoute(body);
   if (!route) {
@@ -141,6 +169,55 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   }
 
   return NextResponse.json({ received: true, messageId });
+}
+
+/**
+ * Keep our watchlist rows in step with the carrier-level block Twilio
+ * has already applied. STOP deactivates every active watchlist on that
+ * number and stamps why; START resumes only the rows STOP paused, so a
+ * watchlist switched off deliberately stays off. HELP changes nothing.
+ *
+ * Returns how many rows moved, which is what the response and the audit
+ * entry report.
+ */
+async function applyWatchlistKeyword(
+  keyword: "stop" | "start" | "help",
+  fromE164: string,
+): Promise<number> {
+  if (keyword === "help" || !fromE164) return 0;
+  try {
+    if (keyword === "stop") {
+      const rows = await db
+        .update(emptyLegWatchlists)
+        .set({
+          active: false,
+          deactivatedAt: new Date(),
+          deactivatedReason: DEACTIVATED_BY_SMS_STOP,
+        })
+        .where(
+          and(eq(emptyLegWatchlists.phoneE164, fromE164), eq(emptyLegWatchlists.active, true)),
+        )
+        .returning({ id: emptyLegWatchlists.id });
+      return rows.length;
+    }
+    const rows = await db
+      .update(emptyLegWatchlists)
+      .set({ active: true, deactivatedAt: null, deactivatedReason: null })
+      .where(
+        and(
+          eq(emptyLegWatchlists.phoneE164, fromE164),
+          eq(emptyLegWatchlists.active, false),
+          eq(emptyLegWatchlists.deactivatedReason, DEACTIVATED_BY_SMS_STOP),
+        ),
+      )
+      .returning({ id: emptyLegWatchlists.id });
+    return rows.length;
+  } catch (err) {
+    // Never fail the webhook over this — Twilio would retry, and the
+    // carrier block is already in force regardless of our bookkeeping.
+    console.error("[twilio:inbound] watchlist opt-out write failed", { keyword, err });
+    return 0;
+  }
 }
 
 type InboundRoute = {

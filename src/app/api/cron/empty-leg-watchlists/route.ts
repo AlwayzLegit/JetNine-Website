@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { timingSafeEqual } from "node:crypto";
-import { and, asc, eq, gt } from "drizzle-orm";
+import { and, asc, eq, gt, inArray } from "drizzle-orm";
 import { db } from "@/db";
 import {
   emptyLegs,
@@ -186,12 +186,44 @@ export async function GET(req: Request) {
 
   const matchedPairs = new Set(pending.map((p) => `${p.w.id}:${p.leg.id}`)).size;
 
+  // Everything already in the ledger for these legs, in one query. The
+  // claim insert below is still the authority — it is what closes the
+  // race between overlapping runs — but without this pre-filter a steady
+  // state of "nothing new to send" would cost one round trip per pair
+  // every fifteen minutes, and a backlog of a few thousand pairs would
+  // run the function out of time before reaching the new ones.
+  const alreadyNotified = new Set<string>();
+  try {
+    const rows = await db
+      .select({
+        watchlistId: emptyLegWatchlistMatches.watchlistId,
+        legId: emptyLegWatchlistMatches.legId,
+        channel: emptyLegWatchlistMatches.channel,
+      })
+      .from(emptyLegWatchlistMatches)
+      .where(
+        inArray(
+          emptyLegWatchlistMatches.legId,
+          legs.map((l) => l.id),
+        ),
+      );
+    for (const r of rows) alreadyNotified.add(`${r.watchlistId}:${r.legId}:${r.channel}`);
+  } catch (err) {
+    // Fall through with an empty set: the claim insert still prevents
+    // duplicates, this run is just slower.
+    console.error("[watchlist-cron] ledger preload failed", err);
+  }
+
   let sent = 0;
   let failed = 0;
   let skipped = 0; // already notified on a previous run
   let capped = false;
 
   for (const { w, leg, channel } of pending) {
+    if (alreadyNotified.has(`${w.id}:${leg.id}:${channel}`)) {
+      skipped++;
+      continue;
+    }
     if (sent + failed >= MAX_SENDS_PER_RUN) {
       capped = true;
       break;

@@ -72,6 +72,16 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   // Carrier keywords first: a STOP carries no subject code, so left to
   // the threading path below it would be logged as unmatched and lost,
   // and the empty-leg watchlist behind it would stay active.
+  //
+  // This path keys on the sender number alone, which the threading rules
+  // above deliberately refuse to do. The difference is what a spoofed
+  // number buys. Against a thread it buys injecting text a dispatcher
+  // reads as the customer. Here it buys switching someone's own alerts
+  // off — the direction we would take anyway if we were unsure, and the
+  // same basis Twilio and the carriers use for opt-out. Honouring STOP
+  // is also not optional. START is bounded to match: it resumes only
+  // rows this handler paused, so the worst a spoofer achieves is
+  // restoring the state that person already chose.
   const keyword = optOutKeyword(body);
   if (keyword) {
     const updated = await applyWatchlistKeyword(keyword, fromE164);

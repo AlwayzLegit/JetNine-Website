@@ -20,7 +20,8 @@
     "audit:a11y": "tsx scripts/audit-mobile-a11y.mts",
     "smoke": "tsx scripts/smoke-prod.mts",
     "smoke:e2e": "playwright test --config playwright.prod.config.ts",
-    "guide:pdf": "tsx scripts/build-pricing-guide.mts"
+    "guide:pdf": "tsx scripts/build-pricing-guide.mts",
+    "check:watchlist": "tsx scripts/check-watchlist-matching.mts"
   },
   "dependencies": {
     "@sentry/nextjs": "^10.53.1",

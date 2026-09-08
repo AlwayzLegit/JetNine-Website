@@ -4,7 +4,6 @@ import {
   index,
   integer,
   jsonb,
-  numeric,
   pgEnum,
   pgTable,
   text,
@@ -168,7 +167,45 @@ export const emptyLegWatchlists = pgTable(
   ],
 );
 
+// ─── empty_leg_watchlist_matches ─────────────────────────────────────────
+
+// Delivery ledger for the watchlist matcher (src/lib/watchlist-matching.ts,
+// driven by /api/cron/empty-leg-watchlists). The unique index on
+// (watchlist, leg, channel) is what stops a retry or an overlapping run
+// from texting the same person about the same leg twice: the cron inserts
+// a `pending` row to claim the send, and only sends if the insert won.
+
+export const emptyLegWatchlistMatches = pgTable(
+  "empty_leg_watchlist_matches",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    watchlistId: uuid("watchlist_id")
+      .notNull()
+      .references(() => emptyLegWatchlists.id, { onDelete: "cascade" }),
+    legId: uuid("leg_id")
+      .notNull()
+      .references(() => emptyLegs.id, { onDelete: "cascade" }),
+    /** "sms" | "email" */
+    channel: text("channel").notNull(),
+    /** "pending" | "sent" | "failed" */
+    status: text("status").notNull().default("pending"),
+    provider: text("provider"),
+    providerMessageId: text("provider_message_id"),
+    error: text("error"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .default(sql`now()`),
+    sentAt: timestamp("sent_at", { withTimezone: true }),
+  },
+  (t) => [
+    uniqueIndex("empty_leg_watchlist_matches_uq").on(t.watchlistId, t.legId, t.channel),
+    index("empty_leg_watchlist_matches_leg_idx").on(t.legId),
+  ],
+);
+
 export type EmptyLeg = typeof emptyLegs.$inferSelect;
 export type NewEmptyLeg = typeof emptyLegs.$inferInsert;
 export type EmptyLegWatchlist = typeof emptyLegWatchlists.$inferSelect;
 export type NewEmptyLegWatchlist = typeof emptyLegWatchlists.$inferInsert;
+export type EmptyLegWatchlistMatch = typeof emptyLegWatchlistMatches.$inferSelect;
+export type NewEmptyLegWatchlistMatch = typeof emptyLegWatchlistMatches.$inferInsert;

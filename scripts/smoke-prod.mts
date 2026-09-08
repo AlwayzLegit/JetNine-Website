@@ -196,6 +196,27 @@ async function checkTwilioInbound(): Promise<void> {
   });
 }
 
+async function checkWatchlistCron(): Promise<void> {
+  // This endpoint sends SMS and email to customers. The only thing
+  // standing between the open internet and that is the bearer check, so
+  // a regression here is a security regression and worth catching on the
+  // deploy that causes it rather than from a phone bill. Both a missing
+  // credential and a wrong one must be refused: a 200 would mean the
+  // guard had been removed or CRON_SECRET had been unset in Vercel.
+  await check("GET /api/cron/empty-leg-watchlists (no auth)", "required", async () => {
+    const r = await fetchWithTimeout(`${TARGET}/api/cron/empty-leg-watchlists`);
+    if (r.status !== 401) return { ok: false, detail: `unexpected ${r.status} (expected 401)` };
+    return { ok: true, detail: "401 · fails closed without a credential" };
+  });
+  await check("GET /api/cron/empty-leg-watchlists (bad bearer)", "required", async () => {
+    const r = await fetchWithTimeout(`${TARGET}/api/cron/empty-leg-watchlists`, {
+      headers: { authorization: "Bearer smoke-not-the-secret" },
+    });
+    if (r.status !== 401) return { ok: false, detail: `unexpected ${r.status} (expected 401)` };
+    return { ok: true, detail: "401 · wrong credential rejected" };
+  });
+}
+
 // ─── Auth gating ─────────────────────────────────────────────────────────
 
 async function checkAuthRedirect(path: string): Promise<void> {
@@ -333,6 +354,7 @@ async function main() {
   await checkStripeWebhook();
   await checkEmailInbound();
   await checkTwilioInbound();
+  await checkWatchlistCron();
   await checkAuthRedirect("/account");
   await checkAuthRedirect("/admin");
   await checkSecurityHeaders();

@@ -15,6 +15,8 @@ import {
   type MatchableWatchlist,
 } from "../src/lib/watchlist-matching.ts";
 import { optOutKeyword } from "../src/lib/sms-optout.ts";
+import { normalizeFreeformE164 } from "../src/lib/phone.ts";
+import { validateWatchlistInput } from "../src/lib/watchlist-validation.ts";
 
 const NOW = new Date("2026-09-08T12:00:00Z");
 
@@ -211,6 +213,58 @@ check("help", optOutKeyword("HELP"), "help");
 check("a sentence containing stop is a human reply", optOutKeyword("please stop texting me"), null);
 check("a real reply", optOutKeyword("Can you hold that Vegas leg?"), null);
 check("empty body", optOutKeyword("   "), null);
+
+console.log("phone normalization");
+check("already e164", normalizeFreeformE164("+14155551234"), "+14155551234");
+check("e164 with spacing", normalizeFreeformE164("+1 415 555 1234"), "+14155551234");
+check("international with punctuation", normalizeFreeformE164("+44 (0)20 7946 0958"), "+4402079460958");
+check("bare ten-digit is treated as NANP", normalizeFreeformE164("(415) 555-1234"), "+14155551234");
+check("bare eleven-digit starting 1", normalizeFreeformE164("1-415-555-1234"), "+14155551234");
+check("bare nine-digit is refused, not guessed", normalizeFreeformE164("415555123"), null);
+check("bare twelve-digit is refused, not guessed", normalizeFreeformE164("442079460958"), null);
+// Known limitation, documented in phone.ts and signposted on the form:
+// ten bare digits are read as NANP, so a London number typed without its
+// country code lands in Maine.
+check("bare ten-digit foreign number is read as NANP", normalizeFreeformE164("20 7946 0958"), "+12079460958");
+check("the same number with its country code is preserved", normalizeFreeformE164("+44 20 7946 0958"), "+442079460958");
+check("letters only", normalizeFreeformE164("call me"), null);
+check("empty", normalizeFreeformE164("   "), null);
+check("leading zero after + is not valid e164", normalizeFreeformE164("+0155551234"), null);
+
+console.log("watchlist input stores a textable number");
+const okInput = validateWatchlistInput(
+  { from: "KVNY", to: "KTEB", earliest: "2026-09-10", latest: "2026-09-20", mobile: "(415) 555-1234" },
+  new Date("2026-09-08T12:00:00Z"),
+);
+check("a US number typed with punctuation is accepted", okInput.ok, true);
+check(
+  "and is stored in the form Twilio and the STOP lookup expect",
+  okInput.ok ? okInput.value.mobile : null,
+  "+14155551234",
+);
+const badInput = validateWatchlistInput(
+  { from: "KVNY", to: "KTEB", earliest: "2026-09-10", latest: "2026-09-20", mobile: "7946 0958" },
+  new Date("2026-09-08T12:00:00Z"),
+);
+check(
+  "a number of no recognisable shape is refused rather than guessed",
+  badInput.ok ? null : badInput.errors,
+  ["mobile-country-code"],
+);
+check(
+  "an over-long email is refused",
+  (() => {
+    const r = validateWatchlistInput(
+      {
+        from: "KVNY", to: "KTEB", earliest: "2026-09-10", latest: "2026-09-20",
+        mobile: "+14155551234", email: `${"a".repeat(250)}@example.com`,
+      },
+      new Date("2026-09-08T12:00:00Z"),
+    );
+    return r.ok ? null : r.errors;
+  })(),
+  ["email-too-long"],
+);
 
 console.log(failures === 0 ? "\nAll checks passed." : `\n${failures} check(s) FAILED.`);
 process.exit(failures === 0 ? 0 : 1);

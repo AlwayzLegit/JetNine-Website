@@ -1,4 +1,5 @@
 import { findAirport, searchAirports } from "@/lib/airports";
+import { normalizeFreeformE164 } from "@/lib/phone";
 
 // Server-side validation for the empty-leg watchlist form. Pure so it can
 // be exercised without a request scope. Added after a bot submitted ~100
@@ -102,13 +103,24 @@ export function validateWatchlistInput(
     if (l - e > MAX_WINDOW_DAYS * 86_400_000) errors.push("window-too-long");
   }
 
+  // Store E.164 or nothing. The column is named phone_e164 and both the
+  // outbound send and the inbound STOP lookup compare against Twilio's
+  // E.164 form, so a row holding "(415) 555-1234" is a number we can
+  // neither text nor unsubscribe.
+  const phoneE164 = normalizeFreeformE164(mobile);
   if (!mobile) errors.push("mobile");
-  else if (!/^\+?[\d\s().-]{7,}$/.test(mobile) || mobile.replace(/\D/g, "").length < 7) {
-    errors.push("mobile-format");
-  }
-  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) errors.push("email-format");
+  else if (!phoneE164) errors.push("mobile-country-code");
+
+  if (email && email.length > 254) errors.push("email-too-long");
+  else if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) errors.push("email-format");
 
   if (errors.length) return { ok: false, errors };
+  // Unreachable: a null normalizer result pushed "mobile-country-code"
+  // above. Kept as a guard rather than a non-null assertion so that a
+  // future edit to the error branch cannot silently write a null into
+  // the phone column.
+  if (!phoneE164) return { ok: false, errors: ["mobile-format"] };
+
   return {
     ok: true,
     value: {
@@ -118,7 +130,7 @@ export function validateWatchlistInput(
       toIcao: resolveIcao(to),
       earliestOn: earliest,
       latestOn: latest,
-      mobile,
+      mobile: phoneE164,
       email: email || null,
     },
   };

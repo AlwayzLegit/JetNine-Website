@@ -3,6 +3,7 @@
 import { useEffect, useState, useTransition, type FormEvent } from "react";
 import { createWatchlist } from "@/app/(marketing)/empty-legs/actions";
 import { track } from "@/lib/analytics";
+import { normalizeFreeformE164 } from "@/lib/phone";
 import {
   WATCHLIST_PREFILL_EVENT,
   type WatchlistPrefill,
@@ -42,8 +43,10 @@ export function WatchlistForm() {
     for (const k of required) {
       if (!(data.get(k) as string | null)?.trim()) next[k] = true;
     }
+    // Same rule the server applies, so a number we could never text is
+    // rejected here instead of after a round trip.
     const mobile = (data.get("mobile") as string)?.trim() ?? "";
-    if (mobile && !/^\+?[\d\s().-]{7,}$/.test(mobile)) next.mobile = true;
+    if (mobile && !normalizeFreeformE164(mobile)) next.mobile = true;
     const email = (data.get("email") as string)?.trim() ?? "";
     if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) next.email = true;
 
@@ -96,7 +99,12 @@ export function WatchlistForm() {
       </div>
       <div className={`field-jn ${errors.mobile ? "error" : ""}`}>
         <label htmlFor="wl-mobile">Mobile (for SMS)</label>
-        <input id="wl-mobile" name="mobile" type="tel" placeholder="+1 555 555 5555" />
+        <input id="wl-mobile" name="mobile" type="tel" placeholder="+1 555 555 5555" aria-describedby="wl-mobile-hint" />
+        {/* A bare ten-digit number is read as US. Anyone outside the NANP
+            has to say so, or the alert goes to a stranger's phone. */}
+        <p id="wl-mobile-hint" className="mt-1 font-mono text-[10px] uppercase tracking-[0.12em] text-steel">
+          Outside the US? Include your country code.
+        </p>
       </div>
       <div className={`field-jn ${errors.email ? "error" : ""}`}>
         <label htmlFor="wl-email">Email (optional)</label>

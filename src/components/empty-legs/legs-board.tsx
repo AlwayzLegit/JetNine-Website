@@ -164,15 +164,22 @@ export function LegsBoard({
         {filtered.length === 0 ? (
           <div className="mx-auto max-w-[820px]">
             <div className="rounded-[4px] border border-ink-3 bg-ink-2 p-12 text-center">
+              {/* "Every listed leg sold" is only true when legs have in fact
+                  sold. With an empty board and no fills behind it, saying so
+                  would claim a trading history the board does not have. */}
               <h3 className="font-serif text-[26px] font-normal leading-tight text-bone">
-                {legs.length === 0
-                  ? "The board is clear — every listed leg sold."
-                  : "No legs match those filters right now."}
+                {legs.length > 0
+                  ? "No legs match those filters right now."
+                  : recentlySold.length > 0
+                    ? "The board is clear — every listed leg sold."
+                    : "No legs on the board right now."}
               </h3>
               <p className="mx-auto mt-4 max-w-[52ch] text-[15px] leading-[1.55] text-bone-2">
-                {legs.length === 0
-                  ? "Legs go the moment a confirmation comes through — first call wins. Set a watchlist and we'll text the second one matching your lanes hits the board."
-                  : "Try widening the timeframe or category — or set a watchlist and we'll text you when something shows up."}
+                {legs.length > 0
+                  ? "Try widening the timeframe or category — or set a watchlist and we'll text you when something shows up."
+                  : recentlySold.length > 0
+                    ? "Legs go the moment a confirmation comes through — first call wins. Set a watchlist and we'll text the second one matching your lanes hits the board."
+                    : "Repositioning legs surface at short notice and go fast. Set a watchlist with your lanes and dates and the desk will text you when one fits."}
               </p>
               <a
                 href="#watchlist"

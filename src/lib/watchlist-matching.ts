@@ -45,6 +45,9 @@ export type MatchableWatchlist = {
   minDiscountPct: number;
   notifyChannels: { email?: boolean; sms?: boolean } | null;
   active: boolean;
+  /** Confirmed opt-in, per channel. See src/lib/watchlist-confirm.ts. */
+  smsConfirmedAt: Date | null;
+  emailConfirmedAt: Date | null;
 };
 
 export type MatchChannel = "sms" | "email";
@@ -111,7 +114,12 @@ export function endpointMatches(
   return candidates.some((c) => placeMatches(watchText, c));
 }
 
-/** Channels this watchlist opted into and has an address for. */
+/**
+ * Channels this watchlist can be sent on: requested, addressable, and
+ * confirmed. The confirmation timestamp is the one that matters — the
+ * form cannot prove the person filling it in owns the number they typed,
+ * so an unconfirmed channel stays silent no matter what else is set.
+ */
 export function channelsFor(w: MatchableWatchlist): MatchChannel[] {
   const out: MatchChannel[] = [];
   // notifyChannels is nullable on rows created before the column existed;
@@ -119,13 +127,14 @@ export function channelsFor(w: MatchableWatchlist): MatchChannel[] {
   // which is the only thing the form ever promised.
   const wantsSms = w.notifyChannels?.sms ?? true;
   const wantsEmail = w.notifyChannels?.email ?? false;
-  if (wantsSms && w.phoneE164) out.push("sms");
-  if (wantsEmail && w.email) out.push("email");
+  if (wantsSms && w.phoneE164 && w.smsConfirmedAt) out.push("sms");
+  if (wantsEmail && w.email && w.emailConfirmedAt) out.push("email");
   return out;
 }
 
 export type MatchRejection =
   | "inactive"
+  | "unconfirmed"
   | "no-channel"
   | "departed"
   | "route"
@@ -143,7 +152,11 @@ export function rejectionFor(
   now: Date,
 ): MatchRejection | null {
   if (!w.active) return "inactive";
-  if (channelsFor(w).length === 0) return "no-channel";
+  if (channelsFor(w).length === 0) {
+    // Distinguished so "why was I not texted" has an answer: an address
+    // that never confirmed is a different problem from no address.
+    return w.phoneE164 || w.email ? "unconfirmed" : "no-channel";
+  }
   if (leg.wheelsUpAt.getTime() <= now.getTime()) return "departed";
 
   const from = endpointMatches(w.fromIcao, w.fromText, {

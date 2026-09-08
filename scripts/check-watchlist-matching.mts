@@ -16,6 +16,7 @@ import {
 } from "../src/lib/watchlist-matching.ts";
 import { optOutKeyword } from "../src/lib/sms-optout.ts";
 import { normalizeFreeformE164 } from "../src/lib/phone.ts";
+import { confirmExpiry, hashToken, isExpired, issueToken } from "../src/lib/watchlist-confirm.ts";
 import { validateWatchlistInput } from "../src/lib/watchlist-validation.ts";
 
 const NOW = new Date("2026-09-08T12:00:00Z");
@@ -52,6 +53,8 @@ const watch = (over: Partial<MatchableWatchlist> = {}): MatchableWatchlist => ({
   minDiscountPct: 30,
   notifyChannels: { sms: true, email: false },
   active: true,
+  smsConfirmedAt: new Date("2026-09-01T00:00:00Z"),
+  emailConfirmedAt: null,
   ...over,
 });
 
@@ -123,9 +126,25 @@ check(
 console.log("channels");
 check("sms when a phone is present", channelsFor(watch()), ["sms"]);
 check(
-  "both when opted in and addressable",
-  channelsFor(watch({ email: "a@b.com", notifyChannels: { sms: true, email: true } })),
+  "both when opted in, addressable and confirmed",
+  channelsFor(
+    watch({
+      email: "a@b.com",
+      notifyChannels: { sms: true, email: true },
+      emailConfirmedAt: new Date("2026-09-01T00:00:00Z"),
+    }),
+  ),
   ["sms", "email"],
+);
+check(
+  "an unconfirmed email is not sent to, even when opted in",
+  channelsFor(watch({ email: "a@b.com", notifyChannels: { sms: true, email: true } })),
+  ["sms"],
+);
+check(
+  "an unconfirmed phone is silent",
+  channelsFor(watch({ smsConfirmedAt: null })),
+  [],
 );
 check(
   "no channel when the address is missing",
@@ -133,7 +152,7 @@ check(
   [],
 );
 check(
-  "legacy row with no preferences still gets sms",
+  "legacy row with no preferences still gets sms once confirmed",
   channelsFor(watch({ notifyChannels: null })),
   ["sms"],
 );
@@ -145,6 +164,11 @@ check(
   "no reachable channel",
   rejectionFor(watch({ phoneE164: null, email: null }), leg(), NOW),
   "no-channel",
+);
+check(
+  "an address that never confirmed reads as unconfirmed, not no-channel",
+  rejectionFor(watch({ smsConfirmedAt: null }), leg(), NOW),
+  "unconfirmed",
 );
 check(
   "departed leg",
@@ -265,6 +289,27 @@ check(
   })(),
   ["email-too-long"],
 );
+
+console.log("confirmation tokens");
+const t1 = issueToken();
+const t2 = issueToken();
+check("tokens are url-safe", /^[A-Za-z0-9_-]+$/.test(t1.token), true);
+check("tokens are long", t1.token.length >= 40, true);
+check("tokens are unique", t1.token === t2.token, false);
+check("the stored value is a hash, not the token", t1.hash === t1.token, false);
+check("hashing is deterministic", hashToken(t1.token), t1.hash);
+check("a different token hashes differently", hashToken(t2.token) === t1.hash, false);
+check(
+  "a fresh token has not expired",
+  isExpired(confirmExpiry(new Date("2026-09-08T12:00:00Z")), new Date("2026-09-08T12:00:00Z")),
+  false,
+);
+check(
+  "expiry lands 48h out",
+  isExpired(confirmExpiry(new Date("2026-09-08T12:00:00Z")), new Date("2026-09-10T12:00:01Z")),
+  true,
+);
+check("a missing expiry counts as expired", isExpired(null), true);
 
 console.log(failures === 0 ? "\nAll checks passed." : `\n${failures} check(s) FAILED.`);
 process.exit(failures === 0 ? 0 : 1);

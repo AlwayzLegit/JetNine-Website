@@ -156,6 +156,15 @@ export const emptyLegWatchlists = pgTable(
     } | null>(),
 
     active: boolean("active").notNull().default(true),
+    // Confirmed opt-in, per channel. `active` means "not paused"; these
+    // mean "this address proved it wants the alerts". Sending needs both.
+    // See src/lib/watchlist-confirm.ts.
+    smsConfirmedAt: timestamp("sms_confirmed_at", { withTimezone: true }),
+    emailConfirmedAt: timestamp("email_confirmed_at", { withTimezone: true }),
+    confirmSmsTokenHash: text("confirm_sms_token_hash"),
+    confirmEmailTokenHash: text("confirm_email_token_hash"),
+    confirmSentAt: timestamp("confirm_sent_at", { withTimezone: true }),
+    confirmExpiresAt: timestamp("confirm_expires_at", { withTimezone: true }),
     deactivatedAt: timestamp("deactivated_at", { withTimezone: true }),
     /** "sms_stop" when an inbound STOP switched it off. See src/lib/sms-optout.ts. */
     deactivatedReason: text("deactivated_reason"),

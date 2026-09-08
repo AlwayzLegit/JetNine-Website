@@ -9,6 +9,16 @@ import { getMemberByUserId } from "@/lib/member";
 import { logAudit } from "@/lib/audit";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { validateWatchlistInput } from "@/lib/watchlist-validation";
+import { sendSms } from "@/lib/twilio";
+import { sendEmail } from "@/lib/email";
+import {
+  confirmEmailBody,
+  confirmEmailSubject,
+  confirmExpiry,
+  confirmSms,
+  confirmUrl,
+  issueToken,
+} from "@/lib/watchlist-confirm";
 
 export type WatchlistResult =
   | { ok: true; message: string }
@@ -76,6 +86,13 @@ export async function createWatchlist(formData: FormData): Promise<WatchlistResu
     memberId = m?.id ?? null;
   }
 
+  // Confirmed opt-in. Nothing is sent to either address until whoever
+  // holds it uses its own link, so filling this form in with a
+  // stranger's details subscribes nobody. Tokens are kept as hashes.
+  const now = new Date();
+  const smsToken = issueToken();
+  const emailToken = v.email ? issueToken() : null;
+
   const values: NewEmptyLegWatchlist = {
     memberId,
     email: v.email,
@@ -92,6 +109,10 @@ export async function createWatchlist(formData: FormData): Promise<WatchlistResu
       sms: true,
     },
     active: true,
+    confirmSmsTokenHash: smsToken.hash,
+    confirmEmailTokenHash: emailToken?.hash ?? null,
+    confirmSentAt: now,
+    confirmExpiresAt: confirmExpiry(now),
   };
 
   let insertedId: string;
@@ -125,10 +146,41 @@ export async function createWatchlist(formData: FormData): Promise<WatchlistResu
     });
   }
 
+  // Send the confirmations. A failure here is not worth failing the
+  // submission over — the row exists and the links stay valid for the
+  // window — but it is worth logging, because the person is sitting in
+  // front of a form that just told them to check their phone.
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://jetnine.com";
+  try {
+    const res = await sendSms({
+      to: v.mobile,
+      body: confirmSms(from, to, confirmUrl(siteUrl, smsToken.token)),
+    });
+    if (!res.ok) console.error("createWatchlist confirmation sms failed", res.error);
+  } catch (err) {
+    console.error("createWatchlist confirmation sms threw", err);
+  }
+  if (v.email && emailToken) {
+    try {
+      const { html, text } = confirmEmailBody(from, to, confirmUrl(siteUrl, emailToken.token));
+      const res = await sendEmail({
+        to: v.email,
+        subject: confirmEmailSubject(from, to),
+        html,
+        text,
+      });
+      if (!res.ok) console.error("createWatchlist confirmation email failed", res.error);
+    } catch (err) {
+      console.error("createWatchlist confirmation email threw", err);
+    }
+  }
+
   revalidatePath("/empty-legs");
   revalidatePath("/account/preferences");
   return {
     ok: true,
-    message: `WATCHLIST CREATED — ${from.toUpperCase()} → ${to.toUpperCase()}`,
+    message: v.email
+      ? "CHECK YOUR PHONE AND EMAIL — CONFIRM TO START ALERTS"
+      : "CHECK YOUR PHONE — CONFIRM TO START ALERTS",
   };
 }

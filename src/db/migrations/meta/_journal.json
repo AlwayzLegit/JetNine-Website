@@ -288,6 +288,13 @@
       "when": 1781800000000,
       "tag": "0040_watchlist_deactivation_reason",
       "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "7",
+      "when": 1781900000000,
+      "tag": "0041_watchlist_confirmed_optin",
+      "breakpoints": true
     }
   ]
 }

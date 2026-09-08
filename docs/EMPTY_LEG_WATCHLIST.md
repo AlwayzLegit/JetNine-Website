@@ -25,12 +25,38 @@ matches, sends, and records what it sent.
 | Delivery ledger | `empty_leg_watchlist_matches` (migration 0039) |
 | Rule checks | `pnpm check:watchlist` |
 
+## Confirmed opt-in
+
+The form takes a phone number and an optional email with no proof that
+whoever filled it in controls either, so a watchlist starts silent and
+stays that way until the recipient proves control.
+
+- On submit the row is created with a random token per channel, stored
+  only as a SHA-256 hash, and a 48-hour window. The confirmation goes to
+  the address it belongs to.
+- Confirmation is **per channel**. An SMS token confirms the number and
+  nothing else, so pairing your own phone with someone else's inbox does
+  not confirm the inbox.
+- Confirming is a POST from a button on `/empty-legs/confirm/[token]`,
+  never a GET on page load. Corporate mail scanners follow links, and a
+  confirming GET would let a scanner opt someone in without a human
+  seeing the message.
+- Tokens are single-use: the hash is cleared when it is spent.
+- Unconfirmed rows are deleted by the cron once the window passes, which
+  is the promise the confirmation email makes.
+
+`active` and confirmation are separate gates and both are required.
+`active` means "not paused" and is what STOP clears; confirmation means
+"this address asked for it". A member resuming their own watchlist from
+`/account/preferences` cannot resume an unconfirmed one, because owning
+the row is not the same as controlling the number on it.
+
 ## What counts as a match
 
 All of these must hold:
 
-- The watchlist is active and has a channel it can actually reach: a
-  phone for SMS, an address for email.
+- The watchlist is active and has a channel it can actually reach *and
+  that has confirmed*: a phone for SMS, an address for email.
 - The leg is `live` and has not departed.
 - **Route.** An ICAO on the watchlist is compared strictly. Free text is
   compared against the leg's ICAO, IATA, city and airport name, so a
@@ -77,6 +103,11 @@ the response says `capped` when it does.
 4. Put at least one leg on the board. With an empty board the job returns
    `{ legs: 0, sent: 0 }` and exits immediately.
 
+Note that confirmation SMS goes out through the same `sendSms`, so until
+Twilio is configured nobody can complete an opt-in in production — the
+link is only written to the function log. That is the correct order:
+credentials first, then the flow works end to end.
+
 ## Checking on it
 
 Run it by hand:
@@ -87,7 +118,8 @@ curl -H "Authorization: Bearer $CRON_SECRET" \
 ```
 
 It answers with counts: `legs`, `watchlists`, `matched`, `sent`,
-`skipped` (already alerted on an earlier run), `failed`. The run is
+`skipped` (already alerted on an earlier run), `failed`, and
+`sweptUnconfirmed` (expired opt-ins deleted). The run is
 idempotent, so calling it twice in a row should show the second call
 skipping everything the first one sent.
 

@@ -385,7 +385,12 @@ export async function toggleWatchlistActive(
   if (!/^[0-9a-f-]{36}$/i.test(watchlistId)) return { ok: false, error: "Bad id" };
 
   const [target] = await db
-    .select({ id: emptyLegWatchlists.id, active: emptyLegWatchlists.active })
+    .select({
+      id: emptyLegWatchlists.id,
+      active: emptyLegWatchlists.active,
+      smsConfirmedAt: emptyLegWatchlists.smsConfirmedAt,
+      emailConfirmedAt: emptyLegWatchlists.emailConfirmedAt,
+    })
     .from(emptyLegWatchlists)
     .where(
       and(
@@ -394,6 +399,14 @@ export async function toggleWatchlistActive(
       ),
     );
   if (!target) return { ok: false, error: "Not found" };
+
+  // Owning the row is not the same as controlling the number on it. A
+  // signed-in member can create a watchlist against anyone's phone, so
+  // resuming one whose channels never confirmed would route straight
+  // around the opt-in. Pausing stays allowed.
+  if (next && !target.smsConfirmedAt && !target.emailConfirmedAt) {
+    return { ok: false, error: "Confirm the alerts from the link we sent before resuming them." };
+  }
 
   if (target.active === next) return { ok: true, active: target.active };
 

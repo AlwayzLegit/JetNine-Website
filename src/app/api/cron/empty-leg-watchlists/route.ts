@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { timingSafeEqual } from "node:crypto";
-import { and, asc, eq, gt, inArray } from "drizzle-orm";
+import { and, asc, eq, gt, inArray, isNull, lt } from "drizzle-orm";
 import { db } from "@/db";
 import {
   emptyLegs,
@@ -108,6 +108,8 @@ async function loadActiveWatchlists(): Promise<MatchableWatchlist[]> {
       minDiscountPct: emptyLegWatchlists.minDiscountPct,
       notifyChannels: emptyLegWatchlists.notifyChannels,
       active: emptyLegWatchlists.active,
+      smsConfirmedAt: emptyLegWatchlists.smsConfirmedAt,
+      emailConfirmedAt: emptyLegWatchlists.emailConfirmedAt,
     })
     .from(emptyLegWatchlists)
     .where(eq(emptyLegWatchlists.active, true));
@@ -152,6 +154,27 @@ export async function GET(req: Request) {
   const now = new Date();
   const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL || "https://jetnine.com").replace(/\/$/, "");
 
+  // Sweep opt-ins nobody completed. The confirmation email promises the
+  // request is deleted when the link expires, so this is the code that
+  // keeps that promise — and it stops the table accumulating contact
+  // details for people who never agreed to anything.
+  let swept = 0;
+  try {
+    const gone = await db
+      .delete(emptyLegWatchlists)
+      .where(
+        and(
+          isNull(emptyLegWatchlists.smsConfirmedAt),
+          isNull(emptyLegWatchlists.emailConfirmedAt),
+          lt(emptyLegWatchlists.confirmExpiresAt, now),
+        ),
+      )
+      .returning({ id: emptyLegWatchlists.id });
+    swept = gone.length;
+  } catch (err) {
+    console.error("[watchlist-cron] expired opt-in sweep failed", err);
+  }
+
   let legs: MatchableLeg[];
   let watchlists: MatchableWatchlist[];
   try {
@@ -170,6 +193,7 @@ export async function GET(req: Request) {
       sent: 0,
       skipped: 0,
       failed: 0,
+      sweptUnconfirmed: swept,
     });
   }
 
@@ -295,6 +319,7 @@ export async function GET(req: Request) {
     sent,
     skipped,
     failed,
+    sweptUnconfirmed: swept,
     ...(capped ? { capped: MAX_SENDS_PER_RUN } : {}),
   });
 }

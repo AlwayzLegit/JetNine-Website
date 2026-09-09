@@ -295,6 +295,13 @@
       "when": 1781900000000,
       "tag": "0041_watchlist_confirmed_optin",
       "breakpoints": true
+    },
+    {
+      "idx": 42,
+      "version": "7",
+      "when": 1782000000000,
+      "tag": "0042_watchlist_unsubscribe_token",
+      "breakpoints": true
     }
   ]
 }

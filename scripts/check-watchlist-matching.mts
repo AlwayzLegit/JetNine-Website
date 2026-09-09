@@ -4,6 +4,7 @@
  * run with `pnpm check:watchlist`.
  */
 import {
+  emailBody,
   channelsFor,
   effectiveDiscountPct,
   endpointMatches,
@@ -16,7 +17,15 @@ import {
 } from "../src/lib/watchlist-matching.ts";
 import { optOutKeyword } from "../src/lib/sms-optout.ts";
 import { normalizeFreeformE164 } from "../src/lib/phone.ts";
-import { confirmExpiry, hashToken, isExpired, issueToken } from "../src/lib/watchlist-confirm.ts";
+import {
+  confirmExpiry,
+  hashToken,
+  isExpired,
+  issueToken,
+  unsubscribeHeaders,
+  unsubscribePageUrl,
+  unsubscribePostUrl,
+} from "../src/lib/watchlist-confirm.ts";
 import { validateWatchlistInput } from "../src/lib/watchlist-validation.ts";
 
 const NOW = new Date("2026-09-08T12:00:00Z");
@@ -55,6 +64,7 @@ const watch = (over: Partial<MatchableWatchlist> = {}): MatchableWatchlist => ({
   active: true,
   smsConfirmedAt: new Date("2026-09-01T00:00:00Z"),
   emailConfirmedAt: null,
+  unsubscribeToken: "deadbeef".repeat(6),
   ...over,
 });
 
@@ -310,6 +320,34 @@ check(
   true,
 );
 check("a missing expiry counts as expired", isExpired(null), true);
+
+console.log("unsubscribe");
+const unsubToken = "a".repeat(48);
+check(
+  "the header url is the POST endpoint",
+  unsubscribePostUrl("https://jetnine.com/", unsubToken),
+  `https://jetnine.com/api/email/unsubscribe/${unsubToken}`,
+);
+check(
+  "the body link is the page",
+  unsubscribePageUrl("https://jetnine.com", unsubToken),
+  `https://jetnine.com/empty-legs/unsubscribe/${unsubToken}`,
+);
+const headers = unsubscribeHeaders(unsubscribePostUrl("https://jetnine.com", unsubToken));
+check(
+  "List-Unsubscribe is angle-bracketed per RFC 2369",
+  headers["List-Unsubscribe"],
+  `<https://jetnine.com/api/email/unsubscribe/${unsubToken}>`,
+);
+check(
+  "List-Unsubscribe-Post opts into one-click per RFC 8058",
+  headers["List-Unsubscribe-Post"],
+  "List-Unsubscribe=One-Click",
+);
+const alert = emailBody(leg(), "https://jetnine.com", unsubscribePageUrl("https://jetnine.com", unsubToken));
+check("the alert email carries the link in the html", alert.html.includes(unsubToken), true);
+check("and in the plain-text part", alert.text.includes(unsubToken), true);
+check("the html link is clickable", alert.html.includes(`<a href="https://jetnine.com/empty-legs/unsubscribe/${unsubToken}">`), true);
 
 console.log(failures === 0 ? "\nAll checks passed." : `\n${failures} check(s) FAILED.`);
 process.exit(failures === 0 ? 0 : 1);

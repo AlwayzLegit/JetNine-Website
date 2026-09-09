@@ -217,6 +217,21 @@ async function checkWatchlistCron(): Promise<void> {
   });
 }
 
+async function checkUnsubscribeEndpoint(): Promise<void> {
+  // RFC 8058 one-click. Gmail and Yahoo POST here from their own
+  // unsubscribe button, so it has to answer 200 even for a token it does
+  // not know: a retry after a timeout must not look like a failure, and
+  // a 404 would tell a prober which tokens are real. A regression to
+  // anything else breaks unsubscribe for every recipient at once.
+  await check("POST /api/email/unsubscribe (unknown token)", "required", async () => {
+    const r = await fetchWithTimeout(`${TARGET}/api/email/unsubscribe/smoke-not-a-real-token`, {
+      method: "POST",
+    });
+    if (r.status !== 200) return { ok: false, detail: `unexpected ${r.status} (expected 200)` };
+    return { ok: true, detail: "200 · idempotent, leaks nothing" };
+  });
+}
+
 // ─── Auth gating ─────────────────────────────────────────────────────────
 
 async function checkAuthRedirect(path: string): Promise<void> {
@@ -355,6 +370,7 @@ async function main() {
   await checkEmailInbound();
   await checkTwilioInbound();
   await checkWatchlistCron();
+  await checkUnsubscribeEndpoint();
   await checkAuthRedirect("/account");
   await checkAuthRedirect("/admin");
   await checkSecurityHeaders();

@@ -69,6 +69,40 @@ export function confirmUrl(siteUrl: string, token: string): string {
   return `${siteUrl.replace(/\/$/, "")}/empty-legs/confirm/${token}`;
 }
 
+// ─── Unsubscribe ─────────────────────────────────────────────────────────
+
+/**
+ * The link a recipient uses to stop alert emails. The token is minted by
+ * the database (migration 0042) and read back at send time, so every
+ * alert can carry one.
+ *
+ * Two URLs, because they serve different callers. The API route is what
+ * goes in the List-Unsubscribe header and answers POST only: mail
+ * providers post to it when someone hits their "unsubscribe" button. The
+ * page is for the link in the body, and asks for a click before acting,
+ * so a scanner walking the message cannot unsubscribe on the reader's
+ * behalf.
+ */
+export function unsubscribePostUrl(siteUrl: string, token: string): string {
+  return `${siteUrl.replace(/\/$/, "")}/api/email/unsubscribe/${token}`;
+}
+
+export function unsubscribePageUrl(siteUrl: string, token: string): string {
+  return `${siteUrl.replace(/\/$/, "")}/empty-legs/unsubscribe/${token}`;
+}
+
+/**
+ * RFC 8058. Gmail and Yahoo require both headers on recurring mail, and
+ * the pair is what turns the provider's own unsubscribe button into a
+ * single POST rather than a trip through our UI.
+ */
+export function unsubscribeHeaders(postUrl: string): Record<string, string> {
+  return {
+    "List-Unsubscribe": `<${postUrl}>`,
+    "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+  };
+}
+
 // ─── Message copy ────────────────────────────────────────────────────────
 
 function routeLabel(fromText: string, toText: string): string {

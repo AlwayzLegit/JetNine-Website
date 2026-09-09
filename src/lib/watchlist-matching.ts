@@ -48,6 +48,8 @@ export type MatchableWatchlist = {
   /** Confirmed opt-in, per channel. See src/lib/watchlist-confirm.ts. */
   smsConfirmedAt: Date | null;
   emailConfirmedAt: Date | null;
+  /** Minted by the database; written into every alert email. */
+  unsubscribeToken: string;
 };
 
 export type MatchChannel = "sms" | "email";
@@ -222,7 +224,11 @@ export function emailSubject(leg: MatchableLeg): string {
   return `Empty leg match: ${routeLabel(leg)} · ${dayFmt.format(leg.wheelsUpAt)} · ${effectiveDiscountPct(leg)}% off`;
 }
 
-export function emailBody(leg: MatchableLeg, siteUrl: string): { html: string; text: string } {
+export function emailBody(
+  leg: MatchableLeg,
+  siteUrl: string,
+  unsubscribeUrl: string,
+): { html: string; text: string } {
   const pct = effectiveDiscountPct(leg);
   const price = formatUSD(leg.listedPriceUsd);
   const was = formatUSD(leg.fullCharterRefUsd);
@@ -235,8 +241,8 @@ export function emailBody(leg: MatchableLeg, siteUrl: string): { html: string; t
     `${routeLabel(leg)} · ${when}\n${cat} · ${price} (was ${was}, ${pct}% off)\nLeg ${leg.code}\n\n` +
     `Empty legs are not held — first call wins. Call dispatch on ${SITE.dispatchPhone} ` +
     `and quote leg ${leg.code}, or see the board: ${board}\n\n` +
-    `You are getting this because you set an empty-leg watchlist at jetnine.com. ` +
-    `Reply to this email to change or cancel it.`;
+    `You are getting this because you confirmed an empty-leg watchlist at jetnine.com.\n` +
+    `Stop these emails: ${unsubscribeUrl}`;
 
   const html =
     `<p>A leg on your watchlist just hit the board.</p>` +
@@ -246,8 +252,9 @@ export function emailBody(leg: MatchableLeg, siteUrl: string): { html: string; t
     `<p>Empty legs are not held &mdash; first call wins. Call dispatch on ` +
     `<a href="tel:${SITE.dispatchPhoneE164}">${SITE.dispatchPhone}</a> and quote leg ${leg.code}, ` +
     `or <a href="${board}">see the board</a>.</p>` +
-    `<p style="color:#666;font-size:13px">You are getting this because you set an empty-leg ` +
-    `watchlist at jetnine.com. Reply to this email to change or cancel it.</p>`;
+    `<p style="color:#666;font-size:13px">You are getting this because you confirmed an ` +
+    `empty-leg watchlist at jetnine.com. ` +
+    `<a href="${unsubscribeUrl}">Stop these emails</a>.</p>`;
 
   return { html, text };
 }

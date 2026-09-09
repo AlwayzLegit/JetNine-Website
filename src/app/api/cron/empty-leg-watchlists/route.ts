@@ -20,6 +20,11 @@ import {
   type MatchableLeg,
   type MatchableWatchlist,
 } from "@/lib/watchlist-matching";
+import {
+  unsubscribeHeaders,
+  unsubscribePageUrl,
+  unsubscribePostUrl,
+} from "@/lib/watchlist-confirm";
 
 // Empty-leg watchlist matcher.
 //
@@ -110,6 +115,7 @@ async function loadActiveWatchlists(): Promise<MatchableWatchlist[]> {
       active: emptyLegWatchlists.active,
       smsConfirmedAt: emptyLegWatchlists.smsConfirmedAt,
       emailConfirmedAt: emptyLegWatchlists.emailConfirmedAt,
+      unsubscribeToken: emptyLegWatchlists.unsubscribeToken,
     })
     .from(emptyLegWatchlists)
     .where(eq(emptyLegWatchlists.active, true));
@@ -134,12 +140,21 @@ async function deliver(
       ? { ok: true, provider: res.provider, messageId: res.messageId }
       : { ok: false, error: res.error };
   }
-  const { html, text } = emailBody(leg, siteUrl);
+  // Every alert carries a way out: a link in the body, and the RFC 8058
+  // header pair so the provider's own unsubscribe button works without
+  // the reader ever opening the message.
+  const postUrl = unsubscribePostUrl(siteUrl, watchlist.unsubscribeToken);
+  const { html, text } = emailBody(
+    leg,
+    siteUrl,
+    unsubscribePageUrl(siteUrl, watchlist.unsubscribeToken),
+  );
   const res = await sendEmail({
     to: watchlist.email!,
     subject: emailSubject(leg),
     html,
     text,
+    headers: unsubscribeHeaders(postUrl),
   });
   return res.ok
     ? { ok: true, provider: res.provider, messageId: res.messageId }

@@ -123,6 +123,31 @@ It answers with counts: `legs`, `watchlists`, `matched`, `sent`,
 idempotent, so calling it twice in a row should show the second call
 skipping everything the first one sent.
 
+## Unsubscribing from email
+
+Every alert email carries two ways out.
+
+- **A link in the body**, to `/empty-legs/unsubscribe/[token]`. That page
+  only reads; the unsubscribe is a POST from a button, so a mail scanner
+  walking the message cannot unsubscribe the reader. It stops email, and
+  offers to stop the texts too when the number confirmed.
+- **The `List-Unsubscribe` header pair**, pointing at
+  `/api/email/unsubscribe/[token]`, which answers a bare POST. That is
+  what Gmail's and Yahoo's own unsubscribe button uses, and RFC 8058
+  requires the single POST to be enough — the opposite of the confirm
+  flow, and correctly so, because this direction only ever stops mail.
+
+The endpoint answers 200 for tokens it does not recognise. A provider
+retrying after a timeout must not see a failure, and an error would tell
+a prober which tokens are real.
+
+The token is minted by the database (`default encode(gen_random_bytes(24),
+'hex')`) so a row cannot exist without one, and it is stored in plain
+text. That asymmetry against the hashed confirmation tokens is
+deliberate: a confirmation token grants consent, so a leaked one could
+subscribe a stranger; an unsubscribe token only withdraws it, and the
+cron has to read it to write the link into each alert.
+
 ## Opt-outs
 
 Every SMS ends with "reply STOP to end alerts". Twilio enforces the block
@@ -145,6 +170,13 @@ are in `src/lib/sms-optout.ts` and covered by `pnpm check:watchlist`.
 Carrier keywords are handled before subject-code threading, because a STOP
 carries no `[QT-...]` code and would otherwise be logged as unmatched and
 dropped.
+
+## Where the email copy lives
+
+In code, in `src/lib/email.ts` and the two watchlist modules — not in the
+Resend dashboard, which holds no templates. Resend is the live provider
+(`RESEND_API_KEY` set, `jetnine.com` verified), with Postmark as the
+fallback branch and a logger when neither is configured.
 
 ## What is still not true
 

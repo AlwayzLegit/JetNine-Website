@@ -25,6 +25,12 @@ type EmailPayload = {
   replyTo?: string;
   // For Postmark stream routing; default "outbound".
   stream?: string;
+  /**
+   * Extra MIME headers. Used for RFC 8058 one-click unsubscribe
+   * (List-Unsubscribe + List-Unsubscribe-Post), which Gmail and Yahoo
+   * expect on any recurring mail.
+   */
+  headers?: Record<string, string>;
 };
 
 type SendResult =
@@ -88,6 +94,7 @@ export async function sendEmail(payload: EmailPayload): Promise<SendResult> {
           html: payload.html,
           text: payload.text,
           reply_to: payload.replyTo,
+          ...(payload.headers ? { headers: payload.headers } : {}),
         }),
       });
       if (!res.ok) {
@@ -118,6 +125,9 @@ export async function sendEmail(payload: EmailPayload): Promise<SendResult> {
         HtmlBody: payload.html,
         TextBody: payload.text,
         ReplyTo: payload.replyTo,
+        ...(payload.headers
+          ? { Headers: Object.entries(payload.headers).map(([Name, Value]) => ({ Name, Value })) }
+          : {}),
         MessageStream: payload.stream ?? "outbound",
       }),
     });

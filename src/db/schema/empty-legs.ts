@@ -164,6 +164,14 @@ export const emptyLegWatchlists = pgTable(
     confirmSmsTokenHash: text("confirm_sms_token_hash"),
     confirmEmailTokenHash: text("confirm_email_token_hash"),
     confirmSentAt: timestamp("confirm_sent_at", { withTimezone: true }),
+    /**
+     * Plain text on purpose — see migration 0042. A confirmation token
+     * grants consent and is hashed; this one only withdraws it, and the
+     * cron has to be able to read it to write the link into each alert.
+     */
+    unsubscribeToken: text("unsubscribe_token")
+      .notNull()
+      .default(sql`encode(gen_random_bytes(24), 'hex')`),
     confirmExpiresAt: timestamp("confirm_expires_at", { withTimezone: true }),
     deactivatedAt: timestamp("deactivated_at", { withTimezone: true }),
     /** "sms_stop" when an inbound STOP switched it off. See src/lib/sms-optout.ts. */

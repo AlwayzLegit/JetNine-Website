@@ -6,6 +6,7 @@ import { Reveal } from "@/components/reveal";
 import { ClosingCTA } from "@/components/closing-cta";
 import { QuoteLauncher } from "@/components/quote-launcher";
 import { getPublishedPost, getPublishedPosts, getRelatedPosts } from "@/lib/blog";
+import { SubscribeCard } from "@/components/blog/subscribe-card";
 import { renderMarkdown, readingMinutes, extractToc } from "@/lib/markdown";
 
 // Individual blog article — DB-backed, cached via ISR (see the note in
@@ -326,6 +327,14 @@ export default async function BlogPostPage({ params }: Props) {
           </div>
         </section>
       ) : null}
+
+      <section className="border-t border-ink-3 py-16 max-md:py-12">
+        <div className="container-jn">
+          <div className="mx-auto max-w-[720px]">
+            <SubscribeCard compact />
+          </div>
+        </div>
+      </section>
 
       <QuoteLauncher
         context="blog-post"

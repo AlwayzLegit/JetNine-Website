@@ -5,6 +5,7 @@ import { Reveal } from "@/components/reveal";
 import { ClosingCTA } from "@/components/closing-cta";
 import { QuoteLauncher } from "@/components/quote-launcher";
 import { getPublishedPosts } from "@/lib/blog";
+import { SubscribeCard } from "@/components/blog/subscribe-card";
 import { readingMinutes } from "@/lib/markdown";
 
 // Blog index — DB-backed but served from the ISR cache: Next skips font
@@ -139,6 +140,14 @@ export default async function BlogIndexPage() {
               ))}
             </div>
           )}
+        </div>
+      </section>
+
+      <section className="border-t border-ink-3 py-16 max-md:py-12">
+        <div className="container-jn">
+          <div className="mx-auto max-w-[720px]">
+            <SubscribeCard />
+          </div>
         </div>
       </section>
 

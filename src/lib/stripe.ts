@@ -28,6 +28,32 @@ export function getStripe(): Stripe {
   return _stripe;
 }
 
+export type RefundResult =
+  | { ok: true; refundId: string; amountUsd: number | null }
+  | { ok: false; error: string };
+
+/**
+ * Full refund of a payment intent. Used by the trip-cancellation path —
+ * reserve draws have refunded automatically since they shipped, while
+ * card payments were only ever voided on paper. Stripe rejects a second
+ * full refund of the same intent, which (with the caller's status guard)
+ * makes the cancel → confirm → cancel cycle safe.
+ */
+export async function refundPaymentIntent(paymentIntentId: string): Promise<RefundResult> {
+  try {
+    const stripe = getStripe();
+    const refund = await stripe.refunds.create({ payment_intent: paymentIntentId });
+    return {
+      ok: true,
+      refundId: refund.id,
+      amountUsd: typeof refund.amount === "number" ? refund.amount / 100 : null,
+    };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return { ok: false, error: msg.slice(0, 300) };
+  }
+}
+
 export function isStripeConfigured(): boolean {
   return Boolean(process.env.STRIPE_SECRET_KEY);
 }

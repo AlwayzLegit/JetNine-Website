@@ -25,6 +25,8 @@ import {
   type TripNotifyStatus,
 } from "@/lib/email";
 import { memberPreferences } from "@/db/schema/member-prefs";
+import { isStripeConfigured, refundPaymentIntent } from "@/lib/stripe";
+import { sendDispatchAlert, sendRefundIssuedEmail } from "@/lib/email";
 import { sendTripStatusSms } from "@/lib/twilio";
 import { dispatchThreadMessage, type ThreadChannel } from "@/lib/message-delivery";
 
@@ -62,6 +64,7 @@ export async function updateTripStatus(
   // `irregular_ops` mean the trip still happened (or partly happened)
   // so refund policy is ops-decided.
   let refund: { count: number; totalUsd: number } | null = null;
+  let cardRefund: { refunded: number; failed: number; totalUsd: number } | null = null;
   if (
     (status === "cancelled_wx" || status === "cancelled_other") &&
     before?.status !== status
@@ -70,6 +73,17 @@ export async function updateTripStatus(
       tripId,
       reason: status,
       actorUserId: actor.id,
+      tripCode: before?.code ?? null,
+    });
+    // Same policy for card payments: reserve draws have auto-refunded since
+    // they shipped, but a card-paid invoice was only ever voided on paper —
+    // the customer stayed charged. Mirrors the reserve path's transitions
+    // and idempotency (only status='paid' rows are touched, and Stripe
+    // rejects a second full refund of the same intent).
+    cardRefund = await refundCardPaymentsForTrip({
+      tripId,
+      actorUserId: actor.id,
+      actorRole: actor.role,
       tripCode: before?.code ?? null,
     });
   }
@@ -108,6 +122,7 @@ export async function updateTripStatus(
       wheelsDownAt: patch.wheelsDownAt?.toISOString() ?? null,
       notification,
       refund,
+      cardRefund,
     },
   });
 
@@ -803,4 +818,117 @@ async function refundChartDrawsForTrip(args: {
   });
 
   return { count: draws.length, totalUsd };
+}
+
+// ─── Card-payment refunds on trip cancellation ───────────────────────────
+// Counterpart to refundChartDrawsForTrip for invoices paid by card via
+// Stripe. Refund failures never block the cancellation — they page the
+// desk for a manual refund instead.
+async function refundCardPaymentsForTrip(args: {
+  tripId: string;
+  actorUserId: string;
+  actorRole: string;
+  tripCode: string | null;
+}): Promise<{ refunded: number; failed: number; totalUsd: number } | null> {
+  if (!isStripeConfigured()) return null;
+
+  const paidRows = await db
+    .select({
+      id: invoices.id,
+      invoiceCode: invoices.invoiceCode,
+      memberId: invoices.memberId,
+      totalUsd: invoices.totalUsd,
+      stripePaymentIntentId: invoices.stripePaymentIntentId,
+    })
+    .from(invoices)
+    .where(and(eq(invoices.tripId, args.tripId), eq(invoices.status, "paid")));
+  const refundable = paidRows.filter((r) => r.stripePaymentIntentId);
+  if (refundable.length === 0) return null;
+
+  let refunded = 0;
+  let failed = 0;
+  let totalUsd = 0;
+
+  for (const inv of refundable) {
+    const result = await refundPaymentIntent(inv.stripePaymentIntentId!);
+
+    if (result.ok) {
+      // Guard on status='paid' so a concurrent runner can't double-book the
+      // ledger state; Stripe already refuses a duplicate full refund.
+      await db
+        .update(invoices)
+        .set({ status: "void", updatedAt: new Date() })
+        .where(and(eq(invoices.id, inv.id), eq(invoices.status, "paid")));
+      refunded += 1;
+      totalUsd += result.amountUsd ?? inv.totalUsd ?? 0;
+
+      await logAudit({
+        actorUserId: args.actorUserId,
+        actorRole: args.actorRole,
+        action: "invoice.refund.card",
+        subjectType: "invoice",
+        subjectId: inv.id,
+        subjectCode: inv.invoiceCode,
+        diff: { status: { before: "paid", after: "void" } },
+        metadata: {
+          stripeRefundId: result.refundId,
+          amountUsd: result.amountUsd ?? inv.totalUsd,
+          tripCode: args.tripCode,
+          trigger: "trip_cancellation",
+        },
+      });
+
+      // Customer refund notice — best-effort.
+      try {
+        if (inv.memberId) {
+          const [m] = await db
+            .select({ email: users.email, firstName: users.firstName })
+            .from(members)
+            .innerJoin(users, eq(users.id, members.userId))
+            .where(eq(members.id, inv.memberId));
+          if (m?.email) {
+            await sendRefundIssuedEmail({
+              to: m.email,
+              firstName: m.firstName || "Hello",
+              invoiceCode: inv.invoiceCode,
+              tripCode: args.tripCode,
+              amountUsd: result.amountUsd ?? inv.totalUsd,
+            });
+          }
+        }
+      } catch (err) {
+        console.error("refund email failed (non-fatal)", err);
+      }
+    } else {
+      failed += 1;
+      await logAudit({
+        actorUserId: args.actorUserId,
+        actorRole: args.actorRole,
+        action: "invoice.refund.card_failed",
+        subjectType: "invoice",
+        subjectId: inv.id,
+        subjectCode: inv.invoiceCode,
+        metadata: {
+          error: result.error,
+          stripePaymentIntentId: inv.stripePaymentIntentId,
+          tripCode: args.tripCode,
+        },
+      });
+      try {
+        await sendDispatchAlert({
+          subject: `ACTION REQUIRED — card refund failed on ${inv.invoiceCode}`,
+          headline: "A cancellation refund failed in Stripe.",
+          lines: [
+            `Invoice ${inv.invoiceCode}${args.tripCode ? ` (trip ${args.tripCode})` : ""} — ${result.error}.`,
+            "Issue the refund manually in the Stripe dashboard; the invoice is still marked paid.",
+          ],
+          link: { label: "Open the trip sheet", url: `https://jetnine.com/admin/trip/${args.tripId}` },
+        });
+      } catch (err) {
+        console.error("refund-failed alert failed (non-fatal)", err);
+      }
+    }
+  }
+
+  return { refunded, failed, totalUsd };
 }

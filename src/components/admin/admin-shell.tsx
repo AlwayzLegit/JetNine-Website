@@ -6,9 +6,11 @@ import type { CurrentUser } from "@/lib/auth";
 export function AdminShell({
   user,
   children,
+  unreadInbox = 0,
 }: {
   user: CurrentUser;
   children: React.ReactNode;
+  unreadInbox?: number;
 }) {
   return (
     <div className="min-h-screen bg-ink">
@@ -35,7 +37,7 @@ export function AdminShell({
             </form>
           </div>
         </div>
-        <AdminNav />
+        <AdminNav unreadInbox={unreadInbox} />
       </header>
       <main>{children}</main>
     </div>

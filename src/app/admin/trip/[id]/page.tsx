@@ -15,6 +15,7 @@ import {
   MessageThread,
   type ThreadMessage,
 } from "@/components/admin/message-thread";
+import { MarkThreadRead } from "@/components/admin/mark-thread-read";
 import { postTripMessage } from "@/app/admin/trip/[id]/actions";
 import { InvoiceFinalizeForm } from "@/components/admin/invoice-finalize-form";
 import { formatUSD } from "@/lib/quote-pricing";
@@ -412,6 +413,7 @@ export default async function AdminTripDetailPage({ params }: Props) {
                 {thread.length} message{thread.length === 1 ? "" : "s"}
               </span>
             </div>
+            <MarkThreadRead subjectType="trip" subjectId={trip.id} />
             <MessageThread
               initial={thread}
               defaultEmail={memberRow?.email ?? null}

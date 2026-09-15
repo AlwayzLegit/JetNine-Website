@@ -15,8 +15,10 @@ import { users } from "@/db/schema/users";
 import { trips } from "@/db/schema/trips";
 import {
   sendDispatchAlert,
+  sendMembershipActivatedEmail,
   sendPaymentFailedEmail,
   sendPaymentReceiptEmail,
+  sendTopUpReceiptEmail,
 } from "@/lib/email";
 import {
   constructWebhookEvent,
@@ -278,6 +280,26 @@ async function onMembershipToppedUp(session: Stripe.Checkout.Session): Promise<v
       source: "stripe_webhook",
     },
   });
+
+  // Receipt + desk ping — money arrived; both sides should hear it.
+  try {
+    const contact = await memberContact(row.memberId);
+    if (contact) {
+      await sendTopUpReceiptEmail({
+        to: contact.email,
+        firstName: contact.firstName,
+        amountUsd,
+      });
+    }
+    await sendDispatchAlert({
+      subject: `[RESERVE] Top-up received — $${Math.round(amountUsd).toLocaleString("en-US")}`,
+      headline: "A member topped up their reserve.",
+      lines: [`$${Math.round(amountUsd).toLocaleString("en-US")} credited via Stripe.`],
+      link: { label: "Open members", url: "https://jetnine.com/admin/member" },
+    });
+  } catch (err) {
+    console.error("[stripe-webhook] top-up notifications failed (non-fatal)", err);
+  }
 }
 
 // Member contact for customer-facing sends. Null when the member has no
@@ -582,6 +604,26 @@ async function onMembershipPurchased(session: Stripe.Checkout.Session): Promise<
       source: "stripe_webhook",
     },
   });
+  // Welcome + desk ping. The activation previously happened in silence.
+  try {
+    const contact = await memberContact(row.memberId);
+    if (contact) {
+      await sendMembershipActivatedEmail({
+        to: contact.email,
+        firstName: contact.firstName,
+        program: row.program,
+        depositUsd: row.depositUsd,
+      });
+    }
+    await sendDispatchAlert({
+      subject: `[MEMBERSHIP] ${row.program} activated — $${Math.round(row.depositUsd).toLocaleString("en-US")} deposit`,
+      headline: "A membership was purchased.",
+      lines: [`Program ${row.program}, deposit $${Math.round(row.depositUsd).toLocaleString("en-US")} credited to the reserve.`],
+      link: { label: "Open members", url: "https://jetnine.com/admin/member" },
+    });
+  } catch (err) {
+    console.error("[stripe-webhook] activation notifications failed (non-fatal)", err);
+  }
 }
 
 async function onChargeRefunded(charge: Stripe.Charge): Promise<void> {

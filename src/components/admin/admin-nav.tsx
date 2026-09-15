@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 
 const ADMIN_NAV = [
   { href: "/admin/dispatch", label: "Inbox" },
+  { href: "/admin/voice", label: "Voice" },
   { href: "/admin/inquiries", label: "Inquiries" },
   { href: "/admin/quote", label: "Workbench" },
   { href: "/admin/ops", label: "Live ops" },
@@ -20,7 +21,7 @@ const ADMIN_NAV = [
   { href: "/admin/health", label: "Health" },
 ];
 
-export function AdminNav() {
+export function AdminNav({ unreadInbox = 0 }: { unreadInbox?: number }) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
 
@@ -46,6 +47,11 @@ export function AdminNav() {
         {ADMIN_NAV.map((l) => (
           <Link key={l.href} href={l.href} className={linkCls(l.href)}>
             {l.label}
+            {l.href === "/admin/dispatch" && unreadInbox > 0 ? (
+              <span className="ml-1.5 rounded-full bg-clearance px-1.5 py-0.5 font-mono text-[9px] text-ink">
+                {unreadInbox > 99 ? "99+" : unreadInbox}
+              </span>
+            ) : null}
           </Link>
         ))}
       </div>

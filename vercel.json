@@ -18,6 +18,10 @@
     {
       "path": "/api/cron/sla-watch",
       "schedule": "*/10 * * * *"
+    },
+    {
+      "path": "/api/cron/invoice-watch",
+      "schedule": "0 15 * * *"
     }
   ]
 }

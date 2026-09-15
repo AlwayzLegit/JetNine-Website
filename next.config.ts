@@ -81,6 +81,24 @@ const nextConfig: NextConfig = {
       },
     ];
   },
+  // 301s for URLs people (and AI crawlers) guess by convention — PostHog
+  // shows real visits 404ing on these exact paths. Each redirect turns a
+  // dead landing into the canonical page and consolidates any link equity
+  // pointed at the guessed URL.
+  async redirects() {
+    return [
+      { source: "/about-us", destination: "/about", permanent: true },
+      { source: "/team", destination: "/about", permanent: true },
+      { source: "/privacy", destination: "/legal", permanent: true },
+      { source: "/privacy-policy", destination: "/legal", permanent: true },
+      { source: "/terms", destination: "/legal", permanent: true },
+      { source: "/terms-of-service", destination: "/legal", permanent: true },
+      { source: "/login", destination: "/sign-in", permanent: true },
+      { source: "/dashboard", destination: "/account", permanent: true },
+      { source: "/fleet", destination: "/aircraft", permanent: true },
+      { source: "/pricing", destination: "/cost-calculator", permanent: true },
+    ];
+  },
 };
 
 export default nextConfig;

@@ -2,19 +2,29 @@
 
 > JetNine is a private-aviation charter brokerage: access to roughly 20,000 aircraft worldwide, curated down to a few vetted airframes per trip and arranged by a 24/7 human dispatch desk.
 
-JetNine arranges on-demand private jet charter, discounted empty-leg flights, and membership programs. Trips fly on independently vetted operators (ARGUS / Wyvern / IS-BAO standards). Quotes are generated through the on-site wizard, and the dispatch desk is reachable by phone around the clock.
+JetNine arranges on-demand private jet charter, discounted empty-leg flights, and membership programs. Trips fly on independently vetted FAA Part 135 operators (ARGUS / Wyvern / IS-BAO standards). Quotes are generated through the on-site wizard with live indicative pricing, and the dispatch desk answers +1 (424) 487-2707 around the clock. JetNine LLC is a 14 CFR Part 295 indirect air carrier based in Los Angeles.
 
 ## Main pages
 - [Home](https://jetnine.com/): What JetNine is and how the desk works.
-- [Fleet & aircraft](https://jetnine.com/aircraft): Categories from turboprop to ultra-long-range, with cabin specs and photography.
+- [Fleet & aircraft](https://jetnine.com/aircraft): Categories from turboprop to ultra-long-range, with individual aircraft model pages, cabin specs, and photography.
 - [How it works](https://jetnine.com/how-it-works): The quote-to-flight process, step by step.
+- [Cost calculator](https://jetnine.com/cost-calculator): Instant charter cost estimates by route and aircraft category.
 - [Memberships](https://jetnine.com/memberships): Membership and jet-card programs.
-- [Empty legs](https://jetnine.com/empty-legs): Discounted repositioning flights.
-- [Safety](https://jetnine.com/safety): Operator vetting and safety standards.
-- [FAQ](https://jetnine.com/faq): Common questions about booking, pricing, pets, and safety.
-- [About](https://jetnine.com/about): Company background.
-- [Request a quote](https://jetnine.com/quote/mission): Start a charter quote.
+- [Empty legs](https://jetnine.com/empty-legs): Discounted repositioning flights, with SMS/email route alerts.
+- [Safety](https://jetnine.com/safety): Operator vetting, pilot standards, and safety ratings explained.
+- [Request a quote](https://jetnine.com/quote/mission): Start a charter quote — options within 30 minutes during operating hours.
+
+## Guides & answers
+- [Charter pricing guide](https://jetnine.com/guides): Chapter-by-chapter guide to private jet charter costs.
+- [Blog](https://jetnine.com/blog): Charter know-how, route spotlights, and industry explainers — updated daily.
+- [Questions](https://jetnine.com/questions): Direct answers to common charter questions (brokers, pricing, aircraft, logistics).
+- [FAQ](https://jetnine.com/faq): Booking, pricing, pets, and safety questions.
+
+## Destinations & routes
+- [Private jet charter by city](https://jetnine.com/private-jet-charter): Deep guides for major U.S. markets (Los Angeles, New York, Miami, Las Vegas, and more).
+- [Popular routes](https://jetnine.com/routes): Route-specific pages with typical aircraft, flight times, and pricing.
 
 ## Contact
-- [Contact the dispatch desk](https://jetnine.com/contact): Get in touch or request help choosing an aircraft.
-- [Legal & policies](https://jetnine.com/legal): Terms, privacy, and disclosures.
+- [Contact the dispatch desk](https://jetnine.com/contact): Reach a human dispatcher — replies within 30 minutes during operating hours.
+- [About](https://jetnine.com/about): Company background and the team.
+- [Legal & policies](https://jetnine.com/legal): Part 295 disclosure, terms, and privacy.

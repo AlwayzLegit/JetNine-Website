@@ -4,6 +4,7 @@ import { db } from "@/db";
 import { quotes, quoteLegs } from "@/db/schema/quotes";
 import { messages } from "@/db/schema/audit";
 import { trips } from "@/db/schema/trips";
+import { blogSubscribers } from "@/db/schema/blog-subscribers";
 import { formatUSD } from "@/lib/quote-pricing";
 import {
   FailedDeliveryList,
@@ -107,6 +108,12 @@ export default async function DispatchInboxPage() {
     )
     .orderBy(desc(messages.occurredAt))
     .limit(50);
+
+  // Audience strip — the blog list is the one owned channel that grows
+  // without spend, so its trajectory belongs on the same screen the desk
+  // already lives on. Counts only; the table has no admin CRUD surface
+  // (consent rows are managed by the subscriber, not the desk).
+  const audience = await loadAudienceStats(sevenDaysAgo);
 
   const failedDeliveries: FailedDeliveryRow[] = failedRaw
     .filter((r) => r.subjectType === "quote" || r.subjectType === "trip")
@@ -221,8 +228,76 @@ export default async function DispatchInboxPage() {
         </header>
         <FailedDeliveryList initial={failedDeliveries} />
       </section>
+
+      <section className="mt-14">
+        <header className="mb-5">
+          <p className="caption mb-2">— Audience · blog digest list</p>
+          <h2 className="font-serif text-[22px] font-light leading-tight tracking-tight text-bone">
+            Readers who asked to hear from the desk.
+          </h2>
+          <p className="mt-2 max-w-[60ch] text-[13px] leading-[1.55] text-bone-2">
+            Double opt-in only — pending rows never receive anything. The digest goes out
+            Fridays when the week published at least one post.
+          </p>
+        </header>
+        <dl className="flex flex-wrap gap-x-10 gap-y-3 rounded-[4px] border border-ink-3 bg-ink-2 px-6 py-5">
+          {[
+            ["CONFIRMED", String(audience.confirmed)],
+            ["NEW THIS WEEK", String(audience.newThisWeek)],
+            ["PENDING", String(audience.pending)],
+            ["UNSUBSCRIBED", String(audience.unsubscribed)],
+            [
+              "LAST DIGEST",
+              audience.lastDigestAt
+                ? new Intl.DateTimeFormat("en-US", {
+                    month: "short",
+                    day: "numeric",
+                    timeZone: "America/Los_Angeles",
+                  }).format(audience.lastDigestAt)
+                : "never",
+            ],
+          ].map(([lbl, val]) => (
+            <div key={lbl} className="flex flex-col">
+              <dt className="font-mono text-[10px] uppercase tracking-[0.14em] text-steel">{lbl}</dt>
+              <dd className="mt-1 font-serif text-[26px] font-light leading-none text-bone">{val}</dd>
+            </div>
+          ))}
+        </dl>
+      </section>
     </div>
   );
+}
+
+async function loadAudienceStats(sevenDaysAgo: Date): Promise<{
+  confirmed: number;
+  pending: number;
+  unsubscribed: number;
+  newThisWeek: number;
+  lastDigestAt: Date | null;
+}> {
+  try {
+    const [row] = await db
+      .select({
+        confirmed: sql<number>`count(*) filter (where ${blogSubscribers.status} = 'confirmed')::int`,
+        pending: sql<number>`count(*) filter (where ${blogSubscribers.status} = 'pending')::int`,
+        unsubscribed: sql<number>`count(*) filter (where ${blogSubscribers.status} = 'unsubscribed')::int`,
+        newThisWeek: sql<number>`count(*) filter (where ${blogSubscribers.status} = 'confirmed' and ${blogSubscribers.confirmedAt} >= ${sevenDaysAgo})::int`,
+        lastDigestAt: sql<Date | null>`max(${blogSubscribers.lastDigestAt})`,
+      })
+      .from(blogSubscribers);
+    return {
+      confirmed: row?.confirmed ?? 0,
+      pending: row?.pending ?? 0,
+      unsubscribed: row?.unsubscribed ?? 0,
+      newThisWeek: row?.newThisWeek ?? 0,
+      lastDigestAt: row?.lastDigestAt ? new Date(row.lastDigestAt) : null,
+    };
+  } catch (err) {
+    // A missing table or transient DB error must never take down the
+    // dispatch inbox — the strip just reads zero.
+    console.error("[dispatch] audience stats failed", err);
+    return { confirmed: 0, pending: 0, unsubscribed: 0, newThisWeek: 0, lastDigestAt: null };
+  }
 }
 
 // Shared per-quote derivation used by both the desktop table row and the

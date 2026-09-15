@@ -163,6 +163,12 @@ const SEEDS: RouteSeed[] = [
     to: "LAS",
     note: "Ninety minutes over the Sierra. High-frequency leisure lane — which is exactly where repositioning legs come from; a watchlist on this pair pays for itself the first time it fires.",
   },
+  {
+    slug: "denver-to-aspen",
+    from: "APA",
+    to: "ASE",
+    note: "The forty-minute hop that saves a four-hour mountain drive — Centennial to Aspen-Pitkin, with the box-canyon approach and curfew planning handled by crews who fly it weekly. Winter Saturdays book out with the ski calendar; turboprops do the lane at the honest rate.",
+  },
 ];
 
 // Resolve seeds against the airport table at module init — an unknown

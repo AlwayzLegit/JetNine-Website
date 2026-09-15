@@ -1,7 +1,9 @@
 // City-page registry — one entry per charter market
 // (/private-jet-charter/{slug}). Scoped per the four-broker audit: the
-// deep top ~15-20 markets earn the traffic, the long tail earns rot —
-// so this list grows only after these index and rank.
+// deep top markets earn the traffic, the long tail earns rot. The
+// Sept 2026 expansion (Orlando through Naples) was keyword-gap driven:
+// each added market showed 90-320 exact-match searches/mo at KD 11-24
+// in Semrush — confirmed demand, not speculative coverage.
 //
 // Curated facts here follow the same discipline as the rest of the
 // site: drive times are approximate ("~") framings of well-known
@@ -330,6 +332,166 @@ const SEEDS: Seed[] = [
       {
         q: "Hobby or Intercontinental for a Houston charter?",
         a: "Hobby for nearly everything — closer to downtown and the medical center, faster ramps, none of IAH's airline sequencing. Intercontinental earns its place on international itineraries needing its customs and connection infrastructure.",
+      },
+    ],
+  },
+  {
+    slug: "orlando",
+    name: "Orlando",
+    state: "Florida",
+    lead: "Two markets in one metro: convention and business traffic runs through close-in Orlando Executive, while the theme-park corridor sits a highway southwest. The convention calendar drives the ramp here the way ski Saturdays drive Aspen — book the show dates, not the week.",
+    airports: [
+      { code: "ORL", role: "Primary charter field", drive: "~10 min to downtown Orlando" },
+      { code: "MCO", role: "International & airline connect", drive: "~12 mi to downtown · parks-side access" },
+    ],
+    lanes: ["TEB", "MDW", "PDK", "OPF"],
+    opsFaq: [
+      {
+        q: "Which Orlando airport should my charter use?",
+        a: "Orlando Executive for downtown and the convention corridor — it's the close-in field built for quick FBO turns. MCO earns its place on airline connections and when the trip ends on the parks side of the metro; tell dispatch the actual address and the field picks itself.",
+      },
+    ],
+  },
+  {
+    slug: "minneapolis",
+    name: "Minneapolis",
+    state: "Minnesota",
+    lead: "Flying Cloud carries the Twin Cities' executive traffic away from MSP's airline banks, with the corporate headquarters belt of the southwest metro minutes from the ramp. Winter here is an operational fact, not a footnote — de-ice programs and alternate planning ride along on every cold-season quote.",
+    airports: [
+      { code: "FCM", role: "Primary executive field", drive: "~20 min to downtown Minneapolis" },
+      { code: "MSP", role: "International & airline connect", drive: "~10 mi to downtown · commercial banks" },
+    ],
+    lanes: ["MDW", "TEB", "LAS", "ASE"],
+    opsFaq: [
+      {
+        q: "Does winter weather ground private flights in Minneapolis?",
+        a: "Rarely — it reshapes them. Charter crews plan de-ice windows and file alternates as a matter of course, and a private schedule can shift around a system in a way an airline bank can't. Dispatch briefs the weather plan with the quote from November through March.",
+      },
+    ],
+  },
+  {
+    slug: "tampa",
+    name: "Tampa",
+    state: "Florida",
+    lead: "Tampa International's FBO ramps sit minutes from downtown and the Westshore business district, and Peter O. Knight — on Davis Islands, practically downtown — is one of Florida's great close-in fields for the aircraft that fit it. The Gulf Coast season mirrors Miami's, a notch quieter on the ramp.",
+    airports: [
+      { code: "TPA", role: "Primary charter field", drive: "~6 mi to downtown Tampa" },
+      { code: "TPF", role: "Close-in · light aircraft", drive: "Davis Islands · ~3 mi to downtown" },
+    ],
+    lanes: ["TEB", "MDW", "PDK", "NAS"],
+    opsFaq: [
+      {
+        q: "Can my charter use Peter O. Knight?",
+        a: "If the airframe fits — the Davis Islands field's short runway keeps it turboprop and light-jet territory, and for those missions it's a five-minute drive to downtown. Anything midsize and up uses Tampa International's FBO ramps instead; dispatch matches the field to the aircraft.",
+      },
+    ],
+  },
+  {
+    slug: "fort-lauderdale",
+    name: "Fort Lauderdale",
+    state: "Florida",
+    lead: "Fort Lauderdale Executive is the charter answer in a metro where FLL's airline banks run dense — a dedicated business-aviation field minutes from Las Olas and the beach. The winter season runs on Miami's calendar, and the Bahamas sit under an hour off the coast.",
+    airports: [
+      { code: "FXE", role: "Primary charter field", drive: "~8 mi to Las Olas & the beach" },
+      { code: "FLL", role: "International & airline connect", drive: "~5 mi to downtown · commercial banks" },
+    ],
+    lanes: ["TEB", "NAS", "MDW", "BED"],
+    opsFaq: [
+      {
+        q: "Fort Lauderdale Executive or FLL?",
+        a: "Executive, almost always — it exists for exactly this traffic, with FBO ramps and none of FLL's sequencing. FLL earns its place when the itinerary connects to an airline flight or needs its international infrastructure.",
+      },
+    ],
+  },
+  {
+    slug: "denver",
+    name: "Denver",
+    state: "Colorado",
+    lead: "Centennial is the front door to the Rockies: the Tech Center's executive field, and the staging point for Aspen, Vail, and the ski country beyond. The mile-high field elevation is a real performance input — hot summer afternoons trim runway margins the same way the mountains do.",
+    airports: [
+      { code: "APA", role: "Primary charter field", drive: "~17 mi to downtown · Tech Center side" },
+      { code: "DEN", role: "International & airline connect", drive: "~25 mi to downtown · commercial banks" },
+    ],
+    lanes: ["ASE", "DAL", "VNY", "MDW"],
+    opsFaq: [
+      {
+        q: "Why fly private from Centennial instead of DEN?",
+        a: "Centennial is built for it — FBO ramps on the Tech Center side of the metro, quick turns, and no airline sequencing. DEN's distance from town only pays off when you're connecting to a commercial flight.",
+      },
+      {
+        q: "Does Denver's altitude affect charter flights?",
+        a: "It's part of every performance calculation. At a mile of field elevation, hot afternoons raise density altitude and trim climb margins — summer missions favor morning departures or load planning sized for the heat. Dispatch builds it into the quote.",
+      },
+    ],
+  },
+  {
+    slug: "austin",
+    name: "Austin",
+    state: "Texas",
+    lead: "The fastest-grown charter market in Texas. Austin-Bergstrom's FBO ramps handle most missions minutes from downtown, with Austin Executive as the quieter northeast alternative. Event weeks — SXSW, F1, the football calendar — sell the local fleet through; book the event, not the week.",
+    airports: [
+      { code: "AUS", role: "Primary charter field", drive: "~8 mi to downtown Austin" },
+      { code: "EDC", role: "Executive alternative", drive: "~15 mi northeast · quieter ramp" },
+    ],
+    lanes: ["DAL", "VNY", "TEB", "LAS"],
+    opsFaq: [
+      {
+        q: "How early should I book around SXSW or the Grand Prix?",
+        a: "As soon as plans firm up — Austin's marquee weeks sell out the local fleet, and late bookings inherit repositioned aircraft and the ferry cost that comes with them. The rate card holds; availability is what moves.",
+      },
+    ],
+  },
+  {
+    slug: "nashville",
+    name: "Nashville",
+    state: "Tennessee",
+    lead: "Music City's charter traffic runs through BNA's dedicated FBO ramps minutes from downtown, with John C. Tune across the river as the executive-field alternative. The market skews entertainment: tour schedules, weekend events, and a bachelorette economy that keeps the light-jet category busy.",
+    airports: [
+      { code: "BNA", role: "Primary charter field", drive: "~8 mi to downtown Nashville" },
+      { code: "JWN", role: "Executive alternative", drive: "~8 mi west of downtown · quieter ramp" },
+    ],
+    lanes: ["TEB", "OPF", "MDW", "DAL"],
+    opsFaq: [
+      {
+        q: "BNA or John C. Tune for a Nashville charter?",
+        a: "BNA's FBOs handle everything and sit closest to downtown and the Gulch. John C. Tune is the quieter executive field across the river — a good swap for turboprops and light jets when BNA's ramps run busy. Dispatch prices the day both ways when it's close.",
+      },
+    ],
+  },
+  {
+    slug: "san-antonio",
+    name: "San Antonio",
+    state: "Texas",
+    lead: "San Antonio International's FBO ramps sit fifteen minutes from downtown and the River Walk, with historic Stinson Municipal on the south side for light aircraft. Missions here skew regional — Dallas, Houston, the border economy — where the turboprop's math is honest and the light jet buys the afternoon back.",
+    airports: [
+      { code: "SAT", role: "Primary charter field", drive: "~8 mi to downtown San Antonio" },
+      { code: "SSF", role: "South-side · light aircraft", drive: "~6 mi south of downtown" },
+    ],
+    lanes: ["DAL", "HOU", "LAS", "SDL"],
+    opsFaq: [
+      {
+        q: "What does a charter to Dallas or Houston cost from San Antonio?",
+        a: "The short Texas triangle legs are where turboprops and light jets earn their keep — under an hour in the air, and the quote engine prices the lane live on this page. The category call is cabin comfort, not capability; both do the mission.",
+      },
+    ],
+  },
+  {
+    slug: "naples",
+    name: "Naples",
+    state: "Florida",
+    lead: "The Gulf Coast's quiet-money season market: Naples Airport sits five minutes from Old Naples and Port Royal, runs a serious noise program, and fills its ramp from Thanksgiving through Easter with the Northeast and Midwest shuttle. The field favors the turboprop-to-midsize band — which suits the missions it flies.",
+    airports: [
+      { code: "APF", role: "The town's own field", drive: "~5 min to Old Naples" },
+    ],
+    lanes: ["TEB", "BED", "MDW"],
+    opsFaq: [
+      {
+        q: "Are there restrictions flying into Naples?",
+        a: "Naples runs one of the stricter airport noise programs in Florida — stage-based restrictions and strong nighttime expectations. Modern charter airframes comply comfortably, but late-evening arrivals get planned deliberately; dispatch confirms the window with your quote.",
+      },
+      {
+        q: "When does the Naples season peak?",
+        a: "Thanksgiving through Easter, same rhythm as Palm Beach — with the tightest ramps around the winter holidays and Presidents' week. Booking the airframe early books its parking too; the off-season runs loose and quiet.",
       },
     ],
   },

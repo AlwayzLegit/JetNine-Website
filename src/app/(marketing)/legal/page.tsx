@@ -21,6 +21,7 @@ const TOC = [
       ["1.4", "Sharing & subprocessors", "#sharing"],
       ["1.5", "Retention", "#retention"],
       ["1.6", "Your rights", "#your-rights"],
+      ["1.7", "SMS & text messaging", "#sms"],
     ],
   },
   {
@@ -299,6 +300,42 @@ export default function LegalPage() {
                   . California residents (CCPA), EU residents (GDPR), and Virginia residents (CDPA)
                   have additional statutory rights mirrored in this policy.
                 </p>
+              </Section>
+
+              <Section id="sms" n="1.7" title="SMS & text messaging">
+                <p>
+                  If you opt in to empty-leg alerts on{" "}
+                  <a href="/empty-legs" className="text-clearance underline underline-offset-2">
+                    jetnine.com/empty-legs
+                  </a>
+                  , we send two kinds of text message: a one-time confirmation when you set up a
+                  watchlist, and an alert when a repositioning flight matches your saved route and
+                  dates. Nothing is sent until you confirm via the link in the first message.
+                </p>
+                <BulletList
+                  items={[
+                    [
+                      "Frequency —",
+                      "one message per matching flight. Frequency varies with how often your route matches; there are no marketing blasts.",
+                    ],
+                    [
+                      "Rates —",
+                      "message and data rates may apply, per your carrier's plan.",
+                    ],
+                    [
+                      "Opting out —",
+                      "reply STOP at any time to end all alerts; reply START to resume. Reply HELP for help, or call +1 (424) 487-2707.",
+                    ],
+                    [
+                      "Your number stays here —",
+                      "mobile numbers and SMS opt-in data are never shared with or sold to third parties or affiliates for marketing or promotional purposes. They are used solely to deliver the alerts you asked for.",
+                    ],
+                    [
+                      "Delivery —",
+                      "carriers are not liable for delayed or undelivered messages.",
+                    ],
+                  ]}
+                />
               </Section>
             </article>
 

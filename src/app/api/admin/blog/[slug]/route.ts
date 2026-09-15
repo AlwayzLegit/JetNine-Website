@@ -4,6 +4,7 @@ import { db } from "@/db";
 import { blogPosts } from "@/db/schema/blog";
 import { authorizeBlogAdmin } from "@/lib/blog-admin-auth";
 import { SLUG_RE, validatePostInput, revalidateBlog } from "@/lib/blog";
+import { pingIndexNow } from "@/lib/indexnow";
 import { renderMarkdown } from "@/lib/markdown";
 
 // Admin blog API — single-post endpoints, addressed by slug.
@@ -114,6 +115,12 @@ export async function PUT(req: Request, ctx: Ctx) {
     .returning();
 
   revalidateBlog([post.slug, updated.slug]);
+  // Ping when the live surface changed: a post is or was published (covers
+  // publish, edit-in-place, unpublish, and slug moves — engines re-crawl
+  // each URL and see its current state, 404s included).
+  if (post.status === "published" || updated.status === "published") {
+    await pingIndexNow(["/blog", `/blog/${post.slug}`, `/blog/${updated.slug}`]);
+  }
   const base = (process.env.NEXT_PUBLIC_SITE_URL || "https://jetnine.com").replace(/\/$/, "");
   return NextResponse.json({ ok: true, post: updated, url: `${base}/blog/${updated.slug}` });
 }
@@ -128,5 +135,8 @@ export async function DELETE(req: Request, ctx: Ctx) {
 
   await db.delete(blogPosts).where(eq(blogPosts.id, post.id));
   revalidateBlog([post.slug]);
+  if (post.status === "published") {
+    await pingIndexNow(["/blog", `/blog/${post.slug}`]);
+  }
   return NextResponse.json({ ok: true, deleted: post.slug });
 }

@@ -4,6 +4,7 @@ import { db } from "@/db";
 import { blogPosts } from "@/db/schema/blog";
 import { authorizeBlogAdmin } from "@/lib/blog-admin-auth";
 import { slugify, validatePostInput, revalidateBlog, BLOG_DEFAULT_AUTHOR } from "@/lib/blog";
+import { pingIndexNow } from "@/lib/indexnow";
 import { renderMarkdown } from "@/lib/markdown";
 
 // Admin blog API — collection endpoints.
@@ -114,6 +115,9 @@ export async function POST(req: Request) {
     .returning();
 
   revalidateBlog([post.slug]);
+  if (post.status === "published") {
+    await pingIndexNow(["/blog", `/blog/${post.slug}`]);
+  }
   const base = (process.env.NEXT_PUBLIC_SITE_URL || "https://jetnine.com").replace(/\/$/, "");
   return NextResponse.json(
     { ok: true, post, url: `${base}/blog/${post.slug}` },

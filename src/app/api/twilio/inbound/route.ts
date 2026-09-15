@@ -7,6 +7,7 @@ import { members } from "@/db/schema/members";
 import { quotes } from "@/db/schema/quotes";
 import { trips } from "@/db/schema/trips";
 import { logAudit } from "@/lib/audit";
+import { sendDispatchAlert } from "@/lib/email";
 import { isTwilioConfigured, verifyTwilioSignature } from "@/lib/twilio";
 import { DEACTIVATED_BY_SMS_STOP, optOutKeyword } from "@/lib/sms-optout";
 
@@ -112,8 +113,21 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       from: fromE164,
       bodyPreview: body.slice(0, 80),
     });
-    // ACK so Twilio doesn't retry. The message is lost from the
-    // dispatcher's perspective; ops can grep logs for these.
+    // ACK so Twilio doesn't retry — but forward to the desk instead of
+    // losing it to a log line ("ops can grep" was the old story).
+    try {
+      await sendDispatchAlert({
+        subject: "[UNROUTED] Inbound SMS — no [CODE] in body",
+        headline: "An inbound text couldn't be threaded.",
+        lines: [
+          `From: ${fromE164}`,
+          "— Body (untrusted, first 800 chars) —",
+          body.slice(0, 800) || "(empty)",
+        ],
+      });
+    } catch (err) {
+      console.error("[twilio:inbound] unrouted forward failed (non-fatal)", err);
+    }
     return NextResponse.json({ received: true, unmatched: true });
   }
 
@@ -176,6 +190,22 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     });
   } catch (err) {
     console.error("[twilio:inbound] audit failed (non-fatal)", err);
+  }
+
+  // Wake the desk — a threaded reply previously landed unread with
+  // nothing pointing at it.
+  try {
+    await sendDispatchAlert({
+      subject: `[${route.subjectCode}] ${isWhatsApp ? "WhatsApp" : "SMS"} reply from ${fromE164}`,
+      headline: `New ${isWhatsApp ? "WhatsApp" : "SMS"} reply on ${route.subjectCode}.`,
+      lines: [preview || "(empty body)"],
+      link: {
+        label: "Open the thread",
+        url: `https://jetnine.com/admin/${route.subjectType === "quote" ? "quote" : "trip"}/${route.subjectId}`,
+      },
+    });
+  } catch (err) {
+    console.error("[twilio:inbound] desk alert failed (non-fatal)", err);
   }
 
   return NextResponse.json({ received: true, messageId });

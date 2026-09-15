@@ -85,11 +85,15 @@ export async function retryMessageDelivery(messageId: string): Promise<RetryResu
     await db
       .update(messages)
       .set({
-        deliveryStatus: "sent",
+        // Honest status: logger mode means nothing left the building.
+        deliveryStatus: result.provider === "logger" ? "queued" : "sent",
         deliveryProvider: result.provider,
         deliveryMessageId: result.messageId ?? null,
-        deliveryError: null,
-        deliveredAt: new Date(),
+        deliveryError:
+          result.provider === "logger"
+            ? "channel not configured — logged only, not delivered"
+            : null,
+        deliveredAt: result.provider === "logger" ? null : new Date(),
       })
       .where(eq(messages.id, m.id));
 

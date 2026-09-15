@@ -4,7 +4,7 @@ import { headers } from "next/headers";
 import { db } from "@/db";
 import { contactInquiries } from "@/db/schema/contact";
 import { checkRateLimit } from "@/lib/rate-limit";
-import { sendEmail } from "@/lib/email";
+import { sendDispatchAlert, sendEmail } from "@/lib/email";
 import { GUIDE_PDF_PATH, GUIDE_PDF_TITLE } from "@/lib/guide-download";
 import { SITE } from "@/lib/constants";
 
@@ -96,6 +96,19 @@ export async function requestPricingGuide(formData: FormData): Promise<GuideRequ
     });
   } catch (err) {
     console.error("requestPricingGuide email send failed", err);
+  }
+
+  // This lead type used to land on the inquiries board with no ping —
+  // the only inbound that didn't notify the desk.
+  try {
+    await sendDispatchAlert({
+      subject: `[LEAD] Pricing-guide download — ${email}`,
+      headline: "New pricing-guide lead.",
+      lines: [`${name} <${email}>${frequency ? ` · flies privately: ${frequency}` : ""}`],
+      link: { label: "Open the inquiries board", url: `${base}/admin/inquiries` },
+    });
+  } catch (err) {
+    console.error("requestPricingGuide dispatch ping failed (non-fatal)", err);
   }
 
   return { ok: true, url: GUIDE_PDF_PATH };

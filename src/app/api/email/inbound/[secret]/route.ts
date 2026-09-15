@@ -8,6 +8,7 @@ import { trips } from "@/db/schema/trips";
 import { members } from "@/db/schema/members";
 import { users } from "@/db/schema/users";
 import { logAudit } from "@/lib/audit";
+import { sendDispatchAlert } from "@/lib/email";
 
 // Inbound email webhook — Postmark's "Inbound Stream" calls this URL
 // with a JSON payload representing a parsed reply. We use a path-based
@@ -90,6 +91,9 @@ export async function POST(
       subject,
       from: payload.From,
     });
+    // Don't silently lose it — a "yes, book it" that lost its subject
+    // bracket is still a customer talking. Forward to the desk inbox.
+    await forwardUnroutedToDesk("no [CODE] in subject", payload);
     return NextResponse.json({ received: true, unmatched: true });
   }
 
@@ -101,6 +105,7 @@ export async function POST(
       messageId: payload.MessageID,
       subject,
     });
+    await forwardUnroutedToDesk(`code ${code} not found`, payload);
     return NextResponse.json({ received: true, codeNotFound: true });
   }
 
@@ -129,6 +134,11 @@ export async function POST(
       code,
       messageId: providerMessageId,
     });
+    // Not threaded (sender unverified — see the spoofing note above), but
+    // not lost either: anonymous quote requesters aren't in `users`, and a
+    // reply to their own options email used to vanish here. The desk gets
+    // it flagged as UNVERIFIED instead.
+    await forwardUnroutedToDesk(`sender not verified (thread ${code})`, payload);
     return NextResponse.json({ received: true, droppedUnknownSender: true });
   }
 
@@ -189,7 +199,48 @@ export async function POST(
     console.error("[email:inbound] audit failed (non-fatal)", err);
   }
 
+  // Wake the desk — before this, inbound replies landed unread in the
+  // thread with nothing pointing at them.
+  try {
+    await sendDispatchAlert({
+      subject: `[${code}] Reply from ${fromEmail || "customer"}`,
+      headline: `New reply on ${code}.`,
+      lines: [preview || "(empty body)"],
+      link: {
+        label: "Open the thread",
+        url: `https://jetnine.com/admin/${route.subjectType === "quote" ? "quote" : "trip"}/${route.subjectId}`,
+      },
+    });
+  } catch (err) {
+    console.error("[email:inbound] desk alert failed (non-fatal)", err);
+  }
+
   return NextResponse.json({ received: true, messageId: inserted.id });
+}
+
+// Forward an inbound email the router couldn't thread to the dispatch
+// mailbox. Content is untrusted (external senders); it's presented as data
+// in a desk email, never inserted into a thread.
+async function forwardUnroutedToDesk(
+  reason: string,
+  payload: PostmarkInbound,
+): Promise<void> {
+  try {
+    const body = (payload.StrippedTextReply ?? payload.TextBody ?? "").slice(0, 1200);
+    await sendDispatchAlert({
+      subject: `[UNROUTED] Inbound email — ${reason}`,
+      headline: "An inbound email couldn't be threaded.",
+      lines: [
+        `From: ${payload.From ?? "unknown"}`,
+        `Subject: ${payload.Subject ?? "(none)"}`,
+        `Why: ${reason}`,
+        "— Body (untrusted, first 1200 chars) —",
+        body || "(empty)",
+      ],
+    });
+  } catch (err) {
+    console.error("[email:inbound] unrouted forward failed (non-fatal)", err);
+  }
 }
 
 type RouteTarget = {

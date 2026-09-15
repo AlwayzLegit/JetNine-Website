@@ -10,6 +10,14 @@ import {
   type NewReserveTransaction,
 } from "@/db/schema/memberships";
 import { logAudit } from "@/lib/audit";
+import { members } from "@/db/schema/members";
+import { users } from "@/db/schema/users";
+import { trips } from "@/db/schema/trips";
+import {
+  sendDispatchAlert,
+  sendPaymentFailedEmail,
+  sendPaymentReceiptEmail,
+} from "@/lib/email";
 import {
   constructWebhookEvent,
   isStripeConfigured,
@@ -272,6 +280,25 @@ async function onMembershipToppedUp(session: Stripe.Checkout.Session): Promise<v
   });
 }
 
+// Member contact for customer-facing sends. Null when the member has no
+// linked auth user (shouldn't happen post-invite, but never throw here —
+// notification lookups must not fail a webhook).
+async function memberContact(
+  memberId: string | null,
+): Promise<{ email: string; firstName: string } | null> {
+  if (!memberId) return null;
+  try {
+    const [m] = await db
+      .select({ email: users.email, firstName: users.firstName })
+      .from(members)
+      .innerJoin(users, eq(users.id, members.userId))
+      .where(eq(members.id, memberId));
+    return m?.email ? { email: m.email, firstName: m.firstName || "Hello" } : null;
+  } catch {
+    return null;
+  }
+}
+
 async function onInvoicePaid(session: Stripe.Checkout.Session): Promise<void> {
   const invoiceId =
     invoiceIdFrom(session.metadata) ?? (session.client_reference_id ?? null);
@@ -300,6 +327,7 @@ async function onInvoicePaid(session: Stripe.Checkout.Session): Promise<void> {
       invoiceCode: invoices.invoiceCode,
       memberId: invoices.memberId,
       totalUsd: invoices.totalUsd,
+      tripId: invoices.tripId,
     });
 
   if (updated.length === 0) {
@@ -321,6 +349,42 @@ async function onInvoicePaid(session: Stripe.Checkout.Session): Promise<void> {
       source: "stripe_webhook",
     },
   });
+
+  // Receipt to the customer + ping to the desk. Money moved — both sides
+  // of the counter should hear about it. Best-effort: a failed email must
+  // never 500 the webhook (Stripe would retry an already-applied event).
+  try {
+    let tripCode: string | null = null;
+    if (updated[0].tripId) {
+      const [t] = await db
+        .select({ tripCode: trips.tripCode })
+        .from(trips)
+        .where(eq(trips.id, updated[0].tripId));
+      tripCode = t?.tripCode ?? null;
+    }
+    const contact = await memberContact(updated[0].memberId);
+    if (contact) {
+      await sendPaymentReceiptEmail({
+        to: contact.email,
+        firstName: contact.firstName,
+        invoiceCode: updated[0].invoiceCode,
+        tripCode,
+        amountUsd: updated[0].totalUsd,
+      });
+    }
+    await sendDispatchAlert({
+      subject: `[${updated[0].invoiceCode}] Payment received${updated[0].totalUsd != null ? ` — $${Math.round(updated[0].totalUsd).toLocaleString("en-US")}` : ""}`,
+      headline: "Invoice paid.",
+      lines: [
+        `Invoice ${updated[0].invoiceCode}${tripCode ? ` (trip ${tripCode})` : ""} was paid by card via Stripe.`,
+      ],
+      link: updated[0].tripId
+        ? { label: "Open the trip sheet", url: `https://jetnine.com/admin/trip/${updated[0].tripId}` }
+        : undefined,
+    });
+  } catch (err) {
+    console.error("[stripe-webhook] paid notifications failed (non-fatal)", err);
+  }
 }
 
 async function onPaymentFailed(intent: Stripe.PaymentIntent): Promise<void> {
@@ -341,6 +405,44 @@ async function onPaymentFailed(intent: Stripe.PaymentIntent): Promise<void> {
       code: intent.last_payment_error?.code ?? null,
     },
   });
+
+  // The card bounced and the invoice silently stays `due` — tell the
+  // customer (so they can retry or wire) and the desk (so a big booking
+  // doesn't quietly stall). Best-effort.
+  try {
+    const [inv] = await db
+      .select({
+        invoiceCode: invoices.invoiceCode,
+        memberId: invoices.memberId,
+        tripId: invoices.tripId,
+      })
+      .from(invoices)
+      .where(eq(invoices.id, invoiceId));
+    if (inv) {
+      const contact = await memberContact(inv.memberId);
+      if (contact) {
+        await sendPaymentFailedEmail({
+          to: contact.email,
+          firstName: contact.firstName,
+          invoiceCode: inv.invoiceCode,
+          reason: intent.last_payment_error?.message?.slice(0, 140) ?? null,
+        });
+      }
+      await sendDispatchAlert({
+        subject: `[${inv.invoiceCode}] Card payment FAILED`,
+        headline: "A card payment failed.",
+        lines: [
+          `Invoice ${inv.invoiceCode} — ${intent.last_payment_error?.message ?? "no error detail from Stripe"}.`,
+          "The invoice is still due; the customer was told to retry or wire.",
+        ],
+        link: inv.tripId
+          ? { label: "Open the trip sheet", url: `https://jetnine.com/admin/trip/${inv.tripId}` }
+          : undefined,
+      });
+    }
+  } catch (err) {
+    console.error("[stripe-webhook] failed-payment notifications failed (non-fatal)", err);
+  }
 }
 
 async function onMembershipPurchased(session: Stripe.Checkout.Session): Promise<void> {
@@ -422,6 +524,20 @@ async function onMembershipPurchased(session: Stripe.Checkout.Session): Promise<
           depositUsd: row.depositUsd,
         },
       });
+      // A double charge needing a MANUAL refund was previously only a
+      // console.error — page the desk.
+      try {
+        await sendDispatchAlert({
+          subject: "ACTION REQUIRED — duplicate membership charge, refund needed",
+          headline: "Duplicate membership activation charge.",
+          lines: [
+            `Membership ${membershipId} (${row.program}) was charged twice — $${Math.round(row.depositUsd).toLocaleString("en-US")} needs a manual refund in Stripe.`,
+            `Payment intent: ${paymentIntentId ?? "unknown"} · session ${session.id}`,
+          ],
+        });
+      } catch (err) {
+        console.error("[stripe-webhook] duplicate-charge alert failed (non-fatal)", err);
+      }
       return;
     }
     throw err;

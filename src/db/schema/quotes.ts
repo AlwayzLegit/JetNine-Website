@@ -152,6 +152,9 @@ export const quotes = pgTable(
       .notNull()
       .default(sql`now() + interval '30 minutes'`),
     respondedAt: timestamp("responded_at", { withTimezone: true }),
+    // Stamped by the SLA-watch cron when a breach alert has been sent, so
+    // each breached quote pages the desk exactly once.
+    slaAlertedAt: timestamp("sla_alerted_at", { withTimezone: true }),
     acceptedAt: timestamp("accepted_at", { withTimezone: true }),
 
     // Pricing (filled later by dispatch)

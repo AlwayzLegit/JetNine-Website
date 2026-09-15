@@ -20,9 +20,11 @@ import { requireStaff } from "@/lib/auth";
 import { logAudit } from "@/lib/audit";
 import {
   isNotifiableTripStatus,
+  sendInvoiceIssuedEmail,
   sendTripStatusEmail,
   type TripNotifyStatus,
 } from "@/lib/email";
+import { memberPreferences } from "@/db/schema/member-prefs";
 import { sendTripStatusSms } from "@/lib/twilio";
 import { dispatchThreadMessage, type ThreadChannel } from "@/lib/message-delivery";
 
@@ -132,10 +134,15 @@ async function notifyTripStatus(args: {
         memberPhone: users.phoneE164,
         memberFirstName: users.firstName,
         paxCount: trips.paxCount,
+        smsOptIn: memberPreferences.commsSmsUpdates,
+        quietStart: memberPreferences.quietHoursStart,
+        quietEnd: memberPreferences.quietHoursEnd,
+        quietTz: memberPreferences.quietHoursTz,
       })
       .from(trips)
       .innerJoin(members, eq(members.id, trips.memberId))
       .innerJoin(users, eq(users.id, members.userId))
+      .leftJoin(memberPreferences, eq(memberPreferences.memberId, trips.memberId))
       .where(eq(trips.id, args.tripId)),
     db
       .select({
@@ -198,7 +205,12 @@ async function notifyTripStatus(args: {
           actorUserId: args.actorUserId,
         })
       : Promise.resolve({ status: "skipped" as const }),
-    target.memberPhone
+    // SMS only with explicit opt-in (comms_sms_updates defaults false — the
+    // member never consented otherwise; TCPA-adjacent) and outside the
+    // member's quiet hours. Email is the always-on channel.
+    target.memberPhone &&
+    target.smsOptIn === true &&
+    !inQuietHours(target.quietStart, target.quietEnd, target.quietTz)
       ? fireChannel({
           channel: "sms",
           toAddress: target.memberPhone,
@@ -233,6 +245,42 @@ async function notifyTripStatus(args: {
     };
   }
   return { status: "skipped" };
+}
+
+/**
+ * True when `now` falls inside the member's quiet-hours window. start/end
+ * are Postgres `time` strings ("22:00:00"); the window may wrap midnight
+ * (22:00 -> 07:00). Any parse/timezone failure returns false — quiet hours
+ * must never silently eat an alert on bad data.
+ */
+function inQuietHours(
+  start: string | null,
+  end: string | null,
+  tz: string | null,
+  now: Date = new Date(),
+): boolean {
+  if (!start || !end) return false;
+  try {
+    const parts = new Intl.DateTimeFormat("en-US", {
+      timeZone: tz || "America/Los_Angeles",
+      hour12: false,
+      hour: "2-digit",
+      minute: "2-digit",
+    }).formatToParts(now);
+    const hh = Number(parts.find((x) => x.type === "hour")?.value);
+    const mm = Number(parts.find((x) => x.type === "minute")?.value);
+    const cur = hh * 60 + mm;
+    const toMin = (t: string) => {
+      const [h, m] = t.split(":");
+      return Number(h) * 60 + Number(m);
+    };
+    const s = toMin(start);
+    const e = toMin(end);
+    if ([cur, s, e].some(Number.isNaN)) return false;
+    return s <= e ? cur >= s && cur < e : cur >= s || cur < e;
+  } catch {
+    return false;
+  }
 }
 
 type FireResult = { status: "sent" } | { status: "failed"; error?: string };
@@ -274,13 +322,17 @@ async function fireChannel(args: {
   const result = await args.send();
 
   if (result.ok) {
+    // Honest status: in logger mode nothing left the building — record
+    // `queued`, not a false green `sent`.
+    const delivered = result.provider !== "logger";
     await db
       .update(messages)
       .set({
-        deliveryStatus: "sent",
+        deliveryStatus: delivered ? "sent" : "queued",
         deliveryProvider: result.provider,
         deliveryMessageId: result.messageId ?? null,
-        deliveredAt: new Date(),
+        deliveryError: delivered ? null : "channel not configured — logged only, not delivered",
+        deliveredAt: delivered ? new Date() : null,
       })
       .where(eq(messages.id, messageId));
     return { status: "sent" };
@@ -435,6 +487,38 @@ export async function updateInvoice(
     metadata: { intent, dueOn: patch.dueOn ?? inv.dueOn ?? null },
   });
 
+  // Finalizing puts money on the table — tell the member rather than let
+  // them discover the invoice by browsing /account/invoices. Best-effort.
+  if (intent === "finalize" && inv.memberId && totalUsd !== null) {
+    try {
+      const [m] = await db
+        .select({ email: users.email, firstName: users.firstName })
+        .from(members)
+        .innerJoin(users, eq(users.id, members.userId))
+        .where(eq(members.id, inv.memberId));
+      if (m?.email) {
+        let tripCode: string | null = null;
+        if (inv.tripId) {
+          const [t] = await db
+            .select({ tripCode: trips.tripCode })
+            .from(trips)
+            .where(eq(trips.id, inv.tripId));
+          tripCode = t?.tripCode ?? null;
+        }
+        await sendInvoiceIssuedEmail({
+          to: m.email,
+          firstName: m.firstName || "Hello",
+          invoiceCode: inv.invoiceCode,
+          tripCode,
+          totalUsd,
+          dueOn: (patch.dueOn ?? inv.dueOn ?? null) as string | null,
+        });
+      }
+    } catch (err) {
+      console.error("invoice-issued email failed (non-fatal)", err);
+    }
+  }
+
   if (inv.tripId) {
     revalidatePath(`/admin/trip/${inv.tripId}`);
   }
@@ -557,14 +641,19 @@ export async function postTripMessage(
       await db
         .update(messages)
         .set({
-          deliveryStatus: "sent",
+          // Honest status: logger mode means nothing left the building.
+          deliveryStatus: result.provider === "logger" ? "queued" : "sent",
           deliveryProvider: result.provider,
           deliveryMessageId: result.messageId ?? null,
-          deliveredAt: new Date(),
+          deliveryError:
+            result.provider === "logger"
+              ? "channel not configured — logged only, not delivered"
+              : null,
+          deliveredAt: result.provider === "logger" ? null : new Date(),
         })
         .where(eq(messages.id, messageId));
       deliveryAudit = {
-        status: "sent",
+        status: result.provider === "logger" ? "queued" : "sent",
         provider: result.provider,
         messageId: result.messageId ?? null,
       };

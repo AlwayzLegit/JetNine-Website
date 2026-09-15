@@ -296,10 +296,15 @@ export async function GET(req: Request) {
       await db
         .update(emptyLegWatchlistMatches)
         .set({
-          status: outcome.ok ? "sent" : "failed",
+          // Honest status: a logger-mode "send" never reached the customer —
+          // record it failed (with why) instead of a false green sent.
+          status: outcome.ok && outcome.provider !== "logger" ? "sent" : "failed",
           provider: outcome.provider ?? null,
           providerMessageId: outcome.messageId ?? null,
-          error: outcome.error?.slice(0, 500) ?? null,
+          error:
+            outcome.ok && outcome.provider === "logger"
+              ? "channel not configured — logged only, not delivered"
+              : (outcome.error?.slice(0, 500) ?? null),
           sentAt: new Date(),
         })
         .where(eq(emptyLegWatchlistMatches.id, claimId));

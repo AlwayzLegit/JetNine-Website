@@ -12,7 +12,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { getMemberByUserId } from "@/lib/member";
 import { logAudit } from "@/lib/audit";
 import { checkRateLimit } from "@/lib/rate-limit";
-import { sendDispatchContactNotification } from "@/lib/email";
+import { sendContactAckEmail, sendDispatchContactNotification } from "@/lib/email";
 
 export type ContactResult =
   | { ok: true; message: string }
@@ -193,6 +193,17 @@ export async function submitContactInquiry(formData: FormData): Promise<ContactR
     });
   } catch (err) {
     console.error("submitContactInquiry email side-effect failed", err);
+  }
+
+  // Ack to the visitor — the page promises a 30-minute reply, but until now
+  // nothing landed in their inbox to anchor it. Skipped for smoke traffic
+  // (smoke+*@jetnine.com doesn't exist; acking it would just farm bounces).
+  if (!isSmoke) {
+    try {
+      await sendContactAckEmail({ to: email, firstName });
+    } catch (err) {
+      console.error("submitContactInquiry ack email failed (non-fatal)", err);
+    }
   }
 
   return { ok: true, message: "DISPATCH WILL REPLY WITHIN 30 MIN" };

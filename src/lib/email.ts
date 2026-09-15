@@ -668,6 +668,235 @@ export async function sendQuoteOptionsEmail(
   return sendEmail({ to: ctx.to, subject, html, text, replyTo: DISPATCH_NOTIFY });
 }
 
+
+// ─── Booking / money-path senders ─────────────────────────────────────────
+// Added in the notifications round: until these existed, a customer could
+// book a trip, receive an invoice, and pay it without a single email from
+// JetNine (Stripe's own receipt aside). Same inline-HTML convention as the
+// senders above.
+
+const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL || "https://jetnine.com").replace(/\/$/, "");
+
+function moneyRow(label: string, value: string): string {
+  return `<tr><td style="padding:4px 16px 4px 0;color:#6B7280;text-transform:uppercase;letter-spacing:0.08em;font-size:11px;">${escapeHtml(label)}</td><td style="padding:4px 0;">${escapeHtml(value)}</td></tr>`;
+}
+
+function brandedShell(kicker: string, headline: string, inner: string): string {
+  return `
+    <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Inter,sans-serif;color:#0F1115;line-height:1.55;max-width:560px;margin:0 auto;padding:24px;">
+      <p style="margin:0 0 16px;font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:#6B7280;">— ${escapeHtml(kicker)}</p>
+      <h1 style="margin:0 0 16px;font-family:'Fraunces',Georgia,serif;font-weight:300;font-size:28px;letter-spacing:-0.01em;line-height:1.2;">${escapeHtml(headline)}</h1>
+      ${inner}
+      <hr style="margin:32px 0 16px;border:none;border-top:1px solid #E5E7EB;"/>
+      <p style="margin:0;font-size:12px;color:#6B7280;">JetNine dispatch<br/><a href="tel:${SITE.dispatchPhoneE164}" style="color:#0F1115;">${SITE.dispatchPhone}</a> · 24/7</p>
+      <p style="margin:24px 0 0;font-size:10px;color:#9CA3AF;line-height:1.6;">JetNine LLC · 14 CFR Part 295 indirect air carrier. All flights operated by an FAA Part 135 direct air carrier.</p>
+    </div>`.trim();
+}
+
+export async function sendBookingConfirmationEmail(ctx: {
+  to: string;
+  firstName: string;
+  tripCode: string;
+  quoteCode: string;
+  itineraryLines: string[];
+  paxCount: number;
+  totalUsd: number | null;
+  invoiceIsDue: boolean;
+  drawdown: { amountUsd: number; remainingBalanceUsd: number } | null;
+}): Promise<SendResult> {
+  const subject = `[${ctx.tripCode}] Booked — your trip is confirmed`;
+  const itinerary = ctx.itineraryLines.join("\n");
+  const moneyLines: string[] = [];
+  if (ctx.totalUsd != null) moneyLines.push(`All-in total: ${usdFmt.format(ctx.totalUsd)}`);
+  if (ctx.drawdown) {
+    moneyLines.push(
+      `Charged to your reserve: ${usdFmt.format(ctx.drawdown.amountUsd)} (remaining balance ${usdFmt.format(ctx.drawdown.remainingBalanceUsd)}) — nothing further to pay.`,
+    );
+  } else if (ctx.invoiceIsDue) {
+    moneyLines.push(`Your invoice is ready in your account: ${SITE_URL}/account/invoices`);
+  } else {
+    moneyLines.push("Your invoice follows shortly by email.");
+  }
+
+  const text = [
+    `${ctx.firstName},`,
+    ``,
+    `Your trip is confirmed. Reference ${ctx.tripCode} (from quote ${ctx.quoteCode}).`,
+    ``,
+    itinerary,
+    `${ctx.paxCount} pax`,
+    ``,
+    ...moneyLines,
+    ``,
+    `Crew, FBO, and timing details follow from dispatch as the trip firms up. Reply to this email or call ${SITE.dispatchPhone} any time.`,
+  ].join("\n");
+
+  const html = brandedShell(
+    `${ctx.tripCode} · Confirmed`,
+    `${ctx.firstName} — you're booked.`,
+    `
+      <p style="margin:0 0 16px;font-size:15px;">Trip <strong>${escapeHtml(ctx.tripCode)}</strong> is confirmed${ctx.paxCount ? ` for ${ctx.paxCount} pax` : ""}.</p>
+      <table style="margin:16px 0;border-collapse:collapse;font-size:13px;">
+        ${ctx.itineraryLines.map((l) => moneyRow("Leg", l)).join("")}
+        ${ctx.totalUsd != null ? moneyRow("All-in total", usdFmt.format(ctx.totalUsd)) : ""}
+      </table>
+      ${
+        ctx.drawdown
+          ? `<p style="margin:0 0 16px;font-size:14px;">${usdFmt.format(ctx.drawdown.amountUsd)} was charged to your reserve (remaining balance <strong>${usdFmt.format(ctx.drawdown.remainingBalanceUsd)}</strong>) — nothing further to pay.</p>`
+          : ctx.invoiceIsDue
+            ? `<p style="margin:0 0 16px;font-size:14px;">Your invoice is ready — <a href="${SITE_URL}/account/invoices" style="color:#0F1115;">view &amp; pay it in your account</a>.</p>`
+            : `<p style="margin:0 0 16px;font-size:14px;">Your invoice follows shortly by email.</p>`
+      }
+      <p style="margin:0;font-size:14px;">Crew, FBO, and timing details follow from dispatch as the trip firms up. Reply to this email or call any time.</p>
+    `,
+  );
+
+  return sendEmail({ to: ctx.to, subject, html, text, replyTo: DISPATCH_NOTIFY });
+}
+
+export async function sendInvoiceIssuedEmail(ctx: {
+  to: string;
+  firstName: string;
+  invoiceCode: string;
+  tripCode: string | null;
+  totalUsd: number;
+  dueOn: string | null;
+}): Promise<SendResult> {
+  const subject = `[${ctx.invoiceCode}] Your JetNine invoice — ${usdFmt.format(ctx.totalUsd)}${ctx.dueOn ? ` due ${ctx.dueOn}` : ""}`;
+  const text = [
+    `${ctx.firstName},`,
+    ``,
+    `Invoice ${ctx.invoiceCode}${ctx.tripCode ? ` for trip ${ctx.tripCode}` : ""} is ready.`,
+    ``,
+    `Total (all-in): ${usdFmt.format(ctx.totalUsd)}`,
+    ctx.dueOn ? `Due: ${ctx.dueOn}` : null,
+    ``,
+    `View and pay by card: ${SITE_URL}/account/invoices`,
+    `Prefer wire or have a question? Reply here or call ${SITE.dispatchPhone}.`,
+  ]
+    .filter((l): l is string => l !== null)
+    .join("\n");
+
+  const html = brandedShell(
+    `${ctx.invoiceCode} · Invoice`,
+    `${ctx.firstName} — your invoice is ready.`,
+    `
+      <table style="margin:16px 0;border-collapse:collapse;font-size:13px;">
+        ${ctx.tripCode ? moneyRow("Trip", ctx.tripCode) : ""}
+        ${moneyRow("Total (all-in)", usdFmt.format(ctx.totalUsd))}
+        ${ctx.dueOn ? moneyRow("Due", ctx.dueOn) : ""}
+      </table>
+      <p style="margin:0 0 8px;font-size:14px;"><a href="${SITE_URL}/account/invoices" style="color:#0F1115;font-weight:600;">View &amp; pay in your account →</a></p>
+      <p style="margin:0;font-size:13px;color:#374151;">Prefer wire or have a question? Reply here or call dispatch.</p>
+    `,
+  );
+
+  return sendEmail({ to: ctx.to, subject, html, text, replyTo: DISPATCH_NOTIFY });
+}
+
+export async function sendPaymentReceiptEmail(ctx: {
+  to: string;
+  firstName: string;
+  invoiceCode: string;
+  tripCode: string | null;
+  amountUsd: number | null;
+}): Promise<SendResult> {
+  const amount = ctx.amountUsd != null ? usdFmt.format(ctx.amountUsd) : "your payment";
+  const subject = `[${ctx.invoiceCode}] Payment received — thank you`;
+  const text = [
+    `${ctx.firstName},`,
+    ``,
+    `We've received ${amount} against invoice ${ctx.invoiceCode}${ctx.tripCode ? ` (trip ${ctx.tripCode})` : ""}. You're all set.`,
+    ``,
+    `Your records: ${SITE_URL}/account/invoices`,
+  ].join("\n");
+  const html = brandedShell(
+    `${ctx.invoiceCode} · Paid`,
+    `${ctx.firstName} — payment received.`,
+    `
+      <p style="margin:0 0 16px;font-size:15px;">We've received <strong>${escapeHtml(amount)}</strong> against invoice ${escapeHtml(ctx.invoiceCode)}${ctx.tripCode ? ` (trip ${escapeHtml(ctx.tripCode)})` : ""}. You're all set.</p>
+      <p style="margin:0;font-size:13px;color:#374151;"><a href="${SITE_URL}/account/invoices" style="color:#0F1115;">Your records →</a></p>
+    `,
+  );
+  return sendEmail({ to: ctx.to, subject, html, text, replyTo: DISPATCH_NOTIFY });
+}
+
+export async function sendPaymentFailedEmail(ctx: {
+  to: string;
+  firstName: string;
+  invoiceCode: string;
+  reason: string | null;
+}): Promise<SendResult> {
+  const subject = `[${ctx.invoiceCode}] Payment didn't go through`;
+  const text = [
+    `${ctx.firstName},`,
+    ``,
+    `The card payment for invoice ${ctx.invoiceCode} didn't go through${ctx.reason ? ` (${ctx.reason})` : ""}. Nothing was charged.`,
+    ``,
+    `Try again: ${SITE_URL}/account/invoices`,
+    `Or reply here / call ${SITE.dispatchPhone} and we'll sort it out — wire is fine too.`,
+  ].join("\n");
+  const html = brandedShell(
+    `${ctx.invoiceCode} · Action needed`,
+    `${ctx.firstName} — that payment didn't go through.`,
+    `
+      <p style="margin:0 0 16px;font-size:15px;">The card payment for invoice ${escapeHtml(ctx.invoiceCode)} didn't go through${ctx.reason ? ` (<em>${escapeHtml(ctx.reason)}</em>)` : ""}. Nothing was charged.</p>
+      <p style="margin:0 0 8px;font-size:14px;"><a href="${SITE_URL}/account/invoices" style="color:#0F1115;font-weight:600;">Try again →</a></p>
+      <p style="margin:0;font-size:13px;color:#374151;">Or reply here / call dispatch — wire works too.</p>
+    `,
+  );
+  return sendEmail({ to: ctx.to, subject, html, text, replyTo: DISPATCH_NOTIFY });
+}
+
+export async function sendContactAckEmail(ctx: {
+  to: string;
+  firstName: string;
+}): Promise<SendResult> {
+  const subject = "We've got your message — JetNine dispatch";
+  const text = [
+    `${ctx.firstName},`,
+    ``,
+    `Your message reached the dispatch desk. A human replies within 30 minutes during operating hours — usually much faster.`,
+    ``,
+    `Need us right now? ${SITE.dispatchPhone}, 24/7.`,
+  ].join("\n");
+  const html = brandedShell(
+    "Received",
+    `${ctx.firstName} — we've got it.`,
+    `
+      <p style="margin:0 0 16px;font-size:15px;">Your message reached the dispatch desk. A human replies within <strong>30 minutes</strong> during operating hours — usually much faster.</p>
+      <p style="margin:0;font-size:14px;">Need us right now? <a href="tel:${SITE.dispatchPhoneE164}" style="color:#0F1115;">${SITE.dispatchPhone}</a>, 24/7.</p>
+    `,
+  );
+  return sendEmail({ to: ctx.to, subject, html, text, replyTo: DISPATCH_NOTIFY });
+}
+
+/**
+ * Generic operational alert to the dispatch mailbox. One sender for the
+ * whole family of desk pings (payment events, inbound replies, unrouted
+ * inbound, SLA breaches, new leads) so each callsite stays one line.
+ * `lines` render as plain paragraphs; `link` becomes the CTA.
+ */
+export async function sendDispatchAlert(ctx: {
+  subject: string;
+  headline: string;
+  lines: string[];
+  link?: { label: string; url: string };
+}): Promise<SendResult> {
+  const text = [ctx.headline, "", ...ctx.lines, "", ctx.link ? `${ctx.link.label}: ${ctx.link.url}` : null]
+    .filter((l): l is string => l !== null)
+    .join("\n");
+  const html = brandedShell(
+    "Dispatch alert",
+    ctx.headline,
+    `
+      ${ctx.lines.map((l) => `<p style="margin:0 0 10px;font-size:14px;">${escapeHtml(l)}</p>`).join("")}
+      ${ctx.link ? `<p style="margin:16px 0 0;font-size:14px;"><a href="${ctx.link.url}" style="color:#0F1115;font-weight:600;">${escapeHtml(ctx.link.label)} →</a></p>` : ""}
+    `,
+  );
+  return sendEmail({ to: DISPATCH_NOTIFY, subject: ctx.subject, html, text });
+}
+
 function escapeHtml(s: string): string {
   return s
     .replace(/&/g, "&amp;")

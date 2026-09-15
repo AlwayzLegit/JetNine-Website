@@ -25,7 +25,11 @@ import {
 import { users } from "@/db/schema/users";
 import { requireStaff } from "@/lib/auth";
 import { logAudit } from "@/lib/audit";
-import { sendQuoteOptionsEmail, type QuoteOptionEmailItem } from "@/lib/email";
+import {
+  sendBookingConfirmationEmail,
+  sendQuoteOptionsEmail,
+  type QuoteOptionEmailItem,
+} from "@/lib/email";
 import { attemptInvoiceDrawdown, type DrawdownOutcome } from "@/lib/membership-balance";
 import { dispatchThreadMessage, type ThreadChannel } from "@/lib/message-delivery";
 import { isE164, toE164 } from "@/lib/phone";
@@ -477,6 +481,79 @@ export async function convertQuoteToTrip(
     });
   }
 
+  // Booking confirmation — until this existed, a customer who just
+  // committed to a five-figure trip heard nothing (trips are inserted as
+  // 'confirmed', bypassing the status-transition notifier). Best-effort:
+  // a failed email never rolls back the conversion.
+  try {
+    let confirmTo = quote.contactSnapshot?.email?.trim() || null;
+    if (!confirmTo && memberId) {
+      const [m] = await db
+        .select({ email: users.email })
+        .from(members)
+        .innerJoin(users, eq(users.id, members.userId))
+        .where(eq(members.id, memberId));
+      confirmTo = m?.email ?? null;
+    }
+    if (confirmTo) {
+      const legs = await db
+        .select({
+          fromIata: quoteLegs.fromIata,
+          toIata: quoteLegs.toIata,
+          departDate: quoteLegs.departDate,
+        })
+        .from(quoteLegs)
+        .where(eq(quoteLegs.quoteId, quoteId))
+        .orderBy(asc(quoteLegs.legNumber));
+      const itineraryLines = legs.map(
+        (l) => `${l.fromIata ?? "—"} → ${l.toIata ?? "—"} · ${l.departDate ?? "date TBD"}`,
+      );
+      const result = await sendBookingConfirmationEmail({
+        to: confirmTo,
+        firstName: quote.contactSnapshot?.firstName?.trim() || "Hello",
+        tripCode: inserted.trip.tripCode,
+        quoteCode: quote.quoteCode,
+        itineraryLines,
+        paxCount: quote.paxCount,
+        totalUsd: total,
+        // The convert tx reverts the invoice to 'draft' whenever the reserve
+        // didn't cover it (dispatcher reviews before the customer pays), and
+        // the drawdown branch below handles the covered case — so the "pay
+        // now" line is never right at convert time.
+        invoiceIsDue: false,
+        drawdown:
+          inserted.drawdown?.drew
+            ? {
+                amountUsd: inserted.drawdown.amountUsd ?? 0,
+                remainingBalanceUsd: inserted.drawdown.remainingBalanceUsd ?? 0,
+              }
+            : null,
+      });
+      await db.insert(messages).values({
+        subjectType: "trip",
+        subjectId: inserted.trip.id,
+        channel: "email",
+        direction: "out",
+        toAddress: confirmTo,
+        fromUserId: actor.id,
+        preview: `Booking confirmation — ${inserted.trip.tripCode}`,
+        body: `Booking confirmation email for ${inserted.trip.tripCode} (from ${quote.quoteCode}).`,
+        isRead: false,
+        deliveryStatus: result.ok ? (result.provider === "logger" ? "queued" : "sent") : "failed",
+        deliveryProvider: result.ok ? result.provider : null,
+        deliveryMessageId: result.ok ? (result.messageId ?? null) : null,
+        deliveryError: result.ok
+          ? result.provider === "logger"
+            ? "email channel not configured — logged only, not delivered"
+            : null
+          : result.error.slice(0, 500),
+        deliveredAt: result.ok && result.provider !== "logger" ? new Date() : null,
+      });
+    }
+  } catch (err) {
+    console.error("booking confirmation email failed (non-fatal)", err);
+  }
+
   return {
     ok: true,
     tripId: inserted.trip.id,
@@ -626,14 +703,19 @@ export async function postQuoteMessage(
       await db
         .update(messages)
         .set({
-          deliveryStatus: "sent",
+          // Honest status: logger mode means nothing left the building.
+          deliveryStatus: result.provider === "logger" ? "queued" : "sent",
           deliveryProvider: result.provider,
           deliveryMessageId: result.messageId ?? null,
-          deliveredAt: new Date(),
+          deliveryError:
+            result.provider === "logger"
+              ? "channel not configured — logged only, not delivered"
+              : null,
+          deliveredAt: result.provider === "logger" ? null : new Date(),
         })
         .where(eq(messages.id, messageId));
       deliveryAudit = {
-        status: "sent",
+        status: result.provider === "logger" ? "queued" : "sent",
         provider: result.provider,
         messageId: result.messageId ?? null,
       };

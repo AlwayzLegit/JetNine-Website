@@ -57,6 +57,12 @@ export function SignInForm({ next, initialError }: { next?: string; initialError
   return (
     <form onSubmit={onSubmit} noValidate className="flex flex-col gap-4">
       <input type="hidden" name="next" value={next ?? "/account"} />
+      {/* Honeypot — humans never see it, autofill bots complete it and the
+          server drops the request. Matches the contact form's pattern. */}
+      <div aria-hidden="true" className="absolute -left-[9999px] h-0 w-0 overflow-hidden">
+        <label htmlFor="si-company">Company</label>
+        <input id="si-company" name="company" type="text" tabIndex={-1} autoComplete="off" />
+      </div>
       <div className={`field-jn ${error ? "error" : ""}`}>
         <label htmlFor="si-email">Email</label>
         <input

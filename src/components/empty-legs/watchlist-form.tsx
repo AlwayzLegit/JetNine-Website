@@ -135,6 +135,20 @@ export function WatchlistForm() {
           </button>
         </div>
       </div>
+
+      {/* Point-of-collection SMS consent disclosure — carriers audit this
+          page against the A2P campaign's stated opt-in flow, so the wording
+          here, the confirmation text, and /legal#sms must stay in agreement. */}
+      <p className="md:col-span-2 max-w-[72ch] text-[11px] leading-[1.6] text-steel">
+        By creating a watchlist you agree to receive automated alert texts from JetNine at the
+        number provided (one message per matching flight; frequency varies). Consent is not a
+        condition of purchase. Message &amp; data rates may apply. Reply STOP to cancel, HELP for
+        help. See our{" "}
+        <a href="/legal#sms" className="text-clearance underline underline-offset-2">
+          SMS terms &amp; privacy policy
+        </a>
+        .
+      </p>
     </form>
   );
 }

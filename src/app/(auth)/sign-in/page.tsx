@@ -32,6 +32,13 @@ export default async function SignInPage({ searchParams }: Props) {
           We don&rsquo;t do passwords. Enter your email, click the link we send, you&rsquo;re in.
           The link works once — if it expires, just request another.
         </p>
+        <p className="mt-3 text-[13px] leading-[1.55] text-steel">
+          Accounts are set up by dispatch when you fly with us. New to JetNine?{" "}
+          <Link href="/quote/mission" className="text-clearance underline underline-offset-2">
+            Start with a quote
+          </Link>
+          .
+        </p>
         <div className="mt-8">
           <SignInForm next={next} initialError={error} />
         </div>

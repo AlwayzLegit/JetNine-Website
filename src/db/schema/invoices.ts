@@ -54,6 +54,10 @@ export const invoices = pgTable(
       .notNull()
       .default(sql`current_date`),
     dueOn: date("due_on"),
+    // Dunning-cron claim stamps — at most one due-soon reminder and one
+    // overdue notice per invoice (see /api/cron/invoice-watch).
+    dueReminderSentAt: timestamp("due_reminder_sent_at", { withTimezone: true }),
+    overdueNotifiedAt: timestamp("overdue_notified_at", { withTimezone: true }),
     paidOn: date("paid_on"),
     // Precise timestamp the webhook handler stamped. `paidOn` stays as the
     // calendar-day rollup for member-facing display.

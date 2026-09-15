@@ -19,6 +19,7 @@ import {
   MessageThread,
   type ThreadMessage,
 } from "@/components/admin/message-thread";
+import { MarkThreadRead } from "@/components/admin/mark-thread-read";
 import { SoftHoldButton } from "@/components/admin/soft-hold-button";
 import {
   SoftHoldList,
@@ -761,6 +762,7 @@ export default async function QuoteWorkbenchPage({ params }: Props) {
                 {thread.length} message{thread.length === 1 ? "" : "s"}
               </span>
             </div>
+            <MarkThreadRead subjectType="quote" subjectId={quote.id} />
             <MessageThread
               initial={thread}
               defaultEmail={contact?.email ?? null}

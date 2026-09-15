@@ -27,6 +27,7 @@ import { requireStaff } from "@/lib/auth";
 import { logAudit } from "@/lib/audit";
 import {
   sendBookingConfirmationEmail,
+  sendQuoteLifecycleEmail,
   sendQuoteOptionsEmail,
   type QuoteOptionEmailItem,
 } from "@/lib/email";
@@ -48,7 +49,12 @@ export async function updateQuoteStatus(
   if (!isStatus(status)) return { ok: false, error: "Invalid status" };
 
   const [before] = await db
-    .select({ status: quotes.status, code: quotes.quoteCode })
+    .select({
+      status: quotes.status,
+      code: quotes.quoteCode,
+      memberId: quotes.memberId,
+      contactSnapshot: quotes.contactSnapshot,
+    })
     .from(quotes)
     .where(eq(quotes.id, quoteId));
 
@@ -66,6 +72,36 @@ export async function updateQuoteStatus(
     subjectCode: before?.code ?? null,
     diff: { status: { before: before?.status ?? null, after: status } },
   });
+
+  // Lifecycle emails on the transitions a customer cares about: an
+  // aircraft placed on hold for them, or their quote aging out. Declined
+  // is the customer's own action; the rest stay desk-internal.
+  if (before && before.status !== status && (status === "held" || status === "expired")) {
+    try {
+      let to = before.contactSnapshot?.email?.trim() || null;
+      if (!to && before.memberId) {
+        const [m] = await db
+          .select({ email: users.email })
+          .from(members)
+          .innerJoin(users, eq(users.id, members.userId))
+          .where(eq(members.id, before.memberId));
+        to = m?.email ?? null;
+      }
+      const isSmoke =
+        (before.contactSnapshot?.firstName ?? "").toUpperCase().startsWith("[SMOKE]") ||
+        (to ?? "").startsWith("smoke+");
+      if (to && !isSmoke) {
+        await sendQuoteLifecycleEmail({
+          to,
+          firstName: before.contactSnapshot?.firstName?.trim() || "Hello",
+          quoteCode: before.code ?? "",
+          kind: status,
+        });
+      }
+    } catch (err) {
+      console.error("quote lifecycle email failed (non-fatal)", err);
+    }
+  }
 
   revalidatePath("/admin/dispatch");
   revalidatePath(`/admin/quote/${quoteId}`);

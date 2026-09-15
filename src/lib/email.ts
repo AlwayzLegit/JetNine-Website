@@ -897,6 +897,126 @@ export async function sendDispatchAlert(ctx: {
   return sendEmail({ to: DISPATCH_NOTIFY, subject: ctx.subject, html, text });
 }
 
+
+// ─── Round-2 senders: dunning, membership, quote lifecycle ────────────────
+
+export async function sendInvoiceReminderEmail(ctx: {
+  to: string;
+  firstName: string;
+  invoiceCode: string;
+  totalUsd: number | null;
+  dueOn: string | null;
+  kind: "due_soon" | "overdue";
+}): Promise<SendResult> {
+  const amount = ctx.totalUsd != null ? usdFmt.format(ctx.totalUsd) : "your invoice";
+  const overdue = ctx.kind === "overdue";
+  const subject = overdue
+    ? `[${ctx.invoiceCode}] Invoice overdue — ${amount}`
+    : `[${ctx.invoiceCode}] Reminder — ${amount} due ${ctx.dueOn ?? "soon"}`;
+  const text = [
+    `${ctx.firstName},`,
+    ``,
+    overdue
+      ? `Invoice ${ctx.invoiceCode} (${amount}) is past its ${ctx.dueOn ?? ""} due date.`
+      : `A reminder that invoice ${ctx.invoiceCode} (${amount}) is due ${ctx.dueOn ?? "soon"}.`,
+    ``,
+    `Pay by card: ${SITE_URL}/account/invoices`,
+    `Prefer wire, or does something look off? Reply here or call ${SITE.dispatchPhone} — 24/7.`,
+  ].join("\n");
+  const html = brandedShell(
+    `${ctx.invoiceCode} · ${overdue ? "Overdue" : "Due soon"}`,
+    overdue ? `${ctx.firstName} — this one's past due.` : `${ctx.firstName} — a quick reminder.`,
+    `
+      <p style="margin:0 0 16px;font-size:15px;">Invoice <strong>${escapeHtml(ctx.invoiceCode)}</strong> (${escapeHtml(amount)}) ${overdue ? `is past its due date${ctx.dueOn ? ` of ${escapeHtml(ctx.dueOn)}` : ""}` : `is due ${escapeHtml(ctx.dueOn ?? "soon")}`}.</p>
+      <p style="margin:0 0 8px;font-size:14px;"><a href="${SITE_URL}/account/invoices" style="color:#0F1115;font-weight:600;">Pay in your account →</a></p>
+      <p style="margin:0;font-size:13px;color:#374151;">Prefer wire, or does something look off? Reply here or call dispatch — 24/7.</p>
+    `,
+  );
+  return sendEmail({ to: ctx.to, subject, html, text, replyTo: DISPATCH_NOTIFY });
+}
+
+export async function sendMembershipActivatedEmail(ctx: {
+  to: string;
+  firstName: string;
+  program: string;
+  depositUsd: number;
+}): Promise<SendResult> {
+  const subject = `Your JetNine ${ctx.program} is active`;
+  const text = [
+    `${ctx.firstName},`,
+    ``,
+    `Your ${ctx.program} membership is active, and your ${usdFmt.format(ctx.depositUsd)} deposit is credited to your reserve.`,
+    ``,
+    `Balance & activity: ${SITE_URL}/account/members`,
+    `Book any time: ${SITE_URL}/quote/mission — or just call ${SITE.dispatchPhone}.`,
+  ].join("\n");
+  const html = brandedShell(
+    "Membership · Active",
+    `${ctx.firstName} — welcome aboard.`,
+    `
+      <p style="margin:0 0 16px;font-size:15px;">Your <strong>${escapeHtml(ctx.program)}</strong> membership is active, and your <strong>${usdFmt.format(ctx.depositUsd)}</strong> deposit is credited to your reserve.</p>
+      <p style="margin:0 0 8px;font-size:14px;"><a href="${SITE_URL}/account/members" style="color:#0F1115;font-weight:600;">Balance &amp; activity →</a></p>
+      <p style="margin:0;font-size:13px;color:#374151;">Book any time from your account or one phone call — the desk answers 24/7.</p>
+    `,
+  );
+  return sendEmail({ to: ctx.to, subject, html, text, replyTo: DISPATCH_NOTIFY });
+}
+
+export async function sendTopUpReceiptEmail(ctx: {
+  to: string;
+  firstName: string;
+  amountUsd: number;
+}): Promise<SendResult> {
+  const subject = `Reserve top-up received — ${usdFmt.format(ctx.amountUsd)}`;
+  const text = [
+    `${ctx.firstName},`,
+    ``,
+    `We've credited ${usdFmt.format(ctx.amountUsd)} to your reserve.`,
+    ``,
+    `Balance & ledger: ${SITE_URL}/account/members`,
+  ].join("\n");
+  const html = brandedShell(
+    "Reserve · Top-up",
+    `${ctx.firstName} — credited.`,
+    `
+      <p style="margin:0 0 16px;font-size:15px;"><strong>${usdFmt.format(ctx.amountUsd)}</strong> has been credited to your reserve.</p>
+      <p style="margin:0;font-size:14px;"><a href="${SITE_URL}/account/members" style="color:#0F1115;font-weight:600;">Balance &amp; ledger →</a></p>
+    `,
+  );
+  return sendEmail({ to: ctx.to, subject, html, text, replyTo: DISPATCH_NOTIFY });
+}
+
+export async function sendQuoteLifecycleEmail(ctx: {
+  to: string;
+  firstName: string;
+  quoteCode: string;
+  kind: "held" | "expired";
+}): Promise<SendResult> {
+  const held = ctx.kind === "held";
+  const subject = held
+    ? `[${ctx.quoteCode}] Aircraft on hold for you`
+    : `[${ctx.quoteCode}] Your quote has expired — want fresh numbers?`;
+  const text = [
+    `${ctx.firstName},`,
+    ``,
+    held
+      ? `Dispatch has an aircraft on soft hold against your request. Holds don't last long — reply to this email or call ${SITE.dispatchPhone} to confirm, and we'll paper it.`
+      : `Your quote ${ctx.quoteCode} has expired — charter availability and pricing move daily. Reply to this email or call ${SITE.dispatchPhone} and we'll refresh the numbers in minutes.`,
+  ].join("\n");
+  const html = brandedShell(
+    `${ctx.quoteCode} · ${held ? "On hold" : "Expired"}`,
+    held ? `${ctx.firstName} — we're holding an aircraft.` : `${ctx.firstName} — those numbers went stale.`,
+    `
+      <p style="margin:0 0 16px;font-size:15px;">${
+        held
+          ? "Dispatch has an aircraft on soft hold against your request. Holds don't last long — <strong>reply to this email</strong> or call to confirm, and we'll paper it."
+          : `Quote ${escapeHtml(ctx.quoteCode)} has expired — availability and pricing move daily. <strong>Reply to this email</strong> or call, and we'll refresh the numbers in minutes.`
+      }</p>
+    `,
+  );
+  return sendEmail({ to: ctx.to, subject, html, text, replyTo: DISPATCH_NOTIFY });
+}
+
 function escapeHtml(s: string): string {
   return s
     .replace(/&/g, "&amp;")

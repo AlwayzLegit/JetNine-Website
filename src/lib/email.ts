@@ -1017,6 +1017,35 @@ export async function sendQuoteLifecycleEmail(ctx: {
   return sendEmail({ to: ctx.to, subject, html, text, replyTo: DISPATCH_NOTIFY });
 }
 
+
+export async function sendRefundIssuedEmail(ctx: {
+  to: string;
+  firstName: string;
+  invoiceCode: string;
+  tripCode: string | null;
+  amountUsd: number | null;
+}): Promise<SendResult> {
+  const amount = ctx.amountUsd != null ? usdFmt.format(ctx.amountUsd) : "your payment";
+  const subject = `[${ctx.invoiceCode}] Refund issued — ${amount}`;
+  const text = [
+    `${ctx.firstName},`,
+    ``,
+    `With your trip${ctx.tripCode ? ` ${ctx.tripCode}` : ""} cancelled, we've refunded ${amount} to your card (invoice ${ctx.invoiceCode}).`,
+    `Refunds typically land in 5–10 business days depending on your bank.`,
+    ``,
+    `Questions? Reply here or call ${SITE.dispatchPhone} — 24/7.`,
+  ].join("\n");
+  const html = brandedShell(
+    `${ctx.invoiceCode} · Refunded`,
+    `${ctx.firstName} — your refund is on its way.`,
+    `
+      <p style="margin:0 0 16px;font-size:15px;">With your trip${ctx.tripCode ? ` <strong>${escapeHtml(ctx.tripCode)}</strong>` : ""} cancelled, we've refunded <strong>${escapeHtml(amount)}</strong> to your card (invoice ${escapeHtml(ctx.invoiceCode)}).</p>
+      <p style="margin:0;font-size:13px;color:#374151;">Refunds typically land in 5–10 business days depending on your bank. Questions? Reply here or call dispatch — 24/7.</p>
+    `,
+  );
+  return sendEmail({ to: ctx.to, subject, html, text, replyTo: DISPATCH_NOTIFY });
+}
+
 function escapeHtml(s: string): string {
   return s
     .replace(/&/g, "&amp;")

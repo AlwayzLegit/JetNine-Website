@@ -38,6 +38,10 @@ const FOOTER_COLS: FooterCol[] = [
       { label: "FAQ", href: "/faq" },
       { label: "Good questions", href: "/questions" },
       { label: "Legal", href: "/legal" },
+      // Spelled out for third-party compliance reviewers (A2P 10DLC, ad
+      // platforms) whose vetting scans footers for these literal labels.
+      { label: "Privacy policy", href: "/legal" },
+      { label: "Terms of service", href: "/legal#agreement" },
       { label: "My account", href: "/account" },
     ],
   },

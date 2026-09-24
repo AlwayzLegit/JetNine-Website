@@ -10,15 +10,25 @@ from long-code numbers only, so Phase A does not wait on it.
   approved (the 30907 rejection was cleared by PRs #63/#64).
 - `CRON_SECRET` set on Vercel (production + preview) and production
   redeployed, so the cron routes now run. Until then all four answered 401.
-- Still open, and all need the Twilio console or the Twilio credentials:
-  Phase C items 1 (the three `TWILIO_*` vars), 2 (messaging webhook) and 4
-  (`SMS_ALERTS_ENABLED` on Render). Item 3 follows once 1 and 2 are in.
+- Both crons verified on the 20:00 UTC tick: `/api/cron/sla-watch` and
+  `/api/cron/empty-leg-watchlists` answered 200.
+- **Phase A item 1 was never done.** On redeploy (2026-09-24) `jetnine-voice`
+  logged `NOT call-ready` with all six secrets missing: `TWILIO_ACCOUNT_SID`,
+  `TWILIO_AUTH_TOKEN`, `TWILIO_NUMBER`, `ANTHROPIC_API_KEY`,
+  `SUPABASE_SERVICE_ROLE_KEY`, `ESCALATION_PHONE`. Render shows no traffic in
+  30 days. The service is also still on the **free** plan (hibernates).
+  `SMS_ALERTS_ENABLED=true` is now set (Phase C item 4) and is inert until
+  the secrets land.
+- Still open: Phase A item 1 (six secrets on Render), item 2 (Starter plan),
+  item 4 (voice webhook); Phase C items 1 (three `TWILIO_*` vars on Vercel)
+  and 2 (messaging webhook). Item 3 follows once those are in.
 - `/api/health` reads `degraded` for exactly one reason: `twilio.smsConfigured`
   is false. Everything else (DB, Stripe live, Resend, Sentry, PostHog, domain)
   is green.
-- Note for whoever picks this up: the Render workspace exposed to the MCP
-  holds only `jetnine-api` (the LA Mattress ERP repo). `jetnine-voice` is in a
-  different Render account, so item 4 is a dashboard step there.
+- Tooling notes: the Twilio MCP is Twilio's public docs server (no account
+  access), so the number's webhooks stay a console step. The Render MCP can
+  write env vars but not read them; `SUPABASE_SERVICE_ROLE_KEY` on Vercel is
+  a write-only sensitive var, so it must be copied from Supabase, not Vercel.
 
 ## Phase A — voice desk on the ported number (ships now)
 

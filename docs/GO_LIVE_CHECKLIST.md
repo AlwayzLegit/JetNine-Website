@@ -4,6 +4,50 @@ Plain-text mirror of the checklist page shared on 2026-09-11. **You** items
 need Jet's accounts; **Me** items I do once pinged. A2P 10DLC covers SMS
 from long-code numbers only, so Phase A does not wait on it.
 
+## Status 2026-09-24
+
+- Phase B done on the Twilio side per the owner: number in place, A2P 10DLC
+  approved (the 30907 rejection was cleared by PRs #63/#64).
+- `CRON_SECRET` set on Vercel (production + preview) and production
+  redeployed, so the cron routes now run. Until then all four answered 401.
+- Both crons verified on the 20:00 UTC tick: `/api/cron/sla-watch` and
+  `/api/cron/empty-leg-watchlists` answered 200.
+- **Phase A item 1 was never done.** On redeploy (2026-09-24) `jetnine-voice`
+  logged `NOT call-ready` with all six secrets missing: `TWILIO_ACCOUNT_SID`,
+  `TWILIO_AUTH_TOKEN`, `TWILIO_NUMBER`, `ANTHROPIC_API_KEY`,
+  `SUPABASE_SERVICE_ROLE_KEY`, `ESCALATION_PHONE`. Render shows no traffic in
+  30 days. The service is also still on the **free** plan (hibernates).
+  `SMS_ALERTS_ENABLED=true` is now set (Phase C item 4) and is inert until
+  the secrets land.
+- **Phase C item 1 done** (20:00 UTC): `TWILIO_ACCOUNT_SID`,
+  `TWILIO_AUTH_TOKEN`, `TWILIO_SMS_FROM` set on Vercel production and
+  redeployed. `/api/health` now reads **`healthy`** with
+  `twilio.smsConfigured: true`. Outbound SMS (watchlist confirmations and
+  alerts, thread messages, trip-status texts) is live from this point.
+- **Inbound SMS verified** (20:29 UTC): messaging webhook on the number set
+  to `https://jetnine.com/api/twilio/inbound`, Messaging Service set to
+  defer to the sender's webhook. A TEST text from the broker's mobile
+  returned 200 and raised the "[UNROUTED] Inbound SMS" desk alert (the
+  correct outcome for a body with no thread code). An earlier attempt with
+  the webhook on a per-deployment `*.vercel.app` URL was rejected 403;
+  never point Twilio at a deployment URL.
+- **Render** (20:27 UTC boot): five of six secrets in, `ESCALATION_PHONE`
+  set. Only `ANTHROPIC_API_KEY` is missing; the voice desk stays
+  `NOT call-ready` until it lands. Owner chose to stay on the Free plan for
+  now (the first call after 15 idle minutes will hit the hibernation delay).
+- Two findings from that TEST, both fixed on the branch (not yet on
+  `main`): Twilio logged error 12300 because the webhook answered JSON, so
+  every path now returns an empty TwiML `<Response/>` with `text/xml`; and
+  the "no subject code — dropping" log line was misleading (the desk alert
+  did send), so it now says it forwards to the desk as unrouted.
+- Still open: `ANTHROPIC_API_KEY` on Render, the number's Voice webhook
+  (Phase A item 4), the STOP/START text check, and the three scripted test
+  calls.
+- Tooling notes: the Twilio MCP is Twilio's public docs server (no account
+  access), so the number's webhooks stay a console step. The Render MCP can
+  write env vars but not read them; `SUPABASE_SERVICE_ROLE_KEY` on Vercel is
+  a write-only sensitive var, so it must be copied from Supabase, not Vercel.
+
 ## Phase A — voice desk on the ported number (ships now)
 
 1. **You — six secrets on Render** (`dashboard.render.com → jetnine-voice →
@@ -87,9 +131,10 @@ Compliance → A2P 10DLC (may route via Trust Hub → Customer Profile).
 ## Phase C — switch SMS on (after B approves)
 
 1. **You — Vercel Production env:** `TWILIO_ACCOUNT_SID`,
-   `TWILIO_AUTH_TOKEN`, `TWILIO_SMS_FROM` (ported number, E.164),
-   `CRON_SECRET` (value from chat on 2026-09-08, or `openssl rand -hex 32`).
-   Redeploy the latest deployment afterwards.
+   `TWILIO_AUTH_TOKEN`, `TWILIO_SMS_FROM` (ported number, E.164). Or paste
+   the three values into a Claude session and they go in through the Vercel
+   MCP. Redeploy the latest deployment afterwards (env changes only apply to
+   a new deployment). `CRON_SECRET` is already set (2026-09-24).
 2. **You — messaging webhook:** number → Messaging Configuration (or the
    Messaging Service → Integration → Send a webhook):
    `https://jetnine.com/api/twilio/inbound`, HTTP POST.

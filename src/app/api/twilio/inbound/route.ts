@@ -8,7 +8,7 @@ import { quotes } from "@/db/schema/quotes";
 import { trips } from "@/db/schema/trips";
 import { logAudit } from "@/lib/audit";
 import { sendDispatchAlert } from "@/lib/email";
-import { isTwilioConfigured, verifyTwilioSignature } from "@/lib/twilio";
+import { isTwilioConfigured, verifyTwilioSignatureAny } from "@/lib/twilio";
 import { DEACTIVATED_BY_SMS_STOP, optOutKeyword } from "@/lib/sms-optout";
 
 // Inbound SMS / WhatsApp webhook — Twilio POSTs form-urlencoded data
@@ -39,9 +39,22 @@ export const runtime = "nodejs";
 
 const SUBJECT_CODE_RE = /\[((?:QT|JN)-\d{4}-\d+)\]/i;
 
+// Twilio reads the webhook response as TwiML and logs error 12300
+// ("Invalid Content-Type") for anything else, JSON included. An empty
+// <Response/> means "received, send nothing back"; diagnostics that used
+// to ride in the JSON body live in the function log instead. Error
+// statuses keep their codes so the smoke checks (403/503) still hold.
+const EMPTY_TWIML = '<?xml version="1.0" encoding="UTF-8"?><Response></Response>';
+function twiml(status = 200): NextResponse {
+  return new NextResponse(EMPTY_TWIML, {
+    status,
+    headers: { "content-type": "text/xml; charset=utf-8" },
+  });
+}
+
 export async function POST(request: NextRequest): Promise<NextResponse> {
   if (!isTwilioConfigured()) {
-    return NextResponse.json({ error: "twilio not configured" }, { status: 503 });
+    return twiml(503);
   }
 
   const rawBody = await request.text();
@@ -50,18 +63,37 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     params[k] = v;
   }
 
-  // Reconstruct the exact URL Twilio called. Vercel passes the original
-  // host + proto in x-forwarded-*; behind the edge router request.url
-  // would otherwise be the internal hostname.
-  const forwardedHost = request.headers.get("x-forwarded-host") ?? request.headers.get("host") ?? "";
+  // Reconstruct the URL Twilio signed. Twilio signs the URL configured in
+  // its console, and behind Vercel the function may see that host in
+  // x-forwarded-host, in host, or in neither (a request to a deployment
+  // alias reports the alias). Try every host we could plausibly have been
+  // reached on; each candidate is still bound to the auth token, so this
+  // widens what we accept only to URLs Twilio could actually have signed.
   const forwardedProto = request.headers.get("x-forwarded-proto") ?? "https";
-  const pathAndQuery = new URL(request.url).pathname + new URL(request.url).search;
-  const fullUrl = `${forwardedProto}://${forwardedHost}${pathAndQuery}`;
+  const reqUrl = new URL(request.url);
+  const pathAndQuery = reqUrl.pathname + reqUrl.search;
+  const hosts = new Set<string>();
+  for (const h of [
+    request.headers.get("x-forwarded-host"),
+    request.headers.get("host"),
+    request.headers.get("x-vercel-deployment-url"),
+    siteHost(),
+  ]) {
+    if (h) hosts.add(h);
+  }
+  const candidates = [...hosts].map((h) => `${forwardedProto}://${h}${pathAndQuery}`);
 
   const sig = request.headers.get("x-twilio-signature");
-  if (!verifyTwilioSignature(fullUrl, params, sig)) {
-    console.warn("[twilio:inbound] signature mismatch", { url: fullUrl });
-    return NextResponse.json({ error: "invalid signature" }, { status: 403 });
+  if (!verifyTwilioSignatureAny(candidates, params, sig)) {
+    // No secrets here: hosts tried and whether a signature arrived at all
+    // is enough to tell "wrong webhook URL in the Twilio console" from
+    // "wrong TWILIO_AUTH_TOKEN" when reading the function log.
+    console.warn("[twilio:inbound] signature mismatch", {
+      tried: [...hosts],
+      path: pathAndQuery,
+      signaturePresent: Boolean(sig),
+    });
+    return twiml(403);
   }
 
   const messageSid = params.MessageSid ?? "";
@@ -103,12 +135,12 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     }
     // Twilio sends its own STOP/HELP confirmation; answering with our
     // own body here would double-text someone who just asked us not to.
-    return NextResponse.json({ received: true, keyword, watchlistsUpdated: updated });
+    return twiml();
   }
 
   const route = await resolveInboundRoute(body);
   if (!route) {
-    console.warn("[twilio:inbound] no subject code in body — dropping", {
+    console.warn("[twilio:inbound] no subject code in body — forwarding to the desk as unrouted", {
       messageSid,
       from: fromE164,
       bodyPreview: body.slice(0, 80),
@@ -128,7 +160,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     } catch (err) {
       console.error("[twilio:inbound] unrouted forward failed (non-fatal)", err);
     }
-    return NextResponse.json({ received: true, unmatched: true });
+    return twiml();
   }
 
   const preview = body.length > 140 ? `${body.slice(0, 139)}…` : body;
@@ -166,10 +198,11 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     // retrying.
     const code = (err as { code?: string })?.code;
     if (code === "23505") {
-      return NextResponse.json({ received: true, deduped: true });
+      console.log("[twilio:inbound] duplicate delivery ignored", { messageSid });
+      return twiml();
     }
     console.error("[twilio:inbound] insert failed", err);
-    return NextResponse.json({ error: "insert failed" }, { status: 500 });
+    return twiml(500);
   }
 
   try {
@@ -208,7 +241,12 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     console.error("[twilio:inbound] desk alert failed (non-fatal)", err);
   }
 
-  return NextResponse.json({ received: true, messageId });
+  console.log("[twilio:inbound] threaded", {
+    messageSid,
+    subjectCode: route.subjectCode,
+    messageId,
+  });
+  return twiml();
 }
 
 /**
@@ -315,4 +353,15 @@ async function resolveInboundRoute(body: string): Promise<InboundRoute | null> {
     };
   }
   return null;
+}
+
+/** Host of the canonical site URL (jetnine.com in production), or null. */
+function siteHost(): string | null {
+  const raw = process.env.NEXT_PUBLIC_SITE_URL;
+  if (!raw) return null;
+  try {
+    return new URL(raw).host || null;
+  } catch {
+    return null;
+  }
 }

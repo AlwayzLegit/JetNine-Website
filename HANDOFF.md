@@ -66,8 +66,15 @@ SSL. Everything that was blocking launch is done.
 - **Supabase Auth → SMTP** is pointed at Resend (login/invite emails branded
   + no built-in rate limits).
 - **Sentry / PostHog:** ✅ wired.
-- **Twilio (SMS/WhatsApp) + Postmark inbound:** off by design (optional;
-  that's the only reason `/api/health` reads `degraded`).
+- **Twilio SMS:** ✅ live on the site since 2026-09-24 (number + A2P 10DLC
+  done, `TWILIO_*` set on Vercel production, `/api/health` = `healthy`).
+  Inbound (replies, STOP/START) needs the number's messaging webhook pointed
+  at `https://jetnine.com/api/twilio/inbound` in the Twilio console — see
+  `docs/GO_LIVE_CHECKLIST.md`. The Twilio MCP is docs-only (no account access).
+- **`CRON_SECRET`** set on Vercel 2026-09-24 (production + preview). Before
+  this every `/api/cron/*` route answered 401, so the watchlist matcher, SLA
+  watch, invoice dunning and blog digest are live only from that date.
+- **Postmark inbound:** off by design (optional).
 
 ---
 

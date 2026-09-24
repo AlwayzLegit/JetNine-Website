@@ -24,10 +24,20 @@ from long-code numbers only, so Phase A does not wait on it.
   redeployed. `/api/health` now reads **`healthy`** with
   `twilio.smsConfigured: true`. Outbound SMS (watchlist confirmations and
   alerts, thread messages, trip-status texts) is live from this point.
-- Still open: Phase A item 1 (six secrets on Render, still missing on the
-  20:00 UTC boot), item 2 (Starter plan), item 4 (voice webhook); Phase C
-  item 2 (messaging webhook on the number, needed for STOP handling and
-  replies). Item 3 follows once item 2 is in.
+- **Inbound SMS verified** (20:29 UTC): messaging webhook on the number set
+  to `https://jetnine.com/api/twilio/inbound`, Messaging Service set to
+  defer to the sender's webhook. A TEST text from the broker's mobile
+  returned 200 and raised the "[UNROUTED] Inbound SMS" desk alert (the
+  correct outcome for a body with no thread code). An earlier attempt with
+  the webhook on a per-deployment `*.vercel.app` URL was rejected 403;
+  never point Twilio at a deployment URL.
+- **Render** (20:27 UTC boot): five of six secrets in, `ESCALATION_PHONE`
+  set. Only `ANTHROPIC_API_KEY` is missing; the voice desk stays
+  `NOT call-ready` until it lands. Owner chose to stay on the Free plan for
+  now (the first call after 15 idle minutes will hit the hibernation delay).
+- Still open: `ANTHROPIC_API_KEY` on Render, the number's Voice webhook
+  (Phase A item 4), the STOP/START text check, and the three scripted test
+  calls.
 - Tooling notes: the Twilio MCP is Twilio's public docs server (no account
   access), so the number's webhooks stay a console step. The Render MCP can
   write env vars but not read them; `SUPABASE_SERVICE_ROLE_KEY` on Vercel is

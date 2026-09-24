@@ -66,8 +66,15 @@ SSL. Everything that was blocking launch is done.
 - **Supabase Auth → SMTP** is pointed at Resend (login/invite emails branded
   + no built-in rate limits).
 - **Sentry / PostHog:** ✅ wired.
-- **Twilio (SMS/WhatsApp) + Postmark inbound:** off by design (optional;
-  that's the only reason `/api/health` reads `degraded`).
+- **Twilio SMS:** number and A2P 10DLC are done on the Twilio side
+  (2026-09-24). Still dark on Vercel until `TWILIO_ACCOUNT_SID`,
+  `TWILIO_AUTH_TOKEN`, `TWILIO_SMS_FROM` are set — that is the only reason
+  `/api/health` reads `degraded`. Steps in `docs/GO_LIVE_CHECKLIST.md` Phase C.
+  There is no Twilio MCP; the number's webhooks are set in the Twilio console.
+- **`CRON_SECRET`** set on Vercel 2026-09-24 (production + preview). Before
+  this every `/api/cron/*` route answered 401, so the watchlist matcher, SLA
+  watch, invoice dunning and blog digest are live only from that date.
+- **Postmark inbound:** off by design (optional).
 
 ---
 

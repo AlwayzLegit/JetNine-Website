@@ -4,6 +4,22 @@ Plain-text mirror of the checklist page shared on 2026-09-11. **You** items
 need Jet's accounts; **Me** items I do once pinged. A2P 10DLC covers SMS
 from long-code numbers only, so Phase A does not wait on it.
 
+## Status 2026-09-24
+
+- Phase B done on the Twilio side per the owner: number in place, A2P 10DLC
+  approved (the 30907 rejection was cleared by PRs #63/#64).
+- `CRON_SECRET` set on Vercel (production + preview) and production
+  redeployed, so the cron routes now run. Until then all four answered 401.
+- Still open, and all need the Twilio console or the Twilio credentials:
+  Phase C items 1 (the three `TWILIO_*` vars), 2 (messaging webhook) and 4
+  (`SMS_ALERTS_ENABLED` on Render). Item 3 follows once 1 and 2 are in.
+- `/api/health` reads `degraded` for exactly one reason: `twilio.smsConfigured`
+  is false. Everything else (DB, Stripe live, Resend, Sentry, PostHog, domain)
+  is green.
+- Note for whoever picks this up: the Render workspace exposed to the MCP
+  holds only `jetnine-api` (the LA Mattress ERP repo). `jetnine-voice` is in a
+  different Render account, so item 4 is a dashboard step there.
+
 ## Phase A — voice desk on the ported number (ships now)
 
 1. **You — six secrets on Render** (`dashboard.render.com → jetnine-voice →
@@ -87,9 +103,10 @@ Compliance → A2P 10DLC (may route via Trust Hub → Customer Profile).
 ## Phase C — switch SMS on (after B approves)
 
 1. **You — Vercel Production env:** `TWILIO_ACCOUNT_SID`,
-   `TWILIO_AUTH_TOKEN`, `TWILIO_SMS_FROM` (ported number, E.164),
-   `CRON_SECRET` (value from chat on 2026-09-08, or `openssl rand -hex 32`).
-   Redeploy the latest deployment afterwards.
+   `TWILIO_AUTH_TOKEN`, `TWILIO_SMS_FROM` (ported number, E.164). Or paste
+   the three values into a Claude session and they go in through the Vercel
+   MCP. Redeploy the latest deployment afterwards (env changes only apply to
+   a new deployment). `CRON_SECRET` is already set (2026-09-24).
 2. **You — messaging webhook:** number → Messaging Configuration (or the
    Messaging Service → Integration → Send a webhook):
    `https://jetnine.com/api/twilio/inbound`, HTTP POST.

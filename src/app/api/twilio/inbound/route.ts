@@ -8,7 +8,7 @@ import { quotes } from "@/db/schema/quotes";
 import { trips } from "@/db/schema/trips";
 import { logAudit } from "@/lib/audit";
 import { sendDispatchAlert } from "@/lib/email";
-import { isTwilioConfigured, verifyTwilioSignature } from "@/lib/twilio";
+import { isTwilioConfigured, verifyTwilioSignatureAny } from "@/lib/twilio";
 import { DEACTIVATED_BY_SMS_STOP, optOutKeyword } from "@/lib/sms-optout";
 
 // Inbound SMS / WhatsApp webhook — Twilio POSTs form-urlencoded data
@@ -50,17 +50,36 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     params[k] = v;
   }
 
-  // Reconstruct the exact URL Twilio called. Vercel passes the original
-  // host + proto in x-forwarded-*; behind the edge router request.url
-  // would otherwise be the internal hostname.
-  const forwardedHost = request.headers.get("x-forwarded-host") ?? request.headers.get("host") ?? "";
+  // Reconstruct the URL Twilio signed. Twilio signs the URL configured in
+  // its console, and behind Vercel the function may see that host in
+  // x-forwarded-host, in host, or in neither (a request to a deployment
+  // alias reports the alias). Try every host we could plausibly have been
+  // reached on; each candidate is still bound to the auth token, so this
+  // widens what we accept only to URLs Twilio could actually have signed.
   const forwardedProto = request.headers.get("x-forwarded-proto") ?? "https";
-  const pathAndQuery = new URL(request.url).pathname + new URL(request.url).search;
-  const fullUrl = `${forwardedProto}://${forwardedHost}${pathAndQuery}`;
+  const reqUrl = new URL(request.url);
+  const pathAndQuery = reqUrl.pathname + reqUrl.search;
+  const hosts = new Set<string>();
+  for (const h of [
+    request.headers.get("x-forwarded-host"),
+    request.headers.get("host"),
+    request.headers.get("x-vercel-deployment-url"),
+    siteHost(),
+  ]) {
+    if (h) hosts.add(h);
+  }
+  const candidates = [...hosts].map((h) => `${forwardedProto}://${h}${pathAndQuery}`);
 
   const sig = request.headers.get("x-twilio-signature");
-  if (!verifyTwilioSignature(fullUrl, params, sig)) {
-    console.warn("[twilio:inbound] signature mismatch", { url: fullUrl });
+  if (!verifyTwilioSignatureAny(candidates, params, sig)) {
+    // No secrets here: hosts tried and whether a signature arrived at all
+    // is enough to tell "wrong webhook URL in the Twilio console" from
+    // "wrong TWILIO_AUTH_TOKEN" when reading the function log.
+    console.warn("[twilio:inbound] signature mismatch", {
+      tried: [...hosts],
+      path: pathAndQuery,
+      signaturePresent: Boolean(sig),
+    });
     return NextResponse.json({ error: "invalid signature" }, { status: 403 });
   }
 
@@ -315,4 +334,15 @@ async function resolveInboundRoute(body: string): Promise<InboundRoute | null> {
     };
   }
   return null;
+}
+
+/** Host of the canonical site URL (jetnine.com in production), or null. */
+function siteHost(): string | null {
+  const raw = process.env.NEXT_PUBLIC_SITE_URL;
+  if (!raw) return null;
+  try {
+    return new URL(raw).host || null;
+  } catch {
+    return null;
+  }
 }

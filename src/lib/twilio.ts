@@ -136,6 +136,25 @@ export function verifyTwilioSignature(
   }
 }
 
+/**
+ * Same check against several candidate URLs. Behind Vercel the URL Twilio
+ * signed is whatever is configured in the Twilio console, which may be the
+ * canonical domain, the www redirect host, or a *.vercel.app alias, and
+ * the host header the function sees does not always name it. Trying each
+ * candidate costs one HMAC apiece and cannot weaken the check: every
+ * candidate is still bound to the auth token.
+ */
+export function verifyTwilioSignatureAny(
+  candidateUrls: string[],
+  params: Record<string, string>,
+  signatureHeader: string | null,
+): boolean {
+  for (const url of candidateUrls) {
+    if (verifyTwilioSignature(url, params, signatureHeader)) return true;
+  }
+  return false;
+}
+
 // ─── Domain senders ───────────────────────────────────────────────────────
 // Thin wrappers that the message-thread + trip-status actions call.
 // Same SendResult-like shape as email so callers can update

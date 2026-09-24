@@ -19,12 +19,15 @@ from long-code numbers only, so Phase A does not wait on it.
   30 days. The service is also still on the **free** plan (hibernates).
   `SMS_ALERTS_ENABLED=true` is now set (Phase C item 4) and is inert until
   the secrets land.
-- Still open: Phase A item 1 (six secrets on Render), item 2 (Starter plan),
-  item 4 (voice webhook); Phase C items 1 (three `TWILIO_*` vars on Vercel)
-  and 2 (messaging webhook). Item 3 follows once those are in.
-- `/api/health` reads `degraded` for exactly one reason: `twilio.smsConfigured`
-  is false. Everything else (DB, Stripe live, Resend, Sentry, PostHog, domain)
-  is green.
+- **Phase C item 1 done** (20:00 UTC): `TWILIO_ACCOUNT_SID`,
+  `TWILIO_AUTH_TOKEN`, `TWILIO_SMS_FROM` set on Vercel production and
+  redeployed. `/api/health` now reads **`healthy`** with
+  `twilio.smsConfigured: true`. Outbound SMS (watchlist confirmations and
+  alerts, thread messages, trip-status texts) is live from this point.
+- Still open: Phase A item 1 (six secrets on Render, still missing on the
+  20:00 UTC boot), item 2 (Starter plan), item 4 (voice webhook); Phase C
+  item 2 (messaging webhook on the number, needed for STOP handling and
+  replies). Item 3 follows once item 2 is in.
 - Tooling notes: the Twilio MCP is Twilio's public docs server (no account
   access), so the number's webhooks stay a console step. The Render MCP can
   write env vars but not read them; `SUPABASE_SERVICE_ROLE_KEY` on Vercel is

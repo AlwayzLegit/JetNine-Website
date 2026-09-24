@@ -35,6 +35,11 @@ from long-code numbers only, so Phase A does not wait on it.
   set. Only `ANTHROPIC_API_KEY` is missing; the voice desk stays
   `NOT call-ready` until it lands. Owner chose to stay on the Free plan for
   now (the first call after 15 idle minutes will hit the hibernation delay).
+- Two findings from that TEST, both fixed on the branch (not yet on
+  `main`): Twilio logged error 12300 because the webhook answered JSON, so
+  every path now returns an empty TwiML `<Response/>` with `text/xml`; and
+  the "no subject code — dropping" log line was misleading (the desk alert
+  did send), so it now says it forwards to the desk as unrouted.
 - Still open: `ANTHROPIC_API_KEY` on Render, the number's Voice webhook
   (Phase A item 4), the STOP/START text check, and the three scripted test
   calls.

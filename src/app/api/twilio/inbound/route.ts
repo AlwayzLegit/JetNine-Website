@@ -39,9 +39,22 @@ export const runtime = "nodejs";
 
 const SUBJECT_CODE_RE = /\[((?:QT|JN)-\d{4}-\d+)\]/i;
 
+// Twilio reads the webhook response as TwiML and logs error 12300
+// ("Invalid Content-Type") for anything else, JSON included. An empty
+// <Response/> means "received, send nothing back"; diagnostics that used
+// to ride in the JSON body live in the function log instead. Error
+// statuses keep their codes so the smoke checks (403/503) still hold.
+const EMPTY_TWIML = '<?xml version="1.0" encoding="UTF-8"?><Response></Response>';
+function twiml(status = 200): NextResponse {
+  return new NextResponse(EMPTY_TWIML, {
+    status,
+    headers: { "content-type": "text/xml; charset=utf-8" },
+  });
+}
+
 export async function POST(request: NextRequest): Promise<NextResponse> {
   if (!isTwilioConfigured()) {
-    return NextResponse.json({ error: "twilio not configured" }, { status: 503 });
+    return twiml(503);
   }
 
   const rawBody = await request.text();
@@ -80,7 +93,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       path: pathAndQuery,
       signaturePresent: Boolean(sig),
     });
-    return NextResponse.json({ error: "invalid signature" }, { status: 403 });
+    return twiml(403);
   }
 
   const messageSid = params.MessageSid ?? "";
@@ -122,12 +135,12 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     }
     // Twilio sends its own STOP/HELP confirmation; answering with our
     // own body here would double-text someone who just asked us not to.
-    return NextResponse.json({ received: true, keyword, watchlistsUpdated: updated });
+    return twiml();
   }
 
   const route = await resolveInboundRoute(body);
   if (!route) {
-    console.warn("[twilio:inbound] no subject code in body — dropping", {
+    console.warn("[twilio:inbound] no subject code in body — forwarding to the desk as unrouted", {
       messageSid,
       from: fromE164,
       bodyPreview: body.slice(0, 80),
@@ -147,7 +160,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     } catch (err) {
       console.error("[twilio:inbound] unrouted forward failed (non-fatal)", err);
     }
-    return NextResponse.json({ received: true, unmatched: true });
+    return twiml();
   }
 
   const preview = body.length > 140 ? `${body.slice(0, 139)}…` : body;
@@ -185,10 +198,11 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     // retrying.
     const code = (err as { code?: string })?.code;
     if (code === "23505") {
-      return NextResponse.json({ received: true, deduped: true });
+      console.log("[twilio:inbound] duplicate delivery ignored", { messageSid });
+      return twiml();
     }
     console.error("[twilio:inbound] insert failed", err);
-    return NextResponse.json({ error: "insert failed" }, { status: 500 });
+    return twiml(500);
   }
 
   try {
@@ -227,7 +241,12 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     console.error("[twilio:inbound] desk alert failed (non-fatal)", err);
   }
 
-  return NextResponse.json({ received: true, messageId });
+  console.log("[twilio:inbound] threaded", {
+    messageSid,
+    subjectCode: route.subjectCode,
+    messageId,
+  });
+  return twiml();
 }
 
 /**

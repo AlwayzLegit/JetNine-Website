@@ -24,6 +24,7 @@ export type HealthSnapshot = {
     twilio: CheckResult;
     sentry: CheckResult;
     posthog: CheckResult;
+    ai: CheckResult;
   };
   timestamp: string;
 };
@@ -143,6 +144,19 @@ export function checkSentry(): CheckResult {
   };
 }
 
+/**
+ * AI provider key storage. Informational: `ok` stays true so a missing
+ * encryption key never flips the public status; /admin/settings/ai shows
+ * the actual provider rows and their last test.
+ */
+export function checkAi(): CheckResult {
+  const raw = process.env.AI_KEYS_ENCRYPTION_KEY ?? "";
+  return {
+    ok: true,
+    keyStorageConfigured: /^[0-9a-f]{64}$/i.test(raw),
+  };
+}
+
 export function checkPosthog(): CheckResult {
   return {
     ok: true,
@@ -166,7 +180,7 @@ export async function snapshot(): Promise<HealthSnapshot> {
     Promise.resolve(checkPosthog()),
   ]);
 
-  const checks = { db, site: checkSite(), stripe, email, twilio, sentry, posthog };
+  const checks = { db, site: checkSite(), stripe, email, twilio, sentry, posthog, ai: checkAi() };
   const ok = db.ok;
   const allOptionalsConfigured =
     Boolean(stripe.configured) &&

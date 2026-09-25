@@ -19,6 +19,7 @@ const ADMIN_NAV = [
   { href: "/admin/reports", label: "Reports" },
   { href: "/admin/audit", label: "Audit" },
   { href: "/admin/health", label: "Health" },
+  { href: "/admin/settings/ai", label: "AI" },
 ];
 
 export function AdminNav({ unreadInbox = 0 }: { unreadInbox?: number }) {

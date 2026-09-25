@@ -51,6 +51,7 @@ direct REST call to PostgREST is gated the same way.
 | `/admin/aircraft` mutate | — | — | ✓ | ✓ |
 | `/admin/airports` mutate | — | — | ✓ | ✓ |
 | `/admin/member` invite + role changes | — | — | ✓ | ✓ |
+| `/admin/settings/ai` (vendor keys, model routing) | — | — | ✓ | ✓ |
 | Promote/demote `admin` ↔ `superadmin` | — | — | — | ✓ (SQL) |
 | Bypass RLS via `service_role` key | — | — | — | server-only |
 

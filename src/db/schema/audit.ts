@@ -32,6 +32,7 @@ export const auditSubjectTypeEnum = pgEnum("audit_subject_type", [
   "empty_leg",
   "empty_leg_watchlist",
   "blog_subscriber",
+  "ai_provider",
   "contact_inquiry",
   "preferences",
   "user_role",

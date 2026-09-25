@@ -8,6 +8,7 @@ import type { HandoffData } from "./relay/messages.js";
 import { escalationDialTwiml, escalationFallbackTwiml, hangupTwiml, relayTwiml, unavailableTwiml } from "./twiml.js";
 import { getCallBySid, setRecording, updateCall } from "./db/queries.js";
 import { leadSummarySms, sendAlertSms } from "./escalation.js";
+import { describeRouting, resolveRouting } from "./llm/providers.js";
 
 // HTTP: Twilio webhooks (TwiML). WS: ConversationRelay sessions.
 //
@@ -43,12 +44,18 @@ function assertTwilioSignature(req: FastifyRequest, reply: FastifyReply): boolea
 
 const xml = (reply: FastifyReply, body: string) => reply.type("text/xml").send(body);
 
+/** Call-ready = every env var present AND an LLM provider resolvable (db route or env key). */
+async function callReady(): Promise<{ ready: boolean; llm: ReturnType<typeof describeRouting> }> {
+  const routing = await resolveRouting();
+  return { ready: isConfigured() && routing.primary !== null, llm: describeRouting(routing) };
+}
+
 app.get("/health", async (_req, reply) => {
-  const ready = isConfigured();
+  const { ready, llm } = await callReady();
   return reply.code(ready ? 200 : 503).send({
     ok: ready,
     service: "jetnine-voice",
-    model: config.anthropic.model,
+    llm,
     tts: `${config.voice.ttsProvider}/${config.voice.ttsVoice || "default"}`,
     stt: `${config.voice.sttProvider}/${config.voice.sttModel}`,
     missingEnv,
@@ -58,8 +65,9 @@ app.get("/health", async (_req, reply) => {
 app.post("/twiml", async (req, reply) => {
   if (!assertTwilioSignature(req, reply)) return;
   const body = req.body as TwilioBody;
-  if (!isConfigured()) {
-    req.log.error({ missingEnv }, "twiml: call received but service is not configured");
+  const { ready, llm } = await callReady();
+  if (!ready) {
+    req.log.error({ missingEnv, llm }, "twiml: call received but service is not configured");
     return xml(reply, unavailableTwiml());
   }
   req.log.info({ callSid: body.CallSid, from: body.From }, "twiml: inbound call");
@@ -142,7 +150,8 @@ app.get("/relay", { websocket: true }, (socket, req) => {
   socket.on("error", (err) => req.log.error({ err }, "relay: socket error"));
 });
 
-app.listen({ port: config.port, host: "0.0.0.0" }).then(() => {
-  if (!isConfigured()) app.log.warn({ missingEnv }, "NOT call-ready: set the missing env vars");
-  app.log.info({ wss: urls.wss, model: config.anthropic.model, tts: config.voice.ttsVoice || "(catalog default)" }, "jetnine-voice listening");
+app.listen({ port: config.port, host: "0.0.0.0" }).then(async () => {
+  const { ready, llm } = await callReady();
+  if (!ready) app.log.warn({ missingEnv, llm }, "NOT call-ready: set the missing env vars and/or route an AI provider at /admin/settings/ai");
+  app.log.info({ wss: urls.wss, llm, tts: config.voice.ttsVoice || "(catalog default)" }, "jetnine-voice listening");
 });

@@ -40,7 +40,14 @@ from long-code numbers only, so Phase A does not wait on it.
   every path now returns an empty TwiML `<Response/>` with `text/xml`; and
   the "no subject code — dropping" log line was misleading (the desk alert
   did send), so it now says it forwards to the desk as unrouted.
-- Still open: `ANTHROPIC_API_KEY` on Render, the number's Voice webhook
+- **2026-09-25:** the model key no longer has to be an env var. Branch adds
+  `/admin/settings/ai` (Anthropic / OpenAI keys, default model per vendor,
+  Voice desk primary + fallback) and teaches the voice service to read it.
+  `AI_KEYS_ENCRYPTION_KEY` is set on Vercel and Render. To go live: merge,
+  apply migration `0047_ai_providers.sql`, store a key on the page, set the
+  route, then check `/health` on Render reports `llm.primary`.
+- Still open: a model key (via `/admin/settings/ai` once 0047 is applied, or
+  `ANTHROPIC_API_KEY` on Render as before), the number's Voice webhook
   (Phase A item 4), the STOP/START text check, and the three scripted test
   calls.
 - Tooling notes: the Twilio MCP is Twilio's public docs server (no account

@@ -118,7 +118,24 @@ The SDK lazy-loads on the client (no bundle cost when DSN is missing).
 
 After PostHog is wired, submit the sitemap to Search Console at https://search.google.com/search-console → Sitemaps → Add `sitemap.xml`.
 
-## 8. Custom domain
+## 8. AI providers (voice desk)
+
+The voice desk on Render needs a model vendor. Keys are not env vars: an admin
+stores them at `/admin/settings/ai` (Anthropic and/or OpenAI, each with a
+default model) and sets the **Voice desk** route to a primary and optional
+fallback provider. The page tests a key by listing the vendor's models with it.
+
+| Env var | Notes |
+|---|---|
+| `AI_KEYS_ENCRYPTION_KEY` | `openssl rand -hex 32`. Encrypts the stored keys. **Same value on Vercel and on the Render voice service.** |
+| `ANTHROPIC_API_KEY` (Render only) | Optional fallback when nothing is routed in the admin. |
+
+Schema: migration `0047_ai_providers.sql` (tables `ai_providers`, `ai_routes`,
+audit subject `ai_provider`). Admin-only (`requireAdmin`), every change audited
+as `ai_provider.*` / `ai_route.update`; key material never appears in the
+audit log or the UI (last four characters only).
+
+## 9. Custom domain
 
 In Vercel → Domains → Add. Point your registrar's `A` record at Vercel's anycast IP (or `CNAME` for subdomain). Vercel issues a Let's Encrypt cert automatically.
 

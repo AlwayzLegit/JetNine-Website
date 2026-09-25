@@ -2,7 +2,7 @@
   "name": "jetnine-voice",
   "version": "0.1.0",
   "private": true,
-  "description": "JetNine inbound AI voice agent \u2014 Twilio ConversationRelay \u2194 Claude",
+  "description": "JetNine inbound AI voice agent — Twilio ConversationRelay ↔ Claude",
   "type": "module",
   "engines": {
     "node": ">=22"
@@ -20,6 +20,7 @@
     "@fastify/websocket": "^11.0.2",
     "@supabase/supabase-js": "^2.57.4",
     "fastify": "^5.5.0",
+    "openai": "^7.23.0",
     "twilio": "^5.9.0",
     "ws": "^8.18.3"
   },

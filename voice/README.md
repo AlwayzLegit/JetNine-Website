@@ -72,6 +72,26 @@ policies: only the service-role key can read or write them.
 Signature validation is enforced in production
 (`TWILIO_VALIDATE_SIGNATURES` defaults to true when `NODE_ENV=production`).
 
+## Which model answers
+
+The vendor and model are chosen at **`/admin/settings/ai`** on the site, not
+by env. An admin stores an Anthropic and/or OpenAI key there (encrypted with
+`AI_KEYS_ENCRYPTION_KEY`, which this service must also have), gives each a
+default model, and sets the **Voice desk** route: a primary provider and an
+optional fallback. `src/llm/providers.ts` reads that at the start of each
+turn (cached 60 s, last good answer kept through a database blip).
+
+- Primary runs every turn. If it fails before the caller has heard anything,
+  the same turn is retried once on the fallback (`src/llm/agent.ts`).
+- Adapters: `src/llm/anthropic.ts` (Messages API, streaming, tools) and
+  `src/llm/openai.ts` (Chat Completions, streaming, function tools). Both
+  read and write the provider-neutral history in `src/llm/history.ts`, which
+  is what makes a mid-call switch possible.
+- With no route in the admin, `ANTHROPIC_API_KEY` + `ANTHROPIC_MODEL` are
+  used, so the old env-only setup still works.
+- `/health` reports the resolved routing (`llm.primary`, `llm.fallback`,
+  `llm.note`) with no key material, and is 503 until some provider resolves.
+
 ## Changing the voice
 
 Everything speech-related is in `.env` and read once in `src/config.ts`:
@@ -129,8 +149,11 @@ once registration clears. Voice webhooks need no registration.
    real traffic at it — free instances sleep after 15 idle minutes and a
    sleeping service misses Twilio's webhook timeout.
 2. **Secrets** in Render → Environment: `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`,
-   `TWILIO_NUMBER`, `ANTHROPIC_API_KEY`, `SUPABASE_SERVICE_ROLE_KEY`,
-   `ESCALATION_PHONE`, `ALERT_PHONE`. Render redeploys on save.
+   `TWILIO_NUMBER`, `SUPABASE_SERVICE_ROLE_KEY`, `ESCALATION_PHONE`,
+   `ALERT_PHONE`, `AI_KEYS_ENCRYPTION_KEY` (same value as on Vercel). Then
+   store the model vendor key at `/admin/settings/ai` and route the Voice
+   desk to it; `ANTHROPIC_API_KEY` on Render is only a fallback. Render
+   redeploys on save.
 3. **Twilio number.** Buy a voice-capable number (a fresh one for testing is
    fine). Console → Phone Numbers → the number → Voice → *A call comes in*:
    Webhook, `https://jetnine-voice.onrender.com/twiml`, HTTP POST. Save.

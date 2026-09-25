@@ -118,6 +118,15 @@ const ROWS: Row[] = [
     fixHint:
       "NEXT_PUBLIC_POSTHOG_KEY=phc_… (PostHog → Project Settings). Optional NEXT_PUBLIC_POSTHOG_HOST if not us.i.posthog.com.",
   },
+  {
+    key: "ai",
+    label: "AI provider keys",
+    fields: (s) => [{ label: "Key storage", ok: Boolean(s.keyStorageConfigured) }],
+    whyItMatters:
+      "The voice desk reads its Anthropic / OpenAI keys from the database, encrypted with this key. Without it /admin/settings/ai cannot store anything and the voice service falls back to ANTHROPIC_API_KEY on Render.",
+    fixHint:
+      "AI_KEYS_ENCRYPTION_KEY=<openssl rand -hex 32>, the same value on Vercel and on the Render voice service. Then manage keys at /admin/settings/ai.",
+  },
 ];
 
 export default async function AdminHealthPage() {

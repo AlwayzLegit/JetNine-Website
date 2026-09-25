@@ -74,6 +74,10 @@ SSL. Everything that was blocking launch is done.
 - **`CRON_SECRET`** set on Vercel 2026-09-24 (production + preview). Before
   this every `/api/cron/*` route answered 401, so the watchlist matcher, SLA
   watch, invoice dunning and blog digest are live only from that date.
+- **AI provider keys** live in the database, managed at `/admin/settings/ai`
+  (admin-only). Anthropic and/or OpenAI, primary + fallback for the voice
+  desk. Encrypted with `AI_KEYS_ENCRYPTION_KEY` (set on Vercel and Render
+  2026-09-25). Needs migration `0047_ai_providers.sql` applied.
 - **Postmark inbound:** off by design (optional).
 
 ---

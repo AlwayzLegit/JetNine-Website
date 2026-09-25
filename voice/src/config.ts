@@ -34,13 +34,19 @@ export const config = {
     validateSignatures: flag("TWILIO_VALIDATE_SIGNATURES", process.env.NODE_ENV === "production"),
   },
 
+  // Which vendor answers is decided by the ai_routes / ai_providers tables
+  // (managed at /admin/settings/ai on the site). ANTHROPIC_API_KEY is the
+  // fallback when nothing is routed there, so it is optional here; /health
+  // reports the resolved routing instead.
   anthropic: {
-    apiKey: required("ANTHROPIC_API_KEY"),
+    apiKey: optional("ANTHROPIC_API_KEY", ""),
     model: optional("ANTHROPIC_MODEL", "claude-sonnet-5"),
     // "disabled" keeps first-token latency lowest on the phone; set
     // ANTHROPIC_THINKING=adaptive to let the model think (adds latency).
     thinking: optional("ANTHROPIC_THINKING", "disabled") as "disabled" | "adaptive",
-    maxTokens: Number(optional("ANTHROPIC_MAX_TOKENS", "600")),
+  },
+  llm: {
+    maxTokens: Number(optional("LLM_MAX_TOKENS", optional("ANTHROPIC_MAX_TOKENS", "600"))),
   },
 
   supabase: {
@@ -66,7 +72,7 @@ export const config = {
   },
 } as const;
 
-/** True once every variable a live call needs is present. */
+/** True once every environment variable a live call needs is present. The LLM key is checked separately (see llm/providers.ts). */
 export const isConfigured = () => missingEnv.length === 0;
 
 export const urls = {

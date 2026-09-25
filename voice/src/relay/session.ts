@@ -1,8 +1,8 @@
-import type Anthropic from "@anthropic-ai/sdk";
 import type { WebSocket } from "ws";
 import type { FastifyBaseLogger } from "fastify";
 import { config } from "../config.js";
 import { runTurn } from "../llm/agent.js";
+import type { HistoryItem } from "../llm/history.js";
 import { callContext } from "../llm/prompt.js";
 import type { ToolContext } from "../llm/tools.js";
 import {
@@ -50,7 +50,7 @@ export class CallSession {
   private startedAt = new Date();
   private lead: LeadRow | null = null;
   private trips: TripRow[] = [];
-  private messages: Anthropic.MessageParam[] = [];
+  private history: HistoryItem[] = [];
   private transcript: TranscriptTurn[] = [];
   private contextBlock = "";
   private toolCtx!: ToolContext;
@@ -188,14 +188,14 @@ export class CallSession {
     if (!text) return;
     await this.ready.catch(() => undefined);
     this.transcript.push({ role: "user", text, at: new Date().toISOString() });
-    this.messages.push({ role: "user", content: text });
+    this.history.push({ role: "user", text });
 
     // Hard rule: ask for a human → transfer on the first ask.
     if (HUMAN_ASK.test(text)) {
       const line = "Of course. Let me connect you with our on-call broker right now.";
       this.speak(line, true);
       this.transcript.push({ role: "assistant", text: line, at: new Date().toISOString() });
-      this.messages.push({ role: "assistant", content: line });
+      this.history.push({ role: "assistant", text: line });
       await this.escalate("caller_requested_human", `Caller asked for a person. Last said: "${text.slice(0, 160)}"`);
       return;
     }
@@ -204,10 +204,10 @@ export class CallSession {
     this.inflight = controller;
     let result;
     try {
-      result = await runTurn(this.messages, this.contextBlock, this.toolCtx, {
+      result = await runTurn(this.history, this.contextBlock, this.toolCtx, {
         onText: (delta) => this.send({ type: "text", token: delta, last: false }),
         onFiller: () => this.send({ type: "text", token: FILLER + " ", last: false }),
-      }, controller.signal);
+      }, controller.signal, this.log);
     } catch (err) {
       this.log.error({ err }, "turn: model call failed");
       this.confusedTurns += 1;
@@ -217,7 +217,7 @@ export class CallSession {
           : "Sorry, I missed that. Could you say it once more?";
       this.speak(line, true);
       this.transcript.push({ role: "assistant", text: line, at: new Date().toISOString() });
-      this.messages.push({ role: "assistant", content: line });
+      this.history.push({ role: "assistant", text: line });
       if (this.confusedTurns >= 2) await this.escalate("agent_failing", "Two consecutive model failures");
       return;
     } finally {
@@ -270,14 +270,15 @@ export class CallSession {
       });
     }
     // Keep the model's view consistent with what was heard.
-    const lastMsg = this.messages[this.messages.length - 1];
+    const lastMsg = this.history[this.history.length - 1];
     if (lastMsg && lastMsg.role === "assistant") {
-      this.messages[this.messages.length - 1] = {
+      this.history[this.history.length - 1] = {
         role: "assistant",
-        content: (utteranceUntilInterrupt || "…") + " [interrupted by caller]",
+        text: (utteranceUntilInterrupt || "…") + " [interrupted by caller]",
+        toolCalls: lastMsg.toolCalls,
       };
     } else if (utteranceUntilInterrupt) {
-      this.messages.push({ role: "assistant", content: utteranceUntilInterrupt + " [interrupted by caller]" });
+      this.history.push({ role: "assistant", text: utteranceUntilInterrupt + " [interrupted by caller]" });
     }
   }
 

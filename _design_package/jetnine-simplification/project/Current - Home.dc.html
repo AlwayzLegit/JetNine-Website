@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,500&family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+body{margin:0;min-width:1280px;background:#07080A;color:#F4F1EA;font-family:Inter,system-ui,sans-serif;font-size:16px;line-height:1.6;-webkit-font-smoothing:antialiased;overflow-x:clip}
+a{color:inherit;text-decoration:none}a:hover{color:inherit}
+*{box-sizing:border-box}
+@keyframes scrollPulse{0%{transform:scaleY(.4);transform-origin:top;opacity:.4}50%{transform:scaleY(1);opacity:1}100%{transform:scaleY(.4);transform-origin:bottom;opacity:.4}}
+</style>
+</helmet>
+<div data-screen-label="Current — Home (as built)" style="position:relative;background:#07080A;color:#F4F1EA">
+
+<header style="position:absolute;left:0;right:0;top:0;z-index:50;border-bottom:1px solid transparent">
+  <div style="max-width:1280px;margin:0 auto;padding:0 64px;height:80px;display:flex;align-items:center;justify-content:space-between">
+    <a href="#" aria-label="JetNine — Home" style="display:inline-flex;align-items:center"><img src="public/images/brand/wordmark-bone.webp" alt="" style="height:52px;width:auto;max-width:80px;display:block"></a>
+    <nav aria-label="Primary" style="display:flex;gap:32px">
+      <a href="#" style="font-family:'JetBrains Mono',monospace;font-size:11px;text-transform:uppercase;letter-spacing:.14em;color:#F4F1EA">Home</a>
+      <a href="#" style="font-family:'JetBrains Mono',monospace;font-size:11px;text-transform:uppercase;letter-spacing:.14em;color:#C9C4B8">Aircraft</a>
+      <a href="#" style="font-family:'JetBrains Mono',monospace;font-size:11px;text-transform:uppercase;letter-spacing:.14em;color:#C9C4B8">Programs</a>
+      <a href="#" style="font-family:'JetBrains Mono',monospace;font-size:11px;text-transform:uppercase;letter-spacing:.14em;color:#C9C4B8">Why JetNine</a>
+      <a href="#" style="font-family:'JetBrains Mono',monospace;font-size:11px;text-transform:uppercase;letter-spacing:.14em;color:#C9C4B8">About</a>
+      <a href="#" style="font-family:'JetBrains Mono',monospace;font-size:11px;text-transform:uppercase;letter-spacing:.14em;color:#C9C4B8">Blog</a>
+      <a href="#" style="font-family:'JetBrains Mono',monospace;font-size:11px;text-transform:uppercase;letter-spacing:.14em;color:#C9C4B8">Contact</a>
+    </nav>
+    <div style="display:flex;align-items:center;gap:16px">
+      <a href="#" style="font-family:'JetBrains Mono',monospace;font-size:11px;text-transform:uppercase;letter-spacing:.14em;color:#C9C4B8">Sign in</a>
+      <a href="tel:+14244872707" style="font-family:'JetBrains Mono',monospace;font-size:12px;color:#C9C4B8">+1 (424) 487-2707</a>
+      <a href="#" style="display:inline-flex;align-items:center;gap:12px;font-family:Inter,sans-serif;font-weight:500;font-size:11px;letter-spacing:.14em;text-transform:uppercase;padding:10px 20px;border-radius:2px;background:#E8E2D2;color:#07080A;white-space:nowrap">Request quote <span>→</span></a>
+    </div>
+  </div>
+</header>
+
+<section style="position:relative;display:flex;min-height:max(720px,100vh);align-items:center;overflow:hidden;background:#07080A">
+  <img src="public/images/hero/runway-night.webp" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:60% center">
+  <div aria-hidden="true" style="position:absolute;inset:0;background:linear-gradient(90deg, rgba(7,8,10,0.92) 0%, rgba(7,8,10,0.62) 34%, rgba(7,8,10,0.12) 64%, rgba(7,8,10,0.42) 100%), linear-gradient(180deg, rgba(7,8,10,0.72) 0%, rgba(7,8,10,0) 24%, rgba(7,8,10,0) 62%, rgba(7,8,10,0.9) 100%)">
+    <div aria-hidden="true" style="position:absolute;inset:0;background-image:repeating-linear-gradient(45deg, rgba(255,255,255,0.012) 0px, rgba(255,255,255,0.012) 1px, transparent 1px, transparent 18px)"></div>
+  </div>
+  <div style="position:relative;z-index:10;margin:0 auto;width:100%;max-width:1280px;padding:0 64px">
+    <div style="margin-bottom:32px;display:inline-flex;align-items:center;gap:14px;font-family:'JetBrains Mono',monospace;font-size:11px;text-transform:uppercase;letter-spacing:.16em;color:#C9C4B8"><span style="display:block;height:1px;width:32px;background:#E8E2D2"></span>EST. 2026 — LOS ANGELES</div>
+    <h1 style="margin:0;font-family:Fraunces,serif;font-weight:300;font-size:clamp(56px,9vw,96px);line-height:1;letter-spacing:-.02em;max-width:16ch;color:#F4F1EA;font-variation-settings:'opsz' 144">Ready when <br>you are.</h1>
+    <p style="margin:32px 0 0;max-width:480px;font-size:18px;line-height:1.55;color:#C9C4B8">Private jet charter, anywhere, anytime — twenty thousand aircraft worldwide, one number to call.</p>
+    <div style="margin-top:48px;display:flex;flex-wrap:wrap;align-items:center;gap:24px">
+      <a href="#" style="display:inline-flex;align-items:center;gap:12px;font-family:Inter,sans-serif;font-weight:500;font-size:15px;letter-spacing:.14em;text-transform:uppercase;padding:18px 40px;border-radius:2px;background:#E8E2D2;color:#07080A;white-space:nowrap">Request a quote <span>→</span></a>
+      <a href="tel:+14244872707" style="display:inline-flex;align-items:center;font-family:Inter,sans-serif;font-weight:500;font-size:13px;letter-spacing:.14em;text-transform:uppercase;padding:14px 0;color:#C9C4B8">+1 (424) 487-2707</a>
+    </div>
+    <div style="margin-top:24px;font-family:'JetBrains Mono',monospace;font-size:11px;text-transform:uppercase;letter-spacing:.14em;color:#C9C4B8">— Live pricing in 4 steps · rates from $2,950/hr · no callback required</div>
+  </div>
+  <div style="pointer-events:none;position:absolute;bottom:32px;left:50%;z-index:10;display:flex;transform:translateX(-50%);flex-direction:column;align-items:center;gap:12px">
+    <span style="display:block;height:48px;width:1px;transform-origin:top;background:linear-gradient(to bottom, transparent, #E8E2D2);animation:scrollPulse 2.4s cubic-bezier(0.16,1,0.3,1) infinite"></span>
+    <span style="font-family:'JetBrains Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:.16em;color:#C9C4B8">Scroll</span>
+  </div>
+</section>
+
+<div style="position:relative;z-index:5;margin-top:-80px;padding:0 64px">
+  <div style="margin:0 auto;max-width:1280px;border-radius:4px;border:1px solid #161A20;background:#0E1014;padding:32px">
+    <div style="margin-bottom:32px;display:flex;gap:32px;border-bottom:1px solid #161A20">
+      <button type="button" style="position:relative;cursor:pointer;border:none;background:transparent;padding:16px 0;font-family:'JetBrains Mono',monospace;font-size:11px;text-transform:uppercase;letter-spacing:.14em;color:#F4F1EA;box-shadow:0 2px 0 0 #E8E2D2">Round trip</button>
+      <button type="button" style="cursor:pointer;border:none;background:transparent;padding:16px 0;font-family:'JetBrains Mono',monospace;font-size:11px;text-transform:uppercase;letter-spacing:.14em;color:#C9C4B8">One way</button>
+      <button type="button" style="cursor:pointer;border:none;background:transparent;padding:16px 0;font-family:'JetBrains Mono',monospace;font-size:11px;text-transform:uppercase;letter-spacing:.14em;color:#C9C4B8">Multi-leg</button>
+    </div>
+    <form style="display:grid;gap:12px;grid-template-columns:1.2fr 1.2fr 1fr 1fr 0.7fr auto">
+      <div style="position:relative;background:#161A20;border-radius:2px;padding:22px 16px 12px;border-bottom:1px solid #7B8290"><label style="position:absolute;top:8px;left:16px;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:#C9C4B8;pointer-events:none">From</label><input type="text" placeholder="Origin · KLAX" style="background:transparent;border:none;outline:none;width:100%;color:#F4F1EA;font-family:Inter,sans-serif;font-size:15px"></div>
+      <div style="position:relative;background:#161A20;border-radius:2px;padding:22px 16px 12px;border-bottom:1px solid #7B8290"><label style="position:absolute;top:8px;left:16px;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:#C9C4B8;pointer-events:none">To</label><input type="text" placeholder="Destination · KASE" style="background:transparent;border:none;outline:none;width:100%;color:#F4F1EA;font-family:Inter,sans-serif;font-size:15px"></div>
+      <div style="position:relative;background:#161A20;border-radius:2px;padding:22px 16px 12px;border-bottom:1px solid #7B8290"><label style="position:absolute;top:8px;left:16px;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:#C9C4B8;pointer-events:none">Depart</label><input type="date" style="background:transparent;border:none;outline:none;width:100%;color:#F4F1EA;font-family:Inter,sans-serif;font-size:15px;color-scheme:dark"></div>
+      <div style="position:relative;background:#161A20;border-radius:2px;padding:22px 16px 12px;border-bottom:1px solid #7B8290"><label style="position:absolute;top:8px;left:16px;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:#C9C4B8;pointer-events:none">Return</label><input type="date" style="background:transparent;border:none;outline:none;width:100%;color:#F4F1EA;font-family:Inter,sans-serif;font-size:15px;color-scheme:dark"></div>
+      <div style="position:relative;background:#161A20;border-radius:2px;padding:22px 16px 12px;border-bottom:1px solid #7B8290"><label style="position:absolute;top:8px;left:16px;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:#C9C4B8;pointer-events:none">Pax</label><input type="number" placeholder="2" style="background:transparent;border:none;outline:none;width:100%;color:#F4F1EA;font-family:Inter,sans-serif;font-size:15px"></div>
+      <button type="button" style="display:inline-flex;align-items:center;justify-content:center;gap:10px;border-radius:2px;border:none;background:#E8E2D2;padding:0 28px;font-family:Inter,sans-serif;font-size:12px;font-weight:500;text-transform:uppercase;letter-spacing:.14em;color:#07080A;cursor:pointer">Search <span>→</span></button>
+    </form>
+    <div style="margin-top:20px;display:flex;justify-content:flex-end"><a href="#" style="font-family:'JetBrains Mono',monospace;font-size:11px;text-transform:uppercase;letter-spacing:.12em;color:#C9C4B8">Need help choosing? Talk to a flight advisor →</a></div>
+  </div>
+</div>
+
+<section aria-label="Trust indicators" style="margin-top:80px;border-top:1px solid #161A20;border-bottom:1px solid #161A20;background:#0E1014;padding:36px 0">
+  <div style="max-width:1280px;margin:0 auto;padding:0 64px;display:flex;flex-wrap:wrap;align-items:center">
+    <sc-for list="{{ trust }}" as="t" hint-placeholder-count="7">
+      <div style="display:flex;flex:1;flex-direction:column;gap:6px;border-right:1px solid #161A20;padding:0 24px;min-width:160px">
+        <span style="font-family:Fraunces,serif;font-size:32px;font-weight:300;line-height:1;letter-spacing:-.01em;color:#F4F1EA;font-variation-settings:'opsz' 72">{{ t.value }}</span>
+        <span style="font-family:'JetBrains Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:.16em;color:#C9C4B8">{{ t.label }}</span>
+      </div>
+    </sc-for>
+  </div>
+</section>
+
+<section style="padding:160px 0">
+  <div style="max-width:1280px;margin:0 auto;padding:0 64px">
+    <div style="margin-bottom:80px;display:grid;align-items:end;gap:64px;grid-template-columns:1fr 1.6fr">
+      <p style="margin:0;font-family:'JetBrains Mono',monospace;font-size:11px;line-height:1.4;letter-spacing:.12em;text-transform:uppercase;color:#C9C4B8">— Our programs</p>
+      <h2 style="margin:0;font-family:Fraunces,serif;font-weight:300;font-size:clamp(36px,4.5vw,56px);line-height:1.1;letter-spacing:-.01em;max-width:22ch;font-variation-settings:'opsz' 144">Three ways <br>to fly with JetNine.</h2>
+    </div>
+    <div style="display:grid;gap:16px;grid-template-columns:repeat(3,minmax(0,1fr))">
+      <sc-for list="{{ programs }}" as="p" hint-placeholder-count="3">
+        <a href="#" style="display:block;overflow:hidden;border-radius:4px;border:1px solid #161A20;background:#0E1014">
+          <div style="position:relative;overflow:hidden;aspect-ratio:16/10;background:linear-gradient(to bottom right,#161A20,#0A0C10)">
+            <img src="{{ p.img }}" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover">
+            <div aria-hidden="true" style="position:absolute;left:0;right:0;top:0;height:64px;background:linear-gradient(to bottom,rgba(7,8,10,.6),transparent)"></div>
+            <span style="position:absolute;left:16px;top:16px;font-family:'JetBrains Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:.16em;color:#C9C4B8">{{ p.cap }}</span>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:8px;padding:28px">
+            <h3 style="margin:0;font-family:Fraunces,serif;font-size:24px;font-weight:400;line-height:1.2;letter-spacing:-.01em;color:#F4F1EA">{{ p.title }}</h3>
+            <p style="margin:0;font-size:15px;line-height:1.55;color:#C9C4B8">{{ p.body }}</p>
+            <span style="margin-top:16px;display:inline-flex;align-items:center;gap:8px;font-family:'JetBrains Mono',monospace;font-size:11px;text-transform:uppercase;letter-spacing:.14em;color:#F4F1EA">Explore <span>→</span></span>
+          </div>
+        </a>
+      </sc-for>
+    </div>
+  </div>
+</section>
+
+<section style="padding-bottom:160px">
+  <div style="max-width:1280px;margin:0 auto;padding:0 64px">
+    <div style="margin-bottom:80px;display:grid;align-items:end;gap:64px;grid-template-columns:1fr 1.6fr">
+      <p style="margin:0;font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#C9C4B8">— The flow</p>
+      <h2 style="margin:0;font-family:Fraunces,serif;font-weight:300;font-size:clamp(36px,4.5vw,56px);line-height:1.1;letter-spacing:-.01em;max-width:20ch;font-variation-settings:'opsz' 144">From request <br>to wheels-up.</h2>
+    </div>
+    <div style="position:relative">
+      <div style="position:absolute;left:0;right:0;top:48px;height:1px;background:#161A20">
+        <div style="position:absolute;top:0;height:1px;background:#E8E2D2;width:100%"></div>
+        <div style="position:absolute;top:-3px;height:7px;width:7px;border-radius:9999px;background:#E8E2D2;left:calc(100% - 7px)"></div>
+      </div>
+      <div style="display:grid;gap:32px;grid-template-columns:repeat(3,minmax(0,1fr))">
+        <div style="position:relative"><div style="margin-bottom:24px;display:flex;height:96px;align-items:flex-start"><span style="font-family:'JetBrains Mono',monospace;font-size:96px;font-weight:300;line-height:1;letter-spacing:-.02em;color:#E8E2D2">01</span></div><h3 style="margin:0;font-family:Fraunces,serif;font-size:28px;font-weight:400;line-height:1.2;letter-spacing:-.01em;color:#F4F1EA">Request</h3><p style="margin:12px 0 0;max-width:36ch;font-size:16px;line-height:1.6;color:#C9C4B8">Tell us where, when, and how many. Sixty-second form, or call dispatch direct.</p></div>
+        <div style="position:relative"><div style="margin-bottom:24px;display:flex;height:96px;align-items:flex-start"><span style="font-family:'JetBrains Mono',monospace;font-size:96px;font-weight:300;line-height:1;letter-spacing:-.02em;color:#E8E2D2">02</span></div><h3 style="margin:0;font-family:Fraunces,serif;font-size:28px;font-weight:400;line-height:1.2;letter-spacing:-.01em;color:#F4F1EA">Match</h3><p style="margin:12px 0 0;max-width:36ch;font-size:16px;line-height:1.6;color:#C9C4B8">We surface three to five vetted aircraft within minutes — with all-in pricing.</p></div>
+        <div style="position:relative"><div style="margin-bottom:24px;display:flex;height:96px;align-items:flex-start"><span style="font-family:'JetBrains Mono',monospace;font-size:96px;font-weight:300;line-height:1;letter-spacing:-.02em;color:#E8E2D2">03</span></div><h3 style="margin:0;font-family:Fraunces,serif;font-size:28px;font-weight:400;line-height:1.2;letter-spacing:-.01em;color:#F4F1EA">Fly</h3><p style="margin:12px 0 0;max-width:36ch;font-size:16px;line-height:1.6;color:#C9C4B8">Show up. We handle catering, ground, customs, crew. You board.</p></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section style="padding-bottom:160px">
+  <div style="max-width:1280px;margin:0 auto;padding:0 64px">
+    <div style="margin-bottom:80px;display:grid;align-items:end;gap:64px;grid-template-columns:1fr 1.6fr">
+      <p style="margin:0;font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#C9C4B8">— Why JetNine</p>
+      <h2 style="margin:0;font-family:Fraunces,serif;font-weight:300;font-size:clamp(36px,4.5vw,56px);line-height:1.1;letter-spacing:-.01em;max-width:20ch;font-variation-settings:'opsz' 144">The standard, <br>every flight.</h2>
+    </div>
+    <div style="display:grid;gap:16px;grid-template-columns:repeat(3,minmax(0,1fr))">
+      <div style="border-radius:4px;border:1px solid #161A20;background:#0E1014;padding:32px"><div style="margin-bottom:24px;color:#E8E2D2"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="height:24px;width:24px"><path d="M12 3l8 4v6c0 4.5-3.5 8-8 9-4.5-1-8-4.5-8-9V7l8-4Z"></path></svg></div><h3 style="margin:0;font-family:Fraunces,serif;font-size:22px;font-weight:400;line-height:1.25;letter-spacing:-.01em;color:#F4F1EA">Safety, every flight.</h3><p style="margin:12px 0 0;font-size:15px;line-height:1.55;color:#C9C4B8">ARGUS Platinum and Wyvern Wingman vetting on every operator. No exceptions.</p><a href="#" style="margin-top:24px;display:inline-flex;align-items:center;gap:8px;font-family:'JetBrains Mono',monospace;font-size:11px;text-transform:uppercase;letter-spacing:.14em;color:#F4F1EA">Read protocol <span>→</span></a></div>
+      <div style="border-radius:4px;border:1px solid #161A20;background:#0E1014;padding:32px"><div style="margin-bottom:24px;color:#E8E2D2"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="height:24px;width:24px"><rect x="3" y="6" width="18" height="13" rx="2"></rect><path d="M3 10h18"></path></svg></div><h3 style="margin:0;font-family:Fraunces,serif;font-size:22px;font-weight:400;line-height:1.25;letter-spacing:-.01em;color:#F4F1EA">No hidden fees.</h3><p style="margin:12px 0 0;font-size:15px;line-height:1.55;color:#C9C4B8">All-in pricing. No fuel surcharges. No last-minute aircraft swaps. Quoted is paid.</p></div>
+      <div style="border-radius:4px;border:1px solid #161A20;background:#0E1014;padding:32px"><div style="margin-bottom:24px;color:#E8E2D2"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="height:24px;width:24px"><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z"></path><circle cx="12" cy="12" r="3"></circle></svg></div><h3 style="margin:0;font-family:Fraunces,serif;font-size:22px;font-weight:400;line-height:1.25;letter-spacing:-.01em;color:#F4F1EA">Absolute privacy.</h3><p style="margin:12px 0 0;font-size:15px;line-height:1.55;color:#C9C4B8">NDA-level discretion. Zero public flight visibility. Crew trained for total discretion.</p></div>
+      <div style="border-radius:4px;border:1px solid #161A20;background:#0E1014;padding:32px"><div style="margin-bottom:24px;color:#E8E2D2"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="height:24px;width:24px"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3.5 2"></path></svg></div><h3 style="margin:0;font-family:Fraunces,serif;font-size:22px;font-weight:400;line-height:1.25;letter-spacing:-.01em;color:#F4F1EA">24/7 dispatch.</h3><p style="margin:12px 0 0;font-size:15px;line-height:1.55;color:#C9C4B8">Real humans. Average response under four minutes, regardless of timezone.</p><a href="#" style="margin-top:24px;display:inline-flex;align-items:center;gap:8px;font-family:'JetBrains Mono',monospace;font-size:11px;text-transform:uppercase;letter-spacing:.14em;color:#F4F1EA">Talk to dispatch <span>→</span></a></div>
+      <div style="border-radius:4px;border:1px solid #161A20;background:#0E1014;padding:32px"><div style="margin-bottom:24px;color:#E8E2D2"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="height:24px;width:24px"><path d="M3 17l5-5 4 3 8-9"></path><path d="M14 6h6v6"></path></svg></div><h3 style="margin:0;font-family:Fraunces,serif;font-size:22px;font-weight:400;line-height:1.25;letter-spacing:-.01em;color:#F4F1EA">Aircraft choice.</h3><p style="margin:12px 0 0;font-size:15px;line-height:1.55;color:#C9C4B8">Turboprops to ultra long-range. Six categories. You pick — we surface the right airframes.</p></div>
+      <div style="border-radius:4px;border:1px solid #161A20;background:#0E1014;padding:32px"><div style="margin-bottom:24px;color:#E8E2D2"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="height:24px;width:24px"><path d="M4 7h16"></path><path d="M4 12h16"></path><path d="M4 17h16"></path></svg></div><h3 style="margin:0;font-family:Fraunces,serif;font-size:22px;font-weight:400;line-height:1.25;letter-spacing:-.01em;color:#F4F1EA">One standard.</h3><p style="margin:12px 0 0;font-size:15px;line-height:1.55;color:#C9C4B8">First flight or fiftieth, identical execution. No tier-of-the-month.</p></div>
+    </div>
+  </div>
+</section>
+
+<section style="padding-bottom:160px">
+  <div style="max-width:1280px;margin:0 auto;padding:0 64px">
+    <div style="margin-bottom:80px;display:grid;align-items:end;gap:64px;grid-template-columns:1fr 1.6fr">
+      <p style="margin:0;font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#C9C4B8">— Aircraft</p>
+      <div>
+        <h2 style="margin:0;font-family:Fraunces,serif;font-weight:300;font-size:clamp(36px,4.5vw,56px);line-height:1.1;letter-spacing:-.01em;max-width:18ch;font-variation-settings:'opsz' 144">Your jet, <br>your choice.</h2>
+        <p style="margin:24px 0 0;max-width:58ch;font-size:18px;line-height:1.55;color:#C9C4B8">Six categories. Hundreds of airframes. The right one for the mission, every time.</p>
+      </div>
+    </div>
+    <div style="display:grid;gap:16px;grid-template-columns:repeat(6,minmax(0,1fr))">
+      <sc-for list="{{ fleet }}" as="a" hint-placeholder-count="6">
+        <a href="#" style="display:block;overflow:hidden;border-radius:4px;border:1px solid #161A20;background:#0E1014">
+          <div style="position:relative;overflow:hidden;aspect-ratio:4/5;background:linear-gradient(to bottom right,#161A20,#0A0C10)">
+            <img src="{{ a.img }}" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover">
+            <div aria-hidden="true" style="position:absolute;left:0;right:0;top:0;height:64px;background:linear-gradient(to bottom,rgba(7,8,10,.6),transparent)"></div>
+            <span style="position:absolute;left:16px;top:16px;font-family:'JetBrains Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:.16em;color:#C9C4B8">{{ a.cap }}</span>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:6px;padding:16px">
+            <span style="font-family:Fraunces,serif;font-size:17px;font-weight:400;line-height:1.2;letter-spacing:-.01em;color:#F4F1EA">{{ a.name }}</span>
+            <span style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.04em;color:#C9C4B8">{{ a.pax }} <span style="color:#7B8290">·</span> {{ a.range }}</span>
+          </div>
+        </a>
+      </sc-for>
+    </div>
+  </div>
+</section>
+
+<section style="border-top:1px solid #161A20;border-bottom:1px solid #161A20;padding:160px 0">
+  <div style="max-width:1280px;margin:0 auto;padding:0 64px">
+    <div style="display:grid;gap:64px;grid-template-columns:repeat(2,minmax(0,1fr))">
+      <div>
+        <p style="margin:0 0 32px;font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#C9C4B8">— Discretion</p>
+        <blockquote style="margin:0;font-family:Fraunces,serif;font-weight:300;line-height:1.15;letter-spacing:-.02em;color:#F4F1EA;font-size:clamp(32px,4.5vw,48px)">Your journey stays invisible. Privacy isn’t a feature&nbsp;— <em style="font-style:normal;color:#E8E2D2">it’s part of the product.</em></blockquote>
+      </div>
+      <div style="position:relative;overflow:hidden;aspect-ratio:4/5;background:linear-gradient(to bottom right,#161A20,#0A0C10)">
+        <img src="public/images/discretion/tail-night.webp" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover">
+        <div aria-hidden="true" style="position:absolute;left:0;right:0;top:0;height:64px;background:linear-gradient(to bottom,rgba(7,8,10,.6),transparent)"></div>
+        <span style="position:absolute;left:16px;top:16px;font-family:'JetBrains Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:.16em;color:#C9C4B8">— TAIL, NIGHT TARMAC</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section style="position:relative;overflow:hidden;padding:192px 0">
+  <div aria-hidden="true" style="position:absolute;inset:0;background:radial-gradient(ellipse at 50% 50%, rgba(232,226,210,0.04) 0%, rgba(7,8,10,0) 60%), linear-gradient(180deg, rgba(7,8,10,1) 0%, rgba(7,8,10,0.92) 100%)"><div aria-hidden="true" style="position:absolute;inset:0;background-image:repeating-linear-gradient(45deg, rgba(255,255,255,0.012) 0px, rgba(255,255,255,0.012) 1px, transparent 1px, transparent 18px)"></div></div>
+  <div style="position:relative;z-index:10;max-width:1280px;margin:0 auto;padding:0 64px;text-align:center">
+    <h2 style="margin:0 auto;max-width:18ch;font-family:Fraunces,serif;font-weight:300;font-size:clamp(44px,6vw,72px);line-height:1.05;letter-spacing:-.015em;font-variation-settings:'opsz' 144">Ready when you are.</h2>
+    <p style="margin:32px auto 0;max-width:58ch;font-size:18px;line-height:1.55;color:#C9C4B8">A real human, on a real number, twenty-four hours a day. Tell us the mission — we’ll have airframes in front of you in minutes.</p>
+    <div style="margin-top:48px;display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:24px">
+      <a href="#" style="display:inline-flex;align-items:center;gap:12px;font-family:Inter,sans-serif;font-weight:500;font-size:15px;letter-spacing:.14em;text-transform:uppercase;padding:18px 40px;border-radius:2px;background:#E8E2D2;color:#07080A;white-space:nowrap">Request a quote <span>→</span></a>
+      <a href="tel:+14244872707" style="display:inline-flex;align-items:center;gap:12px;font-family:Inter,sans-serif;font-weight:500;font-size:15px;letter-spacing:.14em;text-transform:uppercase;padding:18px 40px;border-radius:2px;background:transparent;color:#F4F1EA;border:1px solid #F4F1EA;white-space:nowrap">Call dispatch · +1 (424) 487-2707</a>
+    </div>
+  </div>
+</section>
+
+<footer style="border-top:1px solid #161A20;background:#07080A;padding:96px 0 64px">
+  <div style="max-width:1280px;margin:0 auto;padding:0 64px">
+    <div style="display:grid;gap:48px;grid-template-columns:2fr 1fr 1fr 1.5fr">
+      <div>
+        <img src="public/images/brand/wordmark-bone.webp" alt="" style="height:64px;width:auto;max-width:98px;display:block">
+        <p style="margin:24px 0 0;max-width:34ch;font-size:14px;line-height:1.6;color:#C9C4B8">On-demand private aviation. One number, one desk, ready when you are.</p>
+        <p style="margin:24px 0 0;font-family:'JetBrains Mono',monospace;font-size:11px;text-transform:uppercase;letter-spacing:.12em;color:#7B8290">— Operating hours <br><span style="color:#C9C4B8">24 / 7 · always answered</span></p>
+      </div>
+      <sc-for list="{{ footerCols }}" as="col" hint-placeholder-count="3">
+        <div>
+          <h4 style="margin:0 0 24px;font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:400;text-transform:uppercase;letter-spacing:.16em;color:#C9C4B8">{{ col.heading }}</h4>
+          <ul style="list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:12px">
+            <sc-for list="{{ col.links }}" as="l" hint-placeholder-count="7"><li><a href="#" style="font-size:14px;color:#F4F1EA">{{ l }}</a></li></sc-for>
+          </ul>
+        </div>
+      </sc-for>
+    </div>
+    <div style="margin-top:64px;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:16px;border-top:1px solid #161A20;padding-top:32px">
+      <p style="margin:0;font-family:'JetBrains Mono',monospace;font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:#7B8290">© 2026 JetNine · Part 295 indirect air carrier</p>
+      <p style="margin:0;font-family:'JetBrains Mono',monospace;font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:#7B8290">Flights operated by FAA Part 135 certificated air carriers</p>
+    </div>
+  </div>
+</footer>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  renderVals() {
+    return {
+      trust: [
+        { value: "20,000+", label: "Aircraft network" },
+        { value: "170+", label: "Countries" },
+        { value: "24/7", label: "Dispatch" },
+        { value: "4 min", label: "Avg. response" },
+        { value: "ARGUS", label: "Wyvern vetted" },
+        { value: "380", label: "Approved of ~5,000 vetted" },
+        { value: "295", label: "Part 295 broker" },
+      ],
+      programs: [
+        { cap: "— TARMAC, DUSK", title: "On-demand charter", body: "Pay-as-you-fly. No commitment. Quotes within minutes, all-in pricing, your airframe of choice.", img: "public/images/programs/tarmac-dusk.webp" },
+        { cap: "— BLACK CARD, STILL LIFE", title: "JetNine Card", body: "Fixed hourly rates. Guaranteed availability. The membership program for the regular flyer.", img: "public/images/programs/black-card.webp" },
+        { cap: "— REPOSITION SECTOR", title: "Empty legs", body: "Repositioning flights at deep discount. Real-time availability for travelers with flexibility.", img: "public/images/programs/reposition-sector.webp" },
+      ],
+      fleet: [
+        { cap: "TURBOPROP, HANGAR", name: "Turboprop", pax: "9 PAX", range: "1,200 NM", img: "public/images/fleet/turboprop.webp" },
+        { cap: "LIGHT JET, DAWN TARMAC", name: "Light", pax: "7 PAX", range: "1,660 NM", img: "public/images/fleet/light.webp" },
+        { cap: "MIDSIZE, OVERWING", name: "Midsize", pax: "9 PAX", range: "2,400 NM", img: "public/images/fleet/midsize.webp" },
+        { cap: "SUPER-MID, CABIN DETAIL", name: "Super-mid", pax: "9 PAX", range: "3,500 NM", img: "public/images/fleet/supermid.webp" },
+        { cap: "HEAVY, EXTERIOR", name: "Heavy", pax: "14 PAX", range: "4,500 NM", img: "public/images/fleet/heavy.webp" },
+        { cap: "ULR, NIGHT TARMAC", name: "Ultra long range", pax: "16 PAX", range: "7,500 NM", img: "public/images/fleet/ultra.webp" },
+      ],
+      footerCols: [
+        { heading: "Aircraft", links: ["Turboprop", "Light jets", "Midsize", "Super-midsize", "Heavy", "Ultra long range", "All aircraft"] },
+        { heading: "Programs", links: ["JetNine Card", "On-demand", "Cost calculator", "Pricing guide", "Routes", "Charter by city", "Empty legs", "Safety"] },
+        { heading: "Company", links: ["About", "Blog", "Contact", "FAQ", "Good questions", "Legal", "Privacy policy", "Terms of service", "My account"] },
+      ],
+    };
+  }
+}
+</script>
+</body>
+</html>

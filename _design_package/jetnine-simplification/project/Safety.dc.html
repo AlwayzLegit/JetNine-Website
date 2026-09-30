@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#07080A;color:#F4F1EA;font-family:'Instrument Sans',system-ui,sans-serif;font-size:16px;line-height:1.55;-webkit-font-smoothing:antialiased}
+a{color:inherit;text-decoration:none}a:hover{color:#fff}
+*{box-sizing:border-box;scrollbar-width:thin;scrollbar-color:#2C323B transparent}
+::-webkit-scrollbar{width:8px;height:8px}::-webkit-scrollbar-thumb{background:#2C323B;border-radius:4px}::-webkit-scrollbar-track{background:transparent}
+</style>
+</helmet>
+<div data-screen-label="Safety — simplified" style="background:#07080A;color:#F4F1EA;min-width:1100px">
+<x-import component-from-global-scope="JNHeader" from="./jn-chrome.js" hint-size="100%,72px"></x-import>
+
+<section style="position:relative;overflow:hidden;min-height:520px;display:flex;align-items:flex-end">
+  <img src="public/images/hero/safety.webp" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover">
+  <div aria-hidden="true" style="position:absolute;inset:0;background:linear-gradient(90deg,rgba(7,8,10,.92) 0%,rgba(7,8,10,.7) 45%,rgba(7,8,10,.3) 100%),linear-gradient(180deg,rgba(7,8,10,.4) 0%,rgba(7,8,10,0) 40%,#07080A 100%)"></div>
+  <div style="position:relative;z-index:1;width:100%;max-width:1200px;margin:0 auto;padding:120px 40px 56px">
+    <p style="margin:0 0 16px;font-size:14px;font-weight:600;color:#C9C4B8">Safety · standards &amp; vetting</p>
+    <h1 style="margin:0;font-family:Fraunces,serif;font-weight:300;font-size:56px;line-height:1.05;letter-spacing:-.02em;max-width:18ch">Private jet safety standards: the floor is high, the ceiling is mandatory.</h1>
+    <p style="margin:20px 0 0;max-width:62ch;font-size:19px;color:#C9C4B8">Every operator in our network meets a written safety floor before they're eligible for a single flight. We re-audit every twelve months. The protocol is below — the same one our chief pilot uses to vet his own family's flights.</p>
+  </div>
+</section>
+
+<section style="max-width:1200px;margin:0 auto;padding:48px 40px 0">
+  <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px">
+    <sc-for list="{{ accreditations }}" as="a" hint-placeholder-count="4"><div style="background:#0E1014;border:1px solid #232830;border-radius:12px;padding:24px"><div style="font-size:18px;font-weight:500">{{ a.name }}</div><div style="margin-top:2px;font-size:13px;font-weight:600;color:#C9A24A">{{ a.role }}</div><p style="margin:10px 0 0;font-size:15px;color:#C9C4B8">{{ a.desc }}</p></div></sc-for>
+  </div>
+  <p style="margin:12px 0 0;font-size:14px;color:#8A9099">In plain terms: independent auditors visit the operator, check the pilots, maintenance and insurance, and rate them. We only fly operators that pass — and we visit them ourselves too.</p>
+</section>
+
+<section style="max-width:1200px;margin:0 auto;padding:112px 40px 0">
+  <p style="margin:0 0 12px;font-size:14px;font-weight:600;color:#8A9099">The funnel</p>
+  <h2 style="margin:0;font-family:Fraunces,serif;font-weight:300;font-size:44px;line-height:1.08;letter-spacing:-.015em;max-width:22ch">From 5,000 operators to 380 in network.</h2>
+  <p style="margin:16px 0 0;max-width:64ch;font-size:18px;color:#C9C4B8">There are roughly five thousand licensed charter operators in the United States. Most are excellent. Some are not. Our job is to know which is which — and we are aggressive about saying no.</p>
+  <div style="margin-top:32px;display:flex;flex-direction:column;gap:8px">
+    <sc-for list="{{ funnel }}" as="f" hint-placeholder-count="5"><div style="display:grid;grid-template-columns:minmax(0,1fr) 140px;gap:24px;align-items:center;background:#0E1014;border:1px solid {{ f.border }};border-radius:12px;padding:18px 28px"><div><div style="display:flex;align-items:center;gap:12px"><span style="font-size:17px;font-weight:500">{{ f.name }}</span></div><div style="margin-top:8px;height:8px;border-radius:4px;background:#161A20;overflow:hidden"><div style="height:100%;border-radius:4px;background:{{ f.barColor }};width:{{ f.width }}"></div></div><div style="margin-top:8px;font-size:14px;color:#C9C4B8">{{ f.desc }}</div></div><div style="text-align:right"><div style="font-family:Fraunces,serif;font-weight:300;font-size:36px;line-height:1;color:{{ f.numColor }}">{{ f.count }}</div><div style="margin-top:4px;font-size:13px;color:#8A9099">{{ f.unit }}</div></div></div></sc-for>
+  </div>
+</section>
+
+<section style="max-width:1200px;margin:0 auto;padding:112px 40px 0">
+  <p style="margin:0 0 12px;font-size:14px;font-weight:600;color:#8A9099">The floor</p>
+  <h2 style="margin:0;font-family:Fraunces,serif;font-weight:300;font-size:44px;line-height:1.08;letter-spacing:-.015em;max-width:24ch">The non-negotiables. Every operator. Every flight.</h2>
+  <p style="margin:16px 0 0;max-width:64ch;font-size:18px;color:#C9C4B8">Below this line, an operator does not enter the network. There is no exception process, no client request that overrides it, no rate that justifies a waiver.</p>
+  <div style="margin-top:32px;border-top:1px solid #232830">
+    <sc-for list="{{ floor }}" as="f" hint-placeholder-count="7">
+      <div style="border-bottom:1px solid #232830">
+        <button type="button" onClick="{{ f.toggle }}" style="width:100%;display:grid;grid-template-columns:180px minmax(0,1fr) auto;gap:24px;align-items:baseline;padding:22px 0;border:none;background:transparent;color:#F4F1EA;cursor:pointer;text-align:left;font-family:'Instrument Sans',sans-serif"><span style="font-size:14px;font-weight:600;color:#8A9099">{{ f.area }}</span><span style="font-size:20px;font-weight:500;line-height:1.3">{{ f.lead }}</span><span style="font-size:22px;color:#C9C4B8">{{ f.mark }}</span></button>
+        <sc-if value="{{ f.open }}" hint-placeholder-val="{{ false }}"><div style="display:grid;grid-template-columns:180px minmax(0,1fr);gap:24px;padding:0 0 24px"><span></span><div><p style="margin:0;max-width:64ch;color:#C9C4B8">{{ f.body }}</p><p style="margin:10px 0 0;font-size:15px;color:#C9C4B8"><strong style="font-weight:600;color:#C9A24A">Preferred:</strong> {{ f.preferred }}</p></div></div></sc-if>
+      </div>
+    </sc-for>
+  </div>
+</section>
+
+<section style="max-width:1200px;margin:0 auto;padding:112px 40px 0">
+  <p style="margin:0 0 12px;font-size:14px;font-weight:600;color:#8A9099">Audit cycle</p>
+  <h2 style="margin:0;font-family:Fraunces,serif;font-weight:300;font-size:44px;line-height:1.08;letter-spacing:-.015em;max-width:24ch">A standard isn’t a standard unless it’s enforced.</h2>
+  <p style="margin:16px 0 0;max-width:64ch;font-size:18px;color:#C9C4B8">Approval isn’t a ribbon to be cut and forgotten. Every operator runs through this four-stage cycle, every twelve months, with spot-checks in between. The grading is binary: stay in network, or out.</p>
+  <div style="margin-top:32px;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px">
+    <sc-for list="{{ cycle }}" as="c" hint-placeholder-count="4"><div style="background:#0E1014;border:1px solid #232830;border-radius:12px;padding:24px"><div style="font-size:13px;font-weight:600;color:#C9A24A">{{ c.freq }}</div><h3 style="margin:10px 0 0;font-size:20px;font-weight:500;line-height:1.25">{{ c.title }}</h3><p style="margin:10px 0 0;font-size:15px;color:#C9C4B8">{{ c.body }}</p></div></sc-for>
+  </div>
+</section>
+
+<section style="max-width:1200px;margin:0 auto;padding:112px 40px 0">
+  <p style="margin:0 0 12px;font-size:14px;font-weight:600;color:#8A9099">Insurance</p>
+  <h2 style="margin:0;font-family:Fraunces,serif;font-weight:300;font-size:44px;line-height:1.08;letter-spacing:-.015em;max-width:24ch">Hull-and-liability, at the levels above.</h2>
+  <p style="margin:16px 0 0;max-width:64ch;font-size:18px;color:#C9C4B8">Operator-level coverage — primary, not contingent. JetNine carries an additional $50M umbrella as broker. Certificates verified before every booking; clients can request a copy on confirmation.</p>
+  <div style="margin-top:32px;display:grid;grid-template-columns:1fr 1fr;gap:16px">
+    <div style="background:#0E1014;border:1px solid #232830;border-radius:12px;padding:32px"><div style="font-size:14px;font-weight:600;color:#8A9099">Light &amp; midsize jets</div><div style="margin-top:12px;font-family:Fraunces,serif;font-weight:300;font-size:64px;line-height:1;letter-spacing:-.02em">$300M</div><p style="margin:14px 0 0;color:#C9C4B8">Per-occurrence hull-and-liability minimum. Most operators in this category carry $500M; we publish the floor, not the average.</p></div>
+    <div style="background:#0E1014;border:1px solid #232830;border-radius:12px;padding:32px"><div style="font-size:14px;font-weight:600;color:#8A9099">Super-mid through ultra long range</div><div style="margin-top:12px;font-family:Fraunces,serif;font-weight:300;font-size:64px;line-height:1;letter-spacing:-.02em">$500M</div><p style="margin:14px 0 0;color:#C9C4B8">Per-occurrence hull-and-liability minimum. Higher floor reflects passenger count, transoceanic exposure, and aircraft replacement cost.</p></div>
+  </div>
+</section>
+
+<section style="max-width:1200px;margin:0 auto;padding:112px 40px 0">
+  <div style="background:#0E1014;border:1px solid #232830;border-radius:12px;padding:40px;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.4fr);gap:40px">
+    <div><p style="margin:0 0 12px;font-size:14px;font-weight:600;color:#8A9099">Who actually flies you</p><h2 style="margin:0;font-family:Fraunces,serif;font-weight:300;font-size:36px;line-height:1.1;letter-spacing:-.015em">What “we are a broker” means.</h2><p style="margin:14px 0 0;font-size:17px;color:#C9C4B8">JetNine arranges your flight. An independent, licensed airline — the operator — flies it. That is the standard, regulated structure for premium charter in the United States.</p><div style="margin-top:20px;display:flex;flex-direction:column;gap:8px;font-size:15px"><a href="Legal.dc.html#part-295" style="text-decoration:underline;text-underline-offset:3px;color:#C9C4B8">Read the full broker disclosure →</a><a href="Legal.dc.html#operator-detail" style="text-decoration:underline;text-underline-offset:3px;color:#C9C4B8">What the operator is responsible for →</a></div></div>
+    <div style="display:flex;flex-direction:column;gap:14px;font-size:16px;color:#C9C4B8;line-height:1.65"><p style="margin:0">JetNine LLC is an indirect air carrier registered under <strong style="color:#F4F1EA;font-weight:500">14 CFR Part 295</strong> with the United States Department of Transportation. We are not a direct air carrier — we do not operate aircraft, and we do not hold an FAA Part 135 certificate.</p><p style="margin:0">For every flight, we arrange charter on behalf of our clients with a <strong style="color:#F4F1EA;font-weight:500">third-party FAA Part 135 certificated direct air carrier</strong>. That carrier is the operator of record, holds operational control of the aircraft, employs the pilots, holds the maintenance program, and carries the insurance.</p><p style="margin:0">The identity of the operator, their FAA certificate number, their insurance carrier, and the operating-control documentation is provided to every client at the time of booking and is included in the charter agreement. Our role is to source, vet, contract, and coordinate — not to fly.</p></div>
+  </div>
+</section>
+
+<section style="max-width:1200px;margin:0 auto;padding:112px 40px 128px;text-align:center">
+  <h2 style="margin:0 auto;font-family:Fraunces,serif;font-weight:300;font-size:52px;line-height:1.05;letter-spacing:-.015em;max-width:20ch">Questions about the protocol?</h2>
+  <p style="margin:20px auto 0;max-width:56ch;font-size:18px;color:#C9C4B8">Our chief pilot will take your call. The vetting documents for any specific operator are available on request.</p>
+  <div style="margin-top:32px;display:flex;justify-content:center;gap:16px"><a href="tel:+14244872707" style="display:inline-flex;align-items:center;gap:8px;height:52px;padding:0 28px;border-radius:8px;background:#E8E2D2;color:#07080A;font-weight:500;font-size:16px">Call dispatch</a><a href="Quote.dc.html" style="display:inline-flex;align-items:center;height:52px;padding:0 28px;border-radius:8px;border:1px solid #2C323B;font-weight:500;font-size:16px">Request a quote</a></div>
+</section>
+
+<x-import component-from-global-scope="JNFooter" from="./jn-chrome.js" hint-size="100%,360px"></x-import>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = { open: 0 };
+  renderVals() {
+    const open = this.state.open;
+    const FUNNEL = [
+      ["All US licensed charter operators", "Every certificated charter operator in the country. The starting universe before any filter.", "~5,000", "certificates", 5000, false],
+      ["After certification & insurance filter", "Drop operators with certificate amendments, insurance below threshold, or fewer than five years continuous operation.", "~2,100", "remaining", 2100, false],
+      ["After audit-standing filter", "Drop operators below ARG/US Gold or with lapsed audits. Drop any operator with an NTSB-reportable event in the last 24 months.", "~880", "remaining", 880, false],
+      ["After on-site visit & chief-pilot review", "In-person hangar & ops walk-through. Roughly half the operators that look good on paper don't survive a site visit.", "~410", "remaining", 410, false],
+      ["JetNine approved operators", "Operators currently flying for our clients. Re-audited every 12 months, spot-checked continuously, with a one-strike policy on safety events.", "380", "in network today", 380, true],
+    ];
+    return {
+      accreditations: [
+        { name: "ARG/US Gold", role: "Minimum · all operators", desc: "Aviation Research Group. The standard accreditation for serious charter — historical safety audit and operator profile." },
+        { name: "ARG/US Platinum", role: "Preferred · 78% of flights", desc: "Highest ARG/US tier. On-site audit plus emergency-response, ground-handling and security review." },
+        { name: "Wyvern Wingman", role: "Required · international & ultra long range", desc: "Pilot-specific qualifications, trip-level safety review, real-time risk assessment for every leg." },
+        { name: "IS-BAO Stage 2", role: "Preferred · large cabin", desc: "International Standard for Business Aircraft Operations. Safety management system implemented, audited, and demonstrated in operation." },
+      ],
+      funnel: FUNNEL.map(([name, desc, count, unit, n, hi]) => ({ name, desc, count, unit, width: `${Math.max(4, Math.round(n / 5000 * 100))}%`, border: hi ? "#E8E2D2" : "#232830", barColor: hi ? "#C9A24A" : "#E8E2D2", numColor: hi ? "#C9A24A" : "#F4F1EA" })),
+      floor: [
+        ["Certification", "Licensed and unblemished — a current FAA Part 135 certificate.", "No suspensions, no enforcement actions, no certificate amendments under review in the last 24 months. Foreign equivalents must be verified by recognized aviation authority.", "ICAO Annex 6 Part II compliance for cross-border missions."],
+        ["Audit standing", "ARG/US Gold or higher; current.", "Audit cannot have lapsed. Wyvern Wingman or IS-BAO Stage 2 required for international, transoceanic, and ultra-long-range missions.", "ARG/US Platinum + Wyvern Wingman dual rating."],
+        ["Pilots", "Two fully licensed pilots, experienced on that aircraft, on every flight.", "Captain minimum 3,500 total hours, 1,500 hours in-type. Co-pilot minimum 2,500 total hours. Both current on aircraft within 90 days. No exceptions for daylight, short-leg, or clear-weather conditions.", "Captain 5,000+ hours, extra crew on legs over 8 hours."],
+        ["Insurance", "$300M minimum hull-and-liability for light through midsize.", "$500M minimum for super-mid through ultra. Policy must be primary, not contingent on a fractional or fleet umbrella. Certificate provided to JetNine in advance of every booking.", "$500M+ across the board, AM Best A or higher carrier."],
+        ["Maintenance", "A continuous, tracked maintenance program — nothing deferred at dispatch.", "All inspections current within manufacturer-recommended intervals (not regulatory minimums). Aircraft must have completed a full phase inspection within the last 12 months.", "Factory-authorized service center, single-fleet operator."],
+        ["Safety record", "No significant event in the last 24 months.", "No fatal accidents in the last 60 months. No NTSB-reportable incidents under review. FAA enforcement history reviewed back five years; any enforcement action is grounds for rejection unless cleared by our chief pilot.", "Zero NTSB-reportable events lifetime, fleet-wide."],
+        ["Operator stability", "Minimum 5 years in continuous charter operation.", "Verified financial standing — no bankruptcy, receivership, or aircraft repossession events in the last 36 months. Single-fleet operators preferred over fragmented brokers re-selling under their certificate.", "Founder-owned, over 15 years in operation."],
+      ].map(([area, lead, body, preferred], i) => ({ area, lead, body, preferred, open: open === i, mark: open === i ? "−" : "+", toggle: () => this.setState(s => ({ open: s.open === i ? -1 : i })) })),
+      cycle: [
+        { freq: "Every 12 months", title: "Document review", body: "Insurance certificate, ARG/US or Wyvern audit, current rosters, training records, type-rating proofs, airworthiness-directive compliance." },
+        { freq: "Every 12 months", title: "On-site visit", body: "Our chief pilot or a qualified third party — JetNine standards must be observed in operation. Maintenance hangar, training facility, dispatch operations." },
+        { freq: "Every flight", title: "Trip-level review", body: "Before every booking — current pilot duty time, aircraft maintenance status, weather, route alternates. Wyvern Wingman runs this automatically." },
+        { freq: "Continuous", title: "Spot-check & debrief", body: "Random flight-by-flight crew checks, post-flight client surveys, anonymous tip line for crew & terminal staff. One strike on safety — out." },
+      ],
+    };
+  }
+}
+</script>
+</body>
+</html>

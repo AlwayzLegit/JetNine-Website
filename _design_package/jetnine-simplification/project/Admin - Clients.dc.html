@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#07080A;color:#F4F1EA;font-family:'Instrument Sans',system-ui,sans-serif;font-size:15px;line-height:1.5;-webkit-font-smoothing:antialiased}
+a{color:inherit;text-decoration:none}a:hover{color:#fff}
+*{box-sizing:border-box;scrollbar-width:thin;scrollbar-color:#2C323B transparent}
+::-webkit-scrollbar{width:8px;height:8px}::-webkit-scrollbar-thumb{background:#2C323B;border-radius:4px}::-webkit-scrollbar-track{background:transparent}
+input::placeholder{color:#8A9099}
+</style>
+</helmet>
+<div data-screen-label="Admin — Clients" style="display:grid;grid-template-columns:220px minmax(0,1fr);min-height:100vh;min-width:1180px;background:#07080A;color:#F4F1EA">
+
+<aside style="position:sticky;top:0;height:100vh;display:flex;flex-direction:column;padding:20px 14px;background:#0A0C10;border-right:1px solid #161A20">
+  <a href="Home.dc.html" style="display:flex;align-items:center;gap:10px;padding:6px 10px 22px"><img src="public/images/brand/wordmark-bone.webp" alt="JetNine" style="height:30px;width:auto;display:block"><span style="font-size:12px;color:#8A9099;border:1px solid #232830;border-radius:4px;padding:1px 6px">Team</span></a>
+  <nav aria-label="Sections" style="display:flex;flex-direction:column;gap:2px;font-size:15px">
+    <a href="Admin - Requests.dc.html" style="display:flex;align-items:center;justify-content:space-between;height:40px;padding:0 12px;border-radius:8px;color:#C9C4B8">Requests <span style="min-width:22px;height:22px;padding:0 7px;border-radius:11px;background:#C9A24A;color:#07080A;font-size:12px;font-weight:600;display:flex;align-items:center;justify-content:center">2</span></a>
+    <a href="Admin - Trips.dc.html" style="display:flex;align-items:center;height:40px;padding:0 12px;border-radius:8px;color:#C9C4B8">Trips</a>
+    <a href="Admin - Clients.dc.html" aria-current="page" style="display:flex;align-items:center;height:40px;padding:0 12px;border-radius:8px;background:#161A20;color:#F4F1EA;font-weight:500">Clients</a>
+    <a href="Admin - Messages.dc.html" style="display:flex;align-items:center;justify-content:space-between;height:40px;padding:0 12px;border-radius:8px;color:#C9C4B8">Messages <span style="min-width:22px;height:22px;padding:0 7px;border-radius:11px;border:1px solid #2C323B;font-size:12px;display:flex;align-items:center;justify-content:center;color:#F4F1EA">1</span></a>
+    <a href="Admin - Settings.dc.html" style="display:flex;align-items:center;height:40px;padding:0 12px;border-radius:8px;color:#C9C4B8">Settings</a>
+  </nav>
+  <a href="#" style="margin-top:16px;display:flex;align-items:center;gap:8px;height:40px;padding:0 12px;border-radius:8px;border:1px solid #232830;color:#C9C4B8;font-size:14px">Open Avinode <span aria-hidden="true">↗</span></a>
+  <div style="margin-top:auto;padding:0 10px;display:flex;align-items:center;gap:10px"><span style="width:32px;height:32px;border-radius:50%;background:#161A20;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;color:#E8E2D2">A</span><div style="font-size:14px;line-height:1.3">Alex<br><a href="#" style="color:#8A9099">Sign out</a></div></div>
+</aside>
+
+<main style="padding:32px 40px 64px;display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:32px;align-items:start">
+  <div style="min-width:0">
+    <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:24px">
+      <div><h1 style="margin:0;font-family:Fraunces,serif;font-weight:300;font-size:36px;line-height:1.1;letter-spacing:-.01em">Clients</h1><p style="margin:6px 0 0;color:#C9C4B8">38 clients · 11 flew in the last 90 days · 9 hold a JetNine Card</p></div>
+      <div style="display:flex;gap:10px;align-items:center">
+        <label style="display:flex;align-items:center;gap:8px;height:44px;padding:0 14px;border-radius:8px;background:#0E1014;border:1px solid #232830;width:220px"><span aria-hidden="true" style="color:#8A9099">⌕</span><input type="search" placeholder="Search" style="flex:1;background:transparent;border:none;outline:none;color:#F4F1EA;font:15px 'Instrument Sans',sans-serif"></label>
+        <a href="#" style="display:inline-flex;align-items:center;height:44px;padding:0 18px;border-radius:8px;background:#E8E2D2;color:#07080A;font-weight:500;white-space:nowrap">+ Invite a client</a>
+      </div>
+    </div>
+
+    <div role="tablist" style="margin-top:24px;display:flex;gap:4px;border-bottom:1px solid #232830">
+      <sc-for list="{{ tabs }}" as="t" hint-placeholder-count="4">
+        <button type="button" role="tab" onClick="{{ t.select }}" style="cursor:pointer;border:none;background:transparent;padding:12px 14px;font:500 15px 'Instrument Sans',sans-serif;color:{{ t.color }};border-bottom:2px solid {{ t.underline }};margin-bottom:-1px">{{ t.label }}</button>
+      </sc-for>
+    </div>
+
+    <div style="margin-top:24px;background:#0E1014;border:1px solid #232830;border-radius:12px;overflow:hidden">
+      <div style="display:grid;grid-template-columns:minmax(0,1.5fr) 1.1fr .8fr 1fr;gap:16px;padding:12px 24px;border-bottom:1px solid #232830;font-size:13px;font-weight:600;color:#8A9099"><span>Name</span><span>Flights</span><span>Total spent</span><span>Membership</span></div>
+      <sc-for list="{{ rows }}" as="c" hint-placeholder-count="6">
+        <button type="button" onClick="{{ c.select }}" style="width:100%;display:grid;grid-template-columns:minmax(0,1.5fr) 1.1fr .8fr 1fr;gap:16px;align-items:center;padding:16px 24px;border:none;border-bottom:1px solid #161A20;background:{{ c.bg }};color:#F4F1EA;text-align:left;cursor:pointer;font-family:'Instrument Sans',sans-serif">
+          <span><span style="display:block;font-size:16px;font-weight:500">{{ c.name }}</span><span style="display:block;font-size:14px;color:#8A9099">{{ c.email }}</span></span>
+          <span style="font-size:15px">{{ c.flights }}<span style="display:block;font-size:14px;color:#8A9099">{{ c.flightNote }}</span></span>
+          <span style="font-size:15px">{{ c.spent }}</span>
+          <span style="font-size:15px;color:{{ c.memberColor }}">{{ c.member }}<span style="display:block;font-size:14px;color:#8A9099">{{ c.memberNote }}</span></span>
+        </button>
+      </sc-for>
+    </div>
+  </div>
+
+  <aside style="position:sticky;top:32px;background:#0E1014;border:1px solid #232830;border-radius:12px;padding:24px">
+    <div style="font-size:13px;font-weight:600;color:#8A9099">Preview</div>
+    <div style="margin-top:6px;font-family:Fraunces,serif;font-weight:300;font-size:28px;line-height:1.1">{{ sel.name }}</div>
+    <div style="margin-top:2px;font-size:14px;color:#8A9099">{{ sel.email }} · {{ sel.phone }}</div>
+    <div style="margin-top:14px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px"><a href="#" style="display:flex;align-items:center;justify-content:center;height:40px;border-radius:8px;border:1px solid #2C323B;font-size:14px;font-weight:500">Call</a><a href="#" style="display:flex;align-items:center;justify-content:center;height:40px;border-radius:8px;border:1px solid #2C323B;font-size:14px;font-weight:500">Text</a><a href="#" style="display:flex;align-items:center;justify-content:center;height:40px;border-radius:8px;border:1px solid #2C323B;font-size:14px;font-weight:500">Email</a></div>
+    <dl style="margin:20px 0 0;display:flex;flex-direction:column;gap:14px;font-size:15px;line-height:1.45">
+      <div style="border-top:1px solid #232830;padding-top:12px"><dt style="font-size:13px;color:#8A9099">Next flight</dt><dd style="margin:2px 0 0">{{ sel.next }}</dd></div>
+      <div style="border-top:1px solid #232830;padding-top:12px"><dt style="font-size:13px;color:#8A9099">Good to know</dt><dd style="margin:2px 0 0;color:#C9C4B8">{{ sel.notes }}</dd></div>
+      <div style="border-top:1px solid #232830;padding-top:12px"><dt style="font-size:13px;color:#8A9099">Membership</dt><dd style="margin:2px 0 0">{{ sel.membership }}</dd></div>
+    </dl>
+    <a href="#" style="display:flex;align-items:center;justify-content:center;margin-top:20px;height:44px;border-radius:8px;background:#E8E2D2;color:#07080A;font-weight:500">Open full client page</a>
+  </aside>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = { tab: "all", selected: 0 };
+  renderVals() {
+    const clients = [
+      { name: "Dana Whitfield", email: "dana.w@example.com", phone: "+1 (310) 555-0142", flights: "3 flights", flightNote: "next: Oct 3", spent: "$44,300", member: "JetNine Card", memberNote: "25 hrs left", card: true, recent: true, next: "Los Angeles → Aspen · Fri, Oct 3 · 4 passengers", notes: "Prefers text · usually travels with 2 ski bags · no nuts on board · likes the Citation XLS she flew in June", membership: "JetNine Card · 25 of 50 hours left · renews Jan 2027" },
+      { name: "Tom Okafor", email: "tom.okafor@example.com", phone: "+1 (415) 555-0199", flights: "6 flights", flightNote: "next: Oct 18", spent: "$128,900", member: "JetNine Card", memberNote: "8 hrs left", card: true, recent: true, next: "San Francisco → Sun Valley · Sat, Oct 18 · 5 passengers", notes: "Family trips with a dog · prefers a morning departure · call before 9 AM only if urgent", membership: "JetNine Card · 8 of 50 hours left · worth offering a top-up" },
+      { name: "Elena Rossi", email: "erossi@example.com", phone: "+1 (305) 555-0117", flights: "4 flights", flightNote: "flying today", spent: "$96,200", member: "JetNine Card", memberNote: "31 hrs left", card: true, recent: true, next: "Miami → New York (Teterboro) · today · in the air", notes: "Travels with an assistant who books · Italian-speaking crew appreciated · always two SUVs on arrival", membership: "JetNine Card · 31 of 50 hours left · renews Mar 2027" },
+      { name: "Marcus Lee", email: "mlee@example.com", phone: "+1 (917) 555-0163", flights: "1 flight", flightNote: "next: Oct 8", spent: "$23,100", member: "None", memberNote: "", card: false, recent: true, next: "New York (Teterboro) → West Palm Beach · Wed, Oct 8 · 6 passengers", notes: "New last month · golf group · deposit for Oct 8 still unpaid", membership: "No membership · 2 flights in 2 months — a good candidate for the card" },
+      { name: "Priya Natarajan", email: "priya.n@example.com", phone: "+1 (424) 555-0128", flights: "0 flights", flightNote: "request open", spent: "—", member: "None", memberNote: "", card: false, recent: false, next: "Los Angeles → Las Vegas · Sat, Oct 11 · options being prepared", notes: "First request · came from a referral (Tom Okafor)", membership: "No membership" },
+      { name: "Sam Whitaker", email: "sam.whitaker@example.com", phone: "+1 (212) 555-0181", flights: "2 flights", flightNote: "last: Feb 20", spent: "$38,600", member: "None", memberNote: "", card: false, recent: false, next: "Nothing booked", notes: "Flies New York ↔ Nantucket in summer · quiet flight, no calls before boarding", membership: "No membership · lapsed since Feb — worth a summer check-in" },
+    ];
+    const tab = this.state.tab;
+    const filtered = clients.filter(c => tab === "all" || (tab === "card" && c.card) || (tab === "recent" && c.recent) || (tab === "new" && c.flights.startsWith("0")));
+    const selIdx = this.state.selected;
+    const sel = clients[selIdx];
+    const mk = (key, label) => ({ label, select: () => this.setState({ tab: key }), color: tab === key ? "#F4F1EA" : "#8A9099", underline: tab === key ? "#E8E2D2" : "transparent" });
+    return {
+      sel,
+      rows: filtered.map(c => { const i = clients.indexOf(c); return { ...c, memberColor: c.card ? "#F4F1EA" : "#8A9099", bg: i === selIdx ? "#161A20" : "transparent", select: () => this.setState({ selected: i }) }; }),
+      tabs: [mk("all", "All · 38"), mk("recent", "Flew recently · 11"), mk("card", "Card members · 9"), mk("new", "New · 3")],
+    };
+  }
+}
+</script>
+</body>
+</html>

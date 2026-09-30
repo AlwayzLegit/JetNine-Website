@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#07080A;color:#F4F1EA;font-family:'Instrument Sans',system-ui,sans-serif;font-size:16px;line-height:1.55;-webkit-font-smoothing:antialiased}
+a{color:inherit;text-decoration:none}a:hover{color:#fff}
+*{box-sizing:border-box;scrollbar-width:thin;scrollbar-color:#2C323B transparent}
+::-webkit-scrollbar{width:8px;height:8px}::-webkit-scrollbar-thumb{background:#2C323B;border-radius:4px}::-webkit-scrollbar-track{background:transparent}
+input::placeholder{color:#8A9099}
+</style>
+</helmet>
+<div data-screen-label="FAQ — simplified" style="background:#07080A;color:#F4F1EA;min-width:1100px">
+<x-import component-from-global-scope="JNHeader" from="./jn-chrome.js" hint-size="100%,72px"></x-import>
+
+<section style="max-width:1200px;margin:0 auto;padding:96px 40px 0">
+  <p style="margin:0 0 16px;font-size:14px;font-weight:600;color:#C9C4B8">Frequently asked</p>
+  <h1 style="margin:0;font-family:Fraunces,serif;font-weight:300;font-size:60px;line-height:1.02;letter-spacing:-.02em;max-width:16ch">The questions before the call.</h1>
+  <p style="margin:20px 0 0;max-width:62ch;font-size:19px;color:#C9C4B8">Thirty-one answers, written by the dispatch desk, edited for the kind of question that comes in at 11pm on a Sunday. If yours isn't here, the line is open — same desk, same people.</p>
+  <div style="margin-top:32px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+    <label style="display:flex;align-items:center;gap:10px;height:52px;padding:0 18px;border-radius:10px;background:#0E1014;border:1px solid #232830;width:420px"><span aria-hidden="true" style="color:#8A9099;font-size:18px">⌕</span><input type="search" value="{{ query }}" onChange="{{ setQuery }}" placeholder="Search — pets, deposit, Wi-Fi, customs…" style="flex:1;background:transparent;border:none;outline:none;color:#F4F1EA;font:16px 'Instrument Sans',sans-serif"></label>
+    <sc-for list="{{ quickTags }}" as="t" hint-placeholder-count="6"><button type="button" onClick="{{ t.select }}" style="cursor:pointer;height:40px;padding:0 16px;border-radius:20px;border:1px solid {{ t.border }};background:{{ t.bg }};color:{{ t.fg }};font:500 14px 'Instrument Sans',sans-serif">{{ t.label }}</button></sc-for>
+  </div>
+</section>
+
+<section style="max-width:1200px;margin:0 auto;padding:48px 40px 0;display:grid;grid-template-columns:240px minmax(0,1fr);gap:40px;align-items:start">
+  <nav aria-label="Topics" style="position:sticky;top:96px;display:flex;flex-direction:column;gap:2px">
+    <sc-for list="{{ cats }}" as="c" hint-placeholder-count="8"><button type="button" onClick="{{ c.select }}" style="display:flex;align-items:center;justify-content:space-between;gap:12px;height:44px;padding:0 14px;border:none;border-radius:8px;background:{{ c.bg }};color:{{ c.color }};text-align:left;cursor:pointer;font:{{ c.weight }} 15px 'Instrument Sans',sans-serif"><span>{{ c.title }}</span><span style="font-size:13px;color:#8A9099">{{ c.count }}</span></button></sc-for>
+  </nav>
+  <div style="min-width:0">
+    <sc-if value="{{ empty }}" hint-placeholder-val="{{ false }}"><div style="background:#0E1014;border:1px dashed #2C323B;border-radius:12px;padding:40px;text-align:center"><p style="margin:0;font-size:19px">Nothing matches “{{ query }}”.</p><p style="margin:6px 0 0;color:#C9C4B8">Try another word, or <a href="tel:+14244872707" style="text-decoration:underline;text-underline-offset:3px;color:#F4F1EA">call the desk</a> — a person answers.</p></div></sc-if>
+    <sc-for list="{{ groups }}" as="g" hint-placeholder-count="2">
+      <section style="margin-bottom:40px">
+        <h2 style="margin:0 0 8px;font-family:Fraunces,serif;font-weight:300;font-size:32px;line-height:1.1;letter-spacing:-.01em">{{ g.title }}</h2>
+        <div style="border-top:1px solid #232830">
+          <sc-for list="{{ g.items }}" as="f" hint-placeholder-count="4">
+            <div style="border-bottom:1px solid #232830">
+              <button type="button" onClick="{{ f.toggle }}" style="width:100%;display:flex;align-items:flex-start;justify-content:space-between;gap:24px;padding:20px 0;border:none;background:transparent;color:#F4F1EA;cursor:pointer;text-align:left;font-family:'Instrument Sans',sans-serif"><span style="font-size:19px;font-weight:500;line-height:1.3">{{ f.q }}</span><span style="font-size:22px;color:#C9C4B8;line-height:1.2">{{ f.mark }}</span></button>
+              <sc-if value="{{ f.open }}" hint-placeholder-val="{{ false }}"><p style="margin:0;padding:0 48px 22px 0;max-width:76ch;font-size:16px;color:#C9C4B8;line-height:1.65">{{ f.a }}</p></sc-if>
+            </div>
+          </sc-for>
+        </div>
+      </section>
+    </sc-for>
+  </div>
+</section>
+
+<section style="max-width:1200px;margin:0 auto;padding:80px 40px 128px">
+  <p style="margin:0 0 12px;font-size:14px;font-weight:600;color:#8A9099">Still stuck?</p>
+  <h2 style="margin:0;font-family:Fraunces,serif;font-weight:300;font-size:44px;line-height:1.08;letter-spacing:-.015em;max-width:26ch">Pick a channel. Real human, every one.</h2>
+  <div style="margin-top:32px;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px">
+    <a href="tel:+14244872707" style="display:flex;flex-direction:column;gap:10px;background:#0E1014;border:1px solid #232830;border-radius:12px;padding:28px"><span style="font-size:13px;font-weight:600;color:#8A9099">Call</span><span style="font-size:22px;font-weight:500">Call dispatch.</span><span style="color:#C9C4B8">Senior dispatcher answers, average pickup under 20 seconds.</span><span style="margin-top:auto;padding-top:10px;font-family:Fraunces,serif;font-weight:300;font-size:26px">+1 (424) 487-2707</span></a>
+    <a href="mailto:dispatch@jetnine.com" style="display:flex;flex-direction:column;gap:10px;background:#0E1014;border:1px solid #232830;border-radius:12px;padding:28px"><span style="font-size:13px;font-weight:600;color:#8A9099">Email</span><span style="font-size:22px;font-weight:500">Email the desk.</span><span style="color:#C9C4B8">Same desk, in writing. Reply within 30 minutes during business hours.</span><span style="margin-top:auto;padding-top:10px;font-family:Fraunces,serif;font-weight:300;font-size:24px">dispatch@jetnine.com</span></a>
+    <a href="Quote.dc.html" style="display:flex;flex-direction:column;gap:10px;background:#0E1014;border:1px solid #E8E2D2;border-radius:12px;padding:28px"><span style="font-size:13px;font-weight:600;color:#C9A24A">Quote</span><span style="font-size:22px;font-weight:500">Start a quote.</span><span style="color:#C9C4B8">Four-step form. Specific aircraft and pricing back inside thirty minutes.</span><span style="margin-top:auto;padding-top:10px;font-family:Fraunces,serif;font-weight:300;font-size:26px">Begin →</span></a>
+  </div>
+</section>
+
+<x-import component-from-global-scope="JNFooter" from="./jn-chrome.js" hint-size="100%,360px"></x-import>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = { query: "", cat: "all", open: "q01" };
+  renderVals() {
+    const { query, cat, open } = this.state;
+    const FAQ = [
+      { id: "booking", title: "Booking & quotes", items: [
+        ["q01", "How fast can you actually get me a quote?", "Inside thirty minutes during business hours. Often a lot faster — most domestic city pairs come back in under fifteen. International, multi-stop, or unusual routings can take up to two hours because the dispatcher is sourcing across multiple operators and checking permitting. The quote you get is specific. Not a price band — three to five named aircraft with tail numbers, photos, year of manufacture, operator, and an all-in price."],
+        ["q02", "What's the latest I can book before a flight?", "Six hours before wheels-up is reliable for most US city pairs, light jet to heavy. Three hours is achievable on busy lanes (New York ↔ Miami, Los Angeles ↔ San Francisco) where positioned aircraft and crews are abundant. International with customs adds two to four hours of overhead. Below three hours we'll still pick up the phone and try — but the price premium climbs steeply and availability narrows."],
+        ["q03", "Do I need an account to get a quote?", "No. The quote form needs a name, contact, route and date — that's it. You'll only create an account if you decide to book, and the dispatcher can do that for you on the phone in two minutes."],
+        ["q04", "Will my information get sent to operators?", "No. Operators receive the route, date, passenger count, and category — never your name, contact, or any details that identify you. The dispatcher signs the contract on JetNine's paper, and you sign with us."],
+        ["q05", "Can I book a one-way flight?", "Yes — every flight is priced one-way. Most charters in our category are. You're not paying for the aircraft to come back unless you ask us to hold it for a return leg. If your route happens to match an existing repositioning leg, you'll see significant savings on the empty legs board."],
+      ]},
+      { id: "pricing", title: "Pricing & payment", items: [
+        ["q06", "What's actually included in the price?", "Everything we can see in advance. Specifically: aircraft & crew time, fuel, all surcharges, Federal Excise Tax (7.5%), segment fees, landing fees, ramp & handling, international handling & customs (where applicable), and standard catering and onboard beverage stock. What's not included: ground transport (we book it; passed through at cost), in-flight catering upgrades above standard, and de-icing if required day-of (rare; charged at operator cost). All of that is itemized on the trip sheet before you sign."],
+        ["q07", "How do I pay?", "Bank wire is the default. ACH and credit card are accepted for trips under $50,000 (cards add 3% to cover processor fees — we don't mark this up). Frequent clients can run on net-30 invoicing once a relationship is established. Reserve members and Card holders pay against the deposit balance — the dispatcher debits the trip cost on confirmation, and you see the running balance on your account dashboard."],
+        ["q08", "Do I pay a deposit, or the full amount?", "Full payment is required before wheels-up. Industry standard. The dispatcher will give you a clear timeline on the trip sheet — typically wire received 24h before departure for domestic, 48h for international. For larger or repeat clients we'll work with shorter windows. Just ask."],
+        ["q09", "Why does the same route cost different amounts on different days?", "Three things, mostly. (1) Demand — Friday afternoon out of Teterboro is the most expensive slot in private aviation. (2) Aircraft positioning — if a midsize is finishing a charter and sitting at your departure airport, the price drops. (3) Operator availability — fewer operators willing to release on short notice means a higher floor. The dispatcher will tell you, on the call, which of these is moving the price — and what flexibility on dates or airports would do to it."],
+        ["q10", "Are quotes negotiable?", "The quoted price is the operator's price plus our fixed markup. There isn't margin to negotiate down — the markup is the same on a $25,000 trip as on a $250,000 trip, and you can see it on the invoice. What we can do: source again with different parameters. Different aircraft, slightly different times, alternate airport pair. That's where price moves, and it's the dispatcher's job to find it."],
+      ]},
+      { id: "aircraft", title: "Aircraft & cabin", items: [
+        ["q11", "How do I know which category I need?", "The dispatcher decides this with you on the call. Inputs: number of passengers, route distance, baggage, whether stand-up cabin matters, whether you need a lavatory or just a toilet. We'll quote across two categories if your trip sits on the boundary so you can see the price-vs-comfort tradeoff. Or browse: all six categories side-by-side."],
+        ["q12", "Can I see the specific aircraft before I book?", "Yes. Every quote names specific tail numbers. You'll see year of manufacture, cabin photos, year of last refurb, and operator. If you have an aversion to a particular type or operator, the dispatcher will source around it."],
+        ["q13", "Are pets allowed?", "On almost every aircraft in our network, yes — and they sit in the cabin with you, not in cargo. Tell the dispatcher: species, weight, whether they're crated, and any handling notes. We source aircraft that allow pets and will note it on the trip sheet so the crew is prepared. International pet travel needs paperwork (health certificates, EU pet passports). The dispatcher will tell you what you need and how far in advance to start."],
+        ["q14", "Will there be Wi-Fi?", "Most super-mid, heavy, and ultra-long-range aircraft have Wi-Fi installed. Many midsize do. Light jets and turboprops typically don't. The quote will tell you — and \"Wi-Fi required\" can be set as a preference and we'll only source aircraft that have it. Speed varies. Domestic Ka-band on a heavy is genuinely good (50+ Mbps). Older Ku systems on transoceanic legs are usable for email, not video calls."],
+        ["q15", "What about a flight attendant?", "Standard on heavy and ultra-long-range. Optional on super-mid (often included on flights over 4 hours). Available on midsize for a flat add-on (~$1,800–2,500). Light jets and below: not typically."],
+      ]},
+      { id: "flight", title: "The flight itself", items: [
+        ["q16", "How early do I need to arrive at the private terminal?", "Fifteen minutes is plenty for domestic. The crew is on board, the terminal has your details, you walk straight to the aircraft. International with customs: thirty minutes for departures, sometimes nothing on arrivals (cleared on the ramp)."],
+        ["q17", "Is there security screening?", "Not in the TSA sense. Operators verify passenger identity (TSA Twelve-Five Standard Security Program for aircraft over 12,500 lbs) and may check ID at the terminal. No bag X-rays, no shoes off, no liquids restrictions. International outbound flights still go through customs & immigration at the terminal."],
+        ["q18", "Can I bring more bags than the published count?", "Probably. Tell the dispatcher in advance and we'll confirm baggage volume on the specific aircraft. If you're at the limit on a light jet, sometimes a midsize with a slightly larger hold is the same price."],
+        ["q19", "Can I drive directly to the aircraft?", "At most private terminals in our network: yes. Your car is escorted onto the ramp by terminal staff and you transfer at the aircraft. A handful of terminals (mainly slot-restricted European airports) don't allow ramp access — the dispatcher will tell you on the trip sheet."],
+      ]},
+      { id: "international", title: "International", items: [
+        ["q20", "What does customs look like on a private flight?", "Departure: thirty minutes earlier at the terminal so a CBP officer can check passports. Arrival: usually faster than commercial — the officer comes to the aircraft or meets you in the terminal, stamps passports, and you're out the door. Some airports require advance APIS filing (we handle it), some require the GenDec (we handle it), and some smaller fields don't have customs and route you to a nearby airport of entry first."],
+        ["q21", "Are there destinations you don't fly to?", "Sanctioned countries (US OFAC list), active conflict zones, and a handful of fields with structural issues we won't operate into. Everywhere else, we'll find an aircraft and operator. About 5,000 airports worldwide are reliably available; another 5,000 are case-by-case."],
+        ["q22", "Do I need a visa for the crew's stops?", "Crew permits are the operator's problem, not yours. Your visa requirements are based on your passport and destination — same as commercial. The dispatcher will flag visa requirements on the trip sheet but recommends checking with your travel attorney for anything non-routine."],
+      ]},
+      { id: "changes", title: "Changes & cancellations", items: [
+        ["q23", "Can I change times or airports after booking?", "Yes. Inside 48 hours of departure: usually free for time shifts of a couple hours, sometimes a re-positioning fee for airport changes. Inside 24 hours: depends on the operator and aircraft availability; the dispatcher will quote you the delta before you commit. Adding passengers, catering changes, baggage: free, just call."],
+        ["q24", "What happens if I cancel?", "Outside 72 hours: full refund minus a small admin fee. Inside 72 hours: 25% of trip cost. Inside 24 hours: 50% of trip cost. Inside 6 hours: full charter cost. Empty legs and one-off discounted flights have stricter terms — the dispatcher will tell you on the call. Reserve and Card members get more flexibility."],
+        ["q25", "What if you cancel?", "If we can't deliver the aircraft we quoted — mechanical, crew, or weather we should have caught — we re-source on our cost and get you in the air. The dispatcher works the phones for as long as it takes; we've put clients on backup aircraft within 90 minutes of a cancellation. Weather no-go is a different beast. Safety calls we don't argue with. You get a full refund and we'll re-fly when the weather clears."],
+      ]},
+      { id: "safety", title: "Safety & standards", items: [
+        ["q26", "How do you vet operators?", "Hard floor: ARG/US Gold Plus or Wyvern Wingman. Plus a JetNine review of the operator's last five years of FAA enforcement actions, insurance coverage ($300M minimum), and pilot experience minimums. Roughly 12% of US Part 135 carriers clear our floor. Full standards: safety page."],
+        ["q27", "Are there always two pilots?", "Yes. Single-pilot operations exist in Part 135 — we don't allow them on JetNine flights regardless of the aircraft type. Both pilots type-rated on the aircraft, both current, both meeting our duty-time standards."],
+        ["q28", "What's your insurance coverage?", "$300M combined single-limit liability minimum on every trip. Most heavy and ultra-long-range aircraft in our network carry $500M to $1B. Specifics on the trip sheet."],
+      ]},
+      { id: "memberships", title: "Memberships", items: [
+        ["q29", "Should I join Reserve or Card?", "Quick math. If you fly 25 hours a year and want price certainty: Card. If you fly 50+ hours and want guaranteed availability with shorter call-out windows: Reserve. If you fly under 25 hours: stay on-demand. Membership only pays back at volume. Full breakdown: memberships page."],
+        ["q30", "Does the deposit expire?", "No. Card balances roll forward indefinitely. If you fly less than expected one year, the balance is still there next year at the same locked rates."],
+        ["q31", "Can I refund the unused deposit?", "Yes, anytime, with 30 days' notice. We'll refund the unused balance minus an admin fee. No questions asked, no retention sequence."],
+      ]},
+    ];
+    const needle = query.trim().toLowerCase();
+    const match = ([, q, a]) => !needle || q.toLowerCase().includes(needle) || a.toLowerCase().includes(needle);
+    const filtered = FAQ.map(c => ({ ...c, items: c.items.filter(match) })).filter(c => c.items.length && (cat === "all" || c.id === cat));
+    const total = FAQ.reduce((n, c) => n + c.items.filter(match).length, 0);
+    const mkCat = (id, title, count) => ({ title, count, select: () => this.setState({ cat: id }), bg: cat === id ? "#161A20" : "transparent", color: cat === id ? "#F4F1EA" : "#C9C4B8", weight: cat === id ? 500 : 400 });
+    return {
+      query, setQuery: e => this.setState({ query: e.target.value, cat: "all" }),
+      quickTags: ["Deposit", "Pets", "Wi-Fi", "Cancellation", "Catering", "Customs"].map(label => { const on = needle === label.toLowerCase(); return { label, select: () => this.setState({ query: on ? "" : label, cat: "all" }), bg: on ? "#E8E2D2" : "transparent", fg: on ? "#07080A" : "#C9C4B8", border: on ? "#E8E2D2" : "#2C323B" }; }),
+      cats: [mkCat("all", "All topics", total), ...FAQ.map(c => mkCat(c.id, c.title, c.items.filter(match).length))],
+      empty: filtered.length === 0,
+      groups: filtered.map(c => ({ title: c.title, items: c.items.map(([id, q, a]) => ({ q, a, open: open === id, mark: open === id ? "−" : "+", toggle: () => this.setState(s => ({ open: s.open === id ? null : id })) })) })),
+    };
+  }
+}
+</script>
+</body>
+</html>

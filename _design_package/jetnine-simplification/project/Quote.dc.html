@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#07080A;color:#F4F1EA;font-family:'Instrument Sans',system-ui,sans-serif;font-size:16px;line-height:1.55;-webkit-font-smoothing:antialiased}
+a{color:inherit;text-decoration:none}a:hover{color:#fff}
+*{box-sizing:border-box;scrollbar-width:thin;scrollbar-color:#2C323B transparent}
+::-webkit-scrollbar{width:8px;height:8px}::-webkit-scrollbar-thumb{background:#2C323B;border-radius:4px}::-webkit-scrollbar-track{background:transparent}
+input::placeholder,textarea::placeholder{color:#8A9099}
+</style>
+</helmet>
+<div data-screen-label="Quote — 4 steps, simplified" style="background:#07080A;color:#F4F1EA;min-height:100vh;min-width:1100px">
+
+<header style="position:sticky;top:0;z-index:50;background:rgba(7,8,10,.86);backdrop-filter:blur(14px);border-bottom:1px solid #161A20">
+  <div style="max-width:1200px;margin:0 auto;padding:0 40px;height:72px;display:grid;grid-template-columns:1fr auto 1fr;align-items:center">
+    <a href="Home.dc.html" style="font-size:15px;color:#C9C4B8">← Save &amp; exit</a>
+    <a href="Home.dc.html" aria-label="JetNine — Home"><img src="public/images/brand/wordmark-bone.webp" alt="JetNine" style="height:36px;width:auto;display:block"></a>
+    <a href="tel:+14244872707" style="display:flex;align-items:center;justify-content:flex-end;gap:10px;font-size:15px;color:#C9C4B8"><span style="width:8px;height:8px;border-radius:50%;background:#8FB58A"></span>Dispatch open · +1 (424) 487-2707</a>
+  </div>
+  <nav aria-label="Steps" style="border-top:1px solid #161A20">
+    <ol style="list-style:none;margin:0 auto;padding:0 40px;max-width:1200px;display:grid;grid-template-columns:repeat(4,1fr);gap:8px">
+      <sc-for list="{{ steps }}" as="s" hint-placeholder-count="4">
+        <li><button type="button" onClick="{{ s.go }}" style="width:100%;display:flex;align-items:center;gap:12px;padding:14px 4px;border:none;border-bottom:2px solid {{ s.line }};background:transparent;cursor:pointer;text-align:left;font-family:'Instrument Sans',sans-serif"><span style="width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;background:{{ s.bg }};color:{{ s.fg }};border:1px solid {{ s.border }}">{{ s.n }}</span><span style="display:flex;flex-direction:column;line-height:1.25"><span style="font-size:12px;color:#8A9099">Step {{ s.n }} of 4</span><span style="font-size:15px;font-weight:500;color:{{ s.color }}">{{ s.label }}</span></span></button></li>
+      </sc-for>
+    </ol>
+  </nav>
+</header>
+
+<main style="max-width:1200px;margin:0 auto;padding:48px 40px 96px;display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:40px;align-items:start">
+<div style="min-width:0">
+
+<!-- STEP 1 · MISSION -->
+<sc-if value="{{ is1 }}" hint-placeholder-val="{{ true }}">
+<div>
+  <p style="margin:0 0 12px;font-size:14px;font-weight:600;color:#8A9099">Step 1 · Mission</p>
+  <h1 style="margin:0;font-family:Fraunces,serif;font-weight:300;font-size:52px;line-height:1.05;letter-spacing:-.015em">Where, when, how many.</h1>
+  <p style="margin:16px 0 0;max-width:60ch;font-size:17px;color:#C9C4B8">The basics. The more precise the better — but it doesn’t have to be perfect. Dispatch will follow up to refine. Every quote returns within 30 minutes during operating hours — a real number in four steps, not a phone call.</p>
+
+  <section style="margin-top:36px;background:#0E1014;border:1px solid #232830;border-radius:12px;padding:28px">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap">
+      <h2 style="margin:0;font-size:22px;font-weight:500">Trip type</h2>
+      <div role="radiogroup" aria-label="Trip type" style="display:inline-flex;background:#161A20;border-radius:8px;padding:4px;gap:2px">
+        <sc-for list="{{ tripTypes }}" as="t" hint-placeholder-count="3"><button type="button" onClick="{{ t.select }}" style="border:none;cursor:pointer;height:36px;padding:0 16px;border-radius:6px;font:500 14px 'Instrument Sans',sans-serif;background:{{ t.bg }};color:{{ t.fg }}">{{ t.label }}</button></sc-for>
+      </div>
+    </div>
+    <div style="margin-top:24px;display:flex;flex-direction:column;gap:16px">
+      <sc-for list="{{ legs }}" as="l" hint-placeholder-count="2">
+        <div style="border:1px solid #232830;border-radius:8px;padding:20px">
+          <div style="font-size:14px;font-weight:600;color:#8A9099">{{ l.title }}</div>
+          <div style="margin-top:12px;display:grid;grid-template-columns:1fr 1fr;gap:10px">
+            <label style="display:flex;flex-direction:column;gap:4px;background:#161A20;border-radius:8px;padding:10px 14px"><span style="font-size:13px;color:#C9C4B8">From</span><input type="text" value="{{ l.from }}" placeholder="City, airport or code" style="background:transparent;border:none;outline:none;color:#F4F1EA;font:16px 'Instrument Sans',sans-serif;width:100%"></label>
+            <label style="display:flex;flex-direction:column;gap:4px;background:#161A20;border-radius:8px;padding:10px 14px"><span style="font-size:13px;color:#C9C4B8">To</span><input type="text" value="{{ l.to }}" placeholder="City, airport or code" style="background:transparent;border:none;outline:none;color:#F4F1EA;font:16px 'Instrument Sans',sans-serif;width:100%"></label>
+            <label style="display:flex;flex-direction:column;gap:4px;background:#161A20;border-radius:8px;padding:10px 14px"><span style="font-size:13px;color:#C9C4B8">Depart date</span><input type="text" value="{{ l.date }}" placeholder="Pick a date" style="background:transparent;border:none;outline:none;color:#F4F1EA;font:16px 'Instrument Sans',sans-serif;width:100%"></label>
+            <label style="display:flex;flex-direction:column;gap:4px;background:#161A20;border-radius:8px;padding:10px 14px"><span style="font-size:13px;color:#C9C4B8">Depart time</span><input type="text" value="{{ l.time }}" style="background:transparent;border:none;outline:none;color:#F4F1EA;font:16px 'Instrument Sans',sans-serif;width:100%"></label>
+          </div>
+        </div>
+      </sc-for>
+      <button type="button" style="border:1px dashed #2C323B;background:transparent;border-radius:8px;padding:14px;color:#C9C4B8;font:15px 'Instrument Sans',sans-serif;cursor:pointer">+ Add another leg</button>
+    </div>
+    <div style="margin-top:20px;display:flex;align-items:center;gap:10px;flex-wrap:wrap"><span style="font-size:14px;color:#8A9099">Common routes:</span>
+      <sc-for list="{{ routes }}" as="r" hint-placeholder-count="5"><button type="button" style="cursor:pointer;height:34px;padding:0 14px;border-radius:999px;border:1px solid #2C323B;background:transparent;color:#C9C4B8;font:14px 'Instrument Sans',sans-serif">{{ r }}</button></sc-for>
+    </div>
+  </section>
+
+  <section style="margin-top:20px;background:#0E1014;border:1px solid #232830;border-radius:12px;padding:28px;display:flex;align-items:center;justify-content:space-between;gap:24px;flex-wrap:wrap">
+    <div><h2 style="margin:0;font-size:22px;font-weight:500">Passengers</h2><p style="margin:6px 0 0;font-size:15px;color:#C9C4B8">{{ paxHint }}</p></div>
+    <div style="display:inline-flex;align-items:center;background:#161A20;border-radius:8px"><button type="button" onClick="{{ decPax }}" aria-label="Fewer passengers" style="width:48px;height:48px;border:none;background:transparent;color:#F4F1EA;cursor:pointer;font-size:20px">−</button><span style="min-width:40px;text-align:center;font-family:Fraunces,serif;font-size:28px;font-weight:300">{{ pax }}</span><button type="button" onClick="{{ incPax }}" aria-label="More passengers" style="width:48px;height:48px;border:none;background:transparent;color:#F4F1EA;cursor:pointer;font-size:20px">+</button></div>
+  </section>
+
+  <div style="margin-top:32px;display:flex;align-items:center;justify-content:space-between;gap:16px;border-top:1px solid #232830;padding-top:24px">
+    <span style="font-size:14px;color:#8A9099">Step 1 of 4 · Draft saves automatically</span>
+    <div style="display:flex;align-items:center;gap:20px"><a href="Home.dc.html" style="font-size:15px;color:#C9C4B8">Cancel</a><button type="button" onClick="{{ go2 }}" style="display:inline-flex;align-items:center;gap:8px;height:52px;padding:0 26px;border-radius:8px;border:none;background:#E8E2D2;color:#07080A;font:500 16px 'Instrument Sans',sans-serif;cursor:pointer">Continue to aircraft <span aria-hidden="true">→</span></button></div>
+  </div>
+</div>
+</sc-if>
+
+<!-- STEP 2 · AIRCRAFT & PREFERENCES -->
+<sc-if value="{{ is2 }}" hint-placeholder-val="{{ false }}">
+<div>
+  <p style="margin:0 0 12px;font-size:14px;font-weight:600;color:#8A9099">Step 2 · Aircraft &amp; preferences</p>
+  <h1 style="margin:0;font-family:Fraunces,serif;font-weight:300;font-size:52px;line-height:1.05;letter-spacing:-.015em">The shape of the flight.</h1>
+  <p style="margin:16px 0 0;max-width:60ch;font-size:17px;color:#C9C4B8">Pick a category and tell us how you want it set up. Everything is optional except category — dispatch can fill in the rest. We’ve pre-recommended the right size for your route &amp; passengers.</p>
+
+  <section style="margin-top:36px">
+    <h2 style="margin:0;font-size:22px;font-weight:500">Match the aircraft to the trip.</h2>
+    <p style="margin:6px 0 0;font-size:15px;color:#C9C4B8">Greyed-out categories don’t fit your passenger count or route distance — adjust either to unlock.</p>
+    <div style="margin-top:20px;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px">
+      <sc-for list="{{ cats }}" as="c" hint-placeholder-count="6">
+        <button type="button" onClick="{{ c.select }}" disabled="{{ c.disabled }}" style="position:relative;text-align:left;cursor:pointer;background:#0E1014;border:1px solid {{ c.border }};border-radius:12px;padding:20px;color:#F4F1EA;font-family:'Instrument Sans',sans-serif;opacity:{{ c.opacity }};box-shadow:{{ c.shadow }}">
+          <sc-if value="{{ c.recommended }}" hint-placeholder-val="{{ false }}"><span style="position:absolute;right:14px;top:14px;font-size:12px;font-weight:600;color:#C9A24A">Recommended</span></sc-if>
+          <div style="font-size:20px;font-weight:500">{{ c.name }}</div>
+          <div style="margin-top:4px;font-size:14px;color:#C9C4B8">Up to {{ c.pax }} passengers · range {{ c.range }} nm</div>
+          <sc-if value="{{ c.disabled }}" hint-placeholder-val="{{ false }}"><div style="margin-top:8px;font-size:13px;color:#E07A6B">{{ c.reason }}</div></sc-if>
+        </button>
+      </sc-for>
+    </div>
+  </section>
+
+  <div style="margin-top:28px;display:flex;flex-direction:column;gap:10px">
+    <div style="font-size:14px;font-weight:600;color:#8A9099">Optional — open only what you care about</div>
+
+    <section style="background:#0E1014;border:1px solid #232830;border-radius:12px;overflow:hidden">
+      <button type="button" onClick="{{ toggleCabin }}" style="width:100%;display:flex;align-items:center;justify-content:space-between;gap:16px;padding:18px 24px;border:none;background:transparent;color:#F4F1EA;cursor:pointer;text-align:left;font-family:'Instrument Sans',sans-serif"><span><span style="font-size:18px;font-weight:500">Cabin preferences</span><span style="display:block;margin-top:2px;font-size:14px;color:#8A9099">{{ cabinSummary }}</span></span><span style="font-size:14px;color:#C9C4B8">{{ cabinChevron }}</span></button>
+      <sc-if value="{{ openCabin }}" hint-placeholder-val="{{ false }}">
+      <div style="padding:0 24px 24px"><p style="margin:0 0 14px;font-size:14px;color:#C9C4B8">All standard on most aircraft. We’ll match to operators that have what you ask for.</p>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <sc-for list="{{ cabin }}" as="t" hint-placeholder-count="6"><button type="button" onClick="{{ t.toggle }}" style="display:flex;align-items:flex-start;gap:14px;text-align:left;cursor:pointer;padding:14px 16px;border-radius:8px;border:1px solid {{ t.border }};background:#0A0C10;color:#F4F1EA;font-family:'Instrument Sans',sans-serif"><span style="margin-top:2px;width:36px;height:20px;border-radius:10px;background:{{ t.trackBg }};display:flex;align-items:center;padding:2px;flex-shrink:0"><span style="width:16px;height:16px;border-radius:50%;background:#F4F1EA;transform:translateX({{ t.knob }})"></span></span><span><span style="font-size:16px;font-weight:500">{{ t.name }}</span><span style="display:block;margin-top:2px;font-size:13px;color:#8A9099">{{ t.desc }}</span></span></button></sc-for>
+        </div></div>
+      </sc-if>
+    </section>
+
+    <section style="background:#0E1014;border:1px solid #232830;border-radius:12px;overflow:hidden">
+      <button type="button" onClick="{{ toggleCatering }}" style="width:100%;display:flex;align-items:center;justify-content:space-between;gap:16px;padding:18px 24px;border:none;background:transparent;color:#F4F1EA;cursor:pointer;text-align:left;font-family:'Instrument Sans',sans-serif"><span><span style="font-size:18px;font-weight:500">What’s on board</span><span style="display:block;margin-top:2px;font-size:14px;color:#8A9099">Catering: {{ cateringName }}</span></span><span style="font-size:14px;color:#C9C4B8">{{ cateringChevron }}</span></button>
+      <sc-if value="{{ openCatering }}" hint-placeholder-val="{{ false }}">
+      <div style="padding:0 24px 24px"><p style="margin:0 0 14px;font-size:14px;color:#C9C4B8">Curated menus from network providers. Custom requests &amp; dietary in notes below.</p>
+        <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px">
+          <sc-for list="{{ catering }}" as="c" hint-placeholder-count="4"><button type="button" onClick="{{ c.select }}" style="text-align:left;cursor:pointer;padding:14px 16px;border-radius:8px;border:1px solid {{ c.border }};background:#0A0C10;color:#F4F1EA;font-family:'Instrument Sans',sans-serif"><div style="display:flex;justify-content:space-between;gap:8px"><span style="font-size:16px;font-weight:500">{{ c.name }}</span><span style="font-size:13px;color:#C9A24A">{{ c.price }}</span></div><div style="margin-top:6px;font-size:13px;color:#8A9099">{{ c.desc }}</div></button></sc-for>
+        </div></div>
+      </sc-if>
+    </section>
+
+    <section style="background:#0E1014;border:1px solid #232830;border-radius:12px;overflow:hidden">
+      <button type="button" onClick="{{ toggleGround }}" style="width:100%;display:flex;align-items:center;justify-content:space-between;gap:16px;padding:18px 24px;border:none;background:transparent;color:#F4F1EA;cursor:pointer;text-align:left;font-family:'Instrument Sans',sans-serif"><span><span style="font-size:18px;font-weight:500">Curb to cabin</span><span style="display:block;margin-top:2px;font-size:14px;color:#8A9099">Ground transport: {{ groundName }}</span></span><span style="font-size:14px;color:#C9C4B8">{{ groundChevron }}</span></button>
+      <sc-if value="{{ openGround }}" hint-placeholder-val="{{ false }}">
+      <div style="padding:0 24px 24px"><p style="margin:0 0 14px;font-size:14px;color:#C9C4B8">Black car or chauffeur to the private terminal at every leg. Independent of the air charter cost.</p>
+        <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px">
+          <sc-for list="{{ ground }}" as="g" hint-placeholder-count="3"><button type="button" onClick="{{ g.select }}" style="text-align:left;cursor:pointer;padding:14px 16px;border-radius:8px;border:1px solid {{ g.border }};background:#0A0C10;color:#F4F1EA;font-family:'Instrument Sans',sans-serif"><div style="font-size:16px;font-weight:500">{{ g.name }}</div><div style="margin-top:6px;font-size:13px;color:#8A9099">{{ g.desc }}</div></button></sc-for>
+        </div></div>
+      </sc-if>
+    </section>
+
+    <section style="background:#0E1014;border:1px solid #232830;border-radius:12px;overflow:hidden">
+      <button type="button" onClick="{{ toggleExtras }}" style="width:100%;display:flex;align-items:center;justify-content:space-between;gap:16px;padding:18px 24px;border:none;background:transparent;color:#F4F1EA;cursor:pointer;text-align:left;font-family:'Instrument Sans',sans-serif"><span><span style="font-size:18px;font-weight:500">Anyone or anything else?</span><span style="display:block;margin-top:2px;font-size:14px;color:#8A9099">{{ extrasSummary }}</span></span><span style="font-size:14px;color:#C9C4B8">{{ extrasChevron }}</span></button>
+      <sc-if value="{{ openExtras }}" hint-placeholder-val="{{ false }}">
+      <div style="padding:0 24px 24px"><p style="margin:0 0 14px;font-size:14px;color:#C9C4B8">Pets fly in cabin on most aircraft. Crew adjusts catering &amp; safety briefing for kids.</p>
+        <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px">
+          <sc-for list="{{ extras }}" as="x" hint-placeholder-count="3"><div style="padding:14px 16px;border-radius:8px;border:1px solid #232830;background:#0A0C10"><div style="display:flex;align-items:center;justify-content:space-between;gap:8px"><span style="font-size:16px;font-weight:500">{{ x.name }}</span><span style="display:inline-flex;align-items:center;gap:6px"><button type="button" onClick="{{ x.dec }}" style="width:32px;height:32px;border-radius:50%;border:1px solid #2C323B;background:transparent;color:#F4F1EA;cursor:pointer;font-size:16px;line-height:1">−</button><span style="min-width:20px;text-align:center;font-size:17px">{{ x.value }}</span><button type="button" onClick="{{ x.inc }}" style="width:32px;height:32px;border-radius:50%;border:1px solid #2C323B;background:transparent;color:#F4F1EA;cursor:pointer;font-size:16px;line-height:1">+</button></span></div><div style="margin-top:8px;font-size:13px;color:#8A9099">{{ x.desc }}</div></div></sc-for>
+        </div></div>
+      </sc-if>
+    </section>
+
+    <section style="background:#0E1014;border:1px solid #232830;border-radius:12px;overflow:hidden">
+      <button type="button" onClick="{{ toggleNotes }}" style="width:100%;display:flex;align-items:center;justify-content:space-between;gap:16px;padding:18px 24px;border:none;background:transparent;color:#F4F1EA;cursor:pointer;text-align:left;font-family:'Instrument Sans',sans-serif"><span><span style="font-size:18px;font-weight:500">Anything else dispatch should know?</span><span style="display:block;margin-top:2px;font-size:14px;color:#8A9099">Special requests, mobility needs, time-sensitive details.</span></span><span style="font-size:14px;color:#C9C4B8">{{ notesChevron }}</span></button>
+      <sc-if value="{{ openNotes }}" hint-placeholder-val="{{ false }}">
+      <div style="padding:0 24px 24px">
+        <textarea rows="4" maxlength="800" placeholder="e.g. Wedding party — need full recline seats and extra cabin baggage. One passenger uses a wheelchair, will need ground assist at both terminals." style="width:100%;resize:vertical;background:#0A0C10;border:1px solid #232830;border-radius:8px;padding:12px 14px;color:#F4F1EA;font:15px/1.55 'Instrument Sans',sans-serif;outline:none"></textarea>
+        <div style="margin-top:10px;display:flex;align-items:center;gap:8px;flex-wrap:wrap"><span style="font-size:13px;color:#8A9099">Add common:</span>
+          <sc-for list="{{ noteChips }}" as="n" hint-placeholder-count="5"><button type="button" style="cursor:pointer;height:32px;padding:0 12px;border-radius:999px;border:1px solid #2C323B;background:transparent;color:#C9C4B8;font:13px 'Instrument Sans',sans-serif">{{ n }}</button></sc-for>
+        </div>
+        <div style="margin-top:8px;font-size:13px;color:#8A9099">Visible to dispatch &amp; operator only</div>
+      </div>
+      </sc-if>
+    </section>
+  </div>
+
+  <div style="margin-top:32px;display:flex;align-items:center;justify-content:space-between;gap:16px;border-top:1px solid #232830;padding-top:24px">
+    <span style="font-size:14px;color:#8A9099">Step 2 of 4 · Saved</span>
+    <div style="display:flex;align-items:center;gap:20px"><button type="button" onClick="{{ go1 }}" style="border:none;background:transparent;color:#C9C4B8;font:15px 'Instrument Sans',sans-serif;cursor:pointer">← Back</button><button type="button" onClick="{{ go3 }}" style="display:inline-flex;align-items:center;gap:8px;height:52px;padding:0 26px;border-radius:8px;border:none;background:#E8E2D2;color:#07080A;font:500 16px 'Instrument Sans',sans-serif;cursor:pointer">Continue to contact <span aria-hidden="true">→</span></button></div>
+  </div>
+</div>
+</sc-if>
+
+<!-- STEP 3 · CONTACT -->
+<sc-if value="{{ is3 }}" hint-placeholder-val="{{ false }}">
+<div>
+  <p style="margin:0 0 12px;font-size:14px;font-weight:600;color:#8A9099">Step 3 · Contact</p>
+  <h1 style="margin:0;font-family:Fraunces,serif;font-weight:300;font-size:52px;line-height:1.05;letter-spacing:-.015em">How to reach you.</h1>
+  <p style="margin:16px 0 0;max-width:60ch;font-size:17px;color:#C9C4B8">Dispatch returns the quote to you within 30 minutes during operating hours. We won’t share your details — quote requests stay between you and your dispatcher.</p>
+
+  <section style="margin-top:36px;background:#0E1014;border:1px solid #232830;border-radius:12px;padding:28px">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap">
+      <div><h2 style="margin:0;font-size:22px;font-weight:500">New here, or flown with us before?</h2><p style="margin:4px 0 0;font-size:14px;color:#8A9099">Returning clients get one-tap quote requests next time.</p></div>
+      <div role="radiogroup" style="display:inline-flex;background:#161A20;border-radius:8px;padding:4px;gap:2px"><sc-for list="{{ accountOpts }}" as="a" hint-placeholder-count="2"><button type="button" onClick="{{ a.select }}" style="border:none;cursor:pointer;height:36px;padding:0 16px;border-radius:6px;font:500 14px 'Instrument Sans',sans-serif;background:{{ a.bg }};color:{{ a.fg }}">{{ a.label }}</button></sc-for></div>
+    </div>
+  </section>
+
+  <section style="margin-top:16px;background:#0E1014;border:1px solid #232830;border-radius:12px;padding:28px">
+    <h2 style="margin:0;font-size:22px;font-weight:500">Primary contact</h2><p style="margin:4px 0 0;font-size:14px;color:#8A9099">The person dispatch will call. Add a co-traveler later if you’d like.</p>
+    <div style="margin-top:20px;display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <label style="display:flex;flex-direction:column;gap:4px;background:#161A20;border-radius:8px;padding:10px 14px"><span style="font-size:13px;color:#C9C4B8">First name</span><input type="text" value="{{ firstName }}" onChange="{{ setFirst }}" autocomplete="given-name" style="background:transparent;border:none;outline:none;color:#F4F1EA;font:16px 'Instrument Sans',sans-serif;width:100%"></label>
+      <label style="display:flex;flex-direction:column;gap:4px;background:#161A20;border-radius:8px;padding:10px 14px"><span style="font-size:13px;color:#C9C4B8">Last name</span><input type="text" value="{{ lastName }}" onChange="{{ setLast }}" autocomplete="family-name" style="background:transparent;border:none;outline:none;color:#F4F1EA;font:16px 'Instrument Sans',sans-serif;width:100%"></label>
+      <label style="grid-column:1/-1;display:flex;flex-direction:column;gap:4px;background:#161A20;border-radius:8px;padding:10px 14px"><span style="font-size:13px;color:#C9C4B8">Email</span><input type="email" value="{{ email }}" onChange="{{ setEmail }}" placeholder="you@example.com" style="background:transparent;border:none;outline:none;color:#F4F1EA;font:16px 'Instrument Sans',sans-serif;width:100%"></label>
+      <div style="grid-column:1/-1;display:grid;grid-template-columns:120px 1fr;gap:10px">
+        <label style="display:flex;flex-direction:column;gap:4px;background:#161A20;border-radius:8px;padding:10px 14px"><span style="font-size:13px;color:#C9C4B8">Country</span><select style="background:transparent;border:none;outline:none;color:#F4F1EA;font:16px 'Instrument Sans',sans-serif;width:100%;color-scheme:dark"><option>🇺🇸 +1</option><option>🇬🇧 +44</option><option>🇫🇷 +33</option><option>🇨🇭 +41</option><option>🇩🇪 +49</option><option>🇦🇪 +971</option><option>🇯🇵 +81</option><option>🇸🇬 +65</option><option>🇲🇽 +52</option></select></label>
+        <label style="display:flex;flex-direction:column;gap:4px;background:#161A20;border-radius:8px;padding:10px 14px"><span style="font-size:13px;color:#C9C4B8">Phone</span><input type="tel" value="{{ phone }}" onChange="{{ setPhone }}" placeholder="(818) 555-0142" style="background:transparent;border:none;outline:none;color:#F4F1EA;font:16px 'Instrument Sans',sans-serif;width:100%"></label>
+      </div>
+      <label style="grid-column:1/-1;display:flex;flex-direction:column;gap:4px;background:#161A20;border-radius:8px;padding:10px 14px"><span style="font-size:13px;color:#C9C4B8">Company <span style="color:#8A9099">(optional)</span></span><input type="text" style="background:transparent;border:none;outline:none;color:#F4F1EA;font:16px 'Instrument Sans',sans-serif;width:100%"></label>
+    </div>
+  </section>
+
+  <section style="margin-top:16px;background:#0E1014;border:1px solid #232830;border-radius:12px;padding:28px">
+    <h2 style="margin:0;font-size:22px;font-weight:500">How should dispatch follow up?</h2><p style="margin:4px 0 0;font-size:14px;color:#8A9099">Pick any combination. The first one is the primary channel for the initial quote.</p>
+    <div style="margin-top:20px;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px">
+      <sc-for list="{{ methods }}" as="m" hint-placeholder-count="3"><button type="button" onClick="{{ m.toggle }}" style="display:flex;align-items:flex-start;gap:12px;text-align:left;cursor:pointer;padding:14px 16px;border-radius:8px;border:1px solid {{ m.border }};background:#0A0C10;color:#F4F1EA;font-family:'Instrument Sans',sans-serif"><span style="margin-top:2px;width:20px;height:20px;border-radius:4px;border:1px solid {{ m.border }};background:{{ m.boxBg }};color:#07080A;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0">{{ m.check }}</span><span><span style="font-size:16px;font-weight:500">{{ m.name }}</span><span style="display:block;margin-top:2px;font-size:13px;color:#8A9099">{{ m.desc }}</span></span></button></sc-for>
+    </div>
+  </section>
+
+  <section style="margin-top:16px;background:#0E1014;border:1px solid #232830;border-radius:12px;overflow:hidden">
+    <button type="button" onClick="{{ toggleMore }}" style="width:100%;display:flex;align-items:center;justify-content:space-between;gap:16px;padding:18px 28px;border:none;background:transparent;color:#F4F1EA;cursor:pointer;text-align:left;font-family:'Instrument Sans',sans-serif"><span><span style="font-size:18px;font-weight:500">Optional: best time to reach you &amp; how you heard about us</span><span style="display:block;margin-top:2px;font-size:14px;color:#8A9099">{{ moreSummary }}</span></span><span style="font-size:14px;color:#C9C4B8">{{ moreChevron }}</span></button>
+    <sc-if value="{{ openMore }}" hint-placeholder-val="{{ false }}">
+    <div style="padding:0 28px 28px">
+      <div style="font-size:15px;font-weight:500">When are you easiest to reach?</div><p style="margin:2px 0 10px;font-size:13px;color:#8A9099">All times in your local timezone. Dispatch operates 24/7 — pick what’s convenient.</p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap"><sc-for list="{{ bestTimes }}" as="b" hint-placeholder-count="6"><button type="button" onClick="{{ b.select }}" style="cursor:pointer;height:36px;padding:0 14px;border-radius:999px;border:1px solid #2C323B;background:{{ b.bg }};color:{{ b.fg }};font:500 14px 'Instrument Sans',sans-serif">{{ b.label }}</button></sc-for></div>
+      <div style="margin-top:20px;font-size:15px;font-weight:500">How did you hear about us?</div><p style="margin:2px 0 10px;font-size:13px;color:#8A9099">Optional — helps us know which channels are working.</p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap"><sc-for list="{{ sources }}" as="b" hint-placeholder-count="6"><button type="button" onClick="{{ b.select }}" style="cursor:pointer;height:36px;padding:0 14px;border-radius:999px;border:1px solid #2C323B;background:{{ b.bg }};color:{{ b.fg }};font:500 14px 'Instrument Sans',sans-serif">{{ b.label }}</button></sc-for></div>
+    </div>
+    </sc-if>
+  </section>
+
+  <section style="margin-top:16px;background:#0E1014;border:1px solid #232830;border-radius:12px;padding:28px">
+    <h2 style="margin:0;font-size:22px;font-weight:500">A couple of agreements</h2><p style="margin:4px 0 0;font-size:14px;color:#8A9099">Required for the quote — standard FAA Part 295 broker disclosures.</p>
+    <div style="margin-top:16px;display:flex;flex-direction:column;gap:10px">
+      <sc-for list="{{ consents }}" as="c" hint-placeholder-count="3"><label style="display:grid;grid-template-columns:auto 1fr;gap:14px;align-items:start;padding:14px 16px;border-radius:8px;border:1px solid #232830;background:#0A0C10;cursor:pointer"><input type="checkbox" checked="{{ c.on }}" onChange="{{ c.toggle }}" style="margin-top:3px;width:20px;height:20px;accent-color:#E8E2D2"><span><span style="font-size:15px">{{ c.text }} <sc-if value="{{ c.required }}" hint-placeholder-val="{{ true }}"><span style="color:#E07A6B">*</span></sc-if></span><span style="display:block;margin-top:4px;font-size:13px;color:#8A9099">{{ c.sub }}</span></span></label></sc-for>
+    </div>
+  </section>
+
+  <div style="margin-top:32px;display:flex;align-items:center;justify-content:space-between;gap:16px;border-top:1px solid #232830;padding-top:24px">
+    <span style="font-size:14px;color:#8A9099">Step 3 of 4 · Saved</span>
+    <div style="display:flex;align-items:center;gap:20px"><button type="button" onClick="{{ go2 }}" style="border:none;background:transparent;color:#C9C4B8;font:15px 'Instrument Sans',sans-serif;cursor:pointer">← Back</button><button type="button" onClick="{{ go4 }}" style="display:inline-flex;align-items:center;gap:8px;height:52px;padding:0 26px;border-radius:8px;border:none;background:#E8E2D2;color:#07080A;font:500 16px 'Instrument Sans',sans-serif;cursor:pointer">Continue to review <span aria-hidden="true">→</span></button></div>
+  </div>
+</div>
+</sc-if>
+
+<!-- STEP 4 · REVIEW -->
+<sc-if value="{{ is4 }}" hint-placeholder-val="{{ false }}">
+<div>
+  <p style="margin:0 0 12px;font-size:14px;font-weight:600;color:#8A9099">Step 4 · Review</p>
+  <h1 style="margin:0;font-family:Fraunces,serif;font-weight:300;font-size:52px;line-height:1.05;letter-spacing:-.015em">Last look, then we send it.</h1>
+  <p style="margin:16px 0 0;max-width:64ch;font-size:17px;color:#C9C4B8">Everything you’ve given us. Edit any section if something needs changing — the rest of your work is preserved. When you submit, dispatch picks it up immediately and returns specific aircraft &amp; pricing within 30 minutes.</p>
+
+  <section style="margin-top:36px;background:rgba(232,226,210,.04);border:1px solid #E8E2D2;border-radius:12px;padding:32px;display:grid;grid-template-columns:1.4fr 1fr;gap:32px;align-items:end">
+    <div><div style="font-size:14px;font-weight:600;color:#E8E2D2">Indicative range</div><div style="margin-top:8px;font-family:Fraunces,serif;font-weight:300;font-size:48px;line-height:1;letter-spacing:-.02em;white-space:nowrap">{{ price }}</div><p style="margin:16px 0 0;font-size:15px;color:#C9C4B8">All-in pricing. Fuel, taxes, FET (7.5%), repositioning, crew, catering &amp; ground transport included. Final pricing locks once a specific aircraft is selected.</p></div>
+    <ul style="list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px;text-align:right;font-size:15px;color:#C9C4B8"><li>Quote returned in &lt; 30 min</li><li>ARG/US Platinum operators only</li><li>No commitment until accepted</li></ul>
+  </section>
+
+  <section style="margin-top:32px"><header style="display:flex;align-items:baseline;justify-content:space-between;border-bottom:1px solid #232830;padding-bottom:12px"><h2 style="margin:0;font-size:22px;font-weight:500">1 · Mission</h2><button type="button" onClick="{{ go1 }}" style="border:none;background:transparent;color:#C9C4B8;font:15px 'Instrument Sans',sans-serif;cursor:pointer;text-decoration:underline;text-underline-offset:3px">Edit</button></header>
+    <div style="margin-top:16px;display:flex;flex-direction:column;gap:10px">
+      <sc-for list="{{ legs }}" as="l" hint-placeholder-count="2"><div style="display:grid;grid-template-columns:120px 1fr auto;gap:16px;align-items:center;background:#0E1014;border:1px solid #232830;border-radius:8px;padding:16px 20px"><span style="font-size:14px;font-weight:600;color:#8A9099">{{ l.title }}</span><span style="font-size:18px">{{ l.from }} <span style="color:#8A9099">→</span> {{ l.to }}</span><span style="text-align:right;font-size:14px;color:#C9C4B8">{{ l.date }} · {{ l.time }} depart<br><span style="color:#8A9099">{{ l.nm }} nm</span></span></div></sc-for>
+    </div>
+    <div style="margin-top:16px;display:grid;grid-template-columns:repeat(3,1fr);gap:16px"><div><div style="font-size:13px;color:#8A9099">Passengers</div><div style="margin-top:4px;font-family:Fraunces,serif;font-weight:300;font-size:28px">{{ pax }}</div></div><div><div style="font-size:13px;color:#8A9099">Total distance</div><div style="margin-top:4px;font-family:Fraunces,serif;font-weight:300;font-size:28px">{{ totalNm }} nm</div></div><div><div style="font-size:13px;color:#8A9099">Total flight time</div><div style="margin-top:4px;font-family:Fraunces,serif;font-weight:300;font-size:28px">{{ totalTime }}</div></div></div>
+  </section>
+
+  <section style="margin-top:32px"><header style="display:flex;align-items:baseline;justify-content:space-between;border-bottom:1px solid #232830;padding-bottom:12px"><h2 style="margin:0;font-size:22px;font-weight:500">2 · Aircraft &amp; preferences</h2><button type="button" onClick="{{ go2 }}" style="border:none;background:transparent;color:#C9C4B8;font:15px 'Instrument Sans',sans-serif;cursor:pointer;text-decoration:underline;text-underline-offset:3px">Edit</button></header>
+    <div style="margin-top:16px;display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div style="background:#0E1014;border:1px solid #232830;border-radius:8px;padding:16px 20px"><div style="font-size:13px;color:#8A9099">Category</div><div style="margin-top:4px;font-size:19px;font-weight:500">{{ catName }} jet</div><div style="font-size:14px;color:#C9C4B8">{{ catSub }}</div></div>
+      <div style="background:#0E1014;border:1px solid #232830;border-radius:8px;padding:16px 20px"><div style="font-size:13px;color:#8A9099">Catering</div><div style="margin-top:4px;font-size:19px;font-weight:500">{{ cateringName }}</div><div style="font-size:14px;color:#C9C4B8">{{ cateringSub }}</div></div>
+      <div style="background:#0E1014;border:1px solid #232830;border-radius:8px;padding:16px 20px"><div style="font-size:13px;color:#8A9099">Ground transport</div><div style="margin-top:4px;font-size:19px;font-weight:500">{{ groundName }}</div><div style="font-size:14px;color:#C9C4B8">{{ groundSub }}</div></div>
+      <div style="background:#0E1014;border:1px solid #232830;border-radius:8px;padding:16px 20px"><div style="font-size:13px;color:#8A9099">Extras</div><div style="margin-top:4px;font-size:19px;font-weight:500">{{ extrasSummary }}</div><div style="font-size:14px;color:#C9C4B8">Crew briefed in advance</div></div>
+    </div>
+    <div style="margin-top:16px;font-size:13px;color:#8A9099">Cabin preferences</div>
+    <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap"><sc-for list="{{ cabin }}" as="t" hint-placeholder-count="6"><span style="height:32px;display:inline-flex;align-items:center;padding:0 12px;border-radius:999px;border:1px solid {{ t.border }};font-size:14px;color:{{ t.chipColor }}">{{ t.chipLabel }}</span></sc-for></div>
+    <div style="margin-top:16px;font-size:13px;color:#8A9099">Notes for dispatch</div>
+    <div style="margin-top:8px;background:#0E1014;border:1px solid #232830;border-radius:8px;padding:16px 20px;font-size:15px;color:#C9C4B8">No notes added.</div>
+  </section>
+
+  <section style="margin-top:32px"><header style="display:flex;align-items:baseline;justify-content:space-between;border-bottom:1px solid #232830;padding-bottom:12px"><h2 style="margin:0;font-size:22px;font-weight:500">3 · Contact</h2><button type="button" onClick="{{ go3 }}" style="border:none;background:transparent;color:#C9C4B8;font:15px 'Instrument Sans',sans-serif;cursor:pointer;text-decoration:underline;text-underline-offset:3px">Edit</button></header>
+    <dl style="margin:16px 0 0;display:grid;grid-template-columns:1fr 1fr;gap:16px 24px;font-size:16px">
+      <div><dt style="font-size:13px;color:#8A9099">Name</dt><dd style="margin:4px 0 0">{{ fullName }}</dd></div><div><dt style="font-size:13px;color:#8A9099">Company</dt><dd style="margin:4px 0 0">—</dd></div>
+      <div><dt style="font-size:13px;color:#8A9099">Email</dt><dd style="margin:4px 0 0">{{ email }}</dd></div><div><dt style="font-size:13px;color:#8A9099">Phone</dt><dd style="margin:4px 0 0">+1 {{ phone }}</dd></div>
+      <div><dt style="font-size:13px;color:#8A9099">Reach me by</dt><dd style="margin:4px 0 0">{{ methodList }}</dd></div><div><dt style="font-size:13px;color:#8A9099">Best time</dt><dd style="margin:4px 0 0">{{ bestTimeLabel }}</dd></div>
+    </dl>
+  </section>
+
+  <section style="margin-top:32px;background:#0E1014;border:1px solid #232830;border-radius:12px;padding:32px">
+    <h2 style="margin:0;font-size:22px;font-weight:500">What happens next</h2><p style="margin:6px 0 0;font-size:15px;color:#C9C4B8">Four steps. Most clients fly within a week.</p>
+    <ol style="list-style:none;margin:24px 0 0;padding:0;display:flex;flex-direction:column;gap:20px">
+      <sc-for list="{{ next }}" as="n" hint-placeholder-count="4"><li style="display:grid;grid-template-columns:28px 1fr auto;gap:16px;align-items:start"><span style="width:28px;height:28px;border-radius:50%;background:#E8E2D2;color:#07080A;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600">{{ n.i }}</span><div><div style="font-size:17px;font-weight:500">{{ n.t }}</div><div style="margin-top:2px;font-size:14px;color:#C9C4B8;max-width:60ch">{{ n.b }}</div></div><span style="font-size:14px;color:#C9A24A;white-space:nowrap">{{ n.w }}</span></li></sc-for>
+    </ol>
+  </section>
+
+  <section style="margin-top:24px;background:#0E1014;border:1px solid #E8E2D2;border-radius:12px;padding:32px">
+    <h2 style="margin:0;font-family:Fraunces,serif;font-weight:300;font-size:32px;line-height:1.15">Send it to dispatch.</h2>
+    <p style="margin:12px 0 0;max-width:72ch;font-size:15px;color:#C9C4B8">By submitting, you agree to the <a href="#" style="text-decoration:underline;text-underline-offset:3px;color:#F4F1EA">Part 295 broker disclosure</a> &amp; <a href="#" style="text-decoration:underline;text-underline-offset:3px;color:#F4F1EA">terms of service</a>. Quote requests are not commitments — you’ll review specific aircraft and pricing before anything is booked.</p>
+    <a href="Your request.dc.html" style="display:inline-flex;align-items:center;gap:8px;margin-top:24px;height:56px;padding:0 28px;border-radius:8px;background:#E8E2D2;color:#07080A;font-weight:500;font-size:17px">Submit quote request <span aria-hidden="true">→</span></a>
+  </section>
+  <div style="margin-top:24px;display:flex;align-items:center;justify-content:space-between;border-top:1px solid #232830;padding-top:24px"><span style="font-size:14px;color:#8A9099">Saved</span><button type="button" onClick="{{ go3 }}" style="border:none;background:transparent;color:#C9C4B8;font:15px 'Instrument Sans',sans-serif;cursor:pointer">← Back to contact</button></div>
+</div>
+</sc-if>
+</div>
+
+<aside style="position:sticky;top:160px;background:#0E1014;border:1px solid #232830;border-radius:12px;padding:24px">
+  <div style="display:flex;align-items:baseline;justify-content:space-between"><div style="font-size:13px;font-weight:600;color:#8A9099">Your trip so far</div><span style="font-size:12px;font-weight:600;color:#E8E2D2">{{ tripLabel }}</span></div>
+  <div style="margin-top:12px;display:flex;flex-direction:column;gap:6px"><sc-for list="{{ legs }}" as="l" hint-placeholder-count="2"><div style="font-size:16px">{{ l.from }} <span style="color:#8A9099">→</span> {{ l.to }}<span style="display:block;font-size:13px;color:#8A9099">{{ l.date }}, {{ l.time }}</span></div></sc-for></div>
+  <dl style="margin:16px 0 0;padding-top:16px;border-top:1px solid #232830;display:grid;grid-template-columns:1fr auto;gap:8px 16px;font-size:15px">
+    <dt style="color:#8A9099">Passengers</dt><dd style="margin:0;text-align:right">{{ pax }}</dd>
+    <dt style="color:#8A9099">Distance</dt><dd style="margin:0;text-align:right">{{ totalNm }} nm</dd>
+    <dt style="color:#8A9099">Flight time</dt><dd style="margin:0;text-align:right">{{ totalTime }}</dd>
+    <sc-if value="{{ from2 }}" hint-placeholder-val="{{ false }}"><dt style="color:#8A9099">Aircraft</dt><dd style="margin:0;text-align:right">{{ catName }}</dd><dt style="color:#8A9099">Catering</dt><dd style="margin:0;text-align:right">{{ cateringName }}</dd><dt style="color:#8A9099">Ground</dt><dd style="margin:0;text-align:right">{{ groundShort }}</dd></sc-if>
+  </dl>
+  <sc-if value="{{ is3 }}" hint-placeholder-val="{{ false }}"><div style="margin-top:16px;padding-top:16px;border-top:1px solid #232830;font-size:15px"><div style="font-size:13px;color:#8A9099">Contact</div><div style="margin-top:4px">{{ fullName }}</div><div style="font-size:14px;color:#C9C4B8">{{ email }}</div></div></sc-if>
+  <div style="margin-top:16px;padding-top:16px;border-top:1px solid #232830"><div style="font-size:13px;font-weight:600;color:#8A9099">Indicative range</div><div style="margin-top:6px;font-family:Fraunces,serif;font-weight:300;font-size:30px;line-height:1.1">{{ price }}</div><p style="margin:10px 0 0;font-size:14px;color:#C9C4B8">{{ priceNote }}</p></div>
+</aside>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;step&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;1&quot;,&quot;2&quot;,&quot;3&quot;,&quot;4&quot;],&quot;default&quot;:&quot;1&quot;,&quot;tsType&quot;:&quot;'1' | '2' | '3' | '4'&quot;,&quot;section&quot;:&quot;State&quot;}}">
+class Component extends DCLogic {
+  state = { step: null, trip: "roundtrip", pax: 4, cat: "midsize", cabin: { wifi: true, lavatory: true }, catering: "standard", ground: "none", kids: 0, pets: 0, bags: 0,
+    open: {}, account: "new", firstName: "Dana", lastName: "Whitfield", email: "dana.w@example.com", phone: "(310) 555-0142", methods: { email: true, phone: false, sms: true }, bestTime: "any", source: null,
+    consent: { broker: true, contact: true, marketing: false } };
+  renderVals() {
+    const s = this.state;
+    const step = s.step ?? Number(this.props.step ?? 1);
+    const go = n => () => this.setState({ step: n });
+    const sel = (on) => on ? "#E8E2D2" : "#232830";
+    const FLEET = [
+      { slug: "turboprop", name: "Turboprop", pax: 9, range: 1200, kt: 290 }, { slug: "light", name: "Light", pax: 7, range: 1660, kt: 430 }, { slug: "midsize", name: "Midsize", pax: 9, range: 2400, kt: 450 },
+      { slug: "supermid", name: "Super-mid", pax: 9, range: 3500, kt: 470 }, { slug: "heavy", name: "Heavy", pax: 14, range: 4500, kt: 480 }, { slug: "ultra", name: "Ultra long range", pax: 16, range: 7500, kt: 500 },
+    ];
+    const legsData = s.trip === "oneway"
+      ? [{ title: "Outbound", from: "Los Angeles (VNY)", to: "Aspen (ASE)", date: "Fri, Oct 3", time: "09:00", nmv: 612 }]
+      : [{ title: "Outbound", from: "Los Angeles (VNY)", to: "Aspen (ASE)", date: "Fri, Oct 3", time: "09:00", nmv: 612 }, { title: "Return", from: "Aspen (ASE)", to: "Los Angeles (VNY)", date: "Sun, Oct 5", time: "17:00", nmv: 612 }];
+    const legs = legsData.map(l => ({ ...l, nm: l.nmv.toLocaleString() }));
+    const totalNmV = legsData.reduce((a, l) => a + l.nmv, 0);
+    const fleet = FLEET.find(f => f.slug === s.cat);
+    const longest = Math.max(...legsData.map(l => l.nmv));
+    const hours = totalNmV / fleet.kt + 0.4 * legsData.length;
+    const fmtH = h => `${Math.floor(h)}h ${String(Math.round((h % 1) * 60)).padStart(2, "0")}m`;
+    const CAT = { standard: ["Standard", "Included", "Cold platters, snacks, soft drinks, coffee & tea.", "Cold platters · snacks · bar"], plus: ["Plus", "+$180/leg", "Hot meal options, fresh fruit, premium snacks, full bar.", "Hot meals · premium bar"], premium: ["Premium", "+$450/leg", "Chef-prepared menu from a partner restaurant. Choice of 3 entrées.", "Chef-prepared menu"], custom: ["Custom", "Quoted", "Your own menu, your own caterer, your own dietary specs.", "Custom — quoted separately"] };
+    const GRD = { none: ["None — I’ve got it", "No ground transport at any leg.", "None — self-arrange", "No ground transport requested.", "—"], sedan: ["Black sedan", "One vehicle per leg, professional chauffeur. ~$180/leg.", "Black sedan", "Both legs · ~$180/leg", "Black sedan"], suv: ["SUV / Sprinter", "For groups or extra baggage. From ~$280/leg.", "SUV / Sprinter", "Both legs · ~$280/leg", "SUV / Sprinter"] };
+    const CAB = [["wifi", "Wi-Fi", "Gogo Avance L5 or better, on most cabins"], ["attendant", "Flight attendant", "Standard on heavy & ultra long range, available on midsize+"], ["lavatory", "Enclosed lavatory", "Standard on midsize+, optional on light"], ["standup", "Stand-up cabin", "Midsize and larger only"], ["lieflat", "Lie-flat seating", "Available on heavy & ultra-long-range aircraft"], ["pet", "Pet-friendly", "In-cabin, no carrier — confirmed at booking"]];
+    const onCabin = CAB.filter(([k]) => s.cabin[k]).map(([, n]) => n);
+    const base = { turboprop: 2950, light: 3900, midsize: 5600, supermid: 7200, heavy: 9800, ultra: 13500 }[s.cat];
+    const lo = Math.round(base * hours * 0.92 / 100) * 100, hi = Math.round(base * hours * 1.24 / 100) * 100;
+    const price = `$${lo.toLocaleString()} – $${hi.toLocaleString()}`;
+    const toggleOpen = k => () => this.setState(st => ({ open: { ...st.open, [k]: !st.open[k] } }));
+    const chev = k => s.open[k] ? "Hide ▲" : "Show ▼";
+    const extrasList = [s.kids ? `${s.kids} kids` : null, s.pets ? `${s.pets} pets` : null, s.bags ? `${s.bags} extra bags` : null].filter(Boolean);
+    const stepNames = ["Mission", "Aircraft & preferences", "Contact", "Review"];
+    const BT = [["any", "Any time"], ["morning", "Morning · 6–11"], ["midday", "Midday · 11–2"], ["afternoon", "Afternoon · 2–6"], ["evening", "Evening · 6–10"], ["latenight", "After 10"]];
+    const methodList = [["email", "Email"], ["phone", "Phone"], ["sms", "SMS"]].filter(([k]) => s.methods[k]).map(([, n]) => n).join(" + ") || "—";
+    return {
+      is1: step === 1, is2: step === 2, is3: step === 3, is4: step === 4, from2: step >= 2,
+      go1: go(1), go2: go(2), go3: go(3), go4: go(4),
+      steps: stepNames.map((label, i) => { const n = i + 1, done = n < step, cur = n === step; return { n, label, go: go(n), bg: done || cur ? "#E8E2D2" : "transparent", fg: done || cur ? "#07080A" : "#8A9099", border: done || cur ? "#E8E2D2" : "#2C323B", color: cur ? "#F4F1EA" : "#8A9099", line: cur ? "#E8E2D2" : "transparent" }; }),
+      tripTypes: [["roundtrip", "Round trip"], ["oneway", "One way"], ["multileg", "Multi-leg"]].map(([k, label]) => ({ label, select: () => this.setState({ trip: k }), bg: s.trip === k ? "#E8E2D2" : "transparent", fg: s.trip === k ? "#07080A" : "#C9C4B8" })),
+      tripLabel: { roundtrip: "Round trip", oneway: "One way", multileg: "Multi-leg" }[s.trip],
+      legs, pax: s.pax, totalNm: totalNmV.toLocaleString(), totalTime: fmtH(hours),
+      paxHint: s.pax <= 7 ? "Light or midsize jet · plenty of room with full baggage." : s.pax <= 9 ? "Midsize or super-mid jet · room to stand and stretch." : "Heavy or ultra long range · the whole group, with beds.",
+      incPax: () => this.setState(st => ({ pax: Math.min(16, st.pax + 1) })), decPax: () => this.setState(st => ({ pax: Math.max(1, st.pax - 1) })),
+      routes: ["Los Angeles (VNY) → New York (JFK)", "Los Angeles (LAX) → Las Vegas", "New York (TEB) → West Palm Beach", "New York (JFK) → London (LTN)", "Los Angeles (VNY) → Aspen"],
+      cats: FLEET.map(f => { const tooSmall = f.pax < s.pax, tooShort = f.range < longest, dis = tooSmall || tooShort, on = s.cat === f.slug; return { name: f.name, pax: f.pax, range: f.range.toLocaleString(), recommended: f.slug === "midsize" && !dis, disabled: dis, reason: tooSmall ? `Too small for ${s.pax} passengers` : `Range short of ${longest} nm`, opacity: dis ? 0.4 : 1, border: on ? "#E8E2D2" : "#232830", shadow: on ? "0 0 0 1px #E8E2D2" : "none", select: () => this.setState({ cat: f.slug }) }; }),
+      catName: fleet.name, catSub: `~${fleet.kt} kt · ${fleet.range.toLocaleString()} nm range · ${fleet.pax} passengers`,
+      openCabin: !!s.open.cabin, toggleCabin: toggleOpen("cabin"), cabinChevron: chev("cabin"), cabinSummary: onCabin.length ? onCabin.join(" · ") : "None requested",
+      cabin: CAB.map(([k, name, desc]) => { const on = !!s.cabin[k]; return { name, desc, border: sel(on), trackBg: on ? "#E8E2D2" : "#2C323B", knob: on ? "16px" : "0", chipLabel: on ? `✓ ${name}` : `${name} — not requested`, chipColor: on ? "#F4F1EA" : "#8A9099", toggle: () => this.setState(st => ({ cabin: { ...st.cabin, [k]: !st.cabin[k] } })) }; }),
+      openCatering: !!s.open.catering, toggleCatering: toggleOpen("catering"), cateringChevron: chev("catering"), cateringName: CAT[s.catering][0], cateringSub: CAT[s.catering][3],
+      catering: Object.entries(CAT).map(([k, [name, priceLabel, desc]]) => ({ name, price: priceLabel, desc, border: sel(s.catering === k), select: () => this.setState({ catering: k }) })),
+      openGround: !!s.open.ground, toggleGround: toggleOpen("ground"), groundChevron: chev("ground"), groundName: GRD[s.ground][2], groundSub: GRD[s.ground][3], groundShort: GRD[s.ground][4],
+      ground: Object.entries(GRD).map(([k, [name, desc]]) => ({ name, desc, border: sel(s.ground === k), select: () => this.setState({ ground: k }) })),
+      openExtras: !!s.open.extras, toggleExtras: toggleOpen("extras"), extrasChevron: chev("extras"), extrasSummary: extrasList.length ? extrasList.join(" · ") : "None",
+      extras: [["kids", "Children", "Under 12, with car-seat as needed", 8], ["pets", "Pets", "In cabin, no carrier required", 4], ["bags", "Extra bags", "Beyond 1 carry-on + 1 checked per passenger", 12]].map(([k, name, desc, max]) => ({ name, desc, value: s[k], inc: () => this.setState(st => ({ [k]: Math.min(max, st[k] + 1) })), dec: () => this.setState(st => ({ [k]: Math.max(0, st[k] - 1) })) })),
+      openNotes: !!s.open.notes, toggleNotes: toggleOpen("notes"), notesChevron: chev("notes"),
+      noteChips: ["Quiet flight requested", "Champagne on arrival", "Wheelchair assist", "Kosher catering", "Need bed/lie-flat seat"],
+      accountOpts: [["new", "New to JetNine"], ["returning", "Returning client"]].map(([k, label]) => ({ label, select: () => this.setState({ account: k }), bg: s.account === k ? "#E8E2D2" : "transparent", fg: s.account === k ? "#07080A" : "#C9C4B8" })),
+      firstName: s.firstName, lastName: s.lastName, email: s.email, phone: s.phone, fullName: `${s.firstName} ${s.lastName}`.trim() || "—",
+      setFirst: e => this.setState({ firstName: e.target.value }), setLast: e => this.setState({ lastName: e.target.value }), setEmail: e => this.setState({ email: e.target.value }), setPhone: e => this.setState({ phone: e.target.value }),
+      methods: [["email", "Email", "Quote PDF + itinerary link"], ["phone", "Phone call", "Live walkthrough with dispatch"], ["sms", "SMS", "Real-time updates en-route"]].map(([k, name, desc]) => { const on = !!s.methods[k]; return { name, desc, border: sel(on), boxBg: on ? "#E8E2D2" : "transparent", check: on ? "✓" : "", toggle: () => this.setState(st => ({ methods: { ...st.methods, [k]: !st.methods[k] } })) }; }),
+      methodList,
+      openMore: !!s.open.more, toggleMore: toggleOpen("more"), moreChevron: chev("more"), moreSummary: `${BT.find(b => b[0] === s.bestTime)[1]}${s.source ? " · " + s.source : ""}`,
+      bestTimes: BT.map(([k, label]) => ({ label, select: () => this.setState({ bestTime: k }), bg: s.bestTime === k ? "#E8E2D2" : "transparent", fg: s.bestTime === k ? "#07080A" : "#C9C4B8" })),
+      bestTimeLabel: BT.find(b => b[0] === s.bestTime)[1],
+      sources: ["Referred by a friend", "Search", "Social", "Press / article", "Saw a JetNine aircraft", "Other"].map(label => ({ label, select: () => this.setState(st => ({ source: st.source === label ? null : label })), bg: s.source === label ? "#E8E2D2" : "transparent", fg: s.source === label ? "#07080A" : "#C9C4B8" })),
+      consents: [["broker", true, "I agree to the Part 295 broker disclosure and Terms of service.", "JetNine acts as an indirect air carrier; flights are operated by FAA Part 135 certified carriers."], ["contact", true, "I consent to JetNine contacting me about this quote via the channels selected above.", "Quote-specific only. Marketing consent is separate, below."], ["marketing", false, "Send me empty-leg alerts and seasonal route promotions. (Optional.)", "Unsubscribe any time. We never share your information."]].map(([k, required, text, sub]) => ({ text, sub, required, on: !!s.consent[k], toggle: () => this.setState(st => ({ consent: { ...st.consent, [k]: !st.consent[k] } })) })),
+      price, priceNote: `${fleet.name} · ~${fmtH(hours)} total flight time. Fuel, taxes, FET, repositioning & crew included. Final pricing comes with specific aircraft.`,
+      next: [{ i: 1, t: "Dispatch picks up your request", b: "A senior dispatcher (not a chatbot, not a queue) reviews your mission and starts sourcing aircraft.", w: "Within 5 min" }, { i: 2, t: "Quote returned with 3–5 specific aircraft", b: "Each option has a tail number, operator, year, photos, all-in price, and availability window.", w: "< 30 min" }, { i: 3, t: "You pick & we hold the aircraft", b: "No commitment until you accept. We can hold an option for up to 4 hours while you decide.", w: "Your pace" }, { i: 4, t: "Confirmation, contract, take-off", b: "Trip sheet, ground transport details, & terminal instructions delivered. Most clients fly within a week of first quote.", w: "Same week" }],
+    };
+  }
+}
+</script>
+</body>
+</html>

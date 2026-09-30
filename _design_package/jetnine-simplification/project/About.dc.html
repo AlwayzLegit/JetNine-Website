@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#07080A;color:#F4F1EA;font-family:'Instrument Sans',system-ui,sans-serif;font-size:16px;line-height:1.55;-webkit-font-smoothing:antialiased}
+a{color:inherit;text-decoration:none}a:hover{color:#fff}
+*{box-sizing:border-box;scrollbar-width:thin;scrollbar-color:#2C323B transparent}
+::-webkit-scrollbar{width:8px;height:8px}::-webkit-scrollbar-thumb{background:#2C323B;border-radius:4px}::-webkit-scrollbar-track{background:transparent}
+</style>
+</helmet>
+<div data-screen-label="About — simplified" style="background:#07080A;color:#F4F1EA;min-width:1100px">
+<x-import component-from-global-scope="JNHeader" from="./jn-chrome.js" current="About" hint-size="100%,72px"></x-import>
+
+<section style="position:relative;overflow:hidden;min-height:560px;display:flex;align-items:flex-end">
+  <img src="public/images/hero/about.webp" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover">
+  <div aria-hidden="true" style="position:absolute;inset:0;background:linear-gradient(90deg,rgba(7,8,10,.92) 0%,rgba(7,8,10,.7) 45%,rgba(7,8,10,.3) 100%),linear-gradient(180deg,rgba(7,8,10,.4) 0%,rgba(7,8,10,0) 40%,#07080A 100%)"></div>
+  <div style="position:relative;z-index:1;width:100%;max-width:1200px;margin:0 auto;padding:120px 40px 56px;display:grid;grid-template-columns:1.2fr 1fr;gap:48px;align-items:end">
+    <div>
+      <p style="margin:0 0 16px;font-size:14px;font-weight:600;color:#C9C4B8">About JetNine · est. 2026</p>
+      <h1 style="margin:0;font-family:Fraunces,serif;font-weight:300;font-size:60px;line-height:1.02;letter-spacing:-.02em;max-width:16ch">A small company built on the old idea of one phone number.</h1>
+      <p style="margin:20px 0 0;max-width:58ch;font-size:19px;color:#C9C4B8">JetNine is a senior-dispatcher charter brokerage in Los Angeles. We don’t run a marketing engine. We don’t run a marketplace. We don’t sell memberships unless you actually need one.</p>
+      <p style="margin:14px 0 0;max-width:58ch;font-size:19px;color:#C9C4B8">Most of what we do, on most days, looks the same as it did in 1998 — pick up the phone, listen, work the operators, send back specific aircraft with all-in pricing. That part is the work. Everything else is decoration.</p>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px 24px;border-top:1px solid #2C323B;padding-top:24px">
+      <div><div style="font-size:13px;color:#8A9099">Founded</div><div style="margin-top:4px;font-family:Fraunces,serif;font-weight:300;font-size:32px;line-height:1">2026</div><div style="margin-top:4px;font-size:14px;color:#C9C4B8">Los Angeles, California</div></div>
+      <div><div style="font-size:13px;color:#8A9099">Dispatch</div><div style="margin-top:4px;font-family:Fraunces,serif;font-weight:300;font-size:32px;line-height:1">24/7</div><div style="margin-top:4px;font-size:14px;color:#C9C4B8">Every hour, every day</div></div>
+      <div><div style="font-size:13px;color:#8A9099">Network</div><div style="margin-top:4px;font-family:Fraunces,serif;font-weight:300;font-size:32px;line-height:1">20K+</div><div style="margin-top:4px;font-size:14px;color:#C9C4B8">Aircraft worldwide</div></div>
+      <div><div style="font-size:13px;color:#8A9099">Avg. response</div><div style="margin-top:4px;font-family:Fraunces,serif;font-weight:300;font-size:32px;line-height:1">4 min</div><div style="margin-top:4px;font-size:14px;color:#C9C4B8">Call to dispatcher</div></div>
+    </div>
+  </div>
+</section>
+
+<section style="max-width:1200px;margin:0 auto;padding:112px 40px 0">
+  <p style="margin:0 0 12px;font-size:14px;font-weight:600;color:#8A9099">Beliefs</p>
+  <h2 style="margin:0;font-family:Fraunces,serif;font-weight:300;font-size:44px;line-height:1.08;letter-spacing:-.015em;max-width:24ch">Five things we refuse to compromise on.</h2>
+  <p style="margin:16px 0 0;max-width:64ch;font-size:18px;color:#C9C4B8">The shape of the company comes from these. They’ve cost us business, on multiple occasions. They’ve also kept us on the desks we still want to be on, fifteen years from now.</p>
+  <div style="margin-top:32px;border-top:1px solid #232830">
+    <sc-for list="{{ beliefs }}" as="b" hint-placeholder-count="5">
+      <div style="border-bottom:1px solid #232830">
+        <button type="button" onClick="{{ b.toggle }}" style="width:100%;display:grid;grid-template-columns:64px minmax(0,1fr) auto;gap:20px;align-items:baseline;padding:26px 0;border:none;background:transparent;color:#F4F1EA;cursor:pointer;text-align:left;font-family:'Instrument Sans',sans-serif"><span style="font-family:Fraunces,serif;font-weight:300;font-size:40px;line-height:1;color:#E8E2D2">{{ b.num }}</span><span style="font-family:Fraunces,serif;font-weight:400;font-size:26px;line-height:1.25;letter-spacing:-.01em">{{ b.title }}</span><span style="font-size:22px;color:#C9C4B8">{{ b.mark }}</span></button>
+        <sc-if value="{{ b.open }}" hint-placeholder-val="{{ false }}"><p style="margin:0;padding:0 64px 28px 84px;max-width:76ch;font-size:16px;color:#C9C4B8;line-height:1.7">{{ b.why }}</p></sc-if>
+      </div>
+    </sc-for>
+  </div>
+</section>
+
+<section style="max-width:1200px;margin:0 auto;padding:112px 40px 0">
+  <p style="margin:0 0 12px;font-size:14px;font-weight:600;color:#8A9099">Founders</p>
+  <h2 style="margin:0;font-family:Fraunces,serif;font-weight:300;font-size:44px;line-height:1.08;letter-spacing:-.015em;max-width:24ch">Two people you can talk to, on day one.</h2>
+  <p style="margin:16px 0 0;max-width:64ch;font-size:18px;color:#C9C4B8">Anna runs the dispatch side; Arman runs operations. They still answer their own phones.</p>
+  <div style="margin-top:32px;display:grid;grid-template-columns:1fr 1fr;gap:20px">
+    <sc-for list="{{ founders }}" as="f" hint-placeholder-count="2">
+      <div style="display:grid;grid-template-columns:200px minmax(0,1fr);gap:28px;background:#0E1014;border:1px solid #232830;border-radius:12px;padding:28px">
+        <div style="aspect-ratio:4/5;border-radius:8px;background:#161A20;display:flex;align-items:center;justify-content:center;font-family:Fraunces,serif;font-size:40px;font-weight:300;color:#8A9099">{{ f.initials }}</div>
+        <div><h3 style="margin:0;font-family:Fraunces,serif;font-weight:400;font-size:28px;line-height:1.15">{{ f.name }}</h3><div style="margin-top:6px;font-size:14px;font-weight:600;color:#C9A24A">{{ f.role }}</div><p style="margin:14px 0 0;color:#C9C4B8">{{ f.bio1 }}</p><p style="margin:10px 0 0;color:#C9C4B8">{{ f.bio2 }}</p></div>
+      </div>
+    </sc-for>
+  </div>
+</section>
+
+<section style="max-width:1200px;margin:0 auto;padding:112px 40px 0">
+  <p style="margin:0 0 12px;font-size:14px;font-weight:600;color:#8A9099">The desk</p>
+  <h2 style="margin:0;font-family:Fraunces,serif;font-weight:300;font-size:44px;line-height:1.08;letter-spacing:-.015em;max-width:26ch">The people who pick up.</h2>
+  <p style="margin:16px 0 0;max-width:64ch;font-size:18px;color:#C9C4B8">When you call, one of these people answers. The same dispatcher handles your quote, your contract, and any in-flight changes — and stays with you across trips.</p>
+  <div style="margin-top:32px;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px">
+    <sc-for list="{{ team }}" as="t" hint-placeholder-count="8"><div style="display:flex;align-items:center;gap:14px;background:#0E1014;border:1px solid #232830;border-radius:12px;padding:16px 20px"><span style="width:48px;height:48px;border-radius:24px;background:#161A20;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:600;color:#E8E2D2;flex-shrink:0">{{ t.initials }}</span><div><div style="font-size:16px;font-weight:500">{{ t.name }}</div><div style="font-size:14px;color:#C9C4B8">{{ t.role }}</div><div style="font-size:13px;color:#8A9099">{{ t.meta }}</div></div></div></sc-for>
+  </div>
+</section>
+
+<section style="max-width:1200px;margin:0 auto;padding:112px 40px 0">
+  <div style="display:grid;grid-template-columns:1fr 1.2fr;gap:48px;align-items:center">
+    <div>
+      <p style="margin:0 0 12px;font-size:14px;font-weight:600;color:#8A9099">Headquarters</p>
+      <h2 style="margin:0;font-family:Fraunces,serif;font-weight:300;font-size:44px;line-height:1.08;letter-spacing:-.015em;max-width:22ch">One office. One dispatch desk. Open 24 / 7 / 365.</h2>
+      <p style="margin:16px 0 0;max-width:56ch;font-size:17px;color:#C9C4B8">The dispatch desk is in Van Nuys, ten minutes from the private terminals at Van Nuys Airport. We deliberately don’t have satellite offices — when something needs to be solved at three in the morning, we want everyone in the same room.</p>
+      <p style="margin:12px 0 0;max-width:56ch;font-size:17px;color:#C9C4B8">The office is staffed every hour of every day. The night desk handles overseas dispatch, weather diversions, and the small but annoying number of clients whose calendars only allow them to think about a flight at 1 a.m.</p>
+      <div style="margin-top:24px;background:#0E1014;border:1px solid #232830;border-radius:12px;padding:20px 24px;display:flex;align-items:center;justify-content:space-between;gap:16px"><div><div style="font-size:13px;color:#8A9099">Address</div><div style="margin-top:4px;font-size:17px">Van Nuys, Los Angeles, CA 90077</div></div><a href="https://maps.google.com/?q=Van+Nuys+Airport" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;height:44px;padding:0 18px;border-radius:8px;border:1px solid #2C323B;font-weight:500;font-size:15px;white-space:nowrap">Directions ↗</a></div>
+    </div>
+    <div style="aspect-ratio:4/5;border-radius:12px;overflow:hidden;background:#161A20"><img src="public/images/about/dispatch-room.webp" alt="" style="width:100%;height:100%;object-fit:cover;display:block"></div>
+  </div>
+</section>
+
+<section style="max-width:1200px;margin:0 auto;padding:112px 40px 128px;text-align:center">
+  <h2 style="margin:0 auto;font-family:Fraunces,serif;font-weight:300;font-size:52px;line-height:1.05;letter-spacing:-.015em;max-width:20ch">Talk to a dispatcher. Same one, every flight.</h2>
+  <p style="margin:20px auto 0;max-width:56ch;font-size:18px;color:#C9C4B8">Tell us the route. We'll be in touch within thirty minutes.</p>
+  <div style="margin-top:32px;display:flex;justify-content:center;gap:16px"><a href="tel:+14244872707" style="display:inline-flex;align-items:center;gap:8px;height:52px;padding:0 28px;border-radius:8px;background:#E8E2D2;color:#07080A;font-weight:500;font-size:16px">Call dispatch</a><a href="Quote.dc.html" style="display:inline-flex;align-items:center;height:52px;padding:0 28px;border-radius:8px;border:1px solid #2C323B;font-weight:500;font-size:16px">Request a quote</a></div>
+</section>
+
+<x-import component-from-global-scope="JNFooter" from="./jn-chrome.js" hint-size="100%,360px"></x-import>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = { open: 0 };
+  renderVals() {
+    const open = this.state.open;
+    return {
+      beliefs: [
+        ["01", "A senior dispatcher beats software, every time.", "Apps quote stale fleet data in seconds. We quote real aircraft in thirty minutes. The thirty minutes are because someone is on the phone with the operator, confirming pilot duty, confirming maintenance status, confirming whether the aircraft will actually be available on the day. The app is faster — but the app is also wrong, sometimes, and the wrong-rate is sticker shock when you land."],
+        ["02", "The price you accept is the price you pay.", "If fuel jumps 15% between acceptance and departure, that's our problem. If a Part 135 operator changes a fee, our problem. If we have to reposition because of a weather divert, our problem. We've absorbed roughly $400,000 in cost variance in the last 18 months. The number doesn't move once you accept it. Period."],
+        ["03", "We say no to operators a lot.", "Our chief pilot rejects roughly 60% of operators that pass paper screening once he visits the hangar. That's a hard number to hold to when the client wants to fly tomorrow and the rejected operator has the only available aircraft. The right answer is to ask the client to wait or fly commercial — and we say it, every time. We would rather refund an entire trip than fly an aircraft we aren't comfortable with."],
+        ["04", "You should not have to fight us on a refund.", "The hardest version of this work is when something goes sideways — operator backs out, weather forces a divert, family emergency on the client side. Our policy is to err on the client's side, every time, and to write the refund the same day. If a refund conversation ever feels like a fight, something has gone wrong on our end — and we treat it that way."],
+        ["05", "We don't market our way out of bad operations.", "The fastest way to grow a charter brokerage is to spend on lead-gen and trade ops quality for booking volume. We've watched two competitors do exactly that, both bigger than us at the start of 2020, neither still in business. Our growth has been by referral; our headcount has tracked our flight volume; our ops staff have always outnumbered our sales staff. None of that is a strategy — it's just the only honest way to run the company."],
+      ].map(([num, title, why], i) => ({ num, title, why, open: open === i, mark: open === i ? "−" : "+", toggle: () => this.setState(s => ({ open: s.open === i ? -1 : i })) })),
+      founders: [
+        { initials: "AA", name: "Anna Agadzhanyan", role: "Founder, CEO · Dispatch lead", bio1: "Anna runs the dispatch side of the company — the desk, the operator relationships, the standard for what a quote has to look like before it leaves the building.", bio2: "Her view of the business is unromantic: show up early, work the phones, vet every operator personally, refund without arguing. The dispatch culture comes from her." },
+        { initials: "AD", name: "Arman Adamson", role: "Co-founder, COO · Operations lead", bio1: "Arman owns the back end of the operation: operator network, audit cycle, finance, regulatory. He is the reason the Part 295 disclosure on every contract is in plain English.", bio2: "Operations is where charter brokerages quietly fail. His job is making sure the unglamorous parts — vetting, paperwork, insurance verification — hold to the same standard as the front desk." },
+      ],
+      team: [
+        { initials: "DG", name: "Daniel Garcia", role: "Senior dispatcher", meta: "East & Mid-Atlantic" }, { initials: "RP", name: "Renata Padilla", role: "Senior dispatcher", meta: "Latin America" }, { initials: "JL", name: "James Lee", role: "Senior dispatcher", meta: "Europe" }, { initials: "SS", name: "Sarah Smith", role: "Dispatcher", meta: "Pacific Northwest" },
+        { initials: "AT", name: "Aamir Tyler", role: "Dispatcher", meta: "Asia & Middle East" }, { initials: "CA", name: "Catalina Anderson", role: "Senior dispatcher", meta: "West Coast" }, { initials: "EM", name: "Eli Morison", role: "Dispatcher · nights", meta: "24h desk" }, { initials: "PF", name: "Patrice Fields", role: "Chief pilot", meta: "Operator vetting" },
+      ],
+    };
+  }
+}
+</script>
+</body>
+</html>

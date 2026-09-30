@@ -1,12 +1,10 @@
-import Link from "next/link";
+import Image from "next/image";
 import type { Metadata } from "next";
 import { pageMetadata } from "@/lib/page-meta";
-import { PageHeader } from "@/components/page-header";
-import { ClosingCTA } from "@/components/closing-cta";
-import { Reveal } from "@/components/reveal";
+import { PageHero } from "@/components/page-hero";
+import { CtaBand } from "@/components/cta-band";
 import { ContactForm } from "@/components/contact-form";
 import { DeskClock } from "@/components/contact/desk-clock";
-import { KvnyMap } from "@/components/kvny-map";
 import { SITE } from "@/lib/constants";
 
 export const metadata: Metadata = pageMetadata({
@@ -16,58 +14,67 @@ export const metadata: Metadata = pageMetadata({
   path: "/contact",
 });
 
+const DISPATCH_EMAIL = "dispatch@jetnine.com";
+const HQ_ADDRESS = `${SITE.address.line1}, ${SITE.address.cityState}`;
+const DIRECTIONS_URL = `https://maps.google.com/?q=${encodeURIComponent(HQ_ADDRESS)}`;
+
 const CHANNELS = [
   {
-    badge: "CHANNEL 01 · FASTEST",
+    tag: "Fastest",
     title: "Call the dispatch line.",
-    strap: "Senior dispatcher picks up. Average call to first specific airframe quote: under 30 minutes.",
+    body: "Senior dispatcher picks up. Average call to first specific aircraft quote: under 30 minutes.",
     big: SITE.dispatchPhone,
     href: `tel:${SITE.dispatchPhoneE164}`,
-    meta: [
-      ["HOURS", "24/7/365"],
-      ["PICKUP", "< 20 sec avg"],
-    ] as const,
+    meta: "24/7/365 · picks up in under 20 seconds",
     primary: true,
   },
   {
-    badge: "CHANNEL 02",
+    tag: "Email",
     title: "Email dispatch.",
-    strap: "Best for non-urgent quotes & multi-leg trips you want to think through.",
-    big: "dispatch@jetnine.com",
-    href: "mailto:dispatch@jetnine.com",
-    meta: [
-      ["REPLY", "< 30 min · biz hrs"],
-      ["AFTER HRS", "< 2 hr"],
-    ] as const,
+    body: "Best for non-urgent quotes & multi-leg trips you want to think through.",
+    big: DISPATCH_EMAIL,
+    href: `mailto:${DISPATCH_EMAIL}`,
+    meta: "Reply under 30 min in business hours · under 2 h after",
     primary: false,
   },
   {
-    badge: "CHANNEL 03",
+    tag: "Text",
     title: "Text the desk.",
-    strap: "For existing clients with a confirmed dispatcher. Same number as the phone line.",
-    big: `SMS · ${SITE.dispatchPhone}`,
+    body: "For existing clients with a confirmed dispatcher. Same number as the phone line.",
+    big: SITE.dispatchPhone,
     href: `sms:${SITE.dispatchPhoneE164}`,
-    meta: [
-      ["REPLY", "< 5 min"],
-      ["ESCALATE", "auto · 15 min"],
-    ] as const,
+    meta: "Reply under 5 min · escalates automatically after 15",
     primary: false,
+  },
+];
+
+const SIDE_NOTES = [
+  {
+    k: "What we'll come back with",
+    v: "Three to five specific aircraft, all-in pricing, photos, operator standing.",
+  },
+  {
+    k: "What we won't do",
+    v: "Pass your details to operators, run promotional sequences, or share your inquiry with anyone outside the dispatch desk.",
   },
 ];
 
 const REGIONS = [
-  { id: "01", title: "North America · West", airports: "KVNY · KSFO · KSEA · KLAS · KASE · KSDL" },
-  { id: "02", title: "North America · East", airports: "KTEB · KJFK · KBOS · KMIA · KOPF · KIAD" },
-  { id: "03", title: "Europe", airports: "EGGW · EGLF · LFPB · LSGG · LIRA" },
-  { id: "04", title: "Asia & Middle East", airports: "RJTT · RJBB · OMDB · VHHH · WSSS" },
+  {
+    title: "North America · West",
+    cities: "Los Angeles · San Francisco · Seattle · Las Vegas · Aspen · Scottsdale",
+  },
+  { title: "North America · East", cities: "New York (Teterboro, JFK) · Boston · Miami · Washington" },
+  { title: "Europe", cities: "London (Luton, Farnborough) · Paris · Geneva · Rome" },
+  { title: "Asia & Middle East", cities: "Tokyo · Osaka · Dubai · Hong Kong · Singapore" },
 ];
 
 const HQ_ROWS = [
-  ["ADDRESS", `${SITE.address.line1}, ${SITE.address.cityState}`],
-  ["PHONE", `${SITE.dispatchPhone} · 24 / 7`],
-  ["EMAIL", "dispatch@jetnine.com"],
-  ["VISITS", "By appointment · same-day usually OK"],
-  ["PRESS", "press@jetnine.com"],
+  ["Address", HQ_ADDRESS],
+  ["Phone", `${SITE.dispatchPhone} · 24 / 7`],
+  ["Email", DISPATCH_EMAIL],
+  ["Visits", "By appointment · same-day usually OK"],
+  ["Press", "press@jetnine.com"],
 ] as const;
 
 // LocalBusiness JSON-LD. Schema.org subtype for a brick-and-mortar
@@ -84,7 +91,7 @@ const localBusinessJsonLd = {
   legalName: "JetNine LLC",
   url: siteUrl,
   telephone: SITE.dispatchPhoneE164,
-  email: "dispatch@jetnine.com",
+  email: DISPATCH_EMAIL,
   description:
     "Senior-dispatcher private aviation charter brokerage. Part 295 indirect air carrier on ARG/US Platinum Part 135 operators.",
   address: {
@@ -124,203 +131,153 @@ export default function ContactPage() {
         // Built from SITE constants at build time — no user input, no XSS.
         dangerouslySetInnerHTML={{ __html: JSON.stringify(localBusinessJsonLd) }}
       />
-      <PageHeader
-        kicker="Contact dispatch"
-        title="One desk. One number. Open every hour of every day."
-        lead="A senior dispatcher will pick up — and stay on with you for the duration of the call. No phone tree, no hold music, no after-hours voicemail. Below: the channel that gets you there fastest, plus the form if you'd rather start in writing."
-      />
 
-      {/* Live status strip */}
-      <section className="border-b border-ink-3 bg-ink-2 py-6">
-        <div className="container-jn flex flex-wrap items-center gap-x-10 gap-y-2 font-mono text-[11px] uppercase tracking-[0.12em] text-bone-2">
-          <span className="flex items-center gap-3 text-clearance">
-            <span className="relative flex h-2 w-2">
-              <span className="absolute inset-0 animate-ping rounded-full bg-clearance opacity-75" />
-              <span className="relative h-2 w-2 rounded-full bg-clearance" />
-            </span>
-            Live · dispatch desk open
+      <PageHero
+        eyebrow="Contact dispatch"
+        title="One desk. One number. Open every hour of every day."
+        lead="A senior dispatcher will pick up — and stay on with you for the duration of the call. No phone tree, no hold music, no after-hours voicemail."
+      >
+        {/* Live status pill — desk is staffed around the clock, so the
+            dot is always on; the clock is the verifiably live part. */}
+        <p className="mt-7 inline-flex min-h-[40px] flex-wrap items-center gap-x-3 gap-y-1 rounded-[20px] border border-line bg-surface px-4 py-1.5 text-[14px] text-bone-2">
+          <span className="dot dot-success" aria-hidden="true" />
+          <span>
+            Dispatch desk open now · average pick-up under 20 seconds · <DeskClock />
           </span>
-          <span>Senior dispatcher on the desk now · average pick-up under 20 seconds</span>
-          <DeskClock />
-        </div>
-      </section>
+        </p>
+      </PageHero>
 
       {/* Channels */}
-      <section className="py-32 max-md:py-20">
-        <div className="container-jn">
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.4fr_1fr_1fr]">
-            {CHANNELS.map((c, i) => (
-              <Reveal
-                key={c.badge}
-                stagger={(i as 0 | 1 | 2)}
+      <section className="container-jn pt-12">
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.4fr_1fr_1fr]">
+          {CHANNELS.map((c) => (
+            <a
+              key={c.tag}
+              href={c.href}
+              className={[
+                "card card-pad flex flex-col gap-3",
+                c.primary ? "card-selected" : "",
+              ].join(" ")}
+            >
+              <span className={`label-jn ${c.primary ? "text-gold" : ""}`}>{c.tag}</span>
+              <h2 className="title-card">{c.title}</h2>
+              <p className="text-bone-2">{c.body}</p>
+              <div
                 className={[
-                  "block rounded-[4px] border bg-ink-2 p-10 transition-all duration-200 ease-out-quint hover:-translate-y-0.5",
-                  c.primary
-                    ? "border-clearance shadow-[0_0_0_1px_var(--clearance)]"
-                    : "border-ink-3 hover:border-[rgba(232,226,210,0.3)]",
+                  "mt-auto pt-3 font-serif font-light leading-[1.1] text-bone break-all",
+                  c.primary ? "text-[36px] max-md:text-[30px]" : "text-[26px]",
                 ].join(" ")}
+                style={{ fontVariationSettings: '"opsz" 144' }}
               >
-                <a href={c.href} className="block">
-                  <span
-                    className={[
-                      "font-mono text-[10px] uppercase tracking-[0.16em]",
-                      c.primary ? "text-clearance" : "text-bone-2",
-                    ].join(" ")}
-                  >
-                    — {c.badge}
-                  </span>
-                  <h3 className="mt-5 font-serif text-[24px] font-normal leading-[1.2] tracking-tight text-bone">
-                    {c.title}
-                  </h3>
-                  <p className="mt-3 text-[15px] leading-[1.6] text-bone-2">{c.strap}</p>
-                  <div className="mt-8 font-serif text-[28px] font-light leading-tight tracking-tight text-bone break-words">
-                    {c.big}
-                  </div>
-                  <div className="mt-6 flex flex-wrap gap-x-8 gap-y-3 border-t border-ink-3 pt-5">
-                    {c.meta.map(([lbl, val]) => (
-                      <div key={lbl} className="flex flex-col gap-1">
-                        <span className="font-mono text-[9px] uppercase tracking-[0.14em] text-steel">
-                          {lbl}
-                        </span>
-                        <span className="font-mono text-[11px] tracking-[0.04em] text-bone">
-                          {val}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </a>
-              </Reveal>
-            ))}
-          </div>
+                {c.big}
+              </div>
+              <div className="text-[14px] text-steel">{c.meta}</div>
+            </a>
+          ))}
         </div>
       </section>
 
-      {/* Contact form */}
-      <section className="border-t border-ink-3 bg-ink-2 py-32 max-md:py-20">
-        <div className="container-jn">
-          <div className="mb-12 grid items-end gap-12 lg:grid-cols-[1fr_1.6fr]">
-            <Reveal>
-              <p className="caption">— Or, in writing</p>
-            </Reveal>
-            <Reveal as="h2" stagger={1} className="display-m max-w-[26ch]">
-              Tell us the route. We&rsquo;ll be in touch.
-            </Reveal>
+      {/* In writing */}
+      <section className="container-jn section-jn max-md:pt-20">
+        <p className="eyebrow">Or, in writing</p>
+        <h2 className="title-section max-w-[26ch]">Tell us the route. We&rsquo;ll be in touch.</h2>
+        <div className="mt-8 grid grid-cols-1 items-start gap-6 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
+          <div className="card card-pad max-md:p-5">
+            <ContactForm />
           </div>
-
-          <div className="grid grid-cols-1 gap-12 lg:grid-cols-[1.4fr_1fr]">
-            <Reveal stagger={1} className="rounded-[4px] border border-ink-3 bg-ink p-8 sm:p-10">
-              <ContactForm />
-            </Reveal>
-
-            <Reveal stagger={2} className="flex flex-col gap-6">
-              <p className="text-[16px] leading-[1.6] text-bone-2">
-                If you&rsquo;d rather start with a few lines of context, drop them here. Same
-                dispatcher will reach out within thirty minutes during business hours, two hours
-                after.
+          <div className="flex flex-col gap-4">
+            <p className="text-[17px] text-bone-2">
+              If you&rsquo;d rather start with a few lines of context, drop them here. Same
+              dispatcher will reach out within thirty minutes during business hours, two hours
+              after.
+            </p>
+            {SIDE_NOTES.map((n) => (
+              <div key={n.k} className="card px-6 py-5">
+                <div className="label-jn text-gold">{n.k}</div>
+                <p className="mt-1.5 text-bone-2">{n.v}</p>
+              </div>
+            ))}
+            <div className="card px-6 py-5">
+              <div className="label-jn text-gold">Prefer a faster path?</div>
+              <p className="mt-1.5 text-bone-2">
+                Call{" "}
+                <a href={`tel:${SITE.dispatchPhoneE164}`} className="text-link-strong">
+                  {SITE.dispatchPhone}
+                </a>{" "}
+                — same desk.
               </p>
-              {[
-                {
-                  k: "WHAT WE'LL COME BACK WITH",
-                  v: "Three to five specific airframes, all-in pricing, photos, operator standing.",
-                },
-                {
-                  k: "WHAT WE WON'T DO",
-                  v: "Pass your details to operators, run promotional sequences, or share your inquiry with anyone outside the dispatch desk.",
-                },
-                {
-                  k: "PREFER A FASTER PATH?",
-                  v: `Call ${SITE.dispatchPhone} — same desk.`,
-                },
-              ].map((b) => (
-                <div key={b.k} className="border-t border-ink-3 pt-5">
-                  <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-clearance">
-                    — {b.k}
-                  </span>
-                  <p className="mt-2 text-[14px] leading-[1.6] text-bone-2">{b.v}</p>
-                </div>
-              ))}
-            </Reveal>
+            </div>
           </div>
         </div>
       </section>
 
       {/* Regions */}
-      <section className="border-t border-ink-3 py-32 max-md:py-20">
-        <div className="container-jn">
-          <div className="mb-16 grid items-end gap-12 lg:grid-cols-[1fr_1.6fr]">
-            <Reveal>
-              <p className="caption">— Regional dispatchers</p>
-            </Reveal>
-            <div>
-              <Reveal as="h2" stagger={1} className="display-m max-w-[26ch]">
-                A dedicated dispatcher per region of the network.
-              </Reveal>
-              <Reveal as="p" stagger={2} className="mt-6 max-w-[64ch] text-[18px] leading-[1.55] text-bone-2">
-                Local FBO knowledge, customs &amp; permitting expertise, fluent in the language and
-                time zone. They route calls inside the desk so you talk to the right person on the
-                first try.
-              </Reveal>
+      <section className="container-jn section-jn max-md:pt-20">
+        <p className="eyebrow">Regional dispatchers</p>
+        <h2 className="title-section max-w-[26ch]">
+          A dedicated dispatcher per region of the network.
+        </h2>
+        <p className="mt-4 max-w-[64ch] text-[18px] text-bone-2">
+          Local airport knowledge, customs &amp; permitting expertise, fluent in the language and
+          time zone. They route calls inside the desk so you talk to the right person on the first
+          try.
+        </p>
+        <div className="mt-8 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+          {REGIONS.map((r) => (
+            <div key={r.title} className="card px-7 py-6">
+              <h3 className="text-[20px] font-medium leading-[1.2] text-bone">{r.title}</h3>
+              <p className="mt-2.5 text-[15px] text-bone-2">{r.cities}</p>
             </div>
-          </div>
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-            {REGIONS.map((r, i) => (
-              <Reveal
-                key={r.id}
-                stagger={(i as 0 | 1 | 2)}
-                className="flex h-full flex-col gap-5 rounded-[4px] border border-ink-3 bg-ink-2 p-8"
-              >
-                <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-bone-2">
-                  REGION {r.id}
-                </span>
-                <h3 className="font-serif text-[22px] font-normal leading-[1.2] tracking-tight text-bone">
-                  {r.title}
-                </h3>
-                <p className="mt-auto font-mono text-[10px] uppercase tracking-[0.08em] text-clearance leading-[1.6]">
-                  {r.airports}
-                </p>
-              </Reveal>
-            ))}
-          </div>
+          ))}
         </div>
       </section>
 
       {/* HQ */}
-      <section className="border-t border-ink-3 bg-ink-2 py-32 max-md:py-20">
-        <div className="container-jn">
-          <div className="grid items-start gap-12 lg:grid-cols-[1fr_1.2fr]">
-            <div>
-              <Reveal className="mb-6">
-                <p className="caption">— Headquarters</p>
-              </Reveal>
-              <Reveal as="h2" stagger={1} className="display-m max-w-[24ch]">
-                Van Nuys. Ten minutes from FBO row at KVNY.
-              </Reveal>
-              <Reveal as="p" stagger={2} className="mt-6 max-w-[58ch] text-[18px] leading-[1.55] text-bone-2">
-                One office, one desk. Visitors welcome by appointment — most clients fly through Van
-                Nuys at some point and stop in to meet the dispatcher who handles their flights.
-              </Reveal>
-              <Reveal stagger={3} className="mt-10 rounded-[4px] border border-ink-3 bg-ink">
-                <ul className="divide-y divide-ink-3">
-                  {HQ_ROWS.map(([lbl, val]) => (
-                    <li key={lbl} className="grid grid-cols-[140px_1fr] items-baseline gap-4 px-6 py-4">
-                      <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-steel">
-                        — {lbl}
-                      </span>
-                      <span className="text-[14px] leading-[1.5] text-bone">{val}</span>
-                    </li>
-                  ))}
-                </ul>
-              </Reveal>
-            </div>
-            <Reveal stagger={1}>
-              <KvnyMap />
-            </Reveal>
+      <section className="container-jn section-jn max-md:pt-20">
+        <div className="grid grid-cols-1 items-center gap-12 max-md:gap-8 lg:grid-cols-[1fr_1.2fr]">
+          <div>
+            <p className="eyebrow">Headquarters</p>
+            <h2 className="title-section max-w-[22ch]">
+              Van Nuys. Ten minutes from the private terminals at Van Nuys Airport.
+            </h2>
+            <p className="mt-4 max-w-[56ch] text-[18px] text-bone-2">
+              One office, one desk. Visitors welcome by appointment — most clients fly through Van
+              Nuys at some point and stop in to meet the dispatcher who handles their flights.
+            </p>
+            <dl className="card mt-7 px-6 py-2">
+              {HQ_ROWS.map(([k, v]) => (
+                <div
+                  key={k}
+                  className="grid grid-cols-[120px_1fr] gap-4 border-b border-line-faint py-3.5 text-[15px] last:border-b-0 max-md:grid-cols-1 max-md:gap-1"
+                >
+                  <dt className="text-steel">{k}</dt>
+                  <dd className="text-bone">{v}</dd>
+                </div>
+              ))}
+            </dl>
+          </div>
+          <div className="relative aspect-[4/3] overflow-hidden rounded-card bg-surface-2">
+            <Image
+              src="/images/about/dispatch-room.webp"
+              alt="The JetNine dispatch room in Van Nuys."
+              fill
+              sizes="(max-width: 1024px) 100vw, 640px"
+              className="object-cover"
+            />
+            <a
+              href={DIRECTIONS_URL}
+              target="_blank"
+              rel="noopener"
+              className="btn btn-secondary absolute bottom-5 left-5 bg-[rgba(7,8,10,0.85)]"
+            >
+              Directions <span aria-hidden="true">↗</span>
+            </a>
           </div>
         </div>
       </section>
 
-      <ClosingCTA
-        heading="Easiest path: pick up the phone."
+      <CtaBand
+        title="Easiest path: pick up the phone."
         body="Senior dispatcher answers. Same one for the life of the trip."
         primary={{ label: SITE.dispatchPhone, href: `tel:${SITE.dispatchPhoneE164}` }}
         secondary={{ label: "Request a quote", href: "/quote/mission" }}

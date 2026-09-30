@@ -1,8 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Reveal } from "@/components/reveal";
-import { ClosingCTA } from "@/components/closing-cta";
+import { CtaBand } from "@/components/cta-band";
 import { ProofStrip } from "@/components/proof-strip";
 import { DeskNotes } from "@/components/desk-notes";
 import { QuoteLauncher, RouteQuoteLink } from "@/components/quote-launcher";
@@ -10,7 +9,7 @@ import { RateTable } from "@/components/rate-table";
 import { pageMetadata } from "@/lib/page-meta";
 import { CITIES, getCity, type CharterCity } from "@/lib/cities";
 import { ROUTES } from "@/lib/routes";
-import { FLEET, formatNm } from "@/lib/fleet";
+import { FLEET } from "@/lib/fleet";
 import { distanceNm, type Airport } from "@/lib/airports";
 import {
   computeIndicative,
@@ -30,6 +29,9 @@ type RouteParams = { params: Promise<{ city: string }> };
 
 // Blog band is DB-backed: regenerate hourly so new posts surface without a deploy.
 export const revalidate = 3600;
+
+const nmFormat = new Intl.NumberFormat("en-US");
+const formatNm = (n: number) => `${nmFormat.format(n)} nm`;
 
 export function generateStaticParams() {
   return CITIES.map((c) => ({ city: c.slug }));
@@ -194,125 +196,127 @@ export default async function CityPage({ params }: RouteParams) {
       ))}
 
       {/* ─── Header ─── */}
-      <header className="border-b border-ink-3 bg-ink pt-[180px] pb-16 max-md:pt-[130px] max-md:pb-12">
-        <div className="container-jn grid items-end gap-12 lg:grid-cols-[1.4fr_1fr]">
+      <header className="bg-ink pt-[96px] pb-4 max-md:pt-14">
+        <div className="container-jn grid items-end gap-10 lg:grid-cols-[1.4fr_1fr]">
           <div>
-            <Reveal className="mb-6 flex flex-wrap items-center gap-x-4 gap-y-2 font-mono text-[11px] uppercase tracking-[0.16em] text-bone-2">
-              <span className="block h-px w-8 bg-clearance" />
+            <p className="eyebrow">
               <Link href="/private-jet-charter" className="transition-colors hover:text-bone">
                 Charter by city
               </Link>
-              <span aria-hidden>·</span>
-              <span>{city.state}</span>
-            </Reveal>
-            <Reveal as="h1" stagger={1} className="display-xl max-w-[18ch]">
+              <span aria-hidden> · </span>
+              {city.state}
+            </p>
+            <h1 className="title-page max-w-[16ch] !text-[clamp(40px,5.5vw,64px)]">
               Private jet charter, {city.name}.
-            </Reveal>
-            <Reveal as="p" stagger={2} className="mt-8 max-w-[58ch] text-[18px] leading-[1.55] text-bone-2">
-              {city.lead}
-            </Reveal>
+            </h1>
+            <p className="lead mt-5 max-w-[58ch]">{city.lead}</p>
           </div>
           {cheapest ? (
-            <Reveal stagger={2} className="rounded-[4px] border border-ink-3 bg-ink-2 p-8">
-              <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-steel">
-                — Departing {city.primary.icao} · whole aircraft · all-in
+            <div className="card card-pad max-md:p-5">
+              <p className="label-jn">
+                Departing {city.primary.name} ({city.primary.iata}) · whole aircraft · all-in
               </p>
-              <div className="mt-5 font-serif text-[40px] font-light leading-none tracking-tight text-bone">
+              <div className="mt-4 font-serif text-[44px] font-light leading-none tracking-tight text-bone max-md:text-[36px]">
                 From {formatUSD(cheapest.low)}
               </div>
-              <p className="mt-3 font-mono text-[10px] uppercase tracking-[0.12em] text-bone-2">
-                {city.name} to {cheapest.to.city} · {cheapest.category.toLowerCase()} · ~{cheapest.hours}
+              <p className="mt-3 text-[15px] text-bone-2">
+                {city.name} to {cheapest.to.city} · {cheapest.category.toLowerCase()} · about {cheapest.hours}
               </p>
-              <div className="mt-6 border-t border-ink-3 pt-5">
+              <div className="mt-6 border-t border-line pt-5">
                 <RouteQuoteLink
                   from={city.primary.iata}
                   to={cheapest.to.iata}
                   category={cheapest.categorySlug}
                   pax={4}
                   label="Get the exact number"
-                  className="btn btn-primary"
+                  className="btn btn-primary btn-lg max-md:w-full"
                 />
               </div>
-            </Reveal>
+            </div>
           ) : null}
         </div>
       </header>
 
-      <ProofStrip />
+      <div className="section-jn">
+        <ProofStrip />
+      </div>
 
       {/* ─── Airports ─── */}
-      <section className="py-24 max-md:py-16">
+      <section className="section-jn">
         <div className="container-jn">
-          <Reveal>
-            <p className="caption mb-6">— The fields that matter</p>
-          </Reveal>
-          <Reveal as="h2" stagger={1} className="display-m max-w-[26ch]">
+          <p className="eyebrow">The fields that matter</p>
+          <h2 className="title-section max-w-[26ch]">
             {city.name}&rsquo;s charter airports, chosen for the drive.
-          </Reveal>
-          <div className="mt-12 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {city.airports.map((a, i) => (
-              <Reveal key={a.airport.icao} stagger={(i % 3) as 0 | 1 | 2} className="rounded-[4px] border border-ink-3 bg-ink-2 p-8">
-                <div className="flex items-baseline justify-between gap-4">
-                  <span className="font-serif text-[26px] font-light leading-none tracking-tight text-bone">
-                    {a.airport.icao}
-                  </span>
-                  <span className="rounded-[2px] border border-ink-4 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.12em] text-clearance">
-                    {a.role}
-                  </span>
+          </h2>
+          <div className="mt-8 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+            {city.airports.map((a) => (
+              <div key={a.airport.icao} className="card card-pad flex flex-col max-md:p-5">
+                <div className="flex items-start justify-between gap-4">
+                  <h3 className="title-card-sm text-bone">{a.airport.name}</h3>
+                  <span className="pill pill-outline shrink-0">{a.role}</span>
                 </div>
-                <div className="mt-2 font-mono text-[11px] uppercase tracking-[0.08em] text-bone-2">
-                  {a.airport.name}
-                </div>
-                <p className="mt-4 border-t border-ink-3 pt-4 text-[14px] leading-[1.6] text-bone-2">
+                <dl className="dl-jn mt-4">
+                  <dt>Airport code</dt>
+                  <dd>
+                    {a.airport.iata}
+                    {a.airport.iata !== a.airport.icao ? ` · ${a.airport.icao}` : ""}
+                  </dd>
+                </dl>
+                <p className="mt-4 border-t border-line pt-4 text-[15px] leading-[1.6] text-bone-2">
                   {a.drive}
                 </p>
-              </Reveal>
+              </div>
             ))}
           </div>
         </div>
       </section>
 
       {/* ─── Lanes, engine-priced ─── */}
-      <section className="border-t border-ink-3 bg-ink-2 py-24 max-md:py-16">
+      <section className="section-jn">
         <div className="container-jn">
-          <Reveal>
-            <p className="caption mb-6">— Where {city.name} flies</p>
-          </Reveal>
-          <Reveal as="h2" stagger={1} className="display-m max-w-[24ch]">
-            The lanes, priced live.
-          </Reveal>
-          <Reveal as="p" stagger={2} className="mt-6 max-w-[66ch] text-[17px] leading-[1.55] text-bone-2">
+          <p className="eyebrow">Where {city.name} flies</p>
+          <h2 className="title-section max-w-[24ch]">The lanes, priced live.</h2>
+          <p className="mt-5 max-w-[66ch] text-[17px] leading-[1.55] text-bone-2">
             One-way, whole-aircraft indicative ranges from {city.primary.name}, in the category the
             wizard itself recommends per distance — computed by the same engine behind every quote.
-          </Reveal>
-          <Reveal className="mt-12 overflow-x-auto rounded-[4px] border border-ink-3 bg-ink">
-            <table className="w-full min-w-[720px] border-collapse text-left">
+          </p>
+          <div className="card mt-8 overflow-x-auto">
+            <table className="table-jn min-w-[760px]">
               <thead>
-                <tr className="border-b border-ink-3">
-                  {["Destination", "Distance", "Category", "Block", "All-in from", ""].map((h, i) => (
-                    <th key={i} className="px-6 py-4 font-mono text-[10px] font-medium uppercase tracking-[0.14em] text-bone-2">
-                      {h}
-                    </th>
-                  ))}
+                <tr>
+                  <th>Destination</th>
+                  <th>Distance</th>
+                  <th>Category</th>
+                  <th>Flight time</th>
+                  <th>All-in from</th>
+                  <th>
+                    <span className="sr-only">Quote</span>
+                  </th>
                 </tr>
               </thead>
               <tbody>
                 {lanes.map((l) => (
-                  <tr key={l.to.icao} className="border-b border-ink-3 last:border-b-0">
-                    <td className="px-6 py-5">
+                  <tr key={l.to.icao}>
+                    <td>
                       {l.routeHref ? (
-                        <Link href={l.routeHref} className="font-serif text-[17px] tracking-tight text-bone transition-colors hover:text-clearance">
-                          {l.to.city} <span className="font-mono text-[10px] text-clearance">→</span>
+                        <Link
+                          href={l.routeHref}
+                          className="font-serif text-[20px] tracking-tight text-bone transition-colors hover:text-clearance"
+                        >
+                          {l.to.city} <span aria-hidden>→</span>
                         </Link>
                       ) : (
-                        <span className="font-serif text-[17px] tracking-tight text-bone">{l.to.city}</span>
+                        <span className="font-serif text-[20px] tracking-tight text-bone">{l.to.city}</span>
                       )}
+                      <span className="mt-1 block text-[14px] text-steel">
+                        {l.to.name} ({l.to.iata})
+                      </span>
                     </td>
-                    <td className="px-6 py-5 font-mono text-[12px] text-bone-2">{formatNm(l.nm)}</td>
-                    <td className="px-6 py-5 text-[13px] text-bone-2">{l.category}</td>
-                    <td className="px-6 py-5 font-mono text-[12px] text-bone-2">{l.hours}</td>
-                    <td className="px-6 py-5 font-mono text-[13px] text-bone">{formatUSD(l.low)}</td>
-                    <td className="px-6 py-5">
+                    <td className="text-bone-2">{formatNm(l.nm)}</td>
+                    <td className="text-bone-2">{l.category}</td>
+                    <td className="text-bone-2">{l.hours}</td>
+                    <td className="font-medium text-bone">{formatUSD(l.low)}</td>
+                    <td className="text-right">
                       <RouteQuoteLink
                         from={city.primary.iata}
                         to={l.to.iata}
@@ -326,43 +330,35 @@ export default async function CityPage({ params }: RouteParams) {
                 ))}
               </tbody>
             </table>
-          </Reveal>
-          <p className="mt-5 max-w-[70ch] font-mono text-[11px] uppercase tracking-[0.1em] leading-[1.8] text-steel">
-            — Indicative, whole aircraft, incl. 7.5% FET · exact airframes confirmed by dispatch
-            within 30 minutes · reverse direction prices identically
+          </div>
+          <p className="mt-4 max-w-[72ch] text-[14px] leading-[1.6] text-steel">
+            Indicative, whole aircraft, including 7.5% FET. Exact aircraft confirmed by dispatch
+            within 30 minutes. The reverse direction prices identically.
           </p>
         </div>
       </section>
 
       {/* ─── Rate card ─── */}
-      <section className="border-t border-ink-3 py-24 max-md:py-16">
+      <section className="section-jn">
         <div className="container-jn">
-          <Reveal>
-            <p className="caption mb-6">— By the hour</p>
-          </Reveal>
-          <Reveal as="h2" stagger={1} className="display-m max-w-[24ch]">
-            The rate card behind every {city.name} quote.
-          </Reveal>
-          <div className="mt-12">
+          <p className="eyebrow">By the hour</p>
+          <h2 className="title-section max-w-[24ch]">The rate card behind every {city.name} quote.</h2>
+          <div className="mt-8">
             <RateTable />
           </div>
         </div>
       </section>
 
       {/* ─── FAQ ─── */}
-      <section className="border-t border-ink-3 bg-ink-2 py-24 max-md:py-16">
+      <section className="section-jn">
         <div className="container-jn">
-          <Reveal>
-            <p className="caption mb-10">— Asked about flying {city.name}</p>
-          </Reveal>
-          <div className="grid grid-cols-1 gap-x-12 gap-y-10 md:grid-cols-2">
+          <h2 className="title-section max-w-[24ch]">Asked about flying {city.name}.</h2>
+          <div className="mt-8 grid grid-cols-1 gap-4 md:grid-cols-2">
             {FAQ.map((f) => (
-              <Reveal key={f.q} className="border-t border-ink-3 pt-6">
-                <h3 className="font-serif text-[19px] font-normal leading-[1.3] tracking-tight text-bone">
-                  {f.q}
-                </h3>
-                <p className="mt-3 max-w-[62ch] text-[15px] leading-[1.6] text-bone-2">{f.a}</p>
-              </Reveal>
+              <div key={f.q} className="card card-pad max-md:p-5">
+                <h3 className="title-card-sm text-bone">{f.q}</h3>
+                <p className="mt-3 max-w-[62ch] text-[16px] leading-[1.6] text-bone-2">{f.a}</p>
+              </div>
             ))}
           </div>
         </div>
@@ -370,17 +366,15 @@ export default async function CityPage({ params }: RouteParams) {
 
       {/* ─── Other markets — every city links every other city, so no
              market page depends on the hub alone for its inbound links. */}
-      <section className="border-t border-ink-3 py-20 max-md:py-14">
+      <section className="section-jn">
         <div className="container-jn">
-          <Reveal>
-            <p className="caption mb-8">— Also flying from</p>
-          </Reveal>
+          <h2 className="title-section mb-8">Also flying from</h2>
           <ul className="grid grid-cols-2 gap-x-8 gap-y-3 md:grid-cols-3 lg:grid-cols-5">
             {CITIES.filter((c) => c.slug !== city.slug).map((c) => (
               <li key={c.slug}>
                 <Link
                   href={`/private-jet-charter/${c.slug}`}
-                  className="text-[14px] text-bone-2 transition-colors hover:text-clearance"
+                  className="inline-flex min-h-[44px] items-center text-[15px] text-bone-2 transition-colors hover:text-bone"
                 >
                   {c.name}
                 </Link>
@@ -399,9 +393,11 @@ export default async function CityPage({ params }: RouteParams) {
         body={`${city.primary.name} is already filled in — add the destination, date, and passenger count and the wizard prices it as you type.`}
       />
 
-      <ClosingCTA
-        heading={`${city.name}, on the standard.`}
-        body={`Every airframe we quote out of ${city.primary.icao} flies for an ARG/US- or Wyvern-audited operator that passed our vetting. Dispatch knows what's in position today: ${SITE.dispatchPhone}.`}
+      <CtaBand
+        title={`${city.name}, on the standard.`}
+        body={`Every aircraft we quote out of ${city.primary.name} flies for an ARG/US- or Wyvern-audited operator that passed our vetting. Dispatch knows what's in position today: ${SITE.dispatchPhone}.`}
+        primary={{ label: "Request a quote", href: "/quote/mission" }}
+        secondary={{ label: `Call dispatch · ${SITE.dispatchPhone}`, href: `tel:${SITE.dispatchPhoneE164}` }}
       />
     </>
   );

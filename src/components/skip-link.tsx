@@ -12,7 +12,7 @@ export function SkipLink() {
   return (
     <a
       href="#main-content"
-      className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[100] focus:inline-flex focus:items-center focus:gap-2 focus:rounded focus:bg-bone focus:px-4 focus:py-2 focus:font-mono focus:text-[11px] focus:uppercase focus:tracking-[0.14em] focus:text-ink focus:shadow-lg focus:outline-none focus:ring-2 focus:ring-clearance focus:ring-offset-2 focus:ring-offset-ink"
+      className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[100] focus:inline-flex focus:items-center focus:gap-2 focus:rounded-control focus:bg-bone focus:px-4 focus:py-2 focus:text-[14px] focus:font-medium focus:text-ink focus:shadow-lg focus:outline-none focus:ring-2 focus:ring-clearance focus:ring-offset-2 focus:ring-offset-ink"
     >
       Skip to content <span aria-hidden>↓</span>
     </a>

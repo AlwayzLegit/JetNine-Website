@@ -1,12 +1,11 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { pageMetadata } from "@/lib/page-meta";
-import { Reveal } from "@/components/reveal";
-import { ClosingCTA } from "@/components/closing-cta";
+import { PageHero } from "@/components/page-hero";
+import { CtaBand } from "@/components/cta-band";
 import { QuoteLauncher, RouteQuoteLink } from "@/components/quote-launcher";
 import { ProofStrip } from "@/components/proof-strip";
 import { RateTable } from "@/components/rate-table";
-import { RATES } from "@/lib/rates";
 import { findAirport, distanceNm } from "@/lib/airports";
 import { computeIndicative, formatHours } from "@/lib/quote-pricing";
 import type { AircraftCategorySlug } from "@/lib/fleet";
@@ -52,6 +51,7 @@ function sampleTrips() {
     pax: number;
     hours: string;
     range: string;
+    lane: string;
   }[] = [];
   for (const r of SAMPLE_ROUTES) {
     const from = findAirport(r.from);
@@ -72,6 +72,7 @@ function sampleTrips() {
       pax: r.pax,
       hours: formatHours(ind.hours),
       range: ind.formatted,
+      lane: `${from.name} (${from.iata}) → ${to.name} (${to.iata})`,
     });
   }
   return out;
@@ -130,24 +131,11 @@ export default function CostCalculatorPage() {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
       />
 
-      {/* ─── Header ─── */}
-      <header className="border-b border-ink-3 bg-ink pt-[112px] pb-20 max-md:pt-[64px] max-md:pb-14">
-        <div className="container-jn">
-          <Reveal className="mb-6 inline-flex items-center gap-3 font-mono text-[11px] uppercase tracking-[0.16em] text-bone-2">
-            <span className="block h-px w-8 bg-clearance" />
-            Cost calculator · live rates
-          </Reveal>
-          <Reveal as="h1" stagger={1} className="display-xl max-w-[16ch]">
-            What a private jet actually costs.
-          </Reveal>
-          <Reveal as="p" stagger={2} className="mt-8 max-w-[62ch] text-[18px] leading-[1.55] text-bone-2">
-            Most charter sites make you request a quote to see any number. Ours are published:
-            hourly rates by category below, worked example trips priced by the same engine that
-            powers our quote wizard, and an estimate for your route in about ninety seconds — no
-            callback required.
-          </Reveal>
-        </div>
-      </header>
+      <PageHero
+        eyebrow="Cost calculator · live rates"
+        title="What a private jet actually costs."
+        lead="Most charter sites make you request a quote to see any number. Ours are published: hourly rates by category below, worked example trips priced by the same engine that powers our quote wizard, and an estimate for your route in about ninety seconds — no callback required."
+      />
 
       <ProofStrip />
 
@@ -155,157 +143,119 @@ export default function CostCalculatorPage() {
       <QuoteLauncher
         context="cost-calculator"
         heading="Estimate your route."
-        body="Origin, destination, date, and passenger count. The wizard prices as you type and a senior dispatcher confirms exact airframes within 30 minutes during operating hours."
+        body="Origin, destination, date, and passenger count. The wizard prices as you type and a senior dispatcher confirms exact aircraft within 30 minutes during operating hours."
       />
 
       {/* ─── Rate table ─── */}
-      <section className="border-t border-ink-3 bg-ink py-32 max-md:py-20">
+      <section className="section-jn">
         <div className="container-jn">
-          <div className="mb-14">
-            <Reveal>
-              <p className="caption mb-6">— Hourly rates</p>
-            </Reveal>
-            <Reveal as="h2" stagger={1} className="display-m max-w-[24ch]">
-              The rate card, published.
-            </Reveal>
-            <Reveal as="p" stagger={2} className="mt-6 max-w-[64ch] text-[18px] leading-[1.55] text-bone-2">
-              Market rates are what on-demand missions run on our board today. Locked rates are
-              what JetNine Card members pay, fixed for 24 months. Either way, the quote you accept
-              is all-in — fuel, FET, repositioning, crew, standard catering, ground.
-            </Reveal>
+          <p className="eyebrow">Hourly rates</p>
+          <h2 className="title-section max-w-[24ch]">The rate card, published.</h2>
+          <p className="mt-5 max-w-[64ch] text-[17px] leading-[1.55] text-bone-2">
+            Market rates are what on-demand missions run on our board today. Locked rates are
+            what JetNine Card members pay, fixed for 24 months. Either way, the quote you accept
+            is all-in — fuel, FET, repositioning, crew, standard catering, ground.
+          </p>
+          <div className="mt-8">
+            <RateTable />
           </div>
-          <RateTable />
         </div>
       </section>
 
       {/* ─── Worked examples ─── */}
-      <section className="border-t border-ink-3 bg-ink-2 py-32 max-md:py-20">
+      <section className="section-jn">
         <div className="container-jn">
-          <div className="mb-14">
-            <Reveal>
-              <p className="caption mb-6">— Worked examples</p>
-            </Reveal>
-            <Reveal as="h2" stagger={1} className="display-m max-w-[24ch]">
-              Four real lanes, priced by the engine.
-            </Reveal>
-            <Reveal as="p" stagger={2} className="mt-6 max-w-[64ch] text-[18px] leading-[1.55] text-bone-2">
-              Indicative ranges for the whole aircraft — not per seat — computed from the same
-              category rates and flight-time model the quote wizard uses. Tap through and the
-              wizard opens with the route already loaded.
-            </Reveal>
-          </div>
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-            {trips.map((t, i) => (
-              <Reveal
-                key={t.route}
-                stagger={(i % 3) as 0 | 1 | 2}
-                className="flex flex-col gap-5 rounded-[4px] border border-ink-3 bg-ink p-7"
-              >
+          <p className="eyebrow">Worked examples</p>
+          <h2 className="title-section max-w-[24ch]">Four real lanes, priced by the engine.</h2>
+          <p className="mt-5 max-w-[64ch] text-[17px] leading-[1.55] text-bone-2">
+            Indicative ranges for the whole aircraft — not per seat — computed from the same
+            category rates and flight-time model the quote wizard uses. Tap through and the
+            wizard opens with the route already loaded.
+          </p>
+          <div className="mt-8 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+            {trips.map((t) => (
+              <div key={t.route} className="card card-pad flex flex-col gap-5 max-md:p-5">
                 <div>
-                  <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-bone-2">
-                    {t.note}
-                  </div>
-                  <div className="mt-2 font-serif text-[26px] font-light leading-none tracking-tight text-bone">
-                    {t.route}
-                  </div>
+                  <div className="title-card-sm text-bone">{t.note}</div>
+                  <div className="mt-1.5 text-[14px] text-steel">{t.lane}</div>
                 </div>
-                <div className="grid grid-cols-2 gap-3 border-y border-ink-3 py-5 text-[11px]">
-                  <div className="flex flex-col gap-1">
-                    <span className="font-mono uppercase tracking-[0.12em] text-steel">— Category</span>
-                    <span className="font-mono tracking-[0.04em] text-bone">{t.category}</span>
-                  </div>
-                  <div className="flex flex-col gap-1">
-                    <span className="font-mono uppercase tracking-[0.12em] text-steel">— Est. time</span>
-                    <span className="font-mono tracking-[0.04em] text-bone">{t.hours}</span>
-                  </div>
-                </div>
+                <dl className="dl-jn border-y border-line py-4">
+                  <dt>Category</dt>
+                  <dd>{t.category}</dd>
+                  <dt>Flight time</dt>
+                  <dd>{t.hours}</dd>
+                  <dt>Passengers</dt>
+                  <dd>{t.pax}</dd>
+                </dl>
                 <div className="flex flex-1 flex-col justify-end gap-4">
                   <div>
-                    <div className="font-mono text-[10px] uppercase tracking-[0.12em] text-steel">
-                      — Indicative, all-in
-                    </div>
-                    <div className="mt-1 font-serif text-[24px] font-light leading-tight tracking-tight text-bone">
+                    <div className="text-[14px] text-steel">Indicative, all-in</div>
+                    <div className="mt-1 font-serif text-[26px] font-light leading-tight tracking-tight text-bone">
                       {t.range}
                     </div>
                   </div>
                   <RouteQuoteLink from={t.from} to={t.to} category={t.categorySlug} pax={t.pax} />
                 </div>
-              </Reveal>
+              </div>
             ))}
           </div>
         </div>
       </section>
 
       {/* ─── Estimate vs exact ─── */}
-      <section className="border-t border-ink-3 bg-ink py-32 max-md:py-20">
+      <section className="section-jn">
         <div className="container-jn">
-          <div className="mb-14">
-            <Reveal>
-              <p className="caption mb-6">— Estimate vs. exact quote</p>
-            </Reveal>
-            <Reveal as="h2" stagger={1} className="display-m max-w-[26ch]">
-              The calculator gets you close. Dispatch gets you exact.
-            </Reveal>
-          </div>
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <p className="eyebrow">Estimate vs. exact quote</p>
+          <h2 className="title-section max-w-[26ch]">
+            The calculator gets you close. Dispatch gets you exact.
+          </h2>
+          <div className="mt-8 grid grid-cols-1 gap-4 md:grid-cols-2">
             {[
               {
-                k: "THIS PAGE · INSTANT",
+                k: "This page · instant",
                 h: "The indicative range.",
                 p: "Category hourly rate × great-circle flight time, padded for taxi and climb-out. Good to roughly ±15% — enough to know whether the trip is a light-jet or a heavy-jet budget before you talk to anyone.",
               },
               {
-                k: "DISPATCH · UNDER 30 MIN",
+                k: "Dispatch · under 30 min",
                 h: "The number that's locked.",
-                p: "A senior dispatcher prices three to five vetted airframes against your actual date, airports, and load — then the figure you accept is the figure on the invoice. If fuel spikes or a fee changes between acceptance and wheels-up, that's our problem, not yours.",
+                p: "A senior dispatcher prices three to five vetted aircraft against your actual date, airports, and load — then the figure you accept is the figure on the invoice. If fuel spikes or a fee changes between acceptance and wheels-up, that's our problem, not yours.",
               },
             ].map((c) => (
-              <Reveal key={c.k} className="rounded-[4px] border border-ink-3 bg-ink-2 p-10">
-                <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-bone-2">
-                  — {c.k}
-                </span>
-                <h3 className="mt-5 font-serif text-[22px] font-normal leading-[1.25] tracking-tight text-bone">
-                  {c.h}
-                </h3>
-                <p className="mt-3 text-[15px] leading-[1.6] text-bone-2">{c.p}</p>
-              </Reveal>
+              <div key={c.k} className="card card-pad max-md:p-5">
+                <span className="label-jn">{c.k}</span>
+                <h3 className="title-card mt-3 text-bone">{c.h}</h3>
+                <p className="mt-3 text-[16px] leading-[1.6] text-bone-2">{c.p}</p>
+              </div>
             ))}
           </div>
         </div>
       </section>
 
       {/* ─── FAQ ─── */}
-      <section className="border-t border-ink-3 bg-ink-2 py-32 max-md:py-20">
+      <section className="section-jn">
         <div className="container-jn">
-          <div className="mb-14">
-            <Reveal>
-              <p className="caption mb-6">— Cost questions</p>
-            </Reveal>
-            <Reveal as="h2" stagger={1} className="display-m max-w-[24ch]">
-              Asked before every first booking.
-            </Reveal>
-          </div>
-          <div className="grid grid-cols-1 gap-x-12 gap-y-10 md:grid-cols-2">
+          <p className="eyebrow">Cost questions</p>
+          <h2 className="title-section max-w-[24ch]">Asked before every first booking.</h2>
+          <div className="mt-8 grid grid-cols-1 gap-4 md:grid-cols-2">
             {COST_FAQ.map((f) => (
-              <Reveal key={f.q} className="border-t border-ink-3 pt-6">
-                <h3 className="font-serif text-[19px] font-normal leading-[1.3] tracking-tight text-bone">
-                  {f.q}
-                </h3>
-                <p className="mt-3 max-w-[62ch] text-[15px] leading-[1.6] text-bone-2">{f.a}</p>
-              </Reveal>
+              <div key={f.q} className="card card-pad max-md:p-5">
+                <h3 className="title-card-sm text-bone">{f.q}</h3>
+                <p className="mt-3 max-w-[62ch] text-[16px] leading-[1.6] text-bone-2">{f.a}</p>
+              </div>
             ))}
           </div>
-          <p className="mt-12 text-[15px] leading-[1.6] text-bone-2">
+          <p className="mt-8 max-w-[68ch] text-[16px] leading-[1.6] text-bone-2">
             The full story behind these numbers is in{" "}
-            <Link href="/guides" className="text-clearance">
+            <Link href="/guides" className="text-link-strong">
               the charter pricing guide
             </Link>{" "}
             — more detail on programs and locked rates on{" "}
-            <Link href="/memberships" className="text-clearance">
+            <Link href="/memberships" className="text-link-strong">
               memberships
             </Link>
             , or the full list on the{" "}
-            <Link href="/faq" className="text-clearance">
+            <Link href="/faq" className="text-link-strong">
               FAQ
             </Link>
             .
@@ -313,9 +263,11 @@ export default function CostCalculatorPage() {
         </div>
       </section>
 
-      <ClosingCTA
-        heading="Ninety seconds to a number."
+      <CtaBand
+        title="Ninety seconds to a number."
         body={`Run the estimate, or skip straight to a human — the dispatch line picks up in under twenty seconds, every hour of every day. ${SITE.dispatchPhone}.`}
+        primary={{ label: "Request a quote", href: "/quote/mission" }}
+        secondary={{ label: `Call dispatch · ${SITE.dispatchPhone}`, href: `tel:${SITE.dispatchPhoneE164}` }}
       />
     </>
   );

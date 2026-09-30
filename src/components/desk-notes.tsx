@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { Reveal } from "@/components/reveal";
 import { getPostsForTopics } from "@/lib/blog";
 
 // "From the desk" — up to three blog posts relevant to the page. The band
@@ -22,39 +21,34 @@ export async function DeskNotes({
   if (posts.length === 0) return null;
 
   return (
-    <section className="border-t border-ink-3 py-20 max-md:py-14">
+    <section className="section-jn">
       <div className="container-jn">
-        <Reveal className="mb-8 flex items-baseline justify-between gap-6">
-          <p className="caption">— {heading}</p>
-          <Link
-            href="/blog"
-            className="font-mono text-[10px] uppercase tracking-[0.14em] text-clearance transition-colors hover:text-bone"
-          >
+        <div className="mb-7 flex flex-wrap items-end justify-between gap-4">
+          <h2 className="title-section">{heading}</h2>
+          <Link href="/blog" className="text-link text-[15px]">
             All notes <span className="arrow">→</span>
           </Link>
-        </Reveal>
-        <div className="grid grid-cols-1 gap-8 md:grid-cols-3">
+        </div>
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
           {posts.map((p) => (
-            <Reveal key={p.slug}>
-              <Link href={`/blog/${p.slug}`} className="group block">
-                <div className="mb-4 aspect-[16/9] w-full overflow-hidden rounded-[2px] bg-ink-3">
-                  {p.heroImageUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={p.heroImageUrl}
-                      alt={p.heroImageAlt ?? p.title}
-                      loading="lazy"
-                      className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
-                    />
-                  ) : null}
-                </div>
-                <p className="caption mb-2">{p.tags[0] ?? "Notes from the desk"}</p>
-                <h3 className="font-serif text-[20px] font-normal leading-[1.25] tracking-tight text-bone transition-colors group-hover:text-clearance">
-                  {p.title}
-                </h3>
-                <p className="mt-2 max-w-[48ch] text-[14px] leading-[1.55] text-bone-2">{p.description}</p>
-              </Link>
-            </Reveal>
+            <Link key={p.slug} href={`/blog/${p.slug}`} className="group block">
+              <div className="aspect-[16/9] w-full overflow-hidden rounded-card bg-surface-2">
+                {p.heroImageUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={p.heroImageUrl}
+                    alt={p.heroImageAlt ?? p.title}
+                    loading="lazy"
+                    className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
+                  />
+                ) : null}
+              </div>
+              <p className="label-jn mt-[14px]">{p.tags[0] ?? "Notes from the desk"}</p>
+              <h3 className="title-card-sm mt-1.5 text-bone transition-colors group-hover:text-clearance">
+                {p.title}
+              </h3>
+              <p className="mt-2 max-w-[48ch] text-[15px] leading-[1.55] text-bone-2">{p.description}</p>
+            </Link>
           ))}
         </div>
       </div>

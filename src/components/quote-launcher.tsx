@@ -89,20 +89,18 @@ export function QuoteLauncher({
   }
 
   return (
-    <section aria-label="Start a quote" className="border-t border-ink-3 bg-ink-2 py-20 max-md:py-14">
+    <section aria-label="Start a quote" className="section-jn">
       <div className="container-jn">
-        <div className="grid items-center gap-10 lg:grid-cols-[1fr_1.4fr]">
+        <div className="card card-pad grid items-center gap-8 lg:grid-cols-[1fr_1.4fr] max-md:p-5">
           <div>
-            <p className="caption mb-5">— Start a quote</p>
-            <h2 className="font-serif text-[30px] font-normal leading-[1.15] tracking-tight text-bone max-w-[18ch]">
-              {heading}
-            </h2>
-            <p className="mt-4 max-w-[46ch] text-[15px] leading-[1.6] text-bone-2">{body}</p>
+            <p className="eyebrow">Start a quote</p>
+            <h2 className="title-section max-w-[18ch] !text-[clamp(30px,3.2vw,38px)]">{heading}</h2>
+            <p className="mt-4 max-w-[46ch] text-[16px] leading-[1.55] text-bone-2">{body}</p>
           </div>
           <form
             noValidate
             onSubmit={onSubmit}
-            className="grid grid-cols-1 gap-3 rounded-[4px] border border-ink-3 bg-ink p-6 sm:grid-cols-2 lg:[grid-template-columns:1.1fr_1.1fr_1fr_0.6fr_auto]"
+            className="grid grid-cols-1 gap-[10px] sm:grid-cols-2 lg:[grid-template-columns:1.1fr_1.1fr_1fr_0.7fr]"
           >
             <div className={`field-jn ${errors.from ? "error" : ""}`}>
               <label htmlFor="ql-from">From</label>
@@ -110,7 +108,7 @@ export function QuoteLauncher({
                 id="ql-from"
                 name="from"
                 type="text"
-                placeholder="Origin · KVNY"
+                placeholder="Airport code, e.g. VNY"
                 autoComplete="off"
                 defaultValue={defaultFrom}
               />
@@ -121,7 +119,7 @@ export function QuoteLauncher({
                 id="ql-to"
                 name="to"
                 type="text"
-                placeholder="Destination · KASE"
+                placeholder="Airport code, e.g. ASE"
                 autoComplete="off"
                 defaultValue={defaultTo}
               />
@@ -131,15 +129,19 @@ export function QuoteLauncher({
               <input id="ql-depart" name="depart" type="date" />
             </div>
             <div className="field-jn">
-              <label htmlFor="ql-pax">Pax</label>
+              <label htmlFor="ql-pax">Passengers</label>
               <input id="ql-pax" name="pax" type="number" min={1} max={16} placeholder="2" />
             </div>
-            <button
-              type="submit"
-              className="inline-flex items-center justify-center gap-2.5 rounded-[2px] border-none bg-clearance px-6 py-3 font-sans text-[12px] font-medium uppercase tracking-[0.14em] text-ink transition-colors hover:bg-clearance-hover"
-            >
-              Price it <span className="arrow">→</span>
-            </button>
+            <div className="flex flex-wrap items-center justify-end gap-3 pt-1 sm:col-span-2 lg:col-span-4">
+              {Object.keys(errors).length ? (
+                <span role="alert" className="mr-auto text-[14px] text-danger">
+                  Add the route and a date to price it.
+                </span>
+              ) : null}
+              <button type="submit" className="btn btn-primary btn-lg max-md:w-full">
+                Price it <span className="arrow">→</span>
+              </button>
+            </div>
           </form>
         </div>
       </div>

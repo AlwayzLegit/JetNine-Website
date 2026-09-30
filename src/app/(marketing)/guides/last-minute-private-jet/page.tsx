@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { pageMetadata } from "@/lib/page-meta";
-import { Reveal } from "@/components/reveal";
 import { GuideShell } from "@/components/guide/guide-shell";
 import { getGuideChapter } from "@/lib/guides";
 import { SITE } from "@/lib/constants";
@@ -52,52 +51,48 @@ export default function LastMinutePage() {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }}
       />
 
-      <section className="py-24 max-md:py-16">
+      <section className="section-jn">
         <div className="container-jn">
-          <Reveal>
-            <p className="caption mb-6">— What changes when it&rsquo;s tomorrow</p>
-          </Reveal>
-          <Reveal as="h2" stagger={1} className="display-m max-w-[26ch]">
-            Not the rate. The map.
-          </Reveal>
-          <div className="mt-12 grid grid-cols-1 gap-4 md:grid-cols-3">
+          <p className="eyebrow">What changes when it&rsquo;s tomorrow</p>
+          <h2 className="title-section max-w-[26ch]">Not the rate. The map.</h2>
+          <div className="mt-8 grid grid-cols-1 gap-4 md:grid-cols-3">
             {[
               {
                 n: "01",
-                k: "PRICE",
+                k: "Price",
                 h: "The hourly rate holds.",
                 p: "Charter isn't yield-managed like an airline seat — the category rates on our card are the rates, tonight or next month. Card holders' locked rates apply with zero peak-day surcharges; on-demand quotes come off the same market card either way.",
               },
               {
                 n: "02",
-                k: "AVAILABILITY",
+                k: "Availability",
                 h: "Position is everything.",
-                p: "What tightens late is which airframes are near your departure airport with a legal, rested crew. Sometimes that's the exact category you wanted; sometimes the honest quote is one category up, or a short repositioning line on the invoice. Dispatch tells you which before you commit.",
+                p: "What tightens late is which aircraft are near your departure airport with a legal, rested crew. Sometimes that's the exact category you wanted; sometimes the honest quote is one category up, or a short repositioning line on the invoice. Dispatch tells you which before you commit.",
               },
               {
                 n: "03",
-                k: "THE FLIP SIDE",
+                k: "The flip side",
                 h: "Late is when the discounts live.",
                 p: "Empty legs are short-notice by nature — repositioning flights listed days or hours before departure at 30–60% off. A flexible traveler booking late isn't paying a premium; they're shopping the best-priced inventory in the market.",
               },
-            ].map((c, i) => (
-              <Reveal key={c.n} stagger={(i % 3) as 0 | 1 | 2} className="rounded-[4px] border border-ink-3 bg-ink-2 p-10">
-                <div className="mb-6 flex items-baseline gap-4">
-                  <span className="font-mono text-[42px] font-light leading-none text-clearance">{c.n}</span>
-                  <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-bone-2">— {c.k}</span>
+            ].map((c) => (
+              <div key={c.n} className="card card-pad max-md:p-5">
+                <div className="mb-5 flex items-baseline gap-4">
+                  <span className="font-serif text-[48px] font-light leading-none text-clearance">{c.n}</span>
+                  <span className="label-jn">{c.k}</span>
                 </div>
-                <h3 className="font-serif text-[22px] font-normal leading-[1.25] tracking-tight text-bone">{c.h}</h3>
-                <p className="mt-3 text-[15px] leading-[1.6] text-bone-2">{c.p}</p>
-              </Reveal>
+                <h3 className="title-card-sm text-bone">{c.h}</h3>
+                <p className="mt-3 text-[16px] leading-[1.6] text-bone-2">{c.p}</p>
+              </div>
             ))}
           </div>
-          <p className="mt-10 max-w-[68ch] text-[15px] leading-[1.6] text-bone-2">
+          <p className="mt-8 max-w-[68ch] text-[16px] leading-[1.6] text-bone-2">
             The practical playbook: run the{" "}
-            <Link href="/quote/mission" className="text-clearance">
+            <Link href="/quote/mission" className="text-link-strong">
               wizard
             </Link>{" "}
-            the moment the trip is real — thirty minutes to firm airframes — and check the{" "}
-            <Link href="/empty-legs" className="text-clearance">
+            the moment the trip is real — thirty minutes to firm aircraft — and check the{" "}
+            <Link href="/empty-legs" className="text-link-strong">
               live empty-legs board
             </Link>{" "}
             in parallel. Truly time-critical? Skip both and call {SITE.dispatchPhone}: average
@@ -107,19 +102,15 @@ export default function LastMinutePage() {
         </div>
       </section>
 
-      <section className="border-t border-ink-3 bg-ink-2 py-24 max-md:py-16">
+      <section className="section-jn">
         <div className="container-jn">
-          <Reveal>
-            <p className="caption mb-10">— Asked about short notice</p>
-          </Reveal>
-          <div className="grid grid-cols-1 gap-x-12 gap-y-10 md:grid-cols-3">
+          <h2 className="title-section max-w-[24ch]">Asked about short notice.</h2>
+          <div className="mt-8 grid grid-cols-1 gap-4 md:grid-cols-3">
             {FAQ.map((f) => (
-              <Reveal key={f.q} className="border-t border-ink-3 pt-6">
-                <h3 className="font-serif text-[19px] font-normal leading-[1.3] tracking-tight text-bone">
-                  {f.q}
-                </h3>
-                <p className="mt-3 text-[15px] leading-[1.6] text-bone-2">{f.a}</p>
-              </Reveal>
+              <div key={f.q} className="card card-pad max-md:p-5">
+                <h3 className="title-card-sm text-bone">{f.q}</h3>
+                <p className="mt-3 text-[16px] leading-[1.6] text-bone-2">{f.a}</p>
+              </div>
             ))}
           </div>
         </div>

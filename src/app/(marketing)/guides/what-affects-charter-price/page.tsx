@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { pageMetadata } from "@/lib/page-meta";
-import { Reveal } from "@/components/reveal";
 import { GuideShell } from "@/components/guide/guide-shell";
 import { getGuideChapter } from "@/lib/guides";
 import { PRICE_STACK, PRICE_STACK_TOTAL } from "@/lib/rates";
@@ -56,59 +55,58 @@ const DRIVERS = [
   },
 ];
 
+// The data module keeps the old all-caps line labels; render them in
+// sentence case (keeping the FET acronym) so the numbers stay single-sourced.
+function plainLabel(label: string) {
+  return label.toLowerCase().replace(/^./, (c) => c.toUpperCase()).replace(/\bfet\b/i, "FET");
+}
+
 export default function PriceDriversPage() {
   return (
     <GuideShell
       chapter={chapter}
       lead={`Every quote is six numbers. Here they are on a real ${PRICE_STACK_TOTAL} transcon round trip — what moves each one, and which levers are actually yours to pull.`}
     >
-      <section className="py-24 max-md:py-16">
+      <section className="section-jn">
         <div className="container-jn">
-          <ul className="divide-y divide-ink-3 border-y border-ink-3">
-            {DRIVERS.map((d, i) => (
-              <Reveal
+          <ol className="flex flex-col gap-4">
+            {DRIVERS.map((d) => (
+              <li
                 key={d.stack.n}
-                stagger={(i % 3) as 0 | 1 | 2}
-                as="li"
-                className="grid grid-cols-1 gap-8 py-10 lg:grid-cols-[auto_240px_1fr]"
+                className="card card-pad grid grid-cols-1 gap-6 lg:grid-cols-[72px_240px_minmax(0,1fr)] max-md:p-5"
               >
-                <span className="font-mono text-[36px] font-light leading-none text-clearance">
+                <span className="font-serif text-[40px] font-light leading-none text-clearance">
                   {d.stack.n}
                 </span>
                 <div>
-                  <div className="font-mono text-[11px] uppercase tracking-[0.14em] text-bone">
-                    {d.stack.label}
-                  </div>
-                  <div className="mt-3 font-serif text-[30px] font-light leading-none tracking-tight text-bone">
+                  <div className="label-jn">{plainLabel(d.stack.label)}</div>
+                  <div className="mt-2 font-serif text-[32px] font-light leading-none tracking-tight text-bone">
                     {d.stack.val}
                   </div>
-                  <div className="mt-2 font-mono text-[9px] uppercase tracking-[0.1em] text-steel">
-                    On the {PRICE_STACK_TOTAL} example
-                  </div>
+                  <div className="mt-2 text-[14px] text-steel">On the {PRICE_STACK_TOTAL} example</div>
                 </div>
                 <div>
-                  <h2 className="font-serif text-[22px] font-normal leading-[1.25] tracking-tight text-bone">
-                    {d.h}
-                  </h2>
-                  <p className="mt-3 max-w-[60ch] text-[15px] leading-[1.65] text-bone-2">{d.p}</p>
-                  <p className="mt-4 font-mono text-[10px] uppercase tracking-[0.12em] leading-[1.8] text-clearance">
-                    — Lever: {d.lever}
+                  <h2 className="title-card text-bone">{d.h}</h2>
+                  <p className="mt-3 max-w-[64ch] text-[17px] leading-[1.6] text-bone-2">{d.p}</p>
+                  <p className="mt-4 text-[15px] leading-[1.6] text-bone">
+                    <span className="font-semibold text-steel">Lever: </span>
+                    {d.lever}
                   </p>
                 </div>
-              </Reveal>
+              </li>
             ))}
-          </ul>
-          <p className="mt-10 max-w-[68ch] text-[15px] leading-[1.6] text-bone-2">
+          </ol>
+          <p className="mt-8 max-w-[68ch] text-[16px] leading-[1.6] text-bone-2">
             The full worked example lives in{" "}
-            <Link href="/guides/private-jet-charter-cost" className="text-clearance">
+            <Link href="/guides/private-jet-charter-cost" className="text-link-strong">
               what charter costs
             </Link>{" "}
             and on{" "}
-            <Link href="/how-it-works" className="text-clearance">
+            <Link href="/how-it-works" className="text-link-strong">
               how it works
             </Link>
             . To see the six numbers on your own route,{" "}
-            <Link href="/cost-calculator" className="text-clearance">
+            <Link href="/cost-calculator" className="text-link-strong">
               the calculator
             </Link>{" "}
             takes about ninety seconds.

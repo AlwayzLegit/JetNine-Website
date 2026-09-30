@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { pageMetadata } from "@/lib/page-meta";
-import { Reveal } from "@/components/reveal";
 import { GuideShell } from "@/components/guide/guide-shell";
 import { RateTable } from "@/components/rate-table";
 import { getGuideChapter } from "@/lib/guides";
@@ -16,6 +15,7 @@ export const metadata: Metadata = pageMetadata({
 });
 
 const chapter = getGuideChapter("private-jet-cost-per-hour")!;
+const nmFormat = new Intl.NumberFormat("en-US");
 
 const FAQ = [
   {
@@ -54,77 +54,58 @@ export default function CostPerHourPage() {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }}
       />
 
-      <section className="py-24 max-md:py-16">
+      <section className="section-jn">
         <div className="container-jn">
-          <Reveal>
-            <p className="caption mb-6">— The card</p>
-          </Reveal>
-          <Reveal as="h2" stagger={1} className="display-m max-w-[26ch]">
-            Six categories, two rates each.
-          </Reveal>
-          <Reveal as="p" stagger={2} className="mt-6 max-w-[68ch] text-[18px] leading-[1.55] text-bone-2">
+          <p className="eyebrow">The card</p>
+          <h2 className="title-section max-w-[26ch]">Six categories, two rates each.</h2>
+          <p className="mt-5 max-w-[68ch] text-[17px] leading-[1.6] text-bone-2">
             Market is what on-demand missions run today; locked is the 24-month fixed rate for
             JetNine Card holders. Either way the quote you accept is all-in and doesn&rsquo;t move.
-          </Reveal>
-          <div className="mt-12">
+          </p>
+          <div className="mt-8">
             <RateTable />
           </div>
         </div>
       </section>
 
-      <section className="border-t border-ink-3 bg-ink-2 py-24 max-md:py-16">
+      <section className="section-jn">
         <div className="container-jn">
-          <Reveal>
-            <p className="caption mb-6">— Rate × speed = the real comparison</p>
-          </Reveal>
-          <Reveal as="h2" stagger={1} className="display-m max-w-[26ch]">
-            A cheaper hour isn&rsquo;t always a cheaper trip.
-          </Reveal>
-          <Reveal as="p" stagger={2} className="mt-6 max-w-[68ch] text-[18px] leading-[1.55] text-bone-2">
+          <p className="eyebrow">Rate × speed = the real comparison</p>
+          <h2 className="title-section max-w-[26ch]">A cheaper hour isn&rsquo;t always a cheaper trip.</h2>
+          <p className="mt-5 max-w-[68ch] text-[17px] leading-[1.6] text-bone-2">
             Categories cruise at different speeds, so the hourly rate alone can mislead: a
             turboprop&rsquo;s lower hourly buys a {CRUISE_KT.turboprop}-knot cruise, while a super-mid
             covers the same ground at {CRUISE_KT.supermid} knots — fewer billed hours on long
-            sectors. Rule of thumb: under ~600 NM the cheaper hourly usually wins; past ~1,500 NM
-            the faster airframe often costs less all-in, and it always costs less of your day. The
-            wizard runs this math per route automatically.
-          </Reveal>
-          <div className="mt-12 grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-6">
+            legs. Rule of thumb: under about 600 nm the cheaper hourly usually wins; past about
+            1,500 nm the faster aircraft often costs less all-in, and it always costs less of your
+            day. The wizard runs this math per route automatically.
+          </p>
+          <div className="-mx-5 mt-8 flex gap-4 overflow-x-auto px-5 md:mx-0 md:grid md:grid-cols-3 md:overflow-visible md:px-0 xl:grid-cols-6">
             {FLEET.map((f) => (
-              <Reveal key={f.slug} className="rounded-[4px] border border-ink-3 bg-ink p-6">
-                <div className="font-mono text-[10px] uppercase tracking-[0.12em] text-steel">
-                  {f.shortName}
-                </div>
-                <div className="mt-3 font-serif text-[24px] font-light leading-none tracking-tight text-bone">
+              <Link key={f.slug} href={f.href} className="card card-pad group min-w-[200px] md:min-w-0 max-md:p-5">
+                <div className="label-jn">{f.shortName}</div>
+                <div className="mt-3 font-serif text-[28px] font-light leading-none tracking-tight text-bone">
                   {f.speedKt} kt
                 </div>
-                <div className="mt-2 font-mono text-[10px] uppercase tracking-[0.1em] text-bone-2">
-                  ~{f.rangeNm.toLocaleString()} NM range
-                </div>
-                <Link
-                  href={f.href}
-                  className="mt-4 block font-mono text-[10px] uppercase tracking-[0.12em] text-clearance"
-                >
+                <div className="mt-2 text-[14px] text-bone-2">About {nmFormat.format(f.rangeNm)} nm range</div>
+                <span className="mt-4 block text-[15px] font-medium text-bone">
                   Rates &amp; specs <span className="arrow">→</span>
-                </Link>
-              </Reveal>
+                </span>
+              </Link>
             ))}
           </div>
         </div>
       </section>
 
-      <section className="border-t border-ink-3 py-24 max-md:py-16">
+      <section className="section-jn">
         <div className="container-jn">
-          <Reveal>
-            <p className="caption mb-10">— Asked about hourly rates</p>
-          </Reveal>
-          <div className="grid grid-cols-1 gap-x-12 gap-y-10 md:grid-cols-3">
+          <h2 className="title-section max-w-[24ch]">Asked about hourly rates.</h2>
+          <div className="mt-8 grid grid-cols-1 gap-4 md:grid-cols-3">
             {FAQ.map((f) => (
-              <Reveal key={f.q} className="border-t border-ink-3 pt-6">
-                <h3 className="font-serif text-[19px] font-normal leading-[1.3] tracking-tight text-bone">
-                  {f.q}
-                </h3>
-                <p className="mt-3 text-[15px] leading-[1.6] text-bone-2">{f.a}</p>
-              </Reveal>
+              <div key={f.q} className="card card-pad max-md:p-5">
+                <h3 className="title-card-sm text-bone">{f.q}</h3>
+                <p className="mt-3 text-[16px] leading-[1.6] text-bone-2">{f.a}</p>
+              </div>
             ))}
           </div>
         </div>

@@ -1,15 +1,14 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Reveal } from "@/components/reveal";
-import { ClosingCTA } from "@/components/closing-cta";
+import { CtaBand } from "@/components/cta-band";
 import { ProofStrip } from "@/components/proof-strip";
 import { DeskNotes } from "@/components/desk-notes";
 import { QuoteLauncher, RouteQuoteLink } from "@/components/quote-launcher";
 import { pageMetadata } from "@/lib/page-meta";
 import { ROUTES, getRoute, relatedRoutes, type CharterRoute } from "@/lib/routes";
 import { CITIES } from "@/lib/cities";
-import { FLEET, formatNm, type AircraftCategorySlug } from "@/lib/fleet";
+import { FLEET, type AircraftCategorySlug } from "@/lib/fleet";
 import { MODELS } from "@/lib/models";
 import { distanceNm } from "@/lib/airports";
 import {
@@ -31,6 +30,9 @@ type RouteParams = { params: Promise<{ slug: string }> };
 
 // Blog band is DB-backed: regenerate hourly so new posts surface without a deploy.
 export const revalidate = 3600;
+
+const nmFormat = new Intl.NumberFormat("en-US");
+const formatNm = (n: number) => `${nmFormat.format(n)} nm`;
 
 export function generateStaticParams() {
   return ROUTES.map((r) => ({ slug: r.slug }));
@@ -180,6 +182,8 @@ export default async function RoutePage({ params }: RouteParams) {
     })),
   };
 
+  const cityGuides = CITIES.filter((c) => c.name === route.from.city || c.name === route.to.city);
+
   return (
     <>
       {[airportJsonLd(route.from), airportJsonLd(route.to), offerJsonLd, breadcrumbJsonLd, faqJsonLd]
@@ -194,130 +198,106 @@ export default async function RoutePage({ params }: RouteParams) {
         ))}
 
       {/* ─── Header: route + from-price ─── */}
-      <header className="border-b border-ink-3 bg-ink pt-[180px] pb-16 max-md:pt-[130px] max-md:pb-12">
-        <div className="container-jn grid items-end gap-12 lg:grid-cols-[1.4fr_1fr]">
+      <header className="bg-ink pt-[96px] pb-4 max-md:pt-14">
+        <div className="container-jn grid items-end gap-10 lg:grid-cols-[1.4fr_1fr]">
           <div>
-            <Reveal className="mb-6 flex flex-wrap items-center gap-x-4 gap-y-2 font-mono text-[11px] uppercase tracking-[0.16em] text-bone-2">
-              <span className="block h-px w-8 bg-clearance" />
-              <Link href="/routes" className="transition-colors hover:text-bone">Routes</Link>
-              <span aria-hidden>·</span>
-              <span>{route.from.iata} → {route.to.iata}</span>
-            </Reveal>
-            <Reveal as="h1" stagger={1} className="display-xl max-w-[18ch]">
+            <p className="eyebrow">
+              <Link href="/routes" className="transition-colors hover:text-bone">
+                Routes
+              </Link>
+              <span aria-hidden> · </span>
+              {route.from.city} ({route.from.iata}) → {route.to.city} ({route.to.iata})
+            </p>
+            <h1 className="title-page max-w-[16ch] !text-[clamp(40px,5.5vw,64px)]">
               Private jet, {route.from.city} to {route.to.city}.
-            </Reveal>
-            <Reveal as="p" stagger={2} className="mt-8 max-w-[58ch] text-[18px] leading-[1.55] text-bone-2">
-              {route.note}
-            </Reveal>
+            </h1>
+            <p className="lead mt-5 max-w-[58ch]">{route.note}</p>
           </div>
           {cheapest ? (
-            <Reveal stagger={2} className="rounded-[4px] border border-ink-3 bg-ink-2 p-8">
-              <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-steel">
-                — One way · whole aircraft · all-in
-              </p>
-              <div className="mt-5 font-serif text-[44px] font-light leading-none tracking-tight text-bone">
+            <div className="card card-pad max-md:p-5">
+              <p className="label-jn">One way · whole aircraft · all-in</p>
+              <div className="mt-4 font-serif text-[44px] font-light leading-none tracking-tight text-bone max-md:text-[36px]">
                 From {formatUSD(cheapest.ind.low)}
               </div>
-              <p className="mt-3 font-mono text-[10px] uppercase tracking-[0.12em] text-bone-2">
-                {cheapest.name} category · ~{cheapest.hours} block
+              <p className="mt-3 text-[15px] text-bone-2">
+                {cheapest.name} category · about {cheapest.hours} in the air
               </p>
-              <div className="mt-6 border-t border-ink-3 pt-5">
+              <div className="mt-6 border-t border-line pt-5">
                 <RouteQuoteLink
                   from={route.from.iata}
                   to={route.to.iata}
                   category={cheapest.slug}
                   pax={4}
                   label="Get the exact number"
-                  className="btn btn-primary"
+                  className="btn btn-primary btn-lg max-md:w-full"
                 />
               </div>
-            </Reveal>
+            </div>
           ) : null}
         </div>
       </header>
 
       {/* ─── At a glance ─── */}
-      <section aria-label="Route at a glance" className="border-b border-ink-3 bg-ink-2">
-        <div className="container-jn flex flex-wrap items-stretch">
-          {[
-            [`${route.from.icao} · ${route.from.name}`, `Departing ${route.from.city}`],
-            [`${route.to.icao} · ${route.to.name}`, `Arriving ${route.to.city}`],
-            [formatNm(nm), "Great-circle distance"],
-            [`~${fastest?.hours ?? "—"}`, `Block time · ${fastest?.name.toLowerCase() ?? ""}`],
-            ["< 30 min", "Quote turnaround · same-day flyable"],
-          ].map(([big, label]) => (
-            <div
-              key={label}
-              className="flex min-w-[170px] flex-1 flex-col justify-center gap-1.5 border-r border-ink-3 px-6 py-6 last:border-r-0"
-            >
-              <span className="font-serif text-[18px] font-normal leading-tight tracking-tight text-bone">
-                {big}
-              </span>
-              <span className="font-mono text-[9px] uppercase tracking-[0.14em] text-bone-2">{label}</span>
-            </div>
-          ))}
+      <section aria-label="Route at a glance" className="section-jn">
+        <div className="container-jn">
+          <div className="card grid grid-cols-1 divide-y divide-line-faint sm:grid-cols-2 sm:divide-y-0 lg:grid-cols-5">
+            {[
+              [`${route.from.name} (${route.from.iata})`, `Departing ${route.from.city}`],
+              [`${route.to.name} (${route.to.iata})`, `Arriving ${route.to.city}`],
+              [formatNm(nm), "Distance, as the crow flies"],
+              [`About ${fastest?.hours ?? "—"}`, `Flight time · ${fastest?.name.toLowerCase() ?? ""}`],
+              ["Under 30 min", "Quote turnaround · same-day flyable"],
+            ].map(([big, label]) => (
+              <div key={label} className="flex flex-col justify-center gap-1.5 px-6 py-6 lg:border-r lg:border-line lg:last:border-r-0">
+                <span className="font-serif text-[22px] font-normal leading-tight tracking-tight text-bone">
+                  {big}
+                </span>
+                <span className="text-[14px] text-steel">{label}</span>
+              </div>
+            ))}
+          </div>
         </div>
       </section>
 
       {/* ─── Aircraft options ─── */}
-      <section className="py-24 max-md:py-16">
+      <section className="section-jn">
         <div className="container-jn">
-          <Reveal>
-            <p className="caption mb-6">— Aircraft for this lane</p>
-          </Reveal>
-          <Reveal as="h2" stagger={1} className="display-m max-w-[26ch]">
-            Every category that flies it, priced.
-          </Reveal>
-          <Reveal as="p" stagger={2} className="mt-6 max-w-[66ch] text-[17px] leading-[1.55] text-bone-2">
+          <p className="eyebrow">Aircraft for this lane</p>
+          <h2 className="title-section max-w-[26ch]">Every category that flies it, priced.</h2>
+          <p className="mt-5 max-w-[66ch] text-[17px] leading-[1.55] text-bone-2">
             Indicative one-way ranges for the whole aircraft, computed by the same engine behind
             the quote wizard. The marked category is what the wizard itself recommends for four
             passengers on this distance.
-          </Reveal>
-          <div className="mt-12 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-            {options.map((o, i) => (
-              <Reveal
+          </p>
+          <div className="mt-8 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+            {options.map((o) => (
+              <div
                 key={o.slug}
-                stagger={(i % 3) as 0 | 1 | 2}
-                className={[
-                  "flex flex-col gap-5 rounded-[4px] border bg-ink-2 p-7",
-                  o.recommended ? "border-clearance" : "border-ink-3",
-                ].join(" ")}
+                className={["card card-pad flex flex-col gap-5 max-md:p-5", o.recommended ? "card-selected" : ""].join(" ")}
               >
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <div className="font-serif text-[22px] font-normal leading-tight tracking-tight text-bone">
-                      {o.name}
-                    </div>
-                    <div className="mt-1 font-mono text-[10px] uppercase tracking-[0.1em] text-steel">
-                      e.g. {o.exampleModels.join(" · ")}
-                    </div>
+                    <div className="title-card-sm text-bone">{o.name}</div>
+                    <div className="mt-1 text-[14px] text-steel">e.g. {o.exampleModels.join(" · ")}</div>
                   </div>
                   {o.recommended ? (
-                    <span className="shrink-0 rounded-[2px] bg-clearance px-2 py-1 font-mono text-[9px] uppercase tracking-[0.12em] text-ink">
-                      Recommended
-                    </span>
+                    <span className="shrink-0 text-[13px] font-semibold text-gold">Recommended</span>
                   ) : null}
                 </div>
-                <div className="grid grid-cols-2 gap-3 border-y border-ink-3 py-5 text-[11px]">
-                  <div className="flex flex-col gap-1">
-                    <span className="font-mono uppercase tracking-[0.12em] text-steel">— Block</span>
-                    <span className="font-mono tracking-[0.04em] text-bone">{o.hours}</span>
-                  </div>
-                  <div className="flex flex-col gap-1">
-                    <span className="font-mono uppercase tracking-[0.12em] text-steel">— Hourly</span>
-                    <span className="font-mono tracking-[0.04em] text-bone">{formatUSD(o.ind.hourly)}/hr</span>
-                  </div>
-                </div>
+                <dl className="dl-jn border-y border-line py-4">
+                  <dt>Flight time</dt>
+                  <dd>{o.hours}</dd>
+                  <dt>Hourly</dt>
+                  <dd>{formatUSD(o.ind.hourly)}/hr</dd>
+                </dl>
                 <div className="flex flex-1 flex-col justify-end gap-4">
                   <div>
-                    <div className="font-mono text-[10px] uppercase tracking-[0.12em] text-steel">
-                      — One way, all-in
-                    </div>
-                    <div className="mt-1 font-serif text-[21px] font-light leading-tight tracking-tight text-bone">
+                    <div className="text-[14px] text-steel">One way, all-in</div>
+                    <div className="mt-1 font-serif text-[26px] font-light leading-tight tracking-tight text-bone">
                       {o.ind.formatted}
                     </div>
                   </div>
-                  <div className="flex flex-wrap items-center gap-3">
+                  <div className="flex flex-wrap items-center gap-4">
                     <RouteQuoteLink
                       from={route.from.iata}
                       to={route.to.iata}
@@ -326,89 +306,72 @@ export default async function RoutePage({ params }: RouteParams) {
                       label="Quote it"
                       className="btn btn-secondary btn-sm"
                     />
-                    <Link
-                      href={o.href}
-                      className="font-mono text-[10px] uppercase tracking-[0.12em] text-clearance transition-colors hover:text-bone"
-                    >
+                    <Link href={o.href} className="text-link text-[15px]">
                       Category <span className="arrow">→</span>
                     </Link>
                   </div>
                 </div>
-              </Reveal>
+              </div>
             ))}
           </div>
-          <p className="mt-8 max-w-[70ch] text-[13px] leading-[1.6] text-steel">
+          <p className="mt-6 max-w-[70ch] text-[15px] leading-[1.6] text-steel">
             Flying the other direction? Same lane, same math — the wizard prices{" "}
             {route.to.city} to {route.from.city} identically; repositioning differences show up in
             the firm quote, not a different rate card.
           </p>
-          {(() => {
-            const guides = CITIES.filter(
-              (c) => c.name === route.from.city || c.name === route.to.city,
-            );
-            return guides.length > 0 ? (
-              <p className="mt-3 max-w-[70ch] text-[13px] leading-[1.6] text-steel">
-                City guides:{" "}
-                {guides.map((c, i) => (
-                  <span key={c.slug}>
-                    {i > 0 ? " · " : ""}
-                    <Link href={`/private-jet-charter/${c.slug}`} className="text-clearance">
-                      {c.name} airports &amp; lanes
-                    </Link>
-                  </span>
-                ))}
-              </p>
-            ) : null;
-          })()}
+          {cityGuides.length > 0 ? (
+            <p className="mt-3 max-w-[70ch] text-[15px] leading-[1.6] text-steel">
+              City guides:{" "}
+              {cityGuides.map((c, i) => (
+                <span key={c.slug}>
+                  {i > 0 ? " · " : ""}
+                  <Link href={`/private-jet-charter/${c.slug}`} className="text-link">
+                    {c.name} airports &amp; lanes
+                  </Link>
+                </span>
+              ))}
+            </p>
+          ) : null}
         </div>
       </section>
 
       {/* ─── FAQ ─── */}
-      <section className="border-t border-ink-3 bg-ink-2 py-24 max-md:py-16">
+      <section className="section-jn">
         <div className="container-jn">
-          <Reveal>
-            <p className="caption mb-10">— Asked about this route</p>
-          </Reveal>
-          <div className="grid grid-cols-1 gap-x-12 gap-y-10 md:grid-cols-2">
+          <h2 className="title-section max-w-[24ch]">Asked about this route.</h2>
+          <div className="mt-8 grid grid-cols-1 gap-4 md:grid-cols-2">
             {FAQ.map((f) => (
-              <Reveal key={f.q} className="border-t border-ink-3 pt-6">
-                <h3 className="font-serif text-[19px] font-normal leading-[1.3] tracking-tight text-bone">
-                  {f.q}
-                </h3>
-                <p className="mt-3 max-w-[62ch] text-[15px] leading-[1.6] text-bone-2">{f.a}</p>
-              </Reveal>
+              <div key={f.q} className="card card-pad max-md:p-5">
+                <h3 className="title-card-sm text-bone">{f.q}</h3>
+                <p className="mt-3 max-w-[62ch] text-[16px] leading-[1.6] text-bone-2">{f.a}</p>
+              </div>
             ))}
           </div>
         </div>
       </section>
 
-      <ProofStrip />
+      <div className="section-jn">
+        <ProofStrip />
+      </div>
 
       {/* ─── Related routes ─── */}
       {related.length > 0 ? (
-        <section className="border-t border-ink-3 py-24 max-md:py-16">
+        <section className="section-jn">
           <div className="container-jn">
-            <Reveal>
-              <p className="caption mb-6">— Nearby lanes</p>
-            </Reveal>
+            <h2 className="title-section mb-8">Nearby lanes</h2>
             <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-              {related.map((r, i) => (
-                <Reveal key={r.slug} stagger={(i % 3) as 0 | 1 | 2}>
-                  <Link
-                    href={`/routes/${r.slug}`}
-                    className="group flex h-full flex-col rounded-[4px] border border-ink-3 bg-ink-2 p-8 transition-colors hover:border-[rgba(232,226,210,0.3)]"
-                  >
-                    <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-steel">
-                      {r.from.iata} → {r.to.iata}
-                    </span>
-                    <h3 className="mt-3 font-serif text-[20px] font-normal leading-[1.25] tracking-tight text-bone group-hover:text-clearance">
-                      {r.from.city} to {r.to.city}
-                    </h3>
-                    <span className="mt-5 font-mono text-[10px] uppercase tracking-[0.14em] text-clearance">
-                      Cost &amp; time <span className="arrow">→</span>
-                    </span>
-                  </Link>
-                </Reveal>
+              {related.map((r) => (
+                <Link key={r.slug} href={`/routes/${r.slug}`} className="card card-pad group flex h-full flex-col max-md:p-5">
+                  <span className="label-jn">
+                    {r.from.city} ({r.from.iata}) → {r.to.city} ({r.to.iata})
+                  </span>
+                  <h3 className="title-card-sm mt-3 text-bone transition-colors group-hover:text-clearance">
+                    {r.from.city} to {r.to.city}
+                  </h3>
+                  <span className="mt-5 text-[15px] font-medium text-bone">
+                    Cost &amp; time <span className="arrow">→</span>
+                  </span>
+                </Link>
               ))}
             </div>
           </div>
@@ -425,9 +388,11 @@ export default async function RoutePage({ params }: RouteParams) {
         body="The route is already filled in — add a date and passenger count and the wizard prices it as you type."
       />
 
-      <ClosingCTA
-        heading="This lane, on the standard."
-        body={`Every airframe we quote on it flies for an ARG/US- or Wyvern-audited operator that passed our vetting. Dispatch knows what's in position today: ${SITE.dispatchPhone}.`}
+      <CtaBand
+        title="This lane, on the standard."
+        body={`Every aircraft we quote on it flies for an ARG/US- or Wyvern-audited operator that passed our vetting. Dispatch knows what's in position today: ${SITE.dispatchPhone}.`}
+        primary={{ label: "Request a quote", href: "/quote/mission" }}
+        secondary={{ label: `Call dispatch · ${SITE.dispatchPhone}`, href: `tel:${SITE.dispatchPhoneE164}` }}
       />
     </>
   );

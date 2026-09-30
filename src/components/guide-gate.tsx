@@ -29,7 +29,7 @@ export function GuideGate({ context = "guides-hub" }: { context?: string }) {
     if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) next.email = true;
     if (Object.keys(next).length) {
       setErrors(next);
-      setState({ phase: "error", text: "MISSING / INVALID — CHECK NAME & EMAIL" });
+      setState({ phase: "error", text: "Check your name and email." });
       return;
     }
     setErrors({});
@@ -41,53 +41,41 @@ export function GuideGate({ context = "guides-hub" }: { context?: string }) {
       } else {
         setState({
           phase: "error",
-          text: result.error === "RATE_LIMITED" ? "TOO MANY TRIES — WAIT A FEW MINUTES" : `MISSING / INVALID — ${result.error}`,
+          text:
+            result.error === "RATE_LIMITED"
+              ? "Too many tries — wait a few minutes."
+              : `Something went wrong: ${result.error}`,
         });
       }
     });
   }
 
   return (
-    <section aria-label="Download the pricing guide" className="border-t border-ink-3 bg-ink py-20 max-md:py-14">
-      <div className="container-jn grid items-center gap-10 lg:grid-cols-[1.2fr_1fr]">
+    <section aria-label="Download the pricing guide" className="section-jn">
+      <div className="container-jn grid items-center gap-8 lg:grid-cols-[1.2fr_1fr]">
         <div>
-          <p className="caption mb-5">— The compiled edition</p>
-          <h2 className="font-serif text-[30px] font-normal leading-[1.15] tracking-tight text-bone max-w-[22ch]">
-            The whole guide, one PDF.
-          </h2>
-          <p className="mt-4 max-w-[52ch] text-[15px] leading-[1.6] text-bone-2">
+          <p className="eyebrow">The compiled edition</p>
+          <h2 className="title-section max-w-[22ch]">The whole guide, one PDF.</h2>
+          <p className="mt-5 max-w-[56ch] text-[17px] leading-[1.6] text-bone-2">
             Rate card, the itemized $47,260 example, four worked lanes, and the ten-question
             broker checklist — compiled for forwarding to whoever signs off. Every chapter stays
             open on the site; the PDF is the convenience, and it costs an email.
           </p>
-          <p className="mt-4 font-mono text-[10px] uppercase tracking-[0.12em] text-steel">
-            — No drip campaign · the link, once, to your inbox
-          </p>
+          <p className="mt-4 text-[14px] text-steel">No drip campaign · the link, once, to your inbox</p>
         </div>
 
         {state.phase === "done" ? (
-          <div className="rounded-[4px] border border-ink-3 bg-ink-2 p-8">
-            <p className="font-mono text-[11px] uppercase tracking-[0.12em] text-[var(--success)]">
-              CLEARED — LINK SENT TO YOUR INBOX
-            </p>
-            <a
-              href={state.url}
-              target="_blank"
-              rel="noopener"
-              className="btn btn-primary mt-6"
-            >
+          <div className="card card-pad max-md:p-5">
+            <p className="text-[14px] font-semibold text-success">Link sent to your inbox.</p>
+            <a href={state.url} target="_blank" rel="noopener" className="btn btn-primary btn-lg mt-5">
               Open the guide (PDF) <span className="arrow">→</span>
             </a>
-            <p className="mt-5 text-[13px] leading-[1.6] text-bone-2">
+            <p className="mt-5 text-[14px] leading-[1.6] text-bone-2">
               Reading done and a trip in mind? The wizard prices it in about ninety seconds.
             </p>
           </div>
         ) : (
-          <form
-            noValidate
-            onSubmit={onSubmit}
-            className="grid grid-cols-1 gap-3 rounded-[4px] border border-ink-3 bg-ink-2 p-6"
-          >
+          <form noValidate onSubmit={onSubmit} className="card card-pad grid grid-cols-1 gap-[10px] max-md:p-5">
             {/* Honeypot — never rendered visibly; bots autofill it. */}
             <input
               type="text"
@@ -115,20 +103,18 @@ export function GuideGate({ context = "guides-hub" }: { context?: string }) {
                 <option value="own-program">Currently on a card or program elsewhere</option>
               </select>
             </div>
-            <div className="flex flex-wrap items-center justify-between gap-4 pt-1">
+            <div className="flex flex-wrap items-center justify-between gap-4 pt-2">
               {state.phase === "error" ? (
-                <span className="font-mono text-[11px] uppercase tracking-[0.12em] text-[var(--error)]">
+                <span role="alert" className="text-[14px] text-danger">
                   {state.text}
                 </span>
               ) : (
-                <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-steel">
-                  — 5 pages · updated quarterly
-                </span>
+                <span className="text-[14px] text-steel">5 pages · updated quarterly</span>
               )}
               <button
                 type="submit"
                 disabled={pending}
-                className="btn btn-primary disabled:cursor-wait disabled:opacity-60"
+                className="btn btn-primary disabled:cursor-wait disabled:opacity-60 max-md:w-full"
               >
                 {pending ? "Sending…" : "Get the PDF"} <span className="arrow">→</span>
               </button>

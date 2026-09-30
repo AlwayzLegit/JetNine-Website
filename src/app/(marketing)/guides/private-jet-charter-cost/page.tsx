@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { pageMetadata } from "@/lib/page-meta";
-import { Reveal } from "@/components/reveal";
 import { GuideShell } from "@/components/guide/guide-shell";
 import { RateTable } from "@/components/rate-table";
 import { getGuideChapter } from "@/lib/guides";
@@ -48,6 +47,12 @@ const buildFaq = (aspenRange: string) => [
   },
 ];
 
+// The data module keeps the old all-caps line labels; render them in
+// sentence case (keeping the FET acronym) so the numbers stay single-sourced.
+function plainLabel(label: string) {
+  return label.toLowerCase().replace(/^./, (c) => c.toUpperCase()).replace(/\bfet\b/i, "FET");
+}
+
 export default function CharterCostPage() {
   // Worked example computed by the live engine so it can never
   // contradict a real quote for the same trip.
@@ -86,75 +91,63 @@ export default function CharterCostPage() {
       />
 
       {/* The short answer */}
-      <section className="py-24 max-md:py-16">
+      <section className="section-jn">
         <div className="container-jn">
-          <Reveal>
-            <p className="caption mb-6">— The short answer</p>
-          </Reveal>
-          <Reveal as="h2" stagger={1} className="display-m max-w-[26ch]">
+          <p className="eyebrow">The short answer</p>
+          <h2 className="title-section max-w-[26ch]">
             {RATES[0].market.replace("/hr", "")} to {RATES[RATES.length - 1].market.replace("/hr", "")} per flight hour.
-          </Reveal>
-          <Reveal as="p" stagger={2} className="mt-6 max-w-[68ch] text-[18px] leading-[1.55] text-bone-2">
+          </h2>
+          <p className="mt-5 max-w-[68ch] text-[17px] leading-[1.6] text-bone-2">
             That&rsquo;s the market range across the six aircraft categories, and it&rsquo;s the honest unit to
             think in: your trip&rsquo;s price is the hourly rate for the category you need, times the
             hours the mission takes, plus tax — all of which is in the quote before you accept it.
             Most charter sites won&rsquo;t print these numbers. Here&rsquo;s our card:
-          </Reveal>
-          <div className="mt-12">
+          </p>
+          <div className="mt-8">
             <RateTable />
           </div>
         </div>
       </section>
 
       {/* Itemized example */}
-      <section className="border-t border-ink-3 bg-ink-2 py-24 max-md:py-16">
+      <section className="section-jn">
         <div className="container-jn">
-          <Reveal>
-            <p className="caption mb-6">— A real itemized quote</p>
-          </Reveal>
-          <Reveal as="h2" stagger={1} className="display-m max-w-[26ch]">
-            What {PRICE_STACK_TOTAL} actually buys.
-          </Reveal>
-          <Reveal as="p" stagger={2} className="mt-6 max-w-[68ch] text-[18px] leading-[1.55] text-bone-2">
+          <p className="eyebrow">A real itemized quote</p>
+          <h2 className="title-section max-w-[26ch]">What {PRICE_STACK_TOTAL} actually buys.</h2>
+          <p className="mt-5 max-w-[68ch] text-[17px] leading-[1.6] text-bone-2">
             A midsize round trip, Los Angeles (Van Nuys) to New York (Teterboro area) and back —
-            about ten hours of block time. This is the same breakdown a JetNine quote itemizes
+            about ten hours of flight time. This is the same breakdown a JetNine quote itemizes
             before you accept:
-          </Reveal>
-          <Reveal className="mt-12 overflow-x-auto rounded-[4px] border border-ink-3 bg-ink">
-            <table className="w-full min-w-[560px] border-collapse text-left">
+          </p>
+          <div className="card mt-8 overflow-x-auto">
+            <table className="table-jn min-w-[600px]">
               <tbody>
                 {PRICE_STACK.map((row) => (
-                  <tr key={row.n} className="border-b border-ink-3">
-                    <td className="px-6 py-4 font-mono text-[11px] text-clearance">{row.n}</td>
-                    <td className="px-6 py-4 font-mono text-[11px] uppercase tracking-[0.12em] text-bone">
-                      {row.label}
-                    </td>
-                    <td className="px-6 py-4 text-[13px] text-bone-2">{row.desc}</td>
-                    <td className="px-6 py-4 text-right font-mono text-[13px] text-bone">{row.val}</td>
+                  <tr key={row.n}>
+                    <td className="w-12 text-steel">{row.n}</td>
+                    <td className="font-medium text-bone">{plainLabel(row.label)}</td>
+                    <td className="text-bone-2">{row.desc}</td>
+                    <td className="text-right text-bone">{row.val}</td>
                   </tr>
                 ))}
-                <tr>
-                  <td className="px-6 py-5" />
-                  <td className="px-6 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-clearance">
-                    All-in total
-                  </td>
-                  <td className="px-6 py-5 text-[13px] text-bone-2">
-                    Locked at acceptance — this is the invoice number
-                  </td>
-                  <td className="px-6 py-5 text-right font-serif text-[24px] font-light tracking-tight text-bone">
+                <tr className="border-t border-line">
+                  <td />
+                  <td className="font-medium text-clearance">All-in total</td>
+                  <td className="text-bone-2">Locked at acceptance — this is the invoice number</td>
+                  <td className="text-right font-serif text-[26px] font-light tracking-tight text-bone">
                     {PRICE_STACK_TOTAL}
                   </td>
                 </tr>
               </tbody>
             </table>
-          </Reveal>
-          <p className="mt-6 max-w-[68ch] text-[15px] leading-[1.6] text-bone-2">
-            Two things worth noticing. Repositioning is $0 here because the airframe was already
+          </div>
+          <p className="mt-6 max-w-[68ch] text-[16px] leading-[1.6] text-bone-2">
+            Two things worth noticing. Repositioning is $0 here because the aircraft was already
             based on the departure coast — when it isn&rsquo;t, that line is real money, which is why
             flexible routing saves more than any coupon. And the 7.5% Federal Excise Tax applies to
             every domestic charter, whoever you book with; a quote that doesn&rsquo;t show it isn&rsquo;t
             cheaper, it&rsquo;s incomplete. Line-by-line detail is in{" "}
-            <Link href="/guides/what-affects-charter-price" className="text-clearance">
+            <Link href="/guides/what-affects-charter-price" className="text-link-strong">
               what moves the price
             </Link>
             .
@@ -163,16 +156,12 @@ export default function CharterCostPage() {
       </section>
 
       {/* Per passenger */}
-      <section className="border-t border-ink-3 py-24 max-md:py-16">
-        <div className="container-jn grid items-start gap-12 lg:grid-cols-[1fr_1fr]">
+      <section className="section-jn">
+        <div className="container-jn grid items-start gap-10 lg:grid-cols-2">
           <div>
-            <Reveal>
-              <p className="caption mb-6">— Per passenger</p>
-            </Reveal>
-            <Reveal as="h2" stagger={1} className="display-m max-w-[20ch]">
-              You&rsquo;re buying the aircraft, not a seat.
-            </Reveal>
-            <Reveal as="p" stagger={2} className="mt-6 max-w-[56ch] text-[17px] leading-[1.6] text-bone-2">
+            <p className="eyebrow">Per passenger</p>
+            <h2 className="title-section max-w-[20ch]">You&rsquo;re buying the aircraft, not a seat.</h2>
+            <p className="mt-5 max-w-[56ch] text-[17px] leading-[1.6] text-bone-2">
               The quote is for the whole cabin — so the per-person math turns on how many seats you
               fill. Los Angeles to Aspen on a light jet prices at{" "}
               {aspen ? aspen.formatted : "an indicative range from our live engine"} all-in.
@@ -183,53 +172,43 @@ export default function CharterCostPage() {
               )}{" "}
               — into a mountain airport the airlines serve badly, on your schedule, with the car on
               the ramp when you land.
-            </Reveal>
-          </div>
-          <Reveal stagger={2} className="rounded-[4px] border border-ink-3 bg-ink-2 p-10">
-            <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-steel">
-              — Worked live · KVNY → KASE · light jet
             </p>
+          </div>
+          <div className="card card-pad max-md:p-5">
+            <p className="label-jn">Worked live · Los Angeles (VNY) → Aspen (ASE) · light jet</p>
             <div className="mt-6 grid grid-cols-2 gap-6">
               <div>
-                <div className="font-serif text-[30px] font-light leading-none tracking-tight text-bone">
+                <div className="font-serif text-[32px] font-light leading-none tracking-tight text-bone max-md:text-[26px]">
                   {aspen ? aspen.formatted : "—"}
                 </div>
-                <div className="mt-2 font-mono text-[10px] uppercase tracking-[0.12em] text-bone-2">
-                  Whole aircraft, all-in
-                </div>
+                <div className="mt-2 text-[14px] text-bone-2">Whole aircraft, all-in</div>
               </div>
               <div>
-                <div className="font-serif text-[30px] font-light leading-none tracking-tight text-clearance">
+                <div className="font-serif text-[32px] font-light leading-none tracking-tight text-clearance max-md:text-[26px]">
                   {perSeat ? `≈ ${perSeat}` : "—"}
                 </div>
-                <div className="mt-2 font-mono text-[10px] uppercase tracking-[0.12em] text-bone-2">
-                  Per seat · 4 passengers
-                </div>
+                <div className="mt-2 text-[14px] text-bone-2">Per seat · 4 passengers</div>
               </div>
             </div>
-            <p className="mt-6 border-t border-ink-3 pt-5 text-[13px] leading-[1.6] text-bone-2">
+            <p className="mt-6 border-t border-line pt-5 text-[14px] leading-[1.6] text-bone-2">
               Computed by the same engine as the quote wizard, refreshed with the rate card. Your
-              exact number depends on date and airframe availability.
+              exact number depends on date and aircraft availability.
             </p>
-          </Reveal>
+          </div>
         </div>
       </section>
 
       {/* How to pay less */}
-      <section className="border-t border-ink-3 bg-ink-2 py-24 max-md:py-16">
+      <section className="section-jn">
         <div className="container-jn">
-          <Reveal>
-            <p className="caption mb-6">— How to pay less</p>
-          </Reveal>
-          <Reveal as="h2" stagger={1} className="display-m max-w-[24ch]">
-            Three honest discounts. No coupon codes.
-          </Reveal>
-          <div className="mt-12 grid grid-cols-1 gap-4 md:grid-cols-3">
+          <p className="eyebrow">How to pay less</p>
+          <h2 className="title-section max-w-[24ch]">Three honest discounts. No coupon codes.</h2>
+          <div className="mt-8 grid grid-cols-1 gap-4 md:grid-cols-3">
             {[
               {
                 n: "01",
                 h: "Fly an empty leg.",
-                p: "Repositioning flights sell at 30–60% off, occasionally deeper — same airframe, same crew, locked date and route. Our live board lists them and the SMS watchlist texts you when your lane shows up.",
+                p: "Repositioning flights sell at 30–60% off, occasionally deeper — same aircraft, same crew, locked date and route. Our live board lists them and the SMS watchlist texts you when your lane shows up.",
                 href: "/empty-legs",
                 cta: "See the live board",
               },
@@ -247,36 +226,30 @@ export default function CharterCostPage() {
                 href: "/memberships",
                 cta: "Compare programs",
               },
-            ].map((c, i) => (
-              <Reveal key={c.n} stagger={(i % 3) as 0 | 1 | 2} className="flex flex-col rounded-[4px] border border-ink-3 bg-ink p-10">
-                <span className="font-mono text-[42px] font-light leading-none text-clearance">{c.n}</span>
-                <h3 className="mt-6 font-serif text-[22px] font-normal leading-[1.25] tracking-tight text-bone">
-                  {c.h}
-                </h3>
-                <p className="mt-3 flex-1 text-[15px] leading-[1.6] text-bone-2">{c.p}</p>
-                <Link href={c.href} className="mt-6 font-mono text-[10px] uppercase tracking-[0.14em] text-clearance">
+            ].map((c) => (
+              <div key={c.n} className="card card-pad flex flex-col max-md:p-5">
+                <span className="font-serif text-[48px] font-light leading-none text-clearance">{c.n}</span>
+                <h3 className="title-card-sm mt-5 text-bone">{c.h}</h3>
+                <p className="mt-3 flex-1 text-[16px] leading-[1.6] text-bone-2">{c.p}</p>
+                <Link href={c.href} className="mt-6 text-[15px] font-medium text-bone">
                   {c.cta} <span className="arrow">→</span>
                 </Link>
-              </Reveal>
+              </div>
             ))}
           </div>
         </div>
       </section>
 
       {/* FAQ */}
-      <section className="border-t border-ink-3 py-24 max-md:py-16">
+      <section className="section-jn">
         <div className="container-jn">
-          <Reveal>
-            <p className="caption mb-10">— Cost questions, answered straight</p>
-          </Reveal>
-          <div className="grid grid-cols-1 gap-x-12 gap-y-10 md:grid-cols-2">
+          <h2 className="title-section max-w-[24ch]">Cost questions, answered straight.</h2>
+          <div className="mt-8 grid grid-cols-1 gap-4 md:grid-cols-2">
             {FAQ.map((f) => (
-              <Reveal key={f.q} className="border-t border-ink-3 pt-6">
-                <h3 className="font-serif text-[19px] font-normal leading-[1.3] tracking-tight text-bone">
-                  {f.q}
-                </h3>
-                <p className="mt-3 max-w-[62ch] text-[15px] leading-[1.6] text-bone-2">{f.a}</p>
-              </Reveal>
+              <div key={f.q} className="card card-pad max-md:p-5">
+                <h3 className="title-card-sm text-bone">{f.q}</h3>
+                <p className="mt-3 max-w-[62ch] text-[16px] leading-[1.6] text-bone-2">{f.a}</p>
+              </div>
             ))}
           </div>
         </div>

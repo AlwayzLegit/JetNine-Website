@@ -136,6 +136,7 @@ export default function MembershipsPage() {
       />
       <PageHero
         eyebrow="Memberships · jet card · on-demand"
+        titleClassName="!max-w-[18ch] !text-[clamp(40px,4.5vw,56px)] !leading-[1.05]"
         title="Jet card, reserve, or on-demand: three ways to fly, no membership required."
         lead="Most charter brokers want you on a yearly retainer. We don't. The default is on-demand — pay per flight, locked pricing, zero commitment. The jet card and reserve programs exist because some clients want fixed hourly rates and guaranteed availability. Pick the one that fits your year."
         imageSrc="/images/hero/memberships.webp"

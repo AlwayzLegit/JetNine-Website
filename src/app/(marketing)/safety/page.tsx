@@ -67,7 +67,7 @@ export default function SafetyPage() {
         lead="Every operator in our network meets a written safety floor before they're eligible for a single flight. We re-audit every twelve months. The protocol is below — the same one our chief pilot uses to vet his own family's flights."
         imageSrc="/images/hero/safety.webp"
         imagePosition="center"
-        className="[&_h1]:!max-w-[18ch] [&_h1]:!text-[clamp(40px,4.5vw,56px)] [&_h1]:!leading-[1.05]"
+        titleClassName="!max-w-[18ch] !text-[clamp(40px,4.5vw,56px)] !leading-[1.05]"
       />
 
       {/* Accreditations */}

@@ -114,6 +114,7 @@ export default function AboutPage() {
       />
 
       <PageHero
+        titleClassName="!max-w-[16ch]"
         eyebrow={`About JetNine · est. ${SITE.legal.foundedYear}`}
         title="A small company built on the old idea of one phone number."
         lead="JetNine is a senior-dispatcher charter brokerage in Los Angeles. We don't run a marketing engine. We don't run a marketplace. We don't sell memberships unless you actually need one."

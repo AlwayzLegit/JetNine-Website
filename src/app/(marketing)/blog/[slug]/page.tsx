@@ -151,7 +151,7 @@ export default async function BlogPostPage({ params }: Props) {
         eyebrow={eyebrow}
         title={post.title}
         lead={post.description}
-        className="[&_h1]:max-w-[24ch]"
+        titleClassName="!max-w-[24ch]"
       >
         <nav aria-label="Breadcrumb" className="mt-6 text-[14px] text-steel">
           <Link href="/" className="text-link">

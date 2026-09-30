@@ -1,7 +1,7 @@
 import Image from "next/image";
 
 type Props = {
-  eyebrow: string;
+  eyebrow: React.ReactNode;
   title: React.ReactNode;
   lead?: React.ReactNode;
   /** Full-bleed photo behind the text (e.g. "/images/hero/aircraft.webp"). */
@@ -12,6 +12,8 @@ type Props = {
   /** Content rendered inside the hero, under the lead (a fact grid, a stat strip). */
   children?: React.ReactNode;
   className?: string;
+  /** Extra classes for the h1 — e.g. a wider `max-w-[18ch]` for long titles. */
+  titleClassName?: string;
 };
 
 /**
@@ -29,6 +31,7 @@ export function PageHero({
   imagePosition = "62% center",
   children,
   className = "",
+  titleClassName = "",
 }: Props) {
   return (
     <section
@@ -67,7 +70,7 @@ export function PageHero({
         ].join(" ")}
       >
         <p className="mb-4 text-[14px] font-semibold text-bone-2">{eyebrow}</p>
-        <h1 className="title-page max-w-[14ch] !text-[clamp(44px,5.5vw,64px)]">{title}</h1>
+        <h1 className={`title-page max-w-[14ch] !text-[clamp(44px,5.5vw,64px)] ${titleClassName}`}>{title}</h1>
         {lead ? <p className="lead mt-5 max-w-[56ch]">{lead}</p> : null}
         {children}
       </div>

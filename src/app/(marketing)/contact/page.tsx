@@ -133,6 +133,7 @@ export default function ContactPage() {
       />
 
       <PageHero
+        titleClassName="!max-w-[18ch]"
         eyebrow="Contact dispatch"
         title="One desk. One number. Open every hour of every day."
         lead="A senior dispatcher will pick up — and stay on with you for the duration of the call. No phone tree, no hold music, no after-hours voicemail."

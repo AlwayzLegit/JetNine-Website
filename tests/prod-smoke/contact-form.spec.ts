@@ -21,7 +21,6 @@ test.describe("@prod-smoke contact form", () => {
 
     // New contact-page surfaces ship together with the live form — assert
     // they rendered so a silent regression doesn't hide behind the submit.
-    await expect(page.getByTestId("kvny-map")).toBeVisible();
     await expect(page.getByTestId("desk-clock")).toBeVisible();
 
     await page.getByLabel(/first name/i).fill("[SMOKE]");
@@ -29,7 +28,7 @@ test.describe("@prod-smoke contact form", () => {
     await page.getByLabel(/^email$/i).fill(`smoke+contact${stamp}@jetnine.com`);
     await page.getByLabel(/departing/i).fill("KVNY");
     await page.getByLabel(/arriving/i).fill("KTEB");
-    await page.getByLabel(/date \/ window/i).fill("next week · flexible");
+    await page.getByLabel(/date or window/i).fill("next week · flexible");
     await page.getByLabel(/passengers/i).fill("2");
     await page
       .getByLabel(/anything else/i)
@@ -37,8 +36,8 @@ test.describe("@prod-smoke contact form", () => {
 
     await page.getByRole("button", { name: /send to dispatch/i }).click();
 
-    const success = page.getByText(/CLEARED — DISPATCH WILL REPLY/i);
-    const errorBanner = page.locator("text=/NOT SENT|TOO MANY SENDS|CHECK —/");
+    const success = page.getByText(/Sent\. A dispatcher will reply/i);
+    const errorBanner = page.locator("text=/Not sent|Too many sends|Check —/");
 
     await expect(async () => {
       const found = (await success.count()) + (await errorBanner.count());

@@ -1,28 +1,24 @@
-import { Reveal } from "@/components/reveal";
-import { Placeholder } from "@/components/placeholder";
+import Image from "next/image";
 
 export function DiscretionSplit() {
   return (
-    <section className="border-y border-ink-3 py-40 sm:py-24 lg:py-40">
-      <div className="container-jn">
-        <div className="grid grid-cols-1 gap-16 lg:grid-cols-2">
-          <div>
-            <Reveal>
-              <p className="caption mb-8">— Discretion</p>
-            </Reveal>
-            <Reveal as="blockquote" stagger={1} className="font-serif font-light leading-[1.15] tracking-tight text-bone" style={{ fontSize: "clamp(32px, 4.5vw, 48px)" }}>
-              Your journey stays invisible. Privacy isn&rsquo;t a feature&nbsp;&mdash;{" "}
-              <em className="not-italic text-clearance">it&rsquo;s part of the product.</em>
-            </Reveal>
-          </div>
-          <Reveal stagger={1}>
-            <Placeholder
-              caption="— TAIL, NIGHT TARMAC"
-              aspect="4/5"
-              imageUrl="/images/discretion/tail-night.webp"
-              sizes="(max-width: 1024px) 100vw, 50vw"
-            />
-          </Reveal>
+    <section className="container-jn section-jn-lg max-md:pt-16">
+      <div className="grid grid-cols-1 items-center gap-16 md:grid-cols-2 max-md:gap-8">
+        <div>
+          <p className="eyebrow mb-5">Discretion</p>
+          <blockquote className="title-section text-[clamp(32px,4vw,44px)] leading-[1.15]">
+            Your journey stays invisible. Privacy isn&rsquo;t a feature&nbsp;&mdash;{" "}
+            <em className="not-italic text-clearance">it&rsquo;s part of the product.</em>
+          </blockquote>
+        </div>
+        <div className="relative aspect-[4/5] overflow-hidden rounded-card bg-surface-2">
+          <Image
+            src="/images/discretion/tail-night.webp"
+            alt=""
+            fill
+            sizes="(max-width: 768px) 100vw, 50vw"
+            className="object-cover"
+          />
         </div>
       </div>
     </section>

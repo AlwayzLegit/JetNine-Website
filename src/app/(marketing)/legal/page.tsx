@@ -1,7 +1,5 @@
-import Link from "next/link";
 import type { Metadata } from "next";
 import { pageMetadata } from "@/lib/page-meta";
-import { Reveal } from "@/components/reveal";
 
 export const metadata: Metadata = pageMetadata({
   title: "Legal & disclosures",
@@ -10,10 +8,11 @@ export const metadata: Metadata = pageMetadata({
   path: "/legal",
 });
 
+// Every id below is linked from elsewhere on the site (footer, quote
+// flow, empty-legs watchlist, safety page) — keep them all.
 const TOC = [
   {
-    group: "I",
-    title: "Privacy",
+    title: "Privacy policy",
     items: [
       ["1.1", "What we collect", "#what-we-collect"],
       ["1.2", "How we use it", "#how-we-use"],
@@ -25,7 +24,6 @@ const TOC = [
     ],
   },
   {
-    group: "II",
     title: "Terms of service",
     items: [
       ["2.1", "The agreement", "#agreement"],
@@ -38,7 +36,6 @@ const TOC = [
     ],
   },
   {
-    group: "III",
     title: "Part 295 disclosure",
     items: [
       ["3.1", "Broker status", "#part-295"],
@@ -47,69 +44,73 @@ const TOC = [
       ["3.4", "Definitions", "#definitions"],
     ],
   },
-];
+] as const;
 
 const META_CARD = [
-  ["EFFECTIVE", "07 MAY 2026"],
-  ["LAST EDITED", "12 APR 2026"],
-  ["GOVERNING LAW", "California, USA"],
-  ["DISPATCH LEGAL", "legal@jetnine.com"],
-  ["PART 295", "Registered · DOT"],
+  ["Effective", "May 7, 2026"],
+  ["Last edited", "April 12, 2026"],
+  ["Governing law", "California, USA"],
+  ["Questions", "legal@jetnine.com"],
+  ["Broker status", "Part 295 · registered with US DOT"],
 ] as const;
 
 const DEFINITIONS = [
-  ["DIRECT AIR CARRIER", "An entity holding an FAA Part 135 air-carrier certificate that directly operates aircraft for compensation."],
-  ["INDIRECT AIR CARRIER", "An entity that arranges air transportation but does not operate aircraft. Air charter brokers under Part 295 are indirect air carriers."],
-  ["OPERATIONAL CONTROL", "Authority over initiating, conducting, or terminating a flight. Held exclusively by the direct air carrier."],
-  ["PART 295", "14 CFR Part 295 — U.S. DOT regulation governing air charter brokers."],
-  ["PART 135", "14 CFR Part 135 — FAA regulation governing on-demand commuter and charter operations."],
-  ["TRIP SHEET", "The written confirmation issued by JetNine before each flight stating operating carrier, tail number, crew, FBOs, and itemized pricing."],
+  ["Direct air carrier", "An entity holding an FAA Part 135 air-carrier certificate that directly operates aircraft for compensation."],
+  ["Indirect air carrier", "An entity that arranges air transportation but does not operate aircraft. Air charter brokers under Part 295 are indirect air carriers."],
+  ["Operational control", "Authority over initiating, conducting, or terminating a flight. Held exclusively by the direct air carrier."],
+  ["Part 295", "14 CFR Part 295 — U.S. DOT regulation governing air charter brokers."],
+  ["Part 135", "14 CFR Part 135 — FAA regulation governing on-demand commuter and charter operations."],
+  ["Trip sheet", "The written confirmation issued by JetNine before each flight stating operating carrier, tail number, crew, FBOs, and itemized pricing."],
 ] as const;
+
+const LINK = "text-link-strong";
 
 export default function LegalPage() {
   return (
     <>
-      {/* Hero — split + meta card */}
-      <header className="border-b border-ink-3 bg-ink pt-[112px] pb-24 max-md:pt-[64px] max-md:pb-16">
-        <div className="container-jn grid gap-16 lg:grid-cols-[1.4fr_1fr]">
-          <div>
-            <Reveal className="mb-6 inline-flex items-center gap-3 font-mono text-[11px] uppercase tracking-[0.16em] text-bone-2">
-              <span className="block h-px w-8 bg-clearance" />
-              Legal &amp; disclosures
-            </Reveal>
-            <Reveal as="h1" stagger={1} className="display-xl max-w-[14ch]">
-              The fine print, large enough to read.
-            </Reveal>
-            <Reveal as="p" stagger={2} className="mt-8 max-w-[56ch] text-[18px] leading-[1.55] text-bone-2">
-              Three documents that govern the JetNine relationship: how we handle your data, what
-              you and we agree to when you book, and the broker disclosure required by US DOT Part
-              295. Written plainly. Reviewed by counsel. Updated whenever they change — never
-              quietly.
-            </Reveal>
-          </div>
-          <Reveal stagger={2} className="self-end rounded-[4px] border border-ink-3 bg-ink-2 p-8">
-            <p className="caption mb-5">— Document state</p>
-            <ul className="divide-y divide-ink-3">
-              {META_CARD.map(([lbl, val]) => (
-                <li key={lbl} className="grid grid-cols-[140px_1fr] items-baseline gap-4 py-3">
-                  <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-steel">
-                    {lbl}
-                  </span>
-                  <span className="font-mono text-[12px] tracking-[0.04em] text-bone">{val}</span>
-                </li>
-              ))}
-            </ul>
-          </Reveal>
+      {/* Title + meta card */}
+      <section className="container-jn grid grid-cols-1 items-end gap-12 pt-24 max-md:pt-12 lg:grid-cols-[1.4fr_1fr]">
+        <div>
+          <p className="mb-4 text-[14px] font-semibold text-bone-2">Legal &amp; disclosures</p>
+          <h1 className="title-page max-w-[14ch] !text-[clamp(44px,5.5vw,60px)]">
+            The fine print, large enough to read.
+          </h1>
+          <p className="lead mt-5 max-w-[56ch]">
+            Three documents that govern the JetNine relationship: how we handle your data, what
+            you and we agree to when you book, and the broker disclosure required by US DOT Part
+            295. Written plainly. Reviewed by counsel. Updated whenever they change — never
+            quietly.
+          </p>
         </div>
-      </header>
+        <dl className="card px-6 py-2">
+          {META_CARD.map(([label, value], i) => (
+            <div
+              key={label}
+              className={[
+                "grid grid-cols-[130px_1fr] gap-4 py-3 text-[15px] max-md:grid-cols-[110px_1fr]",
+                i < META_CARD.length - 1 ? "border-b border-line-faint" : "",
+              ].join(" ")}
+            >
+              <dt className="text-steel">{label}</dt>
+              <dd className="text-bone">
+                {label === "Questions" ? (
+                  <a href={`mailto:${value}`} className="text-link-strong !no-underline hover:!underline">
+                    {value}
+                  </a>
+                ) : (
+                  value
+                )}
+              </dd>
+            </div>
+          ))}
+        </dl>
+      </section>
 
-      {/* Disclosure strip */}
-      <section className="border-b border-clearance bg-[rgba(232,226,210,0.04)] py-8">
-        <div className="container-jn flex flex-wrap items-baseline gap-x-8 gap-y-3">
-          <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-clearance">
-            — Required disclosure
-          </span>
-          <p className="max-w-[72ch] font-serif text-[18px] font-normal leading-[1.45] tracking-tight text-bone">
+      {/* Required disclosure */}
+      <section className="container-jn mt-8">
+        <div className="card card-highlight flex flex-wrap items-baseline gap-x-6 gap-y-2 px-7 py-5 max-md:px-5">
+          <span className="whitespace-nowrap text-[13px] font-semibold text-gold">Required disclosure</span>
+          <p className="max-w-[76ch] text-[17px] leading-[1.5] text-bone">
             JetNine is an indirect air carrier — a Part 295 broker. Every flight is operated by an
             independent FAA Part 135 certified carrier.{" "}
             <em className="not-italic text-clearance">We are not the operator of your aircraft.</em>
@@ -117,57 +118,32 @@ export default function LegalPage() {
         </div>
       </section>
 
-      {/* Body */}
-      <section className="py-24 max-md:py-16">
-        <div className="container-jn grid gap-12 lg:grid-cols-[260px_1fr]">
-          {/* Sticky TOC */}
-          <aside className="lg:sticky lg:top-28 lg:self-start">
-            <p className="caption mb-5">— Contents</p>
-            <nav className="flex flex-col gap-8">
-              {TOC.map((doc) => (
-                <div key={doc.group}>
-                  <div className="mb-3 flex items-baseline gap-3">
-                    <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-clearance">
-                      {doc.group}
-                    </span>
-                    <span className="font-serif text-[16px] font-normal text-bone">{doc.title}</span>
-                  </div>
-                  <ol className="flex flex-col gap-1.5 border-l border-ink-3 pl-4">
-                    {doc.items.map(([n, label, href]) => (
-                      <li key={n}>
-                        <a
-                          href={href}
-                          className="block py-0.5 font-mono text-[10px] uppercase tracking-[0.06em] text-bone-2 transition-colors hover:text-clearance"
-                        >
-                          <span className="mr-2 text-clearance">{n}</span>
-                          {label}
-                        </a>
-                      </li>
-                    ))}
-                  </ol>
-                </div>
-              ))}
-            </nav>
-          </aside>
+      {/* Contents rail + documents */}
+      <section className="container-jn grid grid-cols-1 items-start gap-12 pt-12 pb-32 max-md:pb-24 lg:grid-cols-[260px_minmax(0,1fr)]">
+        {/* Desktop: sticky rail. Phones: a collapsed "Contents" card so the
+            eighteen links don't push the documents below the fold. */}
+        <nav aria-label="Contents" className="max-lg:hidden lg:sticky lg:top-[calc(var(--header-h)+24px)]">
+          <ContentsList />
+        </nav>
+        <details className="card px-5 py-1 lg:hidden">
+          <summary className="flex min-h-[44px] cursor-pointer list-none items-center justify-between text-[16px] font-medium text-bone [&::-webkit-details-marker]:hidden">
+            Contents
+            <span aria-hidden="true" className="text-bone-2">+</span>
+          </summary>
+          <nav aria-label="Contents" className="pb-4 pt-2">
+            <ContentsList />
+          </nav>
+        </details>
 
-          {/* Documents */}
-          <div className="flex flex-col gap-20">
-            {/* ─── I. Privacy ─── */}
-            <article>
-              <header className="mb-10">
-                <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-clearance">
-                  Document I
-                </span>
-                <h2 className="mt-3 font-serif text-[40px] font-normal leading-tight tracking-tight text-bone max-w-[20ch]">
-                  Privacy policy.
-                </h2>
-                <p className="mt-5 max-w-[72ch] text-[17px] leading-[1.65] text-bone-2">
-                  Privacy is structural at JetNine. The inquiry desk and the dispatch desk are the
-                  only people inside the company who see your trip details — and operators only ever
-                  see a route, not a name.
-                </p>
-              </header>
-
+        <div className="flex min-w-0 flex-col gap-[72px]">
+          {/* ─── I. Privacy ─── */}
+          <article>
+            <ArticleHeader kicker="Document I" title="Privacy policy.">
+              Privacy is structural at JetNine. The inquiry desk and the dispatch desk are the only
+              people inside the company who see your trip details — and operators only ever see a
+              route, not a name.
+            </ArticleHeader>
+            <div className="flex flex-col gap-9">
               <Section id="what-we-collect" n="1.1" title="What we collect">
                 <p>
                   We collect the minimum needed to quote and run flights. That breaks down into
@@ -196,7 +172,7 @@ export default function LegalPage() {
               </Section>
 
               <Section id="how-we-use" n="1.2" title="How we use it">
-                <ol className="ml-1 flex flex-col gap-3 text-[15px] leading-[1.7] text-bone-2">
+                <ol className="flex flex-col gap-2">
                   {[
                     "To produce a quote and source aircraft for your trip.",
                     "To execute the trip — coordinate with the operator, FBO, and ground.",
@@ -204,10 +180,8 @@ export default function LegalPage() {
                     "To remember your preferences if you ask us to (account holders only).",
                     "To send you trip-specific status updates (never marketing without consent).",
                   ].map((it, i) => (
-                    <li key={it} className="grid grid-cols-[28px_1fr] items-baseline gap-3">
-                      <span className="font-mono text-[11px] tracking-[0.04em] text-clearance">
-                        {String(i + 1).padStart(2, "0")}.
-                      </span>
+                    <li key={it} className="grid grid-cols-[32px_1fr] gap-2.5">
+                      <span className="font-medium text-bone">{String(i + 1).padStart(2, "0")}.</span>
                       <span>{it}</span>
                     </li>
                   ))}
@@ -215,26 +189,16 @@ export default function LegalPage() {
               </Section>
 
               <Section id="what-we-dont" n="1.3" title="What we don't do">
-                <div className="rounded-[4px] border-l-2 border-[#D4622A] bg-ink-2 p-7">
-                  <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-[#D4622A]">
-                    — The list
-                  </span>
-                  <ul className="mt-4 flex flex-col gap-2.5 text-[15px] leading-[1.7] text-bone">
-                    {[
-                      "We do not sell your data.",
-                      "We do not share it with marketing networks.",
-                      "We do not use it to train external models.",
-                      "We do not retarget you.",
-                      "We do not pass your name to operators competing for your trip.",
-                      "We do not run a referral or affiliate program that exposes your identity.",
-                    ].map((it) => (
-                      <li key={it} className="grid grid-cols-[auto_1fr] items-baseline gap-3">
-                        <span className="text-[#D4622A]">—</span>
-                        <span>{it}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
+                <BulletList
+                  items={[
+                    ["We do not sell your data.", ""],
+                    ["We do not share it with marketing networks.", ""],
+                    ["We do not use it to train external models.", ""],
+                    ["We do not retarget you.", ""],
+                    ["We do not pass your name to operators competing for your trip.", ""],
+                    ["We do not run a referral or affiliate program that exposes your identity.", ""],
+                  ]}
+                />
               </Section>
 
               <Section id="sharing" n="1.4" title="Sharing & subprocessors">
@@ -249,10 +213,7 @@ export default function LegalPage() {
                       "FBO & ground —",
                       "arrival window, vehicle preference, your name on the manifest at the FBO desk.",
                     ],
-                    [
-                      "Payment processor —",
-                      "Stripe, for card transactions. PCI-DSS Level 1.",
-                    ],
+                    ["Payment processor —", "Stripe, for card transactions. PCI-DSS Level 1."],
                     [
                       "Customs & immigration —",
                       "passport & APIS data submitted to CBP and equivalents on international flights, as required by law.",
@@ -265,7 +226,7 @@ export default function LegalPage() {
                 />
                 <p>
                   Full subprocessor list is available on request to{" "}
-                  <a href="mailto:legal@jetnine.com" className="text-clearance underline underline-offset-2">
+                  <a href="mailto:legal@jetnine.com" className={LINK}>
                     legal@jetnine.com
                   </a>
                   .
@@ -294,7 +255,7 @@ export default function LegalPage() {
                 />
                 <p>
                   Email{" "}
-                  <a href="mailto:legal@jetnine.com" className="text-clearance underline underline-offset-2">
+                  <a href="mailto:legal@jetnine.com" className={LINK}>
                     legal@jetnine.com
                   </a>
                   . California residents (CCPA), EU residents (GDPR), and Virginia residents (CDPA)
@@ -305,7 +266,7 @@ export default function LegalPage() {
               <Section id="sms" n="1.7" title="SMS & text messaging">
                 <p>
                   If you opt in to empty-leg alerts on{" "}
-                  <a href="/empty-legs" className="text-clearance underline underline-offset-2">
+                  <a href="/empty-legs" className={LINK}>
                     jetnine.com/empty-legs
                   </a>
                   , we send two kinds of text message: a one-time confirmation when you set up a
@@ -318,10 +279,7 @@ export default function LegalPage() {
                       "Frequency —",
                       "one message per matching flight. Frequency varies with how often your route matches; there are no marketing blasts.",
                     ],
-                    [
-                      "Rates —",
-                      "message and data rates may apply, per your carrier's plan.",
-                    ],
+                    ["Rates —", "message and data rates may apply, per your carrier's plan."],
                     [
                       "Opting out —",
                       "reply STOP at any time to end all alerts; reply START to resume. Reply HELP for help, or call +1 (424) 487-2707.",
@@ -330,30 +288,20 @@ export default function LegalPage() {
                       "Your number stays here —",
                       "mobile numbers and SMS opt-in data are never shared with or sold to third parties or affiliates for marketing or promotional purposes. They are used solely to deliver the alerts you asked for.",
                     ],
-                    [
-                      "Delivery —",
-                      "carriers are not liable for delayed or undelivered messages.",
-                    ],
+                    ["Delivery —", "carriers are not liable for delayed or undelivered messages."],
                   ]}
                 />
               </Section>
-            </article>
+            </div>
+          </article>
 
-            {/* ─── II. Terms ─── */}
-            <article>
-              <header className="mb-10 border-t border-ink-3 pt-16">
-                <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-clearance">
-                  Document II
-                </span>
-                <h2 className="mt-3 font-serif text-[40px] font-normal leading-tight tracking-tight text-bone max-w-[20ch]">
-                  Terms of service.
-                </h2>
-                <p className="mt-5 max-w-[72ch] text-[17px] leading-[1.65] text-bone-2">
-                  When you book a flight through JetNine, you and we agree to the terms below. Plain
-                  English where we can, defined terms where the law requires precision.
-                </p>
-              </header>
-
+          {/* ─── II. Terms ─── */}
+          <article>
+            <ArticleHeader kicker="Document II" title="Terms of service.">
+              When you book a flight through JetNine, you and we agree to the terms below. Plain
+              English where we can, defined terms where the law requires precision.
+            </ArticleHeader>
+            <div className="flex flex-col gap-9">
               <Section id="agreement" n="2.1" title="The agreement">
                 <p>
                   <strong className="font-medium text-bone">JetNine</strong> means JetNine LLC, a
@@ -417,11 +365,9 @@ export default function LegalPage() {
               </Section>
 
               <Section id="operator-relationship" n="2.5" title="Operator relationship">
-                <div className="rounded-[4px] border-l-2 border-clearance bg-ink-2 p-7">
-                  <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-clearance">
-                    — Part 295 notice
-                  </span>
-                  <p className="mt-3 text-[15px] leading-[1.7] text-bone">
+                <div className="card card-highlight px-6 py-5">
+                  <p className="text-[13px] font-semibold text-gold">Part 295 notice</p>
+                  <p className="mt-2 text-bone">
                     JetNine is an indirect air carrier (broker). The Operator is the direct air
                     carrier and exercises operational control of the flight. JetNine does not own,
                     operate, or maintain the aircraft, and does not employ flight or cabin crew.
@@ -459,24 +405,16 @@ export default function LegalPage() {
                   if requested by either party, mediation through JAMS in Los Angeles.
                 </p>
               </Section>
-            </article>
+            </div>
+          </article>
 
-            {/* ─── III. Part 295 ─── */}
-            <article>
-              <header className="mb-10 border-t border-ink-3 pt-16">
-                <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-clearance">
-                  Document III
-                </span>
-                <h2 className="mt-3 font-serif text-[40px] font-normal leading-tight tracking-tight text-bone max-w-[22ch]">
-                  Part 295 broker disclosure.
-                </h2>
-                <p className="mt-5 max-w-[72ch] text-[17px] leading-[1.65] text-bone-2">
-                  Required by 14 CFR Part 295 and reproduced here in plain English. The short
-                  version: JetNine arranges your flight; an independent FAA Part 135 carrier flies
-                  it.
-                </p>
-              </header>
-
+          {/* ─── III. Part 295 ─── */}
+          <article>
+            <ArticleHeader kicker="Document III" title="Part 295 broker disclosure.">
+              Required by 14 CFR Part 295 and reproduced here in plain English. The short version:
+              JetNine arranges your flight; an independent FAA Part 135 carrier flies it.
+            </ArticleHeader>
+            <div className="flex flex-col gap-9">
               <Section id="part-295" n="3.1" title="Broker status">
                 <p>
                   JetNine LLC operates as an{" "}
@@ -510,10 +448,7 @@ export default function LegalPage() {
                   The operating carrier and tail number for your flight are stated on your trip
                   sheet before you sign. You may verify any operator&rsquo;s Part 135 certificate
                   status on the FAA&rsquo;s certificate-holder lookup at{" "}
-                  <a
-                    href="https://www.faa.gov/licenses_certificates"
-                    className="text-clearance underline underline-offset-2"
-                  >
+                  <a href="https://www.faa.gov/licenses_certificates" className={LINK}>
                     faa.gov/licenses_certificates
                   </a>
                   .
@@ -535,10 +470,7 @@ export default function LegalPage() {
                   Complaints concerning Part 295 broker conduct may be filed with the U.S. DOT
                   Office of Aviation Consumer Protection:{" "}
                   <strong className="font-medium text-bone">1-202-366-2220</strong>,{" "}
-                  <a
-                    href="https://www.transportation.gov/airconsumer"
-                    className="text-clearance underline underline-offset-2"
-                  >
+                  <a href="https://www.transportation.gov/airconsumer" className={LINK}>
                     transportation.gov/airconsumer
                   </a>
                   .
@@ -547,38 +479,73 @@ export default function LegalPage() {
 
               <Section id="definitions" n="3.4" title="Definitions">
                 <p>Terms used in this document:</p>
-                <dl className="mt-4 divide-y divide-ink-3 border-y border-ink-3">
+                <dl className="flex flex-col gap-2">
                   {DEFINITIONS.map(([term, def]) => (
                     <div
                       key={term}
-                      className="grid grid-cols-1 gap-2 py-5 md:grid-cols-[200px_1fr]"
+                      className="relative pl-6 before:absolute before:left-0 before:top-0 before:text-clearance before:content-['—']"
                     >
-                      <dt className="font-mono text-[11px] uppercase tracking-[0.14em] text-clearance">
-                        {term}
-                      </dt>
-                      <dd className="text-[15px] leading-[1.65] text-bone-2">{def}</dd>
+                      <dt className="inline font-medium text-bone">{term} —</dt>{" "}
+                      <dd className="inline">{def}</dd>
                     </div>
                   ))}
                 </dl>
               </Section>
-            </article>
-
-            {/* Minimal closer */}
-            <div className="border-t border-ink-3 pt-12 text-center">
-              <p className="font-mono text-[11px] uppercase tracking-[0.12em] text-bone-2">
-                Questions about these documents?{" "}
-                <a
-                  href="mailto:legal@jetnine.com"
-                  className="text-clearance underline underline-offset-2"
-                >
-                  legal@jetnine.com
-                </a>
-              </p>
             </div>
-          </div>
+          </article>
+
+          {/* Minimal closer */}
+          <p className="border-t border-line pt-6 text-center text-[15px] text-bone-2">
+            Questions about these documents?{" "}
+            <a href="mailto:legal@jetnine.com" className={LINK}>
+              legal@jetnine.com
+            </a>
+          </p>
         </div>
       </section>
     </>
+  );
+}
+
+function ContentsList() {
+  return (
+    <div className="flex flex-col gap-5">
+      {TOC.map((doc) => (
+        <div key={doc.title}>
+          <p className="mb-1.5 text-[16px] font-medium text-bone">{doc.title}</p>
+          <ol className="flex flex-col gap-0.5 border-l border-line pl-3">
+            {doc.items.map(([n, label, href]) => (
+              <li key={n}>
+                <a
+                  href={href}
+                  className="flex min-h-[32px] items-center py-1 text-[14px] text-bone-2 transition-colors hover:text-bone max-lg:min-h-[44px]"
+                >
+                  {n} · {label}
+                </a>
+              </li>
+            ))}
+          </ol>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function ArticleHeader({
+  kicker,
+  title,
+  children,
+}: {
+  kicker: string;
+  title: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <header className="mb-7">
+      <p className="text-[13px] font-semibold text-gold">{kicker}</p>
+      <h2 className="title-section mt-2 !text-[clamp(32px,3.5vw,40px)] !leading-[1.1]">{title}</h2>
+      <p className="mt-3 max-w-[72ch] text-[17px] leading-[1.6] text-bone-2">{children}</p>
+    </header>
   );
 }
 
@@ -594,31 +561,27 @@ function Section({
   children: React.ReactNode;
 }) {
   return (
-    <section id={id} className="scroll-mt-28">
-      <div className="mb-5 flex items-baseline gap-4 border-b border-ink-3 pb-3">
-        <span className="font-mono text-[11px] uppercase tracking-[0.16em] text-clearance">
-          {n}
-        </span>
-        <h3 className="font-serif text-[24px] font-normal leading-tight tracking-tight text-bone">
-          {title}
-        </h3>
+    <section id={id} className="scroll-mt-[calc(var(--header-h)+24px)]">
+      <div className="flex items-baseline gap-3.5 border-b border-line pb-2.5">
+        <span className="label-jn">{n}</span>
+        <h3 className="title-card">{title}</h3>
       </div>
-      <div className="flex max-w-[72ch] flex-col gap-4 text-[15px] leading-[1.75] text-bone-2 [&>p+ol]:mt-2 [&>p+ul]:mt-2">
+      <div className="mt-3.5 flex max-w-[72ch] flex-col gap-3 text-[16px] leading-[1.6] text-bone-2">
         {children}
       </div>
-      <div className="mt-12" />
     </section>
   );
 }
 
 function BulletList({ items }: { items: [string, string][] }) {
   return (
-    <ul className="ml-1 flex flex-col gap-3 text-[15px] leading-[1.7] text-bone-2">
+    <ul className="flex flex-col gap-2">
       {items.map(([head, body]) => (
-        <li key={head + body} className="grid grid-cols-[auto_1fr] items-baseline gap-3">
-          <span className="text-clearance">—</span>
+        <li key={head + body} className="grid grid-cols-[auto_1fr] gap-2.5">
+          <span aria-hidden="true" className="text-clearance">—</span>
           <span>
-            {head ? <strong className="font-medium text-bone">{head}</strong> : null}{" "}
+            {head ? <strong className="font-medium text-bone">{head}</strong> : null}
+            {head && body ? " " : null}
             {body}
           </span>
         </li>

@@ -1,12 +1,10 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { pageMetadata } from "@/lib/page-meta";
-import { PageHeader } from "@/components/page-header";
-import { Reveal } from "@/components/reveal";
+import { CtaBand } from "@/components/cta-band";
 import { FaqBoard } from "@/components/faq/faq-board";
 import { SITE } from "@/lib/constants";
 import { FAQ } from "@/lib/faq";
-import { QuoteLauncher } from "@/components/quote-launcher";
 
 export const metadata: Metadata = pageMetadata({
   title: "Private Jet Charter FAQ",
@@ -31,6 +29,33 @@ const faqJsonLd = {
   ),
 };
 
+const CHANNELS = [
+  {
+    label: "Call",
+    title: "Call dispatch.",
+    strap: "Senior dispatcher answers, average pickup under 20 seconds.",
+    big: SITE.dispatchPhone,
+    href: `tel:${SITE.dispatchPhoneE164}`,
+    highlight: false,
+  },
+  {
+    label: "Email",
+    title: "Email the desk.",
+    strap: "Same desk, in writing. Reply within 30 minutes during business hours.",
+    big: "dispatch@jetnine.com",
+    href: "mailto:dispatch@jetnine.com",
+    highlight: false,
+  },
+  {
+    label: "Quote",
+    title: "Start a quote.",
+    strap: "Four-step form. Specific aircraft and pricing back inside thirty minutes.",
+    big: "Begin →",
+    href: "/quote/mission",
+    highlight: true,
+  },
+];
+
 export default function FaqPage() {
   return (
     <>
@@ -39,93 +64,59 @@ export default function FaqPage() {
         // Built from FAQ catalog at build time — no user input, no XSS surface.
         dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }}
       />
-      <PageHeader
-        kicker="Frequently asked"
-        title="The questions before the call."
-        lead="Forty-two answers, written by the dispatch desk, edited for the kind of question that comes in at 11pm on a Sunday. If yours isn't here, the line is open — same desk, same people."
-      />
 
-      <section className="py-24 max-md:py-16">
-        <div className="container-jn">
-          <FaqBoard />
-        </div>
+      <section className="container-jn pt-24 max-md:pt-12">
+        <p className="mb-4 text-[14px] font-semibold text-bone-2">Frequently asked</p>
+        <h1 className="title-page max-w-[16ch] !text-[clamp(44px,5.5vw,60px)]">
+          The questions before the call.
+        </h1>
+        <p className="lead mt-5 max-w-[62ch]">
+          Thirty-one answers, written by the dispatch desk, edited for the kind of question that
+          comes in at 11pm on a Sunday. If yours isn&rsquo;t here, the line is open — same desk,
+          same people.
+        </p>
+        <FaqBoard />
       </section>
 
       {/* Still stuck */}
-      <section className="border-t border-ink-3 bg-ink-2 py-32 max-md:py-20">
-        <div className="container-jn">
-          <Reveal className="mb-6">
-            <p className="caption">— Still stuck?</p>
-          </Reveal>
-          <Reveal as="h2" stagger={1} className="display-m max-w-[26ch]">
-            Pick a channel. Real human, every one.
-          </Reveal>
-          <div className="mt-12 grid grid-cols-1 gap-4 lg:grid-cols-3">
-            {[
-              {
-                badge: "CHANNEL 01",
-                title: "Call dispatch.",
-                strap: "Senior dispatcher answers, average pickup under 20 seconds.",
-                big: SITE.dispatchPhone,
-                href: `tel:${SITE.dispatchPhoneE164}`,
-              },
-              {
-                badge: "CHANNEL 02",
-                title: "Email the desk.",
-                strap: "Same desk, in writing. Reply within 30 minutes during business hours.",
-                big: "dispatch@jetnine.com",
-                href: "mailto:dispatch@jetnine.com",
-              },
-              {
-                badge: "CHANNEL 03",
-                title: "Start a quote.",
-                strap: "Four-step form. Specific aircraft and pricing back inside thirty minutes.",
-                big: "Begin →",
-                href: "/quote/mission",
-              },
-            ].map((c, i) => (
-              <Reveal
-                key={c.badge}
-                stagger={(i as 0 | 1 | 2)}
-                className="rounded-[4px] border border-ink-3 bg-ink p-10 transition-all duration-200 ease-out-quint hover:-translate-y-0.5 hover:border-clearance"
-              >
-                {c.href.startsWith("/") ? (
-                  <Link href={c.href} className="block">
-                    <ChannelBody c={c} />
-                  </Link>
-                ) : (
-                  <a href={c.href} className="block">
-                    <ChannelBody c={c} />
-                  </a>
-                )}
-              </Reveal>
-            ))}
-          </div>
+      <section className="container-jn pt-20 max-md:pt-16">
+        <p className="eyebrow">Still stuck?</p>
+        <h2 className="title-section max-w-[26ch]">Pick a channel. Real human, every one.</h2>
+        <div className="mt-8 grid grid-cols-1 gap-4 md:grid-cols-3">
+          {CHANNELS.map((c) => {
+            const className = [
+              "card card-pad flex h-full flex-col gap-2.5",
+              c.highlight ? "!border-clearance" : "",
+            ].join(" ");
+            const body = (
+              <>
+                <span className={["text-[13px] font-semibold", c.highlight ? "text-gold" : "text-steel"].join(" ")}>
+                  {c.label}
+                </span>
+                <span className="text-[22px] font-medium leading-[1.25] text-bone">{c.title}</span>
+                <span className="text-bone-2">{c.strap}</span>
+                <span className="mt-auto pt-2.5 font-serif text-[26px] font-light leading-tight text-bone">
+                  {c.big}
+                </span>
+              </>
+            );
+            return c.href.startsWith("/") ? (
+              <Link key={c.label} href={c.href} className={className}>
+                {body}
+              </Link>
+            ) : (
+              <a key={c.label} href={c.href} className={className}>
+                {body}
+              </a>
+            );
+          })}
         </div>
       </section>
 
-      <QuoteLauncher
-        context="faq"
-        heading="Answered enough? Price the trip."
-        body="Four steps, live indicative pricing, and a senior dispatcher on the other end within 30 minutes."
+      <CtaBand
+        title="Answered enough? Price the trip."
+        body="Four steps, live indicative pricing, and a senior dispatcher on the other end within thirty minutes."
       />
-    </>
-  );
-}
-
-function ChannelBody({ c }: { c: { badge: string; title: string; strap: string; big: string } }) {
-  return (
-    <>
-      <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-clearance">
-        — {c.badge}
-      </span>
-      <h3 className="mt-5 font-serif text-[22px] font-normal leading-[1.2] tracking-tight text-bone">
-        {c.title}
-      </h3>
-      <p className="mt-3 text-[15px] leading-[1.6] text-bone-2">{c.strap}</p>
-      <div className="mt-6 font-serif text-[22px] font-light leading-tight tracking-tight text-bone">
-        {c.big}
-      </div>
     </>
   );
 }

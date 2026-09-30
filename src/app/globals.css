@@ -147,14 +147,255 @@
   }
   .body-l { font-size: 18px; line-height: 1.55; color: var(--bone-2); }
   .body-m { font-size: 16px; line-height: 1.6;  color: var(--bone-2); }
+  /* Legacy kicker. Restyled to the simplification's label so the pages
+     still using it read as sentence-case 13px steel; new work uses
+     .eyebrow / .label-jn instead. */
   .caption {
-    font-family: theme("fontFamily.mono");
-    font-size: 11px;
+    font-family: theme("fontFamily.sans");
+    font-size: 13px;
+    font-weight: 500;
     line-height: 1.4;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    color: var(--bone-2);
+    letter-spacing: 0;
+    text-transform: none;
+    color: var(--steel);
   }
+
+  /* --- Simplification page grammar ------------------------------------
+     Shared by every rebuilt page. Section rhythm, one title scale, cards,
+     chips, segmented controls and accordion rows — all sentence case,
+     Instrument Sans for UI and Fraunces 300 for titles. */
+
+  /* Sections: 112px of top rhythm on public pages (128px on Home). */
+  .section-jn { padding-top: 112px; }
+  .section-jn-lg { padding-top: 128px; }
+  .section-jn-end { padding-bottom: 128px; }
+
+  /* Small label above a title — replaces the mono kicker. */
+  .eyebrow {
+    margin: 0 0 12px;
+    font-family: theme("fontFamily.sans");
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 1.4;
+    letter-spacing: 0;
+    text-transform: none;
+    color: var(--steel);
+  }
+
+  /* Title scale */
+  .title-page {
+    font-family: theme("fontFamily.serif");
+    font-weight: 300;
+    font-size: clamp(44px, 6vw, 80px);
+    line-height: 1.02;
+    letter-spacing: -0.02em;
+    font-variation-settings: "opsz" 144;
+  }
+  .title-section {
+    font-family: theme("fontFamily.serif");
+    font-weight: 300;
+    font-size: clamp(34px, 4vw, 48px);
+    line-height: 1.08;
+    letter-spacing: -0.015em;
+    font-variation-settings: "opsz" 144;
+  }
+  .title-app {
+    font-family: theme("fontFamily.serif");
+    font-weight: 300;
+    font-size: clamp(32px, 4vw, 44px);
+    line-height: 1.1;
+    letter-spacing: -0.015em;
+  }
+  .title-card {
+    font-family: theme("fontFamily.sans");
+    font-weight: 500;
+    font-size: 24px;
+    line-height: 1.25;
+  }
+  .title-card-sm {
+    font-family: theme("fontFamily.sans");
+    font-weight: 500;
+    font-size: 21px;
+    line-height: 1.3;
+  }
+  .lead { font-size: 19px; line-height: 1.5; color: var(--bone-2); }
+  .label-jn { font-size: 14px; font-weight: 600; line-height: 1.4; color: var(--steel); }
+
+  /* Cards */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-card);
+  }
+  .card-pad { padding: 28px; }
+  .card-selected { border-color: var(--clearance); box-shadow: 0 0 0 1px var(--clearance); }
+  .card-highlight { background: rgba(232, 226, 210, 0.04); border-color: var(--clearance); }
+  a.card { display: block; transition: border-color 200ms; }
+  a.card:hover { border-color: var(--line-2); }
+
+  /* Text link */
+  .text-link {
+    color: var(--bone-2);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    transition: color 200ms;
+  }
+  .text-link:hover { color: var(--bone); }
+  .text-link-strong { color: var(--bone); font-weight: 500; text-decoration: underline; text-underline-offset: 3px; }
+
+  /* Segmented control */
+  .segmented {
+    display: inline-flex;
+    gap: 2px;
+    padding: 4px;
+    background: var(--surface-2);
+    border-radius: var(--radius-control);
+  }
+  .segmented > button, .segmented > a {
+    height: 36px;
+    padding: 0 16px;
+    border: none;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--bone-2);
+    font-family: theme("fontFamily.sans");
+    font-size: 14px;
+    font-weight: 500;
+    line-height: 1;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: background 150ms, color 150ms;
+  }
+  .segmented > button:hover, .segmented > a:hover { color: var(--bone); }
+  .segmented > [aria-pressed="true"], .segmented > [aria-current], .segmented > .is-selected {
+    background: var(--clearance);
+    color: var(--ink);
+  }
+  .segmented > button:focus-visible, .segmented > a:focus-visible { outline: 2px solid var(--clearance); outline-offset: 1px; }
+
+  /* Chip */
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 36px;
+    padding: 0 14px;
+    border: 1px solid var(--line-2);
+    border-radius: var(--radius-pill);
+    background: transparent;
+    color: var(--bone-2);
+    font-family: theme("fontFamily.sans");
+    font-size: 14px;
+    font-weight: 500;
+    line-height: 1;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: border-color 150ms, color 150ms, background 150ms;
+  }
+  .chip:hover { border-color: var(--steel); color: var(--bone); }
+  .chip[aria-pressed="true"], .chip.is-selected { background: var(--clearance); border-color: var(--clearance); color: var(--ink); }
+  .chip:focus-visible { outline: 2px solid var(--clearance); outline-offset: 2px; }
+  .chip-sm { height: 30px; padding: 0 12px; font-size: 13px; }
+
+  /* Pills — status + counts */
+  .pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 24px;
+    padding: 0 10px;
+    border-radius: var(--radius-pill);
+    background: var(--surface-2);
+    color: var(--bone-2);
+    font-size: 13px;
+    font-weight: 500;
+    line-height: 1;
+    white-space: nowrap;
+  }
+  .pill-clearance { background: var(--clearance); color: var(--ink); }
+  .pill-outline { background: transparent; border: 1px solid var(--line-2); }
+
+  /* Accordion rows — one open at a time, +/− on the right */
+  .accordion { border-top: 1px solid var(--line); }
+  .accordion-row { border-bottom: 1px solid var(--line); }
+  .accordion-trigger {
+    display: flex;
+    width: 100%;
+    align-items: center;
+    justify-content: space-between;
+    gap: 24px;
+    padding: 24px 0;
+    background: none;
+    border: none;
+    color: var(--bone);
+    text-align: left;
+    cursor: pointer;
+    font-family: theme("fontFamily.sans");
+    font-size: clamp(18px, 2vw, 22px);
+    font-weight: 500;
+    line-height: 1.3;
+  }
+  .accordion-trigger:focus-visible { outline: 2px solid var(--clearance); outline-offset: 2px; border-radius: 4px; }
+  .accordion-trigger .accordion-sign {
+    flex: none;
+    width: 24px;
+    text-align: center;
+    color: var(--bone-2);
+    font-size: 22px;
+    font-weight: 400;
+    line-height: 1;
+  }
+  .accordion-body { padding: 0 48px 28px 0; color: var(--bone-2); max-width: 72ch; }
+  .accordion-body p + p { margin-top: 12px; }
+
+  /* Stepper: − n + */
+  .stepper { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .stepper button {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    border: 1px solid var(--line-2);
+    background: transparent;
+    color: var(--bone);
+    font-size: 16px;
+    line-height: 1;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .stepper button:hover { border-color: var(--steel); }
+  .stepper button:disabled { opacity: 0.35; cursor: not-allowed; }
+  .stepper-lg button { width: 48px; height: 48px; font-size: 20px; }
+
+  /* Range slider on surface-2 with a clearance thumb */
+  .range-jn { -webkit-appearance: none; appearance: none; width: 100%; height: 4px; border-radius: 2px; background: var(--line-2); outline: none; }
+  .range-jn::-webkit-slider-thumb { -webkit-appearance: none; width: 22px; height: 22px; border-radius: 50%; background: var(--clearance); border: none; cursor: pointer; }
+  .range-jn::-moz-range-thumb { width: 22px; height: 22px; border-radius: 50%; background: var(--clearance); border: none; cursor: pointer; }
+  .range-jn:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 3px rgba(232, 226, 210, 0.35); }
+
+  /* Toggle switch 36×20 */
+  .switch { position: relative; width: 36px; height: 20px; border-radius: 999px; background: var(--line-2); border: none; cursor: pointer; transition: background 150ms; flex: none; }
+  .switch::after { content: ""; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: var(--bone); transition: transform 150ms; }
+  .switch[aria-checked="true"] { background: var(--clearance); }
+  .switch[aria-checked="true"]::after { transform: translateX(16px); background: var(--ink); }
+
+  /* Definition list rows: label left in steel, value right */
+  .dl-jn { display: grid; grid-template-columns: max-content 1fr; column-gap: 24px; row-gap: 10px; font-size: 15px; }
+  .dl-jn dt { color: var(--steel); }
+  .dl-jn dd { margin: 0; color: var(--bone); }
+
+  /* Compare table */
+  .table-jn { width: 100%; border-collapse: collapse; font-size: 15px; }
+  .table-jn th { text-align: left; padding: 12px 16px; font-size: 14px; font-weight: 600; color: var(--steel); border-bottom: 1px solid var(--line); }
+  .table-jn td { padding: 16px; border-bottom: 1px solid var(--line-faint); vertical-align: top; }
+  .table-jn tr:last-child td { border-bottom: none; }
+
+  /* Status dots */
+  .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--steel); flex: none; }
+  .dot-success { background: var(--success); }
+  .dot-gold { background: var(--gold); }
+  .dot-danger { background: var(--danger); }
 
   /* Long-form article body — markdown-rendered blog posts. The HTML is
      produced by src/lib/markdown.ts, so these element selectors are the
@@ -231,11 +472,12 @@
     font-size: 15px;
   }
   .blog-prose th {
-    font-family: theme("fontFamily.mono");
-    font-size: 11px;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    color: var(--bone-2);
+    font-family: theme("fontFamily.sans");
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: 0;
+    text-transform: none;
+    color: var(--steel);
     text-align: left;
     padding: 10px 16px 10px 0;
     border-bottom: 1px solid var(--steel);

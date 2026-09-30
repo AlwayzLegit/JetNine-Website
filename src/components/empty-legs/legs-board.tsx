@@ -111,7 +111,7 @@ export function LegsBoard({
   return (
     <section className="border-y border-ink-3 bg-ink">
       {/* Filter bar */}
-      <div className="sticky top-20 z-30 border-b border-ink-3 bg-[rgba(7,8,10,0.92)] py-5 backdrop-blur-[14px]">
+      <div className="sticky top-header z-30 border-b border-ink-3 bg-[rgba(7,8,10,0.92)] py-5 backdrop-blur-[14px]">
         <div className="container-jn flex flex-wrap items-center gap-6">
           <div className="flex flex-wrap items-center gap-2">
             <span className="mr-2 font-mono text-[10px] uppercase tracking-[0.14em] text-bone-2">

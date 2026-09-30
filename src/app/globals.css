@@ -4,58 +4,75 @@
 
 @layer base {
   :root {
-    /* Ink — backgrounds */
+    /* Ink — page background + the admin sidebar / trust bar tint */
     --ink: #07080A;
-    --ink-2: #0E1014;
-    --ink-3: #161A20;
-    --ink-4: #1E232B;
+    --ink-2: #0A0C10;
+
+    /* Surfaces — cards, panels, inputs */
+    --surface: #0E1014;
+    --surface-2: #161A20;
+
+    /* Lines — card borders and dividers */
+    --line: #232830;
+    --line-2: #2C323B;
+    --line-faint: #161A20;
+
+    /* Transition aliases: ink-3 was #161A20 (= line-faint) and ink-4
+       #1E232B (≈ line). Existing pages keep rendering on these until
+       each is rebuilt on the surface / line tokens, then they go. */
+    --ink-3: var(--line-faint);
+    --ink-4: var(--line);
 
     /* Bone — text */
     --bone: #F4F1EA;
     --bone-2: #C9C4B8;
-    /* steel: tertiary muted text. Bumped from #6B7280 (4.14:1 on ink,
-       failed WCAG AA) to #7B8290 (4.86:1 on ink, 4.74:1 on ink-2).
-       Visually still a dim gray — the brand "this is incidental
-       metadata" register — but now legible per WCAG AA for normal
-       body text. Components that previously used .opacity-60 on top
-       of text-steel are below threshold and need to be lifted
-       individually (changed to text-bone-2 or remove the opacity). */
-    --steel: #7B8290;
+    /* steel: tertiary text, labels, placeholders. 5.6:1 on ink, so it
+       clears WCAG AA for body text; steel-dim is for counts beside a
+       section label only (decorative, never the only copy). */
+    --steel: #8A9099;
+    --steel-dim: #5C636D;
 
     /* Single accent */
     --clearance: #E8E2D2;
-    --clearance-hover: #FFFFFF;
+    --clearance-hover: #F4F1EA;
 
-    /* Status */
-    --success: #5B8C5A;
-    --warn: #B8893C;
-    --error: #A4453A;
+    /* Status — gold for "Recommended" / discounts / in-progress dots,
+       success for open + confirmed, danger for overdue + disabled
+       reasons + required asterisks. warn / error stay as aliases. */
+    --gold: #C9A24A;
+    --success: #8FB58A;
+    --danger: #E07A6B;
+    --warn: var(--gold);
+    --error: var(--danger);
 
     /* Layout */
-    --container: 1280px;
-    --pad-x: 64px;
+    --container: 1200px;
+    --pad-x: 40px;
+    --header-h: 72px;
+    --radius-card: 12px;
+    --radius-control: 8px;
+    --radius-pill: 999px;
     --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
     --ease-in: cubic-bezier(0.4, 0, 1, 1);
   }
 
-  @media (max-width: 1024px) { :root { --pad-x: 48px; } }
-  @media (max-width: 768px)  { :root { --pad-x: 24px; } }
+  @media (max-width: 1024px) { :root { --pad-x: 32px; } }
+  @media (max-width: 768px)  { :root { --pad-x: 20px; --header-h: 64px; } }
   @media (max-width: 640px)  { :root { --pad-x: 16px; } }
 
   *, *::before, *::after { box-sizing: border-box; }
   * { margin: 0; padding: 0; }
 
-  /* Offset in-page anchor jumps for the fixed h-20 (80px) header so section
-     headings aren't hidden underneath it. 6.5rem (104px) leaves comfortable
-     clearance below the 80px header (5.5rem left only ~8px). */
-  html { scroll-behavior: smooth; scroll-padding-top: 6.5rem; }
+  /* Offset in-page anchor jumps for the sticky header so section headings
+     aren't hidden underneath it: header height plus 24px of breathing room. */
+  html { scroll-behavior: smooth; scroll-padding-top: calc(var(--header-h) + 24px); }
 
   body {
     background: var(--ink);
     color: var(--bone);
     font-family: theme("fontFamily.sans");
     font-size: 16px;
-    line-height: 1.6;
+    line-height: 1.55;
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
     /* `clip` (not `hidden`) prevents horizontal overflow WITHOUT turning
@@ -72,6 +89,9 @@
 
   img { max-width: 100%; display: block; }
   a { color: inherit; text-decoration: none; }
+
+  /* Thin scrollbars on scrolling panes (admin, boards, strips). */
+  * { scrollbar-width: thin; scrollbar-color: var(--line-2) transparent; }
 }
 
 @layer components {
@@ -152,7 +172,7 @@
     font-weight: 400;
     letter-spacing: -0.01em;
     color: var(--bone);
-    scroll-margin-top: 96px;
+    scroll-margin-top: calc(var(--header-h) + 24px);
   }
   .blog-prose h2 { font-size: 30px; line-height: 1.2; margin: 56px 0 20px; }
   .blog-prose h3 { font-size: 23px; line-height: 1.25; margin: 40px 0 16px; }
@@ -181,17 +201,18 @@
     color: var(--bone);
   }
   .blog-prose blockquote p:last-child { margin-bottom: 0; }
-  .blog-prose hr { border: none; border-top: 1px solid var(--ink-3); margin: 48px 0; }
+  .blog-prose hr { border: none; border-top: 1px solid var(--line); margin: 48px 0; }
   .blog-prose code {
     font-family: theme("fontFamily.mono");
     font-size: 0.88em;
-    background: var(--ink-3);
-    border-radius: 2px;
+    background: var(--surface-2);
+    border-radius: 4px;
     padding: 2px 6px;
   }
   .blog-prose pre {
-    background: var(--ink-3);
-    border-radius: 2px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-control);
     padding: 20px;
     overflow-x: auto;
     margin: 0 0 20px;
@@ -200,7 +221,7 @@
   .blog-prose img {
     max-width: 100%;
     height: auto;
-    border-radius: 2px;
+    border-radius: var(--radius-card);
     margin: 32px 0;
   }
   .blog-prose table {
@@ -221,94 +242,113 @@
   }
   .blog-prose td {
     padding: 12px 16px 12px 0;
-    border-bottom: 1px solid var(--ink-3);
+    border-bottom: 1px solid var(--line);
     color: var(--bone);
   }
 
-  /* Buttons */
+  /* Buttons — Instrument Sans 500, radius 8, fixed heights so hit targets
+     never fall below 44px. .btn is the secondary size (44), .btn-lg the
+     primary CTA (52), .btn-xl the form submit (56). */
   .btn {
     display: inline-flex;
     align-items: center;
-    gap: 12px;
+    justify-content: center;
+    gap: 8px;
+    height: 44px;
+    padding: 0 20px;
     font-family: theme("fontFamily.sans");
     font-weight: 500;
-    font-size: 13px;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
-    padding: 14px 28px;
-    border-radius: 2px;
-    border: none;
+    font-size: 15px;
+    line-height: 1;
+    letter-spacing: 0;
+    text-transform: none;
+    border-radius: var(--radius-control);
+    border: 1px solid transparent;
     cursor: pointer;
     white-space: nowrap;
     transition: background 200ms var(--ease-out), color 200ms var(--ease-out), border-color 200ms;
   }
   .btn-primary { background: var(--clearance); color: var(--ink); }
   .btn-primary:hover { background: var(--clearance-hover); }
-  .btn-secondary { background: transparent; color: var(--bone); border: 1px solid var(--bone); }
-  .btn-secondary:hover { background: rgba(244, 241, 234, 0.08); }
+  .btn-secondary { background: transparent; color: var(--bone); border-color: var(--line-2); }
+  .btn-secondary:hover { border-color: var(--steel); }
   .btn-ghost {
     background: transparent;
     color: var(--bone-2);
-    padding: 14px 0;
+    height: auto;
+    padding: 0;
+    border: none;
+    border-radius: 0;
     position: relative;
   }
   .btn-ghost::after {
     content: "";
     position: absolute;
     left: 0;
-    bottom: 8px;
-    height: 1.5px;
+    bottom: -4px;
+    height: 1px;
     width: 0;
     background: var(--clearance);
     transition: width 300ms var(--ease-out);
   }
   .btn-ghost:hover { color: var(--bone); }
   .btn-ghost:hover::after { width: 100%; }
-  .btn-sm { font-size: 11px; padding: 10px 20px; }
-  .btn-lg { font-size: 15px; padding: 18px 40px; }
+  .btn-sm { height: 40px; font-size: 14px; padding: 0 16px; }
+  .btn-lg { height: 52px; font-size: 16px; padding: 0 28px; }
+  .btn-xl { height: 56px; font-size: 16px; padding: 0 28px; }
   .btn:focus-visible { outline: 2px solid var(--clearance); outline-offset: 2px; }
+  .btn:disabled, .btn[aria-disabled="true"] { opacity: 0.4; cursor: not-allowed; }
+  @media (max-width: 768px) { .btn-sm { height: 44px; } }
 
   .arrow { display: inline-block; transition: transform 240ms var(--ease-out); }
   .btn:hover .arrow { transform: translateX(4px); }
 
-  /* Form field */
-  .field-jn {
-    position: relative;
-    background: var(--ink-3);
-    border-radius: 2px;
-    padding: 22px 16px 12px;
-    border-bottom: 1px solid var(--steel);
-    transition: border-color 200ms;
+  /* Form field — block label above the control, control on surface-2
+     with an 8px radius; focus is a 1px clearance ring. Markup stays
+     `<div class="field-jn"><label/><input|select|textarea/></div>`. */
+  .field-jn { position: relative; }
+  .field-jn label {
+    display: block;
+    margin-bottom: 6px;
+    font-family: theme("fontFamily.sans");
+    font-size: 13px;
+    line-height: 1.4;
+    letter-spacing: 0;
+    text-transform: none;
+    color: var(--bone-2);
   }
   .field-jn input,
   .field-jn select,
   .field-jn textarea {
-    background: transparent;
-    border: none;
-    outline: none;
+    display: block;
     width: 100%;
+    background: var(--surface-2);
+    border: none;
+    border-radius: var(--radius-control);
+    padding: 10px 14px;
+    outline: none;
     color: var(--bone);
     font-family: theme("fontFamily.sans");
-    font-size: 15px;
+    font-size: 16px;
+    line-height: 1.4;
     appearance: none;
+    transition: box-shadow 150ms;
+  }
+  .field-jn select {
+    padding-right: 36px;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23C9C4B8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 14px center;
   }
   .field-jn input::placeholder,
   .field-jn textarea::placeholder { color: var(--steel); }
-  .field-jn label {
-    position: absolute;
-    top: 8px;
-    left: 16px;
-    font-family: theme("fontFamily.mono");
-    font-size: 10px;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    color: var(--bone-2);
-    transition: color 200ms;
-    pointer-events: none;
-  }
-  .field-jn:focus-within { border-color: var(--clearance); }
-  .field-jn:focus-within label { color: var(--clearance); }
-  .field-jn.error { border-color: var(--error); }
+  .field-jn input:focus,
+  .field-jn select:focus,
+  .field-jn textarea:focus { box-shadow: 0 0 0 1px var(--clearance); }
+  .field-jn.error input,
+  .field-jn.error select,
+  .field-jn.error textarea { box-shadow: 0 0 0 1px var(--danger); }
+  .field-jn.error label { color: var(--danger); }
 
   /* Animations */
   @keyframes scrollPulse {

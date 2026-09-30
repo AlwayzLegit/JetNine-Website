@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Fraunces, Inter, JetBrains_Mono } from "next/font/google";
+import { Fraunces, Instrument_Sans, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 
 const fraunces = Fraunces({
@@ -9,13 +9,17 @@ const fraunces = Fraunces({
   display: "swap",
 });
 
-const inter = Inter({
+// Body / UI face. Instrument Sans replaces Inter in the simplification —
+// a humanist grotesk that still reads at 13px on ink. 400 / 500 / 600 only.
+const instrumentSans = Instrument_Sans({
   subsets: ["latin"],
-  variable: "--font-inter",
-  weight: ["300", "400", "500", "600"],
+  variable: "--font-instrument-sans",
+  weight: ["400", "500", "600"],
   display: "swap",
 });
 
+// Retired by the simplification (no mono labels). Stays loaded until the
+// last `font-mono` / `.caption` usages are rebuilt, then this goes.
 const jetbrainsMono = JetBrains_Mono({
   subsets: ["latin"],
   variable: "--font-jetbrains-mono",
@@ -146,7 +150,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html
       lang="en"
-      className={`${fraunces.variable} ${inter.variable} ${jetbrainsMono.variable}`}
+      className={`${fraunces.variable} ${instrumentSans.variable} ${jetbrainsMono.variable}`}
     >
       <head>
         {/* Connection hints — start TLS handshakes for third-party

@@ -70,7 +70,7 @@ export default function LegalPage() {
   return (
     <>
       {/* Hero — split + meta card */}
-      <header className="border-b border-ink-3 bg-ink pt-[200px] pb-24 max-md:pt-[140px] max-md:pb-16">
+      <header className="border-b border-ink-3 bg-ink pt-[112px] pb-24 max-md:pt-[64px] max-md:pb-16">
         <div className="container-jn grid gap-16 lg:grid-cols-[1.4fr_1fr]">
           <div>
             <Reveal className="mb-6 inline-flex items-center gap-3 font-mono text-[11px] uppercase tracking-[0.16em] text-bone-2">

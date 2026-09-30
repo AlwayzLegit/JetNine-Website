@@ -44,7 +44,7 @@ export function PageHeader({
   imagePosition = "60% center",
 }: Props) {
   return (
-    <header className="relative overflow-hidden border-b border-ink-3 bg-ink pt-[200px] pb-24 max-md:pt-[140px] max-md:pb-16">
+    <header className="relative overflow-hidden border-b border-ink-3 bg-ink pt-[112px] pb-24 max-md:pt-[64px] max-md:pb-16">
       {imageSrc ? (
         <>
           {/* Background photo — these are shot dark on the left where the

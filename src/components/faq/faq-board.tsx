@@ -112,7 +112,7 @@ export function FaqBoard() {
         ) : (
           <div className="flex flex-col gap-16">
             {filtered.map((cat, ci) => (
-              <section key={cat.id} id={cat.id} className="scroll-mt-[6.5rem]">
+              <section key={cat.id} id={cat.id} className="scroll-mt-[calc(var(--header-h)+24px)]">
                 <div className="mb-6 flex items-baseline gap-4 border-b border-ink-3 pb-4">
                   <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-clearance">
                     {String(FAQ.findIndex((c) => c.id === cat.id) + 1).padStart(2, "0")}

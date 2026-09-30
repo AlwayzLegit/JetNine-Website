@@ -26,8 +26,28 @@ operators, aircraft, airports and live ops are no longer managed here.
 | 5 | Admin: five-section desk | 1, owner decisions below |
 | 6 | Dictionary in emails/SMS, mobile pass, launch checks (a11y audits, URL + JSON-LD diff, Semrush re-run, PostHog comparison) | 2–5 |
 
-Phase 1 starts now. Phases 2–4 have no open questions and follow in that
-order. Phase 5 waits on the decisions below.
+Phase 1 is done on the branch (see "Phase 1 status" below). Phases 2–4
+have no open questions and follow in that order. Phase 5 waits on the
+decisions below.
+
+### Phase 1 status
+
+Shipped: the token set from the handoff (`surface`, `surface-2`, `line`,
+`line-2`, `line-faint`, `steel` at `#8A9099`, `steel-dim`, `gold`,
+`success`, `danger`, ink-2 `#0A0C10`), Instrument Sans 400/500/600 as the
+Tailwind `sans` family, the 1200px / 40px container, 12 / 8 / 999 radii,
+buttons at 44 / 52 / 56px with an 8px radius, block-label inputs on
+surface-2, the sticky 72px header (64px on phones, 44px round call and menu
+buttons, pinned "Request a quote" in the open panel), the four-column
+footer, and the nav order Aircraft · Programs · How it works · About ·
+Blog · Contact.
+
+Transition aliases kept until the pages are rebuilt: `ink-3` → line-faint,
+`ink-4` → line, `warn` → gold, `error` → danger. JetBrains Mono stays
+loaded while `.caption` / `font-mono` still appear on the template pages;
+both go in Phase 2. Because the header is now in flow rather than fixed,
+every page header lost 72px of top padding (200 → 112, 140 → 64 on phones)
+so nothing moved on screen.
 
 ## Guardrails that the handoff does not mention and I will keep
 

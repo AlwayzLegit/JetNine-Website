@@ -5,7 +5,7 @@ import { SITE } from "@/lib/constants";
 
 export function Hero() {
   return (
-    <header className="relative flex min-h-screen min-h-[720px] items-center overflow-hidden bg-ink">
+    <header className="relative flex min-h-[calc(100vh-var(--header-h))] min-h-[720px] items-center overflow-hidden bg-ink">
       {/* Background photo — full-bleed, LCP element so it preloads (priority).
           The shot is dark on the left where the headline sits, so the scrim
           below only needs to guarantee contrast, not rescue it. */}

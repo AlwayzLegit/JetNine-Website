@@ -26,7 +26,7 @@ export default async function BlogUnsubscribePage({
 
   return (
     <>
-      <header className="border-b border-ink-3 bg-ink pt-[200px] pb-16 max-md:pt-[140px] max-md:pb-12">
+      <header className="border-b border-ink-3 bg-ink pt-[112px] pb-16 max-md:pt-[64px] max-md:pb-12">
         <div className="container-jn">
           <Reveal className="mb-6 inline-flex items-center gap-3 font-mono text-[11px] uppercase tracking-[0.16em] text-bone-2">
             <span className="block h-px w-8 bg-clearance" />

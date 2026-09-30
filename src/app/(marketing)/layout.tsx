@@ -7,8 +7,8 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
     <>
       <SkipLink />
       <SiteNav />
-      {/* No top padding here — pages with full-bleed heroes overlay the nav.
-          Other pages should add their own pt-20 spacing. */}
+      {/* The header is sticky and in normal flow, so pages start directly
+          beneath it — no top padding needed here or on the pages. */}
       <main id="main-content" className="min-h-screen">{children}</main>
       <SiteFooter />
     </>

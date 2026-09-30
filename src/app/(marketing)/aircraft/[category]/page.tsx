@@ -104,7 +104,7 @@ export default async function AircraftCategoryPage({ params }: RouteParams) {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(serviceJsonLd) }}
       />
       {/* ─── Hero: split text + image ─── */}
-      <section className="pt-[200px] pb-24 max-md:pt-[140px] max-md:pb-16">
+      <section className="pt-[112px] pb-24 max-md:pt-[64px] max-md:pb-16">
         <div className="container-jn">
           <div className="grid grid-cols-1 gap-16 lg:grid-cols-[1.1fr_1fr] lg:gap-20">
             <div>

@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#07080A;color:#F4F1EA;font-family:Inter,system-ui,sans-serif;font-size:16px;line-height:1.55;-webkit-font-smoothing:antialiased}
+a{color:inherit;text-decoration:none}a:hover{color:#fff}
+*{box-sizing:border-box}
+</style>
+</helmet>
+<div data-screen-label="My flights — member account" style="background:#07080A;color:#F4F1EA;min-height:100vh;min-width:1100px">
+
+<header style="position:sticky;top:0;z-index:50;background:rgba(7,8,10,.86);backdrop-filter:blur(14px);border-bottom:1px solid #161A20">
+  <div style="max-width:1200px;margin:0 auto;padding:0 40px;height:72px;display:flex;align-items:center;justify-content:space-between;gap:24px">
+    <a href="Home.dc.html" aria-label="JetNine home" style="display:flex;align-items:center"><img src="public/images/brand/wordmark-bone.webp" alt="JetNine" style="height:36px;width:auto;display:block"></a>
+    <nav aria-label="Main" style="display:flex;gap:32px;font-size:15px;color:#C9C4B8"><a href="Home.dc.html#aircraft">Aircraft</a><a href="Home.dc.html#card">Membership</a><a href="Home.dc.html#how">How it works</a><a href="tel:+14244872707">Contact</a></nav>
+    <div style="display:flex;align-items:center;gap:20px"><a href="tel:+14244872707" style="font-size:15px;color:#C9C4B8;white-space:nowrap">Call us</a><button type="button" style="display:inline-flex;align-items:center;gap:10px;height:44px;padding:0 6px 0 16px;border-radius:999px;border:1px solid #2C323B;background:transparent;color:#F4F1EA;font:500 15px Inter,sans-serif;cursor:pointer">Dana <span style="width:32px;height:32px;border-radius:50%;background:#161A20;display:flex;align-items:center;justify-content:center;font-size:14px;color:#E8E2D2">D</span></button></div>
+  </div>
+</header>
+
+<main style="max-width:1200px;margin:0 auto;padding:48px 40px 96px">
+  <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:24px">
+    <h1 style="margin:0;font-family:Fraunces,serif;font-weight:300;font-size:48px;line-height:1.05;letter-spacing:-.015em">Hi Dana</h1>
+    <a href="Plan my flight.dc.html" style="display:inline-flex;align-items:center;gap:8px;height:48px;padding:0 22px;border-radius:8px;background:#E8E2D2;color:#07080A;font-weight:500;font-size:15px;white-space:nowrap">Book a flight <span aria-hidden="true">→</span></a>
+  </div>
+  <nav aria-label="Account sections" style="margin-top:24px;display:flex;gap:28px;border-bottom:1px solid #232830;font-size:17px">
+    <a href="#" style="padding:12px 0;border-bottom:2px solid #E8E2D2;color:#F4F1EA;font-weight:500">Flights</a><a href="#" style="padding:12px 0;color:#C9C4B8">Payments</a><a href="#" style="padding:12px 0;color:#C9C4B8">Profile</a>
+  </nav>
+
+  <div style="margin-top:32px;display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:32px;align-items:start">
+    <div>
+      <sc-if value="{{ hasUpcoming }}" hint-placeholder-val="{{ true }}">
+      <div style="font-size:13px;font-weight:600;color:#8A9099">Next flight</div>
+      <article style="margin-top:10px;display:grid;grid-template-columns:minmax(0,1fr) 220px;gap:24px;background:#0E1014;border:1px solid #232830;border-radius:12px;padding:28px">
+        <div>
+          <h2 style="margin:0;font-family:Fraunces,serif;font-weight:300;font-size:34px;line-height:1.1;letter-spacing:-.01em">Los Angeles → Aspen</h2>
+          <p style="margin:8px 0 0;font-size:17px">Friday, Oct 3 · departs 9:00 AM · about 2 hours</p>
+          <dl style="margin:20px 0 0;display:grid;grid-template-columns:auto 1fr;gap:10px 16px;font-size:15px;line-height:1.5">
+            <dt style="color:#8A9099">Aircraft</dt><dd style="margin:0">Citation XLS · midsize jet · 8 seats</dd>
+            <dt style="color:#8A9099">Where to go</dt><dd style="margin:0">Clay Lacy Aviation, 7435 Valjean Ave, Van Nuys. Arrive 15 minutes before — drive up, someone meets you at the door.</dd>
+            <dt style="color:#8A9099">Passengers</dt><dd style="margin:0">4 · <a href="#" style="color:#C9C4B8;text-decoration:underline;text-underline-offset:3px">add names</a></dd>
+          </dl>
+          <div style="margin-top:24px;display:flex;gap:10px;flex-wrap:wrap"><a href="Your request.dc.html" style="display:inline-flex;align-items:center;height:44px;padding:0 18px;border-radius:8px;border:1px solid #2C323B;font-weight:500;font-size:15px">Trip details</a><a href="#" style="display:inline-flex;align-items:center;height:44px;padding:0 18px;border-radius:8px;border:1px solid #2C323B;font-weight:500;font-size:15px">Add to calendar</a><a href="#" style="display:inline-flex;align-items:center;height:44px;padding:0 18px;border-radius:8px;border:1px solid #2C323B;font-weight:500;font-size:15px">Message Alex</a></div>
+        </div>
+        <div style="aspect-ratio:1;border-radius:8px;overflow:hidden;background:#161A20"><img src="public/images/fleet/midsize.webp" alt="" style="width:100%;height:100%;object-fit:cover;display:block"></div>
+      </article>
+      </sc-if>
+      <sc-if value="{{ noUpcoming }}" hint-placeholder-val="{{ false }}">
+      <div style="background:#0E1014;border:1px dashed #2C323B;border-radius:12px;padding:32px;text-align:center"><p style="margin:0;font-size:19px">No flights coming up.</p><p style="margin:6px 0 0;color:#C9C4B8">Tell us where you’d like to go and we’ll take it from there.</p><a href="Plan my flight.dc.html" style="display:inline-flex;align-items:center;margin-top:18px;height:44px;padding:0 20px;border-radius:8px;background:#E8E2D2;color:#07080A;font-weight:500;font-size:15px">Plan a flight</a></div>
+      </sc-if>
+
+      <div style="margin-top:32px;font-size:13px;font-weight:600;color:#8A9099">In progress</div>
+      <a href="Your request.dc.html" style="margin-top:10px;display:grid;grid-template-columns:1fr auto;gap:16px;align-items:center;background:#0E1014;border:1px solid #232830;border-radius:12px;padding:18px 24px">
+        <div><div style="font-size:17px;font-weight:500">Miami → New York · Oct 20 · 6 people</div><div style="margin-top:4px;font-size:15px;color:#C9C4B8"><span style="color:#C9A24A">●</span> We’re gathering options — you’ll hear from Alex by 3:40 PM today.</div></div>
+        <span style="font-size:15px;color:#C9C4B8">View →</span>
+      </a>
+
+      <div style="margin-top:32px;font-size:13px;font-weight:600;color:#8A9099">Past flights</div>
+      <div style="margin-top:10px;background:#0E1014;border:1px solid #232830;border-radius:12px;overflow:hidden">
+        <sc-for list="{{ past }}" as="p" hint-placeholder-count="3">
+          <div style="display:grid;grid-template-columns:1fr auto auto;gap:24px;align-items:center;padding:16px 24px;border-bottom:1px solid #161A20;font-size:15px"><div><span style="font-weight:500">{{ p.route }}</span> <span style="color:#8A9099">· {{ p.date }} · {{ p.aircraft }}</span></div><span>{{ p.price }}</span><a href="#" style="color:#C9C4B8;text-decoration:underline;text-underline-offset:3px">Receipt</a></div>
+        </sc-for>
+      </div>
+    </div>
+
+    <aside style="display:flex;flex-direction:column;gap:16px">
+      <sc-if value="{{ cardMember }}" hint-placeholder-val="{{ true }}">
+      <div style="background:#0E1014;border:1px solid #232830;border-radius:12px;padding:24px">
+        <div style="font-size:13px;font-weight:600;color:#8A9099">Your membership</div>
+        <div style="margin-top:8px;font-size:20px;font-weight:500">JetNine Card</div>
+        <div style="margin-top:14px;display:flex;justify-content:space-between;font-size:15px"><span>25 hours left</span><span style="color:#8A9099">of 50</span></div>
+        <div style="margin-top:8px;height:6px;border-radius:3px;background:#161A20;overflow:hidden"><div style="width:50%;height:100%;background:#E8E2D2"></div></div>
+        <div style="margin-top:8px;font-size:14px;color:#8A9099">Renews January 2027</div>
+        <a href="#" style="display:flex;align-items:center;justify-content:center;margin-top:16px;height:44px;border-radius:8px;border:1px solid #2C323B;font-weight:500;font-size:15px">Add hours</a>
+      </div>
+      </sc-if>
+      <sc-if value="{{ notMember }}" hint-placeholder-val="{{ false }}">
+      <div style="background:#0E1014;border:1px solid #232830;border-radius:12px;padding:24px"><div style="font-size:13px;font-weight:600;color:#8A9099">Fly a few times a year?</div><p style="margin:8px 0 0;font-size:17px;line-height:1.4">The JetNine Card gives you fixed hourly prices and a guaranteed aircraft.</p><a href="Home.dc.html#card" style="display:flex;align-items:center;justify-content:center;margin-top:16px;height:44px;border-radius:8px;border:1px solid #2C323B;font-weight:500;font-size:15px">Learn about the card</a></div>
+      </sc-if>
+      <div style="background:#0E1014;border:1px solid #232830;border-radius:12px;padding:24px">
+        <div style="font-size:13px;font-weight:600;color:#8A9099">Your JetNine contact</div>
+        <div style="margin-top:10px;display:flex;align-items:center;gap:12px"><span style="width:44px;height:44px;border-radius:50%;background:#161A20;display:flex;align-items:center;justify-content:center;font-weight:600;color:#E8E2D2">A</span><div><div style="font-size:17px;font-weight:500">Alex</div><div style="font-size:14px;color:#8FB58A">Available now</div></div></div>
+        <div style="margin-top:16px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px"><a href="tel:+14244872707" style="display:flex;align-items:center;justify-content:center;height:44px;border-radius:8px;border:1px solid #2C323B;font-size:15px;font-weight:500">Call</a><a href="#" style="display:flex;align-items:center;justify-content:center;height:44px;border-radius:8px;border:1px solid #2C323B;font-size:15px;font-weight:500">Text</a><a href="#" style="display:flex;align-items:center;justify-content:center;height:44px;border-radius:8px;border:1px solid #2C323B;font-size:15px;font-weight:500">Email</a></div>
+      </div>
+      <div style="background:#0E1014;border:1px solid #232830;border-radius:12px;padding:24px">
+        <div style="font-size:13px;font-weight:600;color:#8A9099">Discount one-way flights</div>
+        <p style="margin:8px 0 0;font-size:15px;color:#C9C4B8;line-height:1.5">Aircraft flying back empty near your usual routes. Cheaper, if your dates are flexible.</p>
+        <a href="#" style="display:inline-block;margin-top:12px;font-size:15px;text-decoration:underline;text-underline-offset:3px">See this week’s flights</a>
+      </div>
+    </aside>
+  </div>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;hasUpcomingFlight&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;cardMember&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;}}">
+class Component extends DCLogic {
+  renderVals() {
+    const hasUpcoming = this.props.hasUpcomingFlight ?? true;
+    const cardMember = this.props.cardMember ?? true;
+    return {
+      hasUpcoming, noUpcoming: !hasUpcoming, cardMember, notMember: !cardMember,
+      past: [
+        { route: "New York → West Palm Beach", date: "Aug 14", aircraft: "Challenger 350", price: "$23,100" },
+        { route: "Los Angeles → Las Vegas", date: "Jun 2", aircraft: "Phenom 300", price: "$9,400" },
+        { route: "Aspen → Los Angeles", date: "Mar 9", aircraft: "Citation XLS", price: "$11,800" },
+      ],
+    };
+  }
+}
+</script>
+</body>
+</html>

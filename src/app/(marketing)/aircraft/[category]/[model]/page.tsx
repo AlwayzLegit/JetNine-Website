@@ -1,12 +1,12 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Reveal } from "@/components/reveal";
-import { Placeholder } from "@/components/placeholder";
-import { ClosingCTA } from "@/components/closing-cta";
-import { ProofStrip } from "@/components/proof-strip";
+import { PageHero } from "@/components/page-hero";
+import { CtaBand } from "@/components/cta-band";
 import { DeskNotes } from "@/components/desk-notes";
-import { QuoteLauncher, RouteQuoteLink } from "@/components/quote-launcher";
+import { FleetImage } from "@/components/aircraft/fleet-image";
+import { QuoteLink } from "@/components/aircraft/quote-link";
+import { kt, nm, perHour, plainWords, sentence, wifiLabel } from "@/components/aircraft/plain";
 import { pageMetadata } from "@/lib/page-meta";
 import { MODELS, getModel, siblingModels } from "@/lib/models";
 import { getFleetEntry, formatNm } from "@/lib/fleet";
@@ -68,14 +68,21 @@ export default async function ModelPage({ params }: RouteParams) {
       const from = findAirport(r.from);
       const to = findAirport(r.to);
       if (!from || !to) return null;
-      const nm = distanceNm(from, to);
-      if (nm > m.sample.rangeNm) return null;
+      const nmDist = distanceNm(from, to);
+      if (nmDist > m.sample.rangeNm) return null;
       const ind = computeIndicative({
         category: m.category,
-        legs: [{ id: "s", fromIata: r.from, toIata: r.to, distanceNm: nm }],
+        legs: [{ id: "s", fromIata: r.from, toIata: r.to, distanceNm: nmDist }],
       });
       if (!ind) return null;
-      return { ...r, nm, hours: formatHours(ind.hours), range: ind.formatted };
+      return {
+        ...r,
+        nm: nmDist,
+        hours: formatHours(ind.hours),
+        range: ind.formatted,
+        fromCity: from.city,
+        toCity: to.city,
+      };
     })
     .filter((r): r is NonNullable<typeof r> => r !== null);
 
@@ -164,14 +171,14 @@ export default async function ModelPage({ params }: RouteParams) {
 
   const specs: [string, string][] = [
     ["Passengers", `${m.sample.pax} typical`],
-    ["Range", `${formatNm(m.sample.rangeNm)} · with reserves`],
-    ["Cruise", `${m.sample.speedKt} kt`],
+    ["Range", `${nm(m.sample.rangeNm)} · with reserves`],
+    ["Cruise", kt(m.sample.speedKt)],
     ["Ceiling", `${m.ceilingFt.toLocaleString()} ft`],
     ["Cabin height", m.cabin.heightFt],
     ["Cabin width", m.cabin.widthFt],
     ["Cabin length", m.cabin.lengthFt],
     ["Baggage", `~${m.baggageCuFt} cu ft`],
-    ["Wi-Fi", m.sample.wifi === "KA" ? "Ka-band" : m.sample.wifi === "YES" ? "Yes" : "No"],
+    ["Wi-Fi", wifiLabel(m.sample.wifi)],
   ];
 
   return (
@@ -193,215 +200,194 @@ export default async function ModelPage({ params }: RouteParams) {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }}
       />
 
-      {/* ─── Header: name + the rate, front and center ─── */}
-      <header className="border-b border-ink-3 bg-ink pt-[180px] pb-16 max-md:pt-[130px] max-md:pb-12">
-        <div className="container-jn grid items-end gap-12 lg:grid-cols-[1.4fr_1fr]">
-          <div>
-            <Reveal className="mb-6 flex flex-wrap items-center gap-x-4 gap-y-2 font-mono text-[11px] uppercase tracking-[0.16em] text-bone-2">
-              <span className="block h-px w-8 bg-clearance" />
-              <Link href="/aircraft" className="transition-colors hover:text-bone">Aircraft</Link>
-              <span aria-hidden>·</span>
-              <Link href={entry.href} className="transition-colors hover:text-bone">{entry.name}</Link>
-            </Reveal>
-            <Reveal as="h1" stagger={1} className="display-xl max-w-[16ch]">
-              {m.shortName} charter.
-            </Reveal>
-            <Reveal as="p" stagger={2} className="mt-8 max-w-[58ch] text-[18px] leading-[1.55] text-bone-2">
-              {m.lead}
-            </Reveal>
+      {/* ─── Hero: name, lead, the rate front and centre ─── */}
+      <PageHero
+        eyebrow={`${entry.name} · ${m.manufacturer}`}
+        title={`${m.shortName} charter.`}
+        lead={plainWords(m.lead)}
+      >
+        <nav aria-label="Breadcrumb" className="mt-6 text-[15px] text-bone-2">
+          <Link href="/aircraft" className="text-link">
+            Aircraft
+          </Link>
+          <span aria-hidden> · </span>
+          <Link href={entry.href} className="text-link">
+            {entry.name}
+          </Link>
+          <span aria-hidden> · </span>
+          <span aria-current="page">{m.shortName}</span>
+        </nav>
+
+        <div className="mt-8 grid gap-6 lg:grid-cols-[minmax(0,1fr)_400px] lg:items-end">
+          <div className="flex flex-wrap items-center gap-4">
+            <QuoteLink context={`model-${m.slug}`} category={m.category}>
+              Request a quote <span className="arrow">→</span>
+            </QuoteLink>
+            <Link href={entry.href} className="btn btn-secondary btn-lg">
+              All {entry.name.toLowerCase()} aircraft
+            </Link>
           </div>
           {rate ? (
-            <Reveal stagger={2} className="rounded-[4px] border border-ink-3 bg-ink-2 p-8">
-              <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-steel">
-                — {entry.name} category · hourly
-              </p>
-              <div className="mt-5 flex flex-wrap items-baseline gap-x-6 gap-y-2">
-                <span className="font-serif text-[40px] font-light leading-none tracking-tight text-bone">
-                  {rate.market}
-                </span>
-              </div>
-              <p className="mt-2 font-mono text-[10px] uppercase tracking-[0.12em] text-bone-2">
-                Market · all-in, locked at acceptance
-              </p>
-              <div className="mt-5 border-t border-ink-3 pt-5">
-                <span className="font-serif text-[24px] font-light leading-none tracking-tight text-clearance">
-                  {rate.locked}
-                </span>
-                <p className="mt-2 font-mono text-[10px] uppercase tracking-[0.12em] text-bone-2">
-                  JetNine Card · locked 24 months
+            <div className="card card-pad">
+              <p className="label-jn">{entry.name} category · hourly</p>
+              <p className="mt-3 font-serif text-[40px] font-light leading-none">{rate.market}</p>
+              <p className="mt-2 text-[14px] text-bone-2">Market rate · all-in, locked at acceptance</p>
+              <div className="mt-5 border-t border-line pt-5">
+                <p className="font-serif text-[24px] font-light leading-none text-clearance">
+                  {perHour(rate.locked)}
                 </p>
+                <p className="mt-2 text-[14px] text-bone-2">JetNine Card · locked for 24 months</p>
               </div>
-            </Reveal>
+            </div>
           ) : null}
         </div>
-      </header>
+      </PageHero>
 
-      <ProofStrip />
-
-      {/* ─── Photo + spec table ─── */}
-      <section className="py-24 max-md:py-16">
-        <div className="container-jn grid items-start gap-10 lg:grid-cols-[1.3fr_1fr]">
-          <Reveal className="overflow-hidden rounded-[4px] border border-ink-3">
-            <Placeholder
-              caption={m.sample.phCap}
-              aspect="16/10"
-              imageUrl={m.sample.imageUrl}
-              sizes="(max-width: 1024px) 100vw, 60vw"
-            />
-          </Reveal>
-          <Reveal stagger={1} className="rounded-[4px] border border-ink-3 bg-ink-2">
-            <div className="border-b border-ink-3 px-7 py-5">
-              <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-clearance">
-                — Specifications · typical config
-              </p>
-            </div>
-            <dl>
-              {specs.map(([label, val]) => (
-                <div
-                  key={label}
-                  className="flex items-baseline justify-between gap-6 border-b border-ink-3 px-7 py-3.5 last:border-b-0"
-                >
-                  <dt className="font-mono text-[10px] uppercase tracking-[0.12em] text-steel">{label}</dt>
-                  <dd className="m-0 font-mono text-[13px] tracking-[0.02em] text-bone">{val}</dd>
-                </div>
-              ))}
-            </dl>
-            <p className="px-7 py-4 text-[12px] leading-[1.6] text-steel">
-              Figures are typical published configuration; exact layout and performance vary by
-              tail and are confirmed with your quote.
-            </p>
-          </Reveal>
+      {/* ─── Photo + specifications ─── */}
+      <section className="section-jn container-jn grid items-start gap-6 lg:grid-cols-[1.3fr_1fr]">
+        <FleetImage
+          src={m.sample.imageUrl}
+          alt={`${m.name} exterior`}
+          aspect="16/10"
+          sizes="(max-width: 1024px) 100vw, 60vw"
+          className="rounded-card border border-line"
+        />
+        <div className="card">
+          <div className="border-b border-line px-7 py-5">
+            <h2 className="title-card-sm">Specifications</h2>
+            <p className="mt-1 text-[14px] text-steel">Typical layout</p>
+          </div>
+          <dl className="dl-jn px-7 py-6">
+            {specs.map(([label, val]) => (
+              <div key={label} className="contents">
+                <dt>{label}</dt>
+                <dd>{val}</dd>
+              </div>
+            ))}
+          </dl>
+          <p className="border-t border-line px-7 py-4 text-[13px] leading-[1.6] text-steel">
+            Figures are the typical published layout; exact layout and performance vary by aircraft
+            and are confirmed with your quote.
+          </p>
         </div>
       </section>
 
       {/* ─── Popular routes, engine-priced ─── */}
       {routes.length > 0 ? (
-        <section className="border-t border-ink-3 bg-ink-2 py-24 max-md:py-16">
-          <div className="container-jn">
-            <Reveal>
-              <p className="caption mb-6">— Popular {m.shortName} routes</p>
-            </Reveal>
-            <Reveal as="h2" stagger={1} className="display-m max-w-[24ch]">
-              What it flies, and for what.
-            </Reveal>
-            <Reveal as="p" stagger={2} className="mt-6 max-w-[64ch] text-[17px] leading-[1.55] text-bone-2">
-              Indicative all-in ranges for the whole aircraft, computed by the same engine behind
-              our quote wizard. Tap through and the wizard opens with the route and category loaded.
-            </Reveal>
-            <div className="mt-12 grid grid-cols-1 gap-4 md:grid-cols-3">
-              {routes.map((r, i) => (
-                <Reveal key={`${r.from}-${r.to}`} stagger={(i % 3) as 0 | 1 | 2} className="flex flex-col gap-5 rounded-[4px] border border-ink-3 bg-ink p-7">
+        <section className="section-jn container-jn">
+          <p className="eyebrow">Popular {m.shortName} routes</p>
+          <h2 className="title-section max-w-[24ch]">What it flies, and for what.</h2>
+          <p className="lead mt-5 max-w-[64ch]">
+            Indicative all-in ranges for the whole aircraft, worked out by the same engine behind
+            our quote form. Tap through and the quote opens with the route and category loaded.
+          </p>
+          <div className="mt-10 grid grid-cols-1 gap-4 md:grid-cols-3">
+            {routes.map((r) => (
+              <div key={`${r.from}-${r.to}`} className="card card-pad flex flex-col gap-5">
+                <div>
+                  <h3 className="title-card-sm">{r.label}</h3>
+                  <p className="mt-1 text-[14px] text-bone-2">
+                    {r.fromCity} ({r.from}) → {r.toCity} ({r.to})
+                  </p>
+                </div>
+                <dl className="dl-jn border-y border-line py-5">
+                  <dt>Distance</dt>
+                  <dd>{nm(r.nm)}</dd>
+                  <dt>Flight time</dt>
+                  <dd>{r.hours}</dd>
+                </dl>
+                <div className="flex flex-1 flex-col justify-end gap-4">
                   <div>
-                    <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-bone-2">{r.label}</div>
-                    <div className="mt-2 font-serif text-[26px] font-light leading-none tracking-tight text-bone">
-                      {r.from} → {r.to}
-                    </div>
+                    <p className="label-jn">Indicative, all-in</p>
+                    <p className="mt-1 font-serif text-[24px] font-light leading-tight">{r.range}</p>
                   </div>
-                  <div className="grid grid-cols-2 gap-3 border-y border-ink-3 py-5 text-[11px]">
-                    <div className="flex flex-col gap-1">
-                      <span className="font-mono uppercase tracking-[0.12em] text-steel">— Distance</span>
-                      <span className="font-mono tracking-[0.04em] text-bone">{formatNm(r.nm)}</span>
-                    </div>
-                    <div className="flex flex-col gap-1">
-                      <span className="font-mono uppercase tracking-[0.12em] text-steel">— Est. time</span>
-                      <span className="font-mono tracking-[0.04em] text-bone">{r.hours}</span>
-                    </div>
-                  </div>
-                  <div className="flex flex-1 flex-col justify-end gap-4">
-                    <div>
-                      <div className="font-mono text-[10px] uppercase tracking-[0.12em] text-steel">— Indicative, all-in</div>
-                      <div className="mt-1 font-serif text-[22px] font-light leading-tight tracking-tight text-bone">
-                        {r.range}
-                      </div>
-                    </div>
-                    <RouteQuoteLink from={r.from} to={r.to} category={m.category} pax={Math.min(m.sample.pax, 8)} />
-                  </div>
-                </Reveal>
-              ))}
-            </div>
+                  <QuoteLink
+                    context={`route-card:${r.from}-${r.to}`}
+                    category={m.category}
+                    from={r.from}
+                    to={r.to}
+                    pax={Math.min(m.sample.pax, 8)}
+                    className="btn btn-secondary self-start"
+                  >
+                    Get exact quote <span className="arrow">→</span>
+                  </QuoteLink>
+                </div>
+              </div>
+            ))}
           </div>
         </section>
       ) : null}
 
       {/* ─── FAQ ─── */}
-      <section className="border-t border-ink-3 py-24 max-md:py-16">
-        <div className="container-jn">
-          <Reveal>
-            <p className="caption mb-10">— Asked about the {m.shortName}</p>
-          </Reveal>
-          <div className="grid grid-cols-1 gap-x-12 gap-y-10 md:grid-cols-2">
-            {FAQ.map((f) => (
-              <Reveal key={f.q} className="border-t border-ink-3 pt-6">
-                <h3 className="font-serif text-[19px] font-normal leading-[1.3] tracking-tight text-bone">{f.q}</h3>
-                <p className="mt-3 max-w-[62ch] text-[15px] leading-[1.6] text-bone-2">{f.a}</p>
-              </Reveal>
-            ))}
-          </div>
+      <section className="section-jn container-jn">
+        <p className="eyebrow">Asked about the {m.shortName}</p>
+        <div className="mt-6 grid grid-cols-1 gap-x-12 gap-y-10 md:grid-cols-2">
+          {FAQ.map((f) => (
+            <div key={f.q} className="border-t border-line pt-6">
+              <h3 className="title-card-sm">{f.q}</h3>
+              <p className="mt-3 max-w-[62ch] text-bone-2">{plainWords(f.a)}</p>
+            </div>
+          ))}
         </div>
       </section>
 
       {/* ─── Alternatives ─── */}
-      <section className="border-t border-ink-3 bg-ink-2 py-24 max-md:py-16">
-        <div className="container-jn">
-          <Reveal>
-            <p className="caption mb-6">— Compare</p>
-          </Reveal>
-          <Reveal as="h2" stagger={1} className="display-m max-w-[24ch]">
-            The alternatives worth pricing.
-          </Reveal>
-          <div className="mt-12 grid grid-cols-1 gap-4 md:grid-cols-3">
-            {siblings.map((s, i) => (
-              <Reveal key={s.slug} stagger={(i % 3) as 0 | 1 | 2}>
-                <Link
-                  href={`/aircraft/${s.category}/${s.slug}`}
-                  className="group flex h-full flex-col rounded-[4px] border border-ink-3 bg-ink p-8 transition-colors hover:border-[rgba(232,226,210,0.3)]"
-                >
-                  <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-steel">
-                    Same category · {entry.name}
-                  </span>
-                  <h3 className="mt-4 font-serif text-[20px] font-normal leading-[1.25] tracking-tight text-bone group-hover:text-clearance">
-                    {s.shortName}
-                  </h3>
-                  <p className="mt-3 flex-1 text-[14px] leading-[1.6] text-bone-2">{s.knownFor}</p>
-                  <span className="mt-5 font-mono text-[10px] uppercase tracking-[0.14em] text-clearance">
-                    Specs &amp; rates <span className="arrow">→</span>
-                  </span>
-                </Link>
-              </Reveal>
-            ))}
-            <Reveal stagger={2}>
-              <Link
-                href={entry.teaser.right.href}
-                className="group flex h-full flex-col rounded-[4px] border border-ink-3 bg-ink p-8 transition-colors hover:border-[rgba(232,226,210,0.3)]"
-              >
-                <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-steel">
-                  {entry.teaser.right.label}
-                </span>
-                <h3 className="mt-4 font-serif text-[20px] font-normal leading-[1.25] tracking-tight text-bone group-hover:text-clearance">
-                  {entry.teaser.right.title}
-                </h3>
-                <p className="mt-3 flex-1 text-[14px] leading-[1.6] text-bone-2">{entry.teaser.right.body}</p>
-                <span className="mt-5 font-mono text-[10px] uppercase tracking-[0.14em] text-clearance">
-                  {entry.teaser.right.cta} <span className="arrow">→</span>
-                </span>
-              </Link>
-            </Reveal>
-          </div>
+      <section className="section-jn container-jn">
+        <p className="eyebrow">Compare</p>
+        <h2 className="title-section max-w-[24ch]">The alternatives worth pricing.</h2>
+        <div className="mt-10 grid grid-cols-1 gap-4 md:grid-cols-3">
+          {siblings.map((s) => (
+            <Link
+              key={s.slug}
+              href={`/aircraft/${s.category}/${s.slug}`}
+              className="card card-pad flex flex-col gap-3"
+            >
+              <p className="label-jn">Same category · {entry.name}</p>
+              <h3 className="title-card-sm">{s.shortName}</h3>
+              <p className="flex-1 text-bone-2">{plainWords(s.knownFor)}</p>
+              <span className="pt-2 text-[15px] font-medium">
+                Specs &amp; rates <span className="arrow">→</span>
+              </span>
+            </Link>
+          ))}
+          <Link href={entry.teaser.right.href} className="card card-pad flex flex-col gap-3">
+            <p className="label-jn">{sentence(entry.teaser.right.label)}</p>
+            <h3 className="title-card-sm">{entry.teaser.right.title}</h3>
+            <p className="flex-1 text-bone-2">{plainWords(entry.teaser.right.body)}</p>
+            <span className="pt-2 text-[15px] font-medium">
+              {entry.teaser.right.cta} <span className="arrow">→</span>
+            </span>
+          </Link>
         </div>
       </section>
 
       <DeskNotes terms={[m.shortName, m.manufacturer, entry.name, "aircraft", "range"]} heading={`From the desk · ${entry.name}`} />
 
-      <QuoteLauncher
-        context={`model-${m.slug}`}
-        category={m.category}
-        heading={`Price a ${m.shortName} mission.`}
-        body="Route, date, and passengers — the wizard opens with the category pre-selected and prices as you type. Dispatch confirms specific tails within 30 minutes."
-      />
+      {/* ─── Quote handoff (was the inline launcher form) ─── */}
+      <section className="section-jn container-jn">
+        <div className="card card-pad grid gap-6 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
+          <div>
+            <p className="eyebrow">Start a quote</p>
+            <h2 className="title-card">Price a {m.shortName} mission.</h2>
+            <p className="mt-2 max-w-[52ch] text-bone-2">
+              Route, date, and passengers — the quote opens with the category already chosen and
+              prices as you type. Dispatch confirms specific aircraft within 30 minutes.
+            </p>
+          </div>
+          <QuoteLink context={`model-${m.slug}`} category={m.category}>
+            Request a quote <span className="arrow">→</span>
+          </QuoteLink>
+        </div>
+      </section>
 
-      <ClosingCTA
-        heading={`${m.shortName}, sourced and vetted.`}
-        body={`Every ${m.shortName} we quote flies for an ARG/US- or Wyvern-audited operator that passed our on-site vetting. Ask dispatch which tails are in position: ${SITE.dispatchPhone}.`}
+      <CtaBand
+        title={`${m.shortName}, sourced and vetted.`}
+        body={`Every ${m.shortName} we quote flies for an ARG/US- or Wyvern-audited operator that passed our on-site vetting. Ask dispatch which aircraft are in position: ${SITE.dispatchPhone}.`}
+        primary={{ label: "Request a quote", href: "/quote/mission" }}
+        secondary={{
+          label: `Call dispatch · ${SITE.dispatchPhone}`,
+          href: `tel:${SITE.dispatchPhoneE164}`,
+        }}
       />
     </>
   );

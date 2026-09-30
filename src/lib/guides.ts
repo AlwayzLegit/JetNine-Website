@@ -52,7 +52,7 @@ const CHAPTERS: Omit<GuideChapter, "chapter" | "href">[] = [
     title: "What actually moves a charter price.",
     navTitle: "Price drivers",
     description:
-      "The six line items behind every quote — airframe time, fuel, repositioning, crew and catering, FET, ground — and which ones you can influence.",
+      "The six line items behind every quote — aircraft time, fuel, repositioning, crew and catering, FET, ground — and which ones you can influence.",
   },
 ];
 

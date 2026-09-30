@@ -1,14 +1,24 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
-import { Reveal } from "@/components/reveal";
-import { Placeholder } from "@/components/placeholder";
 import { BestForIcon } from "@/components/best-for-icon";
-import { ClosingCTA } from "@/components/closing-cta";
-import { QuoteLauncher } from "@/components/quote-launcher";
-import { ProofStrip } from "@/components/proof-strip";
+import { PageHero } from "@/components/page-hero";
+import { CtaBand } from "@/components/cta-band";
+import { FleetImage } from "@/components/aircraft/fleet-image";
+import { QuoteLink } from "@/components/aircraft/quote-link";
+import {
+  flightTime,
+  kt,
+  nm,
+  plainShortName,
+  plainSpec,
+  plainWords,
+  sentence,
+  titleCase,
+  wifiLabel,
+} from "@/components/aircraft/plain";
 import { SITE } from "@/lib/constants";
-import { FLEET, formatNm, formatPax, getFleetEntry } from "@/lib/fleet";
+import { FLEET, getFleetEntry } from "@/lib/fleet";
 import { MODELS } from "@/lib/models";
 import { pageMetadata } from "@/lib/page-meta";
 
@@ -60,6 +70,7 @@ export default async function AircraftCategoryPage({ params }: RouteParams) {
   if (!entry) notFound();
 
   const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL || "https://jetnine.com").replace(/\/$/, "");
+  const shortName = plainShortName(entry.shortName, entry.name);
 
   // BreadcrumbList: Home › Aircraft › {Category}. Helps Google
   // surface the breadcrumb trail under the search result and improves
@@ -103,357 +114,215 @@ export default async function AircraftCategoryPage({ params }: RouteParams) {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(serviceJsonLd) }}
       />
-      {/* ─── Hero: split text + image ─── */}
-      <section className="pt-[200px] pb-24 max-md:pt-[140px] max-md:pb-16">
-        <div className="container-jn">
-          <div className="grid grid-cols-1 gap-16 lg:grid-cols-[1.1fr_1fr] lg:gap-20">
-            <div>
-              <Reveal className="mb-6 inline-flex items-center gap-3 font-mono text-[11px] uppercase tracking-[0.16em] text-bone-2">
-                <span className="block h-px w-8 bg-clearance" />
-                {entry.kicker}
-              </Reveal>
-              <Reveal as="h1" stagger={1} className="display-xl max-w-[14ch]">
-                {entry.title}
-              </Reveal>
-              <Reveal stagger={2} as="p" className="mt-8 max-w-[56ch] text-[18px] leading-[1.55] text-bone-2">
-                {entry.lead}
-              </Reveal>
 
-              <div className="mt-12 grid grid-cols-2 gap-x-8 gap-y-6 border-t border-ink-3 pt-8 sm:grid-cols-3">
-                {entry.heroSpecs.map((s, i) => (
-                  <Reveal
-                    key={s.label}
-                    stagger={(i % 3) as 0 | 1 | 2}
-                    className="flex flex-col gap-1.5"
-                  >
-                    <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-steel">
-                      — {s.label}
-                    </span>
-                    <span
-                      className="font-serif text-[28px] font-light leading-none text-bone"
-                      style={{ letterSpacing: "-0.01em" }}
-                    >
-                      {s.value}
-                    </span>
-                    <span className="font-mono text-[10px] tracking-[0.04em] text-bone-2">
-                      {s.sub}
-                    </span>
-                  </Reveal>
-                ))}
+      {/* ─── Hero: category photo, title, lead, six headline specs ─── */}
+      <PageHero
+        eyebrow={entry.kicker}
+        title={entry.title}
+        lead={plainWords(entry.lead)}
+        imageSrc={entry.imageUrl}
+        imagePosition="center"
+      >
+        <dl className="mt-10 grid grid-cols-2 gap-x-8 gap-y-6 border-t border-line pt-8 sm:grid-cols-3 lg:grid-cols-6">
+          {entry.heroSpecs.map((raw) => {
+            const s = plainSpec(raw);
+            return (
+              <div key={raw.label}>
+                <dt className="label-jn">{s.label}</dt>
+                <dd className="mt-1 font-serif text-[28px] font-light leading-none">{s.value}</dd>
+                <dd className="mt-1 text-[13px] text-steel">{s.sub}</dd>
               </div>
-
-              <Reveal stagger={3} className="mt-12 flex flex-wrap items-center gap-6">
-                <Link href="/quote/mission" className="btn btn-primary btn-lg">
-                  Request a quote <span className="arrow">→</span>
-                </Link>
-                <Link href="/aircraft" className="btn btn-ghost">
-                  All categories <span className="arrow">→</span>
-                </Link>
-              </Reveal>
-            </div>
-
-            <Reveal stagger={1}>
-              <Placeholder
-                caption={entry.heroImageCaption.replace(/^— /, "")}
-                aspect="4/5"
-                imageUrl={entry.imageUrl}
-                priority
-                sizes="(max-width: 1024px) 100vw, 45vw"
-                className="rounded-[4px] border border-ink-3"
-              />
-            </Reveal>
-          </div>
+            );
+          })}
+        </dl>
+        <div className="mt-8 flex flex-wrap items-center gap-4">
+          <QuoteLink context={`aircraft-${entry.slug}`} category={entry.slug}>
+            Request a quote <span className="arrow">→</span>
+          </QuoteLink>
+          <Link href="/aircraft" className="btn btn-secondary btn-lg">
+            All categories
+          </Link>
         </div>
-      </section>
+      </PageHero>
 
       {/* ─── Cabin ─── */}
-      <section className="border-t border-ink-3 py-32 max-md:py-20">
-        <div className="container-jn">
-          <div className="mb-16 grid items-end gap-12 lg:grid-cols-[1fr_1.6fr]">
-            <Reveal>
-              <p className="caption">— Inside the cabin</p>
-            </Reveal>
-            <Reveal as="h2" stagger={1} className="display-m max-w-[20ch]">
-              {entry.cabin.headline[0]}
-              {" "}
-              <br />
-              {entry.cabin.headline[1]}
-            </Reveal>
-          </div>
+      <section className="section-jn container-jn">
+        <p className="eyebrow">Inside the cabin</p>
+        <h2 className="title-section max-w-[20ch]">
+          {entry.cabin.headline[0]} <br className="max-md:hidden" />
+          {entry.cabin.headline[1]}
+        </h2>
 
-          <div className="mb-12 grid grid-cols-1 gap-4 md:grid-cols-3">
-            {entry.cabin.placeholders.map((cap, i) => (
-              <Reveal
-                key={cap}
-                stagger={(i as 0 | 1 | 2)}
-                className="overflow-hidden rounded-[4px] border border-ink-3"
-              >
-                <Placeholder
-                  caption={cap}
-                  aspect="4/5"
-                  imageUrl={entry.cabin.imageUrls?.[i]}
-                />
-              </Reveal>
-            ))}
-          </div>
-
-          <Reveal as="p" stagger={1} className="max-w-[64ch] text-[16px] leading-[1.7] text-bone-2">
-            {entry.cabin.caption}
-          </Reveal>
+        <div className="mt-10 grid grid-cols-1 gap-4 md:grid-cols-3">
+          {entry.cabin.placeholders.map((cap, i) => (
+            <FleetImage
+              key={cap}
+              src={entry.cabin.imageUrls?.[i]}
+              alt={`${entry.name} cabin — ${cap.toLowerCase()}`}
+              aspect="4/5"
+              sizes="(max-width: 768px) 100vw, 33vw"
+              className="rounded-card border border-line"
+            />
+          ))}
         </div>
+
+        <p className="mt-8 max-w-[64ch] text-[17px] leading-[1.6] text-bone-2">
+          {plainWords(entry.cabin.caption)}
+        </p>
       </section>
 
-      {/* ─── Reach (Ultra-only) ─── */}
+      {/* ─── Reach (ultra only) ─── */}
       {entry.reach ? (
-        <section className="border-t border-ink-3 py-32 max-md:py-20">
-          <div className="container-jn">
-            <div className="mb-16 grid items-end gap-12 lg:grid-cols-[1fr_1.6fr]">
-              <Reveal>
-                <p className="caption">— Reach</p>
-              </Reveal>
-              <div>
-                <Reveal as="h2" stagger={1} className="display-m max-w-[20ch]">
-                  {entry.reach.headline[0]}
-                  {" "}
-                  <br />
-                  {entry.reach.headline[1]}
-                </Reveal>
-                <Reveal stagger={2} as="p" className="mt-6 max-w-[58ch] text-[18px] leading-[1.55] text-bone-2">
-                  {entry.reach.lead}
-                </Reveal>
-              </div>
-            </div>
+        <section className="section-jn container-jn">
+          <p className="eyebrow">Reach</p>
+          <h2 className="title-section max-w-[20ch]">
+            {entry.reach.headline[0]} <br className="max-md:hidden" />
+            {entry.reach.headline[1]}
+          </h2>
+          <p className="lead mt-5 max-w-[58ch]">{plainWords(entry.reach.lead)}</p>
 
-            <div className="grid grid-cols-1 gap-12 lg:grid-cols-[1.1fr_1fr] lg:gap-20">
-              <div>
-                <ul className="divide-y divide-ink-3 border-y border-ink-3">
+          <div className="card mt-10 overflow-hidden">
+            <div className="overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+              <table className="table-jn min-w-[560px] [&_td:first-child]:pl-6 [&_td:last-child]:pr-6 [&_th:first-child]:pl-6 [&_th:last-child]:pr-6">
+                <thead>
+                  <tr>
+                    <th scope="col">City pair</th>
+                    <th scope="col">Distance</th>
+                    <th scope="col">Flight time</th>
+                  </tr>
+                </thead>
+                <tbody>
                   {entry.reach.pairs.map((p) => (
-                    <li
-                      key={p.pair}
-                      className="grid grid-cols-[1fr_auto_auto] items-baseline gap-8 py-5 font-mono text-[12px] uppercase tracking-[0.08em] text-bone"
-                    >
-                      <span className="text-bone">{p.pair}</span>
-                      <span className="text-bone-2">{p.nm}</span>
-                      <span className="text-clearance">{p.time}</span>
-                    </li>
+                    <tr key={p.pair}>
+                      <td className="font-serif text-[20px] leading-[1.2]">{titleCase(p.pair)}</td>
+                      <td className="text-bone-2">{plainWords(p.nm)}</td>
+                      <td className="text-clearance">{flightTime(p.time)}</td>
+                    </tr>
                   ))}
-                </ul>
-              </div>
-              <Reveal stagger={1}>
-                <div className="aspect-[4/3] overflow-hidden rounded-[4px] border border-ink-3 bg-ink-2 p-6">
-                  <svg viewBox="0 0 100 75" preserveAspectRatio="xMidYMid meet" className="h-full w-full">
-                    <ellipse
-                      cx="50"
-                      cy="38"
-                      rx="42"
-                      ry="32"
-                      fill="none"
-                      stroke="rgba(232,226,210,0.15)"
-                      strokeWidth="0.5"
-                      strokeDasharray="1 1.5"
-                    />
-                    {/* Arcs */}
-                    <path d="M22 32 Q 50 8 78 36" fill="none" stroke="#D4622A" strokeWidth="0.5" strokeDasharray="1.5 1.5" opacity="0.7" />
-                    <path d="M22 32 Q 36 50 50 64" fill="none" stroke="#D4622A" strokeWidth="0.5" strokeDasharray="1.5 1.5" opacity="0.5" />
-                    <path d="M78 36 Q 86 50 70 64" fill="none" stroke="#D4622A" strokeWidth="0.5" strokeDasharray="1.5 1.5" opacity="0.5" />
-                    <path d="M22 32 Q 50 22 78 36" fill="none" stroke="var(--clearance)" strokeWidth="0.5" />
-                    {/* Anchors */}
-                    {[
-                      { code: "JFK", x: 22, y: 32 },
-                      { code: "LHR", x: 50, y: 22 },
-                      { code: "HND", x: 82, y: 30 },
-                      { code: "SIN", x: 78, y: 48 },
-                      { code: "DXB", x: 60, y: 40 },
-                      { code: "LAX", x: 15, y: 40 },
-                      { code: "SYD", x: 80, y: 62 },
-                    ].map((p) => (
-                      <g key={p.code}>
-                        <circle cx={p.x} cy={p.y} r="1" fill="var(--clearance)" />
-                        <text
-                          x={p.x}
-                          y={p.y - 2.5}
-                          fontSize="2.2"
-                          fill="var(--bone-2)"
-                          textAnchor="middle"
-                          fontFamily="ui-monospace, monospace"
-                          letterSpacing="0.05em"
-                        >
-                          {p.code}
-                        </text>
-                      </g>
-                    ))}
-                  </svg>
-                </div>
-              </Reveal>
+                </tbody>
+              </table>
             </div>
           </div>
         </section>
       ) : null}
 
       {/* ─── Sample aircraft ─── */}
-      <section className="border-t border-ink-3 py-32 max-md:py-20">
-        <div className="container-jn">
-          <div className="mb-16 grid items-end gap-12 lg:grid-cols-[1fr_1.6fr]">
-            <Reveal>
-              <p className="caption">— Sample aircraft</p>
-            </Reveal>
-            <div>
-              <Reveal as="h2" stagger={1} className="display-m max-w-[22ch]">
-                A few airframes
-                {" "}
-                <br />
-                in the network.
-              </Reveal>
-              <Reveal stagger={2} as="p" className="mt-6 max-w-[58ch] text-[18px] leading-[1.55] text-bone-2">
-                Representative examples — we source the right airframe per mission from a network of
-                vetted Part 135 operators. Tail numbers redacted for crew privacy.
-              </Reveal>
-            </div>
-          </div>
+      <section className="section-jn container-jn">
+        <p className="eyebrow">Sample aircraft</p>
+        <h2 className="title-section max-w-[22ch]">A few aircraft in the network.</h2>
+        <p className="lead mt-5 max-w-[58ch]">
+          Representative examples — we source the right aircraft per trip from a network of vetted
+          Part 135 operators.
+        </p>
 
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-            {entry.samples.map((s, i) => (
-              <Reveal
-                key={s.name}
-                stagger={(i as 0 | 1 | 2)}
-                className="overflow-hidden rounded-[4px] border border-ink-3 bg-ink-2 transition-colors hover:border-[rgba(232,226,210,0.3)]"
-              >
-                <Placeholder
-                  caption={s.phCap}
+        <div className="mt-10 grid grid-cols-1 gap-4 md:grid-cols-3">
+          {entry.samples.map((s) => {
+            const model = MODELS.find((mm) => mm.sample.name === s.name);
+            const body = (
+              <>
+                <FleetImage
+                  src={s.imageUrl}
+                  alt={`${s.name} exterior`}
                   aspect="16/10"
-                  imageUrl={s.imageUrl}
                   sizes="(max-width: 768px) 100vw, (max-width: 1280px) 33vw, 28vw"
                 />
-                <div className="flex flex-col gap-3 p-7">
-                  <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-clearance">
-                    {s.tail} · {s.base}
-                  </span>
-                  <h3 className="font-serif text-[22px] font-normal leading-[1.2] tracking-tight text-bone">
-                    {s.name}
-                  </h3>
-                  <div className="mt-3 grid grid-cols-3 gap-x-4 gap-y-3 border-t border-ink-3 pt-5">
-                    {[
-                      ["PAX", s.pax.toString()],
-                      ["RANGE", formatNm(s.rangeNm)],
-                      ["SPEED", `${s.speedKt} KT`],
-                      ["YEAR", s.year.toString()],
-                      ["WIFI", s.wifi],
-                    ].map(([lbl, val]) => (
-                      <div key={lbl} className="flex flex-col gap-1">
-                        <span className="font-mono text-[9px] uppercase tracking-[0.12em] text-steel">
-                          {lbl}
-                        </span>
-                        <span className="font-mono text-[12px] tracking-[0.04em] text-bone">
-                          {val}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                  {/* Deep link to the model page when the sample has one. */}
-                  {(() => {
-                    const model = MODELS.find((mm) => mm.sample.name === s.name);
-                    return model ? (
-                      <Link
-                        href={`/aircraft/${model.category}/${model.slug}`}
-                        className="mt-4 border-t border-ink-3 pt-4 font-mono text-[10px] uppercase tracking-[0.14em] text-clearance transition-colors hover:text-bone"
-                      >
-                        Full specs, rates &amp; routes <span className="arrow">→</span>
-                      </Link>
-                    ) : null;
-                  })()}
+                <div className="flex flex-1 flex-col gap-5 p-6">
+                  <h3 className="title-card-sm">{s.name}</h3>
+                  <dl className="dl-jn border-t border-line pt-5">
+                    <dt>Passengers</dt>
+                    <dd>{s.pax}</dd>
+                    <dt>Range</dt>
+                    <dd>{nm(s.rangeNm)}</dd>
+                    <dt>Speed</dt>
+                    <dd>{kt(s.speedKt)}</dd>
+                    <dt>Year</dt>
+                    <dd>{s.year}</dd>
+                    <dt>Wi-Fi</dt>
+                    <dd>{wifiLabel(s.wifi)}</dd>
+                  </dl>
+                  {model ? (
+                    <span className="mt-auto text-[15px] font-medium">
+                      Full specs, rates &amp; routes <span className="arrow">→</span>
+                    </span>
+                  ) : null}
                 </div>
-              </Reveal>
-            ))}
-          </div>
+              </>
+            );
+            return model ? (
+              <Link
+                key={s.name}
+                href={`/aircraft/${model.category}/${model.slug}`}
+                className="card flex flex-col overflow-hidden"
+              >
+                {body}
+              </Link>
+            ) : (
+              <div key={s.name} className="card flex flex-col overflow-hidden">
+                {body}
+              </div>
+            );
+          })}
         </div>
       </section>
 
       {/* ─── Best for ─── */}
-      <section className="border-t border-ink-3 py-32 max-md:py-20">
-        <div className="container-jn">
-          <div className="mb-16 grid items-end gap-12 lg:grid-cols-[1fr_1.6fr]">
-            <Reveal>
-              <p className="caption">— Best for</p>
-            </Reveal>
-            <Reveal as="h2" stagger={1} className="display-m max-w-[22ch]">
-              The missions
-              {" "}
-              <br />
-              {entry.shortName.toLowerCase()} does best.
-            </Reveal>
-          </div>
+      <section className="section-jn container-jn">
+        <p className="eyebrow">Best for</p>
+        <h2 className="title-section max-w-[22ch]">The missions {shortName} does best.</h2>
 
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            {entry.bestFor.map((t, i) => (
-              <Reveal
-                key={t.title}
-                stagger={(i % 2) as 0 | 1}
-                className="rounded-[4px] border border-ink-3 bg-ink-2 p-9 transition-all duration-200 ease-out-quint hover:-translate-y-0.5 hover:border-clearance"
-              >
-                <div className="mb-6 text-clearance">
-                  <BestForIcon name={t.iconKey} />
-                </div>
-                <h3 className="font-serif text-[22px] font-normal leading-[1.25] tracking-tight text-bone">
-                  {t.title}
-                </h3>
-                <p className="mt-3 max-w-[44ch] text-[15px] leading-[1.6] text-bone-2">{t.body}</p>
-              </Reveal>
-            ))}
-          </div>
+        <div className="mt-10 grid grid-cols-1 gap-4 md:grid-cols-2">
+          {entry.bestFor.map((t) => (
+            <div key={t.title} className="card card-pad">
+              <div className="mb-5 text-clearance">
+                <BestForIcon name={t.iconKey} />
+              </div>
+              <h3 className="title-card-sm">{plainWords(t.title)}</h3>
+              <p className="mt-2 max-w-[48ch] text-bone-2">{plainWords(t.body)}</p>
+            </div>
+          ))}
         </div>
       </section>
 
-      {/* ─── Teaser: step down / step up ─── */}
-      <section className="border-t border-ink-3 py-32 max-md:py-20">
-        <div className="container-jn">
-          <div className="mb-16">
-            <Reveal>
-              <p className="caption mb-4">— Considering alternatives</p>
-            </Reveal>
-            <Reveal as="h2" stagger={1} className="display-m max-w-[24ch]">
-              Compare the categories
-              {" "}
-              <br />
-              on either side.
-            </Reveal>
-          </div>
+      {/* ─── Step down / step up ─── */}
+      <section className="section-jn container-jn">
+        <p className="eyebrow">Considering alternatives</p>
+        <h2 className="title-section max-w-[24ch]">Compare the categories on either side.</h2>
 
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            {[entry.teaser.left, entry.teaser.right].map((t, i) => (
-              <Reveal key={t.href + i} stagger={(i as 0 | 1)} className="group">
-                <Link
-                  href={t.href}
-                  className="flex h-full flex-col gap-6 rounded-[4px] border border-ink-3 bg-ink-2 p-10 transition-all duration-200 ease-out-quint hover:-translate-y-0.5 hover:border-clearance"
-                >
-                  <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-clearance">
-                    — {t.label}
-                  </span>
-                  <h3 className="font-serif text-[28px] font-normal leading-[1.2] tracking-tight text-bone">
-                    {t.title}
-                  </h3>
-                  <p className="text-[15px] leading-[1.6] text-bone-2">{t.body}</p>
-                  <span className="mt-auto inline-flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.14em] text-bone">
-                    {t.cta} <span className="arrow">→</span>
-                  </span>
-                </Link>
-              </Reveal>
-            ))}
-          </div>
+        <div className="mt-10 grid grid-cols-1 gap-4 md:grid-cols-2">
+          {[entry.teaser.left, entry.teaser.right].map((t, i) => (
+            <Link key={t.href + i} href={t.href} className="card card-pad flex flex-col gap-3">
+              <p className="label-jn">{sentence(t.label)}</p>
+              <h3 className="title-card">{t.title}</h3>
+              <p className="text-bone-2">{plainWords(t.body)}</p>
+              <span className="mt-auto pt-2 text-[15px] font-medium">
+                {t.cta} <span className="arrow">→</span>
+              </span>
+            </Link>
+          ))}
         </div>
       </section>
 
-      <ProofStrip />
+      {/* ─── Quote handoff (was the inline launcher form) ─── */}
+      <section className="section-jn container-jn">
+        <div className="card card-pad grid gap-6 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
+          <div>
+            <p className="eyebrow">Start a quote</p>
+            <h2 className="title-card">Price a {shortName} mission.</h2>
+            <p className="mt-2 max-w-[52ch] text-bone-2">
+              Route, date, and passenger count — the quote opens with this category already chosen
+              and prices as you type.
+            </p>
+          </div>
+          <QuoteLink context={`aircraft-${entry.slug}`} category={entry.slug}>
+            Request a quote <span className="arrow">→</span>
+          </QuoteLink>
+        </div>
+      </section>
 
-      <QuoteLauncher
-        context={`aircraft-${entry.slug}`}
-        category={entry.slug}
-        heading={`Price a ${entry.shortName.toLowerCase()} mission.`}
-        body="Route, date, and passenger count — the wizard opens with this category pre-selected and prices as you type."
-      />
-
-      <ClosingCTA
-        heading={entry.finalCta.heading}
-        body={entry.finalCta.body}
+      <CtaBand
+        title={entry.finalCta.heading}
+        body={plainWords(entry.finalCta.body)}
+        primary={{ label: "Request a quote", href: "/quote/mission" }}
         secondary={{
           label: `Call dispatch · ${SITE.dispatchPhone}`,
           href: `tel:${SITE.dispatchPhoneE164}`,

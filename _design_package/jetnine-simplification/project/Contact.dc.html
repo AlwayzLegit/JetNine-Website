@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#07080A;color:#F4F1EA;font-family:'Instrument Sans',system-ui,sans-serif;font-size:16px;line-height:1.55;-webkit-font-smoothing:antialiased}
+a{color:inherit;text-decoration:none}a:hover{color:#fff}
+*{box-sizing:border-box;scrollbar-width:thin;scrollbar-color:#2C323B transparent}
+::-webkit-scrollbar{width:8px;height:8px}::-webkit-scrollbar-thumb{background:#2C323B;border-radius:4px}::-webkit-scrollbar-track{background:transparent}
+input::placeholder,textarea::placeholder{color:#8A9099}
+</style>
+</helmet>
+<div data-screen-label="Contact — simplified" style="background:#07080A;color:#F4F1EA;min-width:1100px">
+<x-import component-from-global-scope="JNHeader" from="./jn-chrome.js" current="Contact" hint-size="100%,72px"></x-import>
+
+<section style="max-width:1200px;margin:0 auto;padding:96px 40px 0">
+  <p style="margin:0 0 16px;font-size:14px;font-weight:600;color:#C9C4B8">Contact dispatch</p>
+  <h1 style="margin:0;font-family:Fraunces,serif;font-weight:300;font-size:60px;line-height:1.02;letter-spacing:-.02em;max-width:18ch">One desk. One number. Open every hour of every day.</h1>
+  <p style="margin:20px 0 0;max-width:64ch;font-size:19px;color:#C9C4B8">A senior dispatcher will pick up — and stay on with you for the duration of the call. No phone tree, no hold music, no after-hours voicemail.</p>
+  <div style="margin-top:28px;display:inline-flex;align-items:center;gap:12px;height:40px;padding:0 16px;border-radius:20px;background:#0E1014;border:1px solid #232830;font-size:14px;color:#C9C4B8"><span style="width:8px;height:8px;border-radius:4px;background:#8FB58A"></span>Dispatch desk open now · average pick-up under 20 seconds · {{ clock }}</div>
+</section>
+
+<section style="max-width:1200px;margin:0 auto;padding:48px 40px 0">
+  <div style="display:grid;grid-template-columns:1.4fr 1fr 1fr;gap:16px">
+    <a href="tel:+14244872707" style="display:flex;flex-direction:column;gap:12px;background:#0E1014;border:1px solid #E8E2D2;border-radius:12px;padding:32px;box-shadow:0 0 0 1px #E8E2D2">
+      <span style="font-size:13px;font-weight:600;color:#C9A24A">Fastest</span>
+      <h2 style="margin:0;font-size:24px;font-weight:500;line-height:1.2">Call the dispatch line.</h2>
+      <p style="margin:0;color:#C9C4B8">Senior dispatcher picks up. Average call to first specific aircraft quote: under 30 minutes.</p>
+      <div style="margin-top:auto;padding-top:12px;font-family:Fraunces,serif;font-weight:300;font-size:36px;line-height:1.1">+1 (424) 487-2707</div>
+      <div style="font-size:14px;color:#8A9099">24/7/365 · picks up in under 20 seconds</div>
+    </a>
+    <a href="mailto:dispatch@jetnine.com" style="display:flex;flex-direction:column;gap:12px;background:#0E1014;border:1px solid #232830;border-radius:12px;padding:32px">
+      <span style="font-size:13px;font-weight:600;color:#8A9099">Email</span>
+      <h2 style="margin:0;font-size:24px;font-weight:500;line-height:1.2">Email dispatch.</h2>
+      <p style="margin:0;color:#C9C4B8">Best for non-urgent quotes &amp; multi-leg trips you want to think through.</p>
+      <div style="margin-top:auto;padding-top:12px;font-family:Fraunces,serif;font-weight:300;font-size:26px;line-height:1.1;word-break:break-all">dispatch@jetnine.com</div>
+      <div style="font-size:14px;color:#8A9099">Reply under 30 min in business hours · under 2 h after</div>
+    </a>
+    <a href="sms:+14244872707" style="display:flex;flex-direction:column;gap:12px;background:#0E1014;border:1px solid #232830;border-radius:12px;padding:32px">
+      <span style="font-size:13px;font-weight:600;color:#8A9099">Text</span>
+      <h2 style="margin:0;font-size:24px;font-weight:500;line-height:1.2">Text the desk.</h2>
+      <p style="margin:0;color:#C9C4B8">For existing clients with a confirmed dispatcher. Same number as the phone line.</p>
+      <div style="margin-top:auto;padding-top:12px;font-family:Fraunces,serif;font-weight:300;font-size:26px;line-height:1.1">+1 (424) 487-2707</div>
+      <div style="font-size:14px;color:#8A9099">Reply under 5 min · escalates automatically after 15</div>
+    </a>
+  </div>
+</section>
+
+<section style="max-width:1200px;margin:0 auto;padding:112px 40px 0">
+  <p style="margin:0 0 12px;font-size:14px;font-weight:600;color:#8A9099">Or, in writing</p>
+  <h2 style="margin:0;font-family:Fraunces,serif;font-weight:300;font-size:44px;line-height:1.08;letter-spacing:-.015em;max-width:26ch">Tell us the route. We’ll be in touch.</h2>
+  <div style="margin-top:32px;display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);gap:24px;align-items:start">
+    <form style="background:#0E1014;border:1px solid #232830;border-radius:12px;padding:32px;display:flex;flex-direction:column;gap:20px">
+      <div><div style="font-size:14px;font-weight:600;color:#8A9099;margin-bottom:10px">What is this about?</div><div style="display:flex;gap:8px;flex-wrap:wrap"><sc-for list="{{ reasons }}" as="r" hint-placeholder-count="4"><button type="button" onClick="{{ r.select }}" style="cursor:pointer;height:40px;padding:0 16px;border-radius:20px;border:1px solid {{ r.border }};background:{{ r.bg }};color:{{ r.fg }};font:500 14px 'Instrument Sans',sans-serif">{{ r.label }}</button></sc-for></div></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <label style="display:flex;flex-direction:column;gap:4px;background:#161A20;border-radius:8px;padding:10px 14px"><span style="font-size:13px;color:#C9C4B8">First name</span><input type="text" placeholder="Alex" autocomplete="given-name" style="background:transparent;border:none;outline:none;color:#F4F1EA;font:16px 'Instrument Sans',sans-serif;width:100%"></label>
+        <label style="display:flex;flex-direction:column;gap:4px;background:#161A20;border-radius:8px;padding:10px 14px"><span style="font-size:13px;color:#C9C4B8">Last name</span><input type="text" placeholder="Morgan" autocomplete="family-name" style="background:transparent;border:none;outline:none;color:#F4F1EA;font:16px 'Instrument Sans',sans-serif;width:100%"></label>
+        <label style="display:flex;flex-direction:column;gap:4px;background:#161A20;border-radius:8px;padding:10px 14px"><span style="font-size:13px;color:#C9C4B8">Email</span><input type="email" placeholder="you@example.com" autocomplete="email" style="background:transparent;border:none;outline:none;color:#F4F1EA;font:16px 'Instrument Sans',sans-serif;width:100%"></label>
+        <label style="display:flex;flex-direction:column;gap:4px;background:#161A20;border-radius:8px;padding:10px 14px"><span style="font-size:13px;color:#C9C4B8">Mobile</span><input type="tel" placeholder="+1 (818) 555-0142" autocomplete="tel" style="background:transparent;border:none;outline:none;color:#F4F1EA;font:16px 'Instrument Sans',sans-serif;width:100%"></label>
+      </div>
+      <sc-if value="{{ showTrip }}" hint-placeholder-val="{{ true }}">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <label style="display:flex;flex-direction:column;gap:4px;background:#161A20;border-radius:8px;padding:10px 14px"><span style="font-size:13px;color:#C9C4B8">Departing{{ optionalSuffix }}</span><input type="text" placeholder="Los Angeles" style="background:transparent;border:none;outline:none;color:#F4F1EA;font:16px 'Instrument Sans',sans-serif;width:100%"></label>
+        <label style="display:flex;flex-direction:column;gap:4px;background:#161A20;border-radius:8px;padding:10px 14px"><span style="font-size:13px;color:#C9C4B8">Arriving{{ optionalSuffix }}</span><input type="text" placeholder="New York" style="background:transparent;border:none;outline:none;color:#F4F1EA;font:16px 'Instrument Sans',sans-serif;width:100%"></label>
+        <label style="display:flex;flex-direction:column;gap:4px;background:#161A20;border-radius:8px;padding:10px 14px"><span style="font-size:13px;color:#C9C4B8">Date or window{{ optionalSuffix }}</span><input type="text" placeholder="Fri, Nov 14 · flexible ±1 day" style="background:transparent;border:none;outline:none;color:#F4F1EA;font:16px 'Instrument Sans',sans-serif;width:100%"></label>
+        <label style="display:flex;flex-direction:column;gap:4px;background:#161A20;border-radius:8px;padding:10px 14px"><span style="font-size:13px;color:#C9C4B8">Passengers</span><input type="text" placeholder="4 adults" style="background:transparent;border:none;outline:none;color:#F4F1EA;font:16px 'Instrument Sans',sans-serif;width:100%"></label>
+      </div>
+      </sc-if>
+      <label style="display:flex;flex-direction:column;gap:4px;background:#161A20;border-radius:8px;padding:10px 14px"><span style="font-size:13px;color:#C9C4B8">Anything else</span><textarea rows="4" maxlength="2000" placeholder="{{ notesPlaceholder }}" style="background:transparent;border:none;outline:none;resize:vertical;color:#F4F1EA;font:16px/1.55 'Instrument Sans',sans-serif;width:100%"></textarea></label>
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:16px"><span style="font-size:14px;color:#8A9099">Goes directly to the dispatch desk. Not a marketing list.</span><button type="button" style="display:inline-flex;align-items:center;gap:8px;height:52px;padding:0 26px;border-radius:8px;border:none;background:#E8E2D2;color:#07080A;font:500 16px 'Instrument Sans',sans-serif;cursor:pointer">Send to dispatch <span aria-hidden="true">→</span></button></div>
+    </form>
+    <div style="display:flex;flex-direction:column;gap:16px">
+      <p style="margin:0;font-size:17px;color:#C9C4B8">If you’d rather start with a few lines of context, drop them here. Same dispatcher will reach out within thirty minutes during business hours, two hours after.</p>
+      <div style="background:#0E1014;border:1px solid #232830;border-radius:12px;padding:20px 24px"><div style="font-size:14px;font-weight:600;color:#C9A24A">What we'll come back with</div><p style="margin:6px 0 0;color:#C9C4B8">Three to five specific aircraft, all-in pricing, photos, operator standing.</p></div>
+      <div style="background:#0E1014;border:1px solid #232830;border-radius:12px;padding:20px 24px"><div style="font-size:14px;font-weight:600;color:#C9A24A">What we won't do</div><p style="margin:6px 0 0;color:#C9C4B8">Pass your details to operators, run promotional sequences, or share your inquiry with anyone outside the dispatch desk.</p></div>
+      <div style="background:#0E1014;border:1px solid #232830;border-radius:12px;padding:20px 24px"><div style="font-size:14px;font-weight:600;color:#C9A24A">Prefer a faster path?</div><p style="margin:6px 0 0;color:#C9C4B8">Call <a href="tel:+14244872707" style="color:#F4F1EA;text-decoration:underline;text-underline-offset:3px">+1 (424) 487-2707</a> — same desk.</p></div>
+    </div>
+  </div>
+</section>
+
+<section style="max-width:1200px;margin:0 auto;padding:112px 40px 0">
+  <p style="margin:0 0 12px;font-size:14px;font-weight:600;color:#8A9099">Regional dispatchers</p>
+  <h2 style="margin:0;font-family:Fraunces,serif;font-weight:300;font-size:44px;line-height:1.08;letter-spacing:-.015em;max-width:26ch">A dedicated dispatcher per region of the network.</h2>
+  <p style="margin:16px 0 0;max-width:64ch;font-size:18px;color:#C9C4B8">Local airport knowledge, customs &amp; permitting expertise, fluent in the language and time zone. They route calls inside the desk so you talk to the right person on the first try.</p>
+  <div style="margin-top:32px;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px">
+    <sc-for list="{{ regions }}" as="r" hint-placeholder-count="4"><div style="background:#0E1014;border:1px solid #232830;border-radius:12px;padding:24px 28px"><div style="font-size:20px;font-weight:500;line-height:1.2">{{ r.title }}</div><p style="margin:10px 0 0;font-size:15px;color:#C9C4B8">{{ r.cities }}</p></div></sc-for>
+  </div>
+</section>
+
+<section style="max-width:1200px;margin:0 auto;padding:112px 40px 0">
+  <div style="display:grid;grid-template-columns:1fr 1.2fr;gap:48px;align-items:center">
+    <div>
+      <p style="margin:0 0 12px;font-size:14px;font-weight:600;color:#8A9099">Headquarters</p>
+      <h2 style="margin:0;font-family:Fraunces,serif;font-weight:300;font-size:44px;line-height:1.08;letter-spacing:-.015em;max-width:22ch">Van Nuys. Ten minutes from the private terminals at Van Nuys Airport.</h2>
+      <p style="margin:16px 0 0;max-width:56ch;font-size:18px;color:#C9C4B8">One office, one desk. Visitors welcome by appointment — most clients fly through Van Nuys at some point and stop in to meet the dispatcher who handles their flights.</p>
+      <dl style="margin:28px 0 0;background:#0E1014;border:1px solid #232830;border-radius:12px;padding:8px 24px">
+        <sc-for list="{{ hq }}" as="h" hint-placeholder-count="5"><div style="display:grid;grid-template-columns:120px 1fr;gap:16px;padding:14px 0;border-bottom:1px solid #161A20;font-size:15px"><dt style="color:#8A9099">{{ h.k }}</dt><dd style="margin:0">{{ h.v }}</dd></div></sc-for>
+      </dl>
+    </div>
+    <div style="aspect-ratio:4/3;border-radius:12px;overflow:hidden;background:#161A20;position:relative"><img src="public/images/about/dispatch-room.webp" alt="" style="width:100%;height:100%;object-fit:cover;display:block"><a href="https://maps.google.com/?q=Van+Nuys+Airport" target="_blank" rel="noopener" style="position:absolute;left:20px;bottom:20px;display:inline-flex;align-items:center;height:44px;padding:0 18px;border-radius:8px;background:rgba(7,8,10,.85);border:1px solid #2C323B;font-weight:500;font-size:15px">Directions ↗</a></div>
+  </div>
+</section>
+
+<section style="max-width:1200px;margin:0 auto;padding:112px 40px 128px;text-align:center">
+  <h2 style="margin:0 auto;font-family:Fraunces,serif;font-weight:300;font-size:52px;line-height:1.05;letter-spacing:-.015em;max-width:20ch">Easiest path: pick up the phone.</h2>
+  <p style="margin:20px auto 0;max-width:56ch;font-size:18px;color:#C9C4B8">Senior dispatcher answers. Same one for the life of the trip.</p>
+  <div style="margin-top:32px;display:flex;justify-content:center;gap:16px"><a href="tel:+14244872707" style="display:inline-flex;align-items:center;gap:8px;height:52px;padding:0 28px;border-radius:8px;background:#E8E2D2;color:#07080A;font-weight:500;font-size:16px">+1 (424) 487-2707</a><a href="Quote.dc.html" style="display:inline-flex;align-items:center;height:52px;padding:0 28px;border-radius:8px;border:1px solid #2C323B;font-weight:500;font-size:16px">Request a quote</a></div>
+</section>
+
+<x-import component-from-global-scope="JNFooter" from="./jn-chrome.js" hint-size="100%,360px"></x-import>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = { reason: "quote", now: new Date() };
+  componentDidMount() { this.t = setInterval(() => this.setState({ now: new Date() }), 30000); }
+  componentWillUnmount() { clearInterval(this.t); }
+  renderVals() {
+    const { reason, now } = this.state;
+    const la = now.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: "America/Los_Angeles" });
+    const R = [["quote", "Quote a flight"], ["card", "Card / Reserve"], ["trip", "Existing trip"], ["other", "Other"]];
+    return {
+      clock: `${la} in Los Angeles`,
+      reasons: R.map(([k, label]) => ({ label, select: () => this.setState({ reason: k }), bg: reason === k ? "#E8E2D2" : "transparent", fg: reason === k ? "#07080A" : "#C9C4B8", border: reason === k ? "#E8E2D2" : "#2C323B" })),
+      showTrip: reason === "quote" || reason === "trip", optionalSuffix: reason === "quote" ? "" : " · optional",
+      notesPlaceholder: { quote: "Repositioning leg, multi-stop, pets, special catering — whatever the dispatcher should know up front.", card: "How many hours a year you fly, your usual routes, and whether peak dates matter.", trip: "Your trip date and route, and what you'd like to change.", other: "Whatever's on your mind — press, partnerships, or a question." }[reason],
+      regions: [
+        { title: "North America · West", cities: "Los Angeles · San Francisco · Seattle · Las Vegas · Aspen · Scottsdale" }, { title: "North America · East", cities: "New York (Teterboro, JFK) · Boston · Miami · Washington" },
+        { title: "Europe", cities: "London (Luton, Farnborough) · Paris · Geneva · Rome" }, { title: "Asia & Middle East", cities: "Tokyo · Osaka · Dubai · Hong Kong · Singapore" },
+      ],
+      hq: [{ k: "Address", v: "Van Nuys, Los Angeles, CA 90077" }, { k: "Phone", v: "+1 (424) 487-2707 · 24 / 7" }, { k: "Email", v: "dispatch@jetnine.com" }, { k: "Visits", v: "By appointment · same-day usually OK" }, { k: "Press", v: "press@jetnine.com" }],
+    };
+  }
+}
+</script>
+</body>
+</html>

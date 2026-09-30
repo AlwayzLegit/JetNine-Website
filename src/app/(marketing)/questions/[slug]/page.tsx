@@ -1,13 +1,13 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Reveal } from "@/components/reveal";
-import { ClosingCTA } from "@/components/closing-cta";
+import { CtaBand } from "@/components/cta-band";
 import { DeskNotes } from "@/components/desk-notes";
 import { QuoteLauncher } from "@/components/quote-launcher";
 import { pageMetadata } from "@/lib/page-meta";
 import { QUESTIONS, getQuestion, relatedQuestions } from "@/lib/questions";
 import { RATES_UPDATED } from "@/lib/rates";
+import { SITE } from "@/lib/constants";
 
 // Question pages — audit item 13. Answer-shaped by design: the literal
 // question as H1, the one-line answer first (bigger type than the body,
@@ -81,93 +81,77 @@ export default async function QuestionPage({ params }: RouteParams) {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
       />
 
-      <header className="border-b border-ink-3 bg-ink pt-[180px] pb-16 max-md:pt-[130px] max-md:pb-12">
+      <header className="bg-ink pt-[96px] max-md:pt-14">
         <div className="container-jn">
-          <Reveal className="mb-6 flex flex-wrap items-center gap-x-4 gap-y-2 font-mono text-[11px] uppercase tracking-[0.16em] text-bone-2">
-            <span className="block h-px w-8 bg-clearance" />
+          <p className="eyebrow">
             <Link href="/questions" className="transition-colors hover:text-bone">
               Good questions
             </Link>
-            <span aria-hidden>·</span>
-            <span>{question.category}</span>
-          </Reveal>
-          <Reveal as="h1" stagger={1} className="display-l max-w-[24ch]">
-            {question.q}
-          </Reveal>
+            <span aria-hidden> · </span>
+            {question.category}
+          </p>
+          <h1 className="title-page max-w-[22ch] !text-[clamp(36px,4.5vw,56px)]">{question.q}</h1>
           {/* The answer, first and biggest — the page exists for this
               paragraph; everything below is supporting detail. */}
-          <Reveal as="p" stagger={2} className="mt-8 max-w-[64ch] font-serif text-[24px] font-light leading-[1.4] tracking-tight text-bone max-md:text-[20px]">
+          <p className="mt-6 max-w-[60ch] font-serif text-[26px] font-light leading-[1.35] tracking-tight text-bone max-md:text-[22px]">
             {question.short}
-          </Reveal>
-          <Reveal stagger={3} className="mt-8 font-mono text-[10px] uppercase tracking-[0.14em] text-steel">
-            — Answered by the JetNine dispatch desk · Updated {RATES_UPDATED}
-          </Reveal>
+          </p>
+          <p className="mt-6 text-[14px] text-steel">
+            Answered by the JetNine dispatch desk · Updated {RATES_UPDATED}
+          </p>
         </div>
       </header>
 
-      <section className="py-24 max-md:py-16">
-        <div className="container-jn grid gap-16 lg:grid-cols-[1.5fr_1fr]">
-          <div className="flex max-w-[70ch] flex-col gap-6">
+      <section className="section-jn">
+        <div className="container-jn grid gap-12 lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
+          <div className="flex max-w-[72ch] flex-col gap-5 text-[17px] leading-[1.6] text-bone-2">
             {question.body.map((p) => (
-              <Reveal key={p.slice(0, 40)} as="p" className="text-[16px] leading-[1.7] text-bone-2">
-                {p}
-              </Reveal>
+              <p key={p.slice(0, 40)}>{p}</p>
             ))}
             {question.checklist ? (
-              <Reveal as="ul" className="mt-4 flex flex-col gap-0 border-y border-ink-3">
+              <ol className="card mt-2 divide-y divide-line-faint">
                 {question.checklist.map((item, i) => (
-                  <li
-                    key={item}
-                    className="flex items-start gap-4 border-b border-ink-3 py-4 text-[15px] leading-[1.6] text-bone-2 last:border-b-0"
-                  >
-                    <span className="font-mono text-[11px] leading-[1.6] text-clearance">
-                      {String(i + 1).padStart(2, "0")}
-                    </span>
-                    {item}
+                  <li key={item} className="grid grid-cols-[auto_1fr] gap-4 px-6 py-4 text-[16px] leading-[1.6] text-bone-2 max-md:px-5">
+                    <span className="label-jn pt-[2px] tabular-nums">{i + 1}</span>
+                    <span>{item}</span>
                   </li>
                 ))}
-              </Reveal>
+              </ol>
             ) : null}
           </div>
 
-          <aside className="flex flex-col gap-8">
-            <Reveal className="rounded-[4px] border border-ink-3 bg-ink-2 p-8">
-              <p className="caption mb-6">— Go deeper</p>
-              <ul className="flex flex-col">
+          <aside className="flex flex-col gap-4">
+            <div className="card card-pad max-md:p-5">
+              <h2 className="title-card-sm text-bone">Go deeper</h2>
+              <ul className="mt-3 flex flex-col divide-y divide-line-faint">
                 {question.goDeeper.map((l) => (
-                  <li key={l.href} className="border-b border-ink-3 last:border-b-0">
-                    <Link
-                      href={l.href}
-                      className="group flex items-baseline justify-between gap-4 py-4 transition-colors"
-                    >
-                      <span className="text-[14px] leading-[1.5] text-bone group-hover:text-clearance">
+                  <li key={l.href}>
+                    <Link href={l.href} className="group flex min-h-[44px] items-center justify-between gap-4 py-3">
+                      <span className="text-[15px] leading-[1.5] text-bone-2 transition-colors group-hover:text-bone">
                         {l.label}
                       </span>
-                      <span aria-hidden className="font-mono text-[11px] text-clearance">→</span>
+                      <span aria-hidden className="text-bone-2">→</span>
                     </Link>
                   </li>
                 ))}
               </ul>
-            </Reveal>
+            </div>
             {related.length > 0 ? (
-              <Reveal className="rounded-[4px] border border-ink-3 bg-ink-2 p-8">
-                <p className="caption mb-6">— Also asked</p>
-                <ul className="flex flex-col">
+              <div className="card card-pad max-md:p-5">
+                <h2 className="title-card-sm text-bone">Also asked</h2>
+                <ul className="mt-3 flex flex-col divide-y divide-line-faint">
                   {related.map((r) => (
-                    <li key={r.slug} className="border-b border-ink-3 last:border-b-0">
-                      <Link
-                        href={`/questions/${r.slug}`}
-                        className="group flex items-baseline justify-between gap-4 py-4"
-                      >
-                        <span className="text-[14px] leading-[1.5] text-bone group-hover:text-clearance">
+                    <li key={r.slug}>
+                      <Link href={`/questions/${r.slug}`} className="group flex min-h-[44px] items-center justify-between gap-4 py-3">
+                        <span className="text-[15px] leading-[1.5] text-bone-2 transition-colors group-hover:text-bone">
                           {r.q}
                         </span>
-                        <span aria-hidden className="font-mono text-[11px] text-clearance">→</span>
+                        <span aria-hidden className="text-bone-2">→</span>
                       </Link>
                     </li>
                   ))}
                 </ul>
-              </Reveal>
+              </div>
             ) : null}
           </aside>
         </div>
@@ -181,9 +165,11 @@ export default async function QuestionPage({ params }: RouteParams) {
         body="Route, date, and passenger count — live indicative pricing in four steps, from the desk that wrote this answer."
       />
 
-      <ClosingCTA
-        heading="The rest we answer live."
+      <CtaBand
+        title="The rest we answer live."
         body="Anything this page didn't cover goes straight to a senior dispatcher — average pick-up under twenty seconds, every hour of every day."
+        primary={{ label: "Request a quote", href: "/quote/mission" }}
+        secondary={{ label: `Call dispatch · ${SITE.dispatchPhone}`, href: `tel:${SITE.dispatchPhoneE164}` }}
       />
     </>
   );

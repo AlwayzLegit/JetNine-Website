@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#07080A;color:#F4F1EA;font-family:'Instrument Sans',system-ui,sans-serif;font-size:16px;line-height:1.55;-webkit-font-smoothing:antialiased}
+a{color:inherit;text-decoration:none}a:hover{color:#fff}
+*{box-sizing:border-box;scrollbar-width:thin;scrollbar-color:#2C323B transparent}
+::-webkit-scrollbar{width:8px;height:8px}::-webkit-scrollbar-thumb{background:#2C323B;border-radius:4px}::-webkit-scrollbar-track{background:transparent}
+input::placeholder{color:#8A9099}
+</style>
+</helmet>
+<div data-screen-label="Home — simplified, live flow & content" style="background:#07080A;color:#F4F1EA;min-width:1100px">
+
+<header style="position:sticky;top:0;z-index:50;background:rgba(7,8,10,.86);backdrop-filter:blur(14px);border-bottom:1px solid #161A20">
+  <div style="max-width:1200px;margin:0 auto;padding:0 40px;height:72px;display:flex;align-items:center;justify-content:space-between;gap:24px">
+    <a href="Home.dc.html" aria-label="JetNine — Home" style="display:flex;align-items:center"><img src="public/images/brand/wordmark-bone.webp" alt="JetNine" style="height:36px;width:auto;display:block"></a>
+    <nav aria-label="Primary" style="display:flex;gap:28px;font-size:15px;color:#C9C4B8">
+      <a href="Aircraft.dc.html">Aircraft</a><a href="Memberships.dc.html">Programs</a><a href="How it works.dc.html">How it works</a><a href="About.dc.html">About</a><a href="Blog.dc.html">Blog</a><a href="Contact.dc.html">Contact</a>
+    </nav>
+    <div style="display:flex;align-items:center;gap:20px">
+      <a href="Account.dc.html" style="font-size:15px;color:#C9C4B8">Sign in</a>
+      <a href="tel:+14244872707" style="font-size:15px;color:#C9C4B8;white-space:nowrap">+1 (424) 487-2707</a>
+      <a href="Quote.dc.html" style="display:inline-flex;align-items:center;gap:8px;height:44px;padding:0 20px;border-radius:8px;background:#E8E2D2;color:#07080A;font-weight:500;font-size:15px;white-space:nowrap">Request quote <span aria-hidden="true">→</span></a>
+    </div>
+  </div>
+</header>
+
+<section style="position:relative;overflow:hidden;min-height:720px;display:flex;align-items:center">
+  <img src="public/images/hero/runway-night.webp" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:60% center">
+  <div aria-hidden="true" style="position:absolute;inset:0;background:linear-gradient(90deg,rgba(7,8,10,.94) 0%,rgba(7,8,10,.78) 45%,rgba(7,8,10,.35) 100%),linear-gradient(180deg,rgba(7,8,10,.3) 0%,rgba(7,8,10,0) 40%,rgba(7,8,10,.95) 100%)"></div>
+  <div style="position:relative;z-index:1;width:100%;max-width:1200px;margin:0 auto;padding:88px 40px 64px">
+    <p style="margin:0 0 20px;font-size:14px;font-weight:500;letter-spacing:.04em;color:#C9C4B8">Est. 2026 — Los Angeles</p>
+    <h1 style="margin:0;font-family:Fraunces,serif;font-weight:300;font-size:80px;line-height:1;letter-spacing:-.02em;max-width:14ch;font-variation-settings:'opsz' 144">Ready when you are.</h1>
+    <p style="margin:24px 0 0;max-width:48ch;font-size:19px;color:#C9C4B8">Private jet charter, anywhere, anytime — twenty thousand aircraft worldwide, one number to call.</p>
+    <div style="margin-top:32px;display:flex;align-items:center;gap:20px;flex-wrap:wrap">
+      <a href="Quote.dc.html" style="display:inline-flex;align-items:center;gap:8px;height:52px;padding:0 28px;border-radius:8px;background:#E8E2D2;color:#07080A;font-weight:500;font-size:16px;white-space:nowrap">Request a quote <span aria-hidden="true">→</span></a>
+      <a href="tel:+14244872707" style="display:inline-flex;align-items:center;height:52px;padding:0 24px;border-radius:8px;border:1px solid rgba(244,241,234,.35);color:#F4F1EA;font-weight:500;font-size:16px;white-space:nowrap">+1 (424) 487-2707</a>
+    </div>
+    <p style="margin:20px 0 0;font-size:15px;color:#C9C4B8">Live pricing in 4 steps · rates from $2,950/hr · no callback required</p>
+
+    <form style="margin-top:40px;max-width:1080px;background:#0E1014;border:1px solid #232830;border-radius:12px;padding:16px;box-shadow:0 24px 60px rgba(0,0,0,.45)">
+      <div role="radiogroup" aria-label="Trip type" style="display:inline-flex;background:#161A20;border-radius:8px;padding:4px;gap:2px;margin-bottom:12px">
+        <sc-for list="{{ tripTypes }}" as="t" hint-placeholder-count="3">
+          <button type="button" onClick="{{ t.select }}" style="border:none;cursor:pointer;height:36px;padding:0 16px;border-radius:6px;font:500 14px 'Instrument Sans',sans-serif;background:{{ t.bg }};color:{{ t.fg }}">{{ t.label }}</button>
+        </sc-for>
+      </div>
+      <div style="display:grid;gap:8px;grid-template-columns:1.3fr 1.3fr 1fr 1fr .9fr auto">
+        <label style="display:flex;flex-direction:column;gap:4px;background:#161A20;border-radius:8px;padding:10px 14px"><span style="font-size:13px;color:#C9C4B8">From</span><input type="text" placeholder="City or airport" style="background:transparent;border:none;outline:none;color:#F4F1EA;font:16px 'Instrument Sans',sans-serif;width:100%"></label>
+        <label style="display:flex;flex-direction:column;gap:4px;background:#161A20;border-radius:8px;padding:10px 14px"><span style="font-size:13px;color:#C9C4B8">To</span><input type="text" placeholder="City or airport" style="background:transparent;border:none;outline:none;color:#F4F1EA;font:16px 'Instrument Sans',sans-serif;width:100%"></label>
+        <label style="display:flex;flex-direction:column;gap:4px;background:#161A20;border-radius:8px;padding:10px 14px"><span style="font-size:13px;color:#C9C4B8">Depart</span><input type="text" placeholder="Pick a date" style="background:transparent;border:none;outline:none;color:#F4F1EA;font:16px 'Instrument Sans',sans-serif;width:100%"></label>
+        <label style="display:flex;flex-direction:column;gap:4px;background:#161A20;border-radius:8px;padding:10px 14px;opacity:{{ returnOpacity }}"><span style="font-size:13px;color:#C9C4B8">Return</span><input type="text" placeholder="{{ returnPlaceholder }}" style="background:transparent;border:none;outline:none;color:#F4F1EA;font:16px 'Instrument Sans',sans-serif;width:100%"></label>
+        <div style="display:flex;flex-direction:column;gap:4px;background:#161A20;border-radius:8px;padding:10px 14px"><span style="font-size:13px;color:#C9C4B8">Passengers</span><div style="display:flex;align-items:center;justify-content:space-between;gap:8px"><button type="button" onClick="{{ decPax }}" aria-label="Fewer passengers" style="width:28px;height:28px;border-radius:50%;border:1px solid #2C323B;background:transparent;color:#F4F1EA;cursor:pointer;font-size:16px;line-height:1">−</button><span style="font-size:16px">{{ pax }}</span><button type="button" onClick="{{ incPax }}" aria-label="More passengers" style="width:28px;height:28px;border-radius:50%;border:1px solid #2C323B;background:transparent;color:#F4F1EA;cursor:pointer;font-size:16px;line-height:1">+</button></div></div>
+        <a href="Quote.dc.html" style="display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:0 24px;border-radius:8px;background:#E8E2D2;color:#07080A;font-weight:500;font-size:16px;white-space:nowrap">Search <span aria-hidden="true">→</span></a>
+      </div>
+      <div style="margin-top:12px;display:flex;justify-content:flex-end"><a href="#" style="font-size:14px;color:#C9C4B8;text-decoration:underline;text-underline-offset:3px">Need help choosing? Talk to a flight advisor →</a></div>
+    </form>
+  </div>
+</section>
+
+<section aria-label="Trust indicators" style="border-top:1px solid #161A20;border-bottom:1px solid #161A20;background:#0A0C10">
+  <div style="max-width:1200px;margin:0 auto;padding:28px 40px;display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:16px">
+    <sc-for list="{{ trust }}" as="t" hint-placeholder-count="7">
+      <div><div style="font-family:Fraunces,serif;font-weight:300;font-size:30px;line-height:1;letter-spacing:-.01em">{{ t.value }}</div><div style="margin-top:6px;font-size:14px;color:#8A9099">{{ t.label }}</div></div>
+    </sc-for>
+  </div>
+</section>
+
+<section id="programs" style="max-width:1200px;margin:0 auto;padding:128px 40px 0">
+  <p style="margin:0 0 12px;font-size:14px;font-weight:600;color:#8A9099">Our programs</p>
+  <h2 style="margin:0;font-family:Fraunces,serif;font-weight:300;font-size:48px;line-height:1.08;letter-spacing:-.015em;max-width:20ch">Three ways to fly with JetNine.</h2>
+  <div style="margin-top:48px;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px">
+    <sc-for list="{{ programs }}" as="p" hint-placeholder-count="3">
+      <a href="#" style="display:block;overflow:hidden;background:#0E1014;border:1px solid #232830;border-radius:12px">
+        <div style="aspect-ratio:16/10;overflow:hidden;background:#161A20"><img src="{{ p.img }}" alt="" style="width:100%;height:100%;object-fit:cover;display:block"></div>
+        <div style="padding:24px 28px 28px"><h3 style="margin:0;font-size:24px;font-weight:500;line-height:1.25">{{ p.title }}</h3><p style="margin:10px 0 0;color:#C9C4B8">{{ p.body }}</p><span style="display:inline-block;margin-top:18px;font-size:15px;font-weight:500">Explore →</span></div>
+      </a>
+    </sc-for>
+  </div>
+</section>
+
+<section id="how" style="max-width:1200px;margin:0 auto;padding:128px 40px 0">
+  <p style="margin:0 0 12px;font-size:14px;font-weight:600;color:#8A9099">The flow</p>
+  <h2 style="margin:0;font-family:Fraunces,serif;font-weight:300;font-size:48px;line-height:1.08;letter-spacing:-.015em;max-width:20ch">From request to wheels-up.</h2>
+  <div style="margin-top:48px;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px">
+    <div style="background:#0E1014;border:1px solid #232830;border-radius:12px;padding:32px"><div style="font-family:Fraunces,serif;font-size:48px;font-weight:300;line-height:1;color:#E8E2D2">01</div><h3 style="margin:24px 0 8px;font-size:24px;font-weight:500;line-height:1.25">Request</h3><p style="margin:0;color:#C9C4B8">Tell us where, when, and how many. Sixty-second form, or call dispatch direct.</p></div>
+    <div style="background:#0E1014;border:1px solid #232830;border-radius:12px;padding:32px"><div style="font-family:Fraunces,serif;font-size:48px;font-weight:300;line-height:1;color:#E8E2D2">02</div><h3 style="margin:24px 0 8px;font-size:24px;font-weight:500;line-height:1.25">Match</h3><p style="margin:0;color:#C9C4B8">We surface three to five vetted aircraft within minutes — with all-in pricing.</p></div>
+    <div style="background:#0E1014;border:1px solid #232830;border-radius:12px;padding:32px"><div style="font-family:Fraunces,serif;font-size:48px;font-weight:300;line-height:1;color:#E8E2D2">03</div><h3 style="margin:24px 0 8px;font-size:24px;font-weight:500;line-height:1.25">Fly</h3><p style="margin:0;color:#C9C4B8">Show up. We handle catering, ground, customs, crew. You board.</p></div>
+  </div>
+</section>
+
+<section id="why" style="max-width:1200px;margin:0 auto;padding:128px 40px 0">
+  <p style="margin:0 0 12px;font-size:14px;font-weight:600;color:#8A9099">Why JetNine</p>
+  <h2 style="margin:0;font-family:Fraunces,serif;font-weight:300;font-size:48px;line-height:1.08;letter-spacing:-.015em;max-width:20ch">The standard, every flight.</h2>
+  <div style="margin-top:48px;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px">
+    <sc-for list="{{ why }}" as="w" hint-placeholder-count="6">
+      <div style="background:#0E1014;border:1px solid #232830;border-radius:12px;padding:28px"><h3 style="margin:0;font-size:21px;font-weight:500;line-height:1.3">{{ w.title }}</h3><p style="margin:10px 0 0;color:#C9C4B8">{{ w.body }}</p><sc-if value="{{ w.hasLink }}" hint-placeholder-val="{{ false }}"><a href="#" style="display:inline-block;margin-top:16px;font-size:15px;font-weight:500;text-decoration:underline;text-underline-offset:3px">{{ w.link }}</a></sc-if></div>
+    </sc-for>
+  </div>
+</section>
+
+<section id="aircraft" style="max-width:1200px;margin:0 auto;padding:128px 40px 0">
+  <p style="margin:0 0 12px;font-size:14px;font-weight:600;color:#8A9099">Aircraft</p>
+  <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:24px">
+    <div><h2 style="margin:0;font-family:Fraunces,serif;font-weight:300;font-size:48px;line-height:1.08;letter-spacing:-.015em">Your jet, your choice.</h2><p style="margin:16px 0 0;max-width:56ch;font-size:18px;color:#C9C4B8">Six categories. Hundreds of aircraft. The right one for the mission, every time.</p></div>
+    <a href="#" style="font-size:15px;color:#C9C4B8;white-space:nowrap;text-decoration:underline;text-underline-offset:3px">All aircraft →</a>
+  </div>
+  <div style="margin-top:48px;display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px">
+    <sc-for list="{{ fleet }}" as="a" hint-placeholder-count="6">
+      <a href="#" style="display:block;overflow:hidden;background:#0E1014;border:1px solid #232830;border-radius:12px">
+        <div style="aspect-ratio:4/5;overflow:hidden;background:#161A20"><img src="{{ a.img }}" alt="" style="width:100%;height:100%;object-fit:cover;display:block"></div>
+        <div style="padding:16px"><div style="font-size:17px;font-weight:500">{{ a.name }}</div><div style="margin-top:4px;font-size:14px;color:#C9C4B8">Up to {{ a.pax }} passengers</div><div style="font-size:14px;color:#8A9099">Range {{ a.range }} nm</div><span style="display:inline-block;margin-top:12px;font-size:14px;font-weight:500">View specs →</span></div>
+      </a>
+    </sc-for>
+  </div>
+</section>
+
+<section style="max-width:1200px;margin:0 auto;padding:128px 40px 0">
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:64px;align-items:center">
+    <div><p style="margin:0 0 20px;font-size:14px;font-weight:600;color:#8A9099">Discretion</p><blockquote style="margin:0;font-family:Fraunces,serif;font-weight:300;font-size:44px;line-height:1.15;letter-spacing:-.015em">Your journey stays invisible. Privacy isn’t a feature — <em style="font-style:normal;color:#E8E2D2">it’s part of the product.</em></blockquote></div>
+    <div style="aspect-ratio:4/5;border-radius:12px;overflow:hidden;background:#161A20"><img src="public/images/discretion/tail-night.webp" alt="" style="width:100%;height:100%;object-fit:cover;display:block"></div>
+  </div>
+</section>
+
+<section style="max-width:1200px;margin:0 auto;padding:128px 40px;text-align:center">
+  <h2 style="margin:0 auto;font-family:Fraunces,serif;font-weight:300;font-size:64px;line-height:1.05;letter-spacing:-.015em;max-width:18ch">Ready when you are.</h2>
+  <p style="margin:24px auto 0;max-width:56ch;font-size:18px;color:#C9C4B8">A real human, on a real number, twenty-four hours a day. Tell us the mission — we’ll have aircraft in front of you in minutes.</p>
+  <div style="margin-top:36px;display:flex;justify-content:center;gap:16px;flex-wrap:wrap"><a href="Quote.dc.html" style="display:inline-flex;align-items:center;gap:8px;height:52px;padding:0 28px;border-radius:8px;background:#E8E2D2;color:#07080A;font-weight:500;font-size:16px">Request a quote <span aria-hidden="true">→</span></a><a href="tel:+14244872707" style="display:inline-flex;align-items:center;height:52px;padding:0 28px;border-radius:8px;border:1px solid #2C323B;color:#F4F1EA;font-weight:500;font-size:16px">Call dispatch · +1 (424) 487-2707</a></div>
+</section>
+
+<footer style="border-top:1px solid #161A20;padding:64px 0 40px">
+  <div style="max-width:1200px;margin:0 auto;padding:0 40px;display:grid;grid-template-columns:1.6fr 1fr 1fr 1fr;gap:40px">
+    <div><img src="public/images/brand/wordmark-bone.webp" alt="JetNine" style="height:36px;width:auto;display:block"><p style="margin:16px 0 0;max-width:30ch;font-size:15px;color:#C9C4B8">On-demand private aviation. One number, one desk, ready when you are.</p><p style="margin:20px 0 0;font-size:14px;color:#8A9099">Operating hours<br><span style="color:#C9C4B8">24 / 7 · always answered</span></p></div>
+    <sc-for list="{{ footerCols }}" as="c" hint-placeholder-count="3">
+      <div><div style="font-size:14px;font-weight:600;color:#8A9099;margin-bottom:14px">{{ c.h }}</div><ul style="list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:10px;font-size:15px"><sc-for list="{{ c.links }}" as="l" hint-placeholder-count="7"><li><a href="#">{{ l }}</a></li></sc-for></ul></div>
+    </sc-for>
+  </div>
+  <div style="max-width:1200px;margin:48px auto 0;padding:24px 40px 0;border-top:1px solid #161A20;display:flex;justify-content:space-between;gap:24px;font-size:13px;color:#8A9099"><span>© 2026 JetNine · Part 295 indirect air carrier</span><span>Flights operated by FAA Part 135 certificated air carriers</span></div>
+</footer>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = { trip: "roundtrip", pax: 2 };
+  renderVals() {
+    const { trip, pax } = this.state;
+    const mk = (key, label) => ({ label, select: () => this.setState({ trip: key }), bg: trip === key ? "#E8E2D2" : "transparent", fg: trip === key ? "#07080A" : "#C9C4B8" });
+    return {
+      pax,
+      tripTypes: [mk("roundtrip", "Round trip"), mk("oneway", "One way"), mk("multileg", "Multi-leg")],
+      returnOpacity: trip === "oneway" ? 0.45 : 1, returnPlaceholder: trip === "oneway" ? "One way" : "Pick a date",
+      incPax: () => this.setState(s => ({ pax: Math.min(16, s.pax + 1) })),
+      decPax: () => this.setState(s => ({ pax: Math.max(1, s.pax - 1) })),
+      trust: [
+        { value: "20,000+", label: "Aircraft network" }, { value: "170+", label: "Countries" }, { value: "24/7", label: "Dispatch" }, { value: "4 min", label: "Avg. response" },
+        { value: "ARGUS", label: "Wyvern vetted" }, { value: "380", label: "Approved of ~5,000 vetted" }, { value: "295", label: "Part 295 broker" },
+      ],
+      programs: [
+        { title: "On-demand charter", body: "Pay-as-you-fly. No commitment. Quotes within minutes, all-in pricing, your aircraft of choice.", img: "public/images/programs/tarmac-dusk.webp" },
+        { title: "JetNine Card", body: "Fixed hourly rates. Guaranteed availability. The membership program for the regular flyer.", img: "public/images/programs/black-card.webp" },
+        { title: "Empty legs", body: "Repositioning flights at deep discount. Real-time availability for travelers with flexibility.", img: "public/images/programs/reposition-sector.webp" },
+      ],
+      why: [
+        { title: "Safety, every flight.", body: "ARGUS Platinum and Wyvern Wingman vetting on every operator. No exceptions.", hasLink: true, link: "Read protocol →" },
+        { title: "No hidden fees.", body: "All-in pricing. No fuel surcharges. No last-minute aircraft swaps. Quoted is paid.", hasLink: false, link: "" },
+        { title: "Absolute privacy.", body: "NDA-level discretion. Zero public flight visibility. Crew trained for total discretion.", hasLink: false, link: "" },
+        { title: "24/7 dispatch.", body: "Real humans. Average response under four minutes, regardless of timezone.", hasLink: true, link: "Talk to dispatch →" },
+        { title: "Aircraft choice.", body: "Turboprops to ultra long-range. Six categories. You pick — we surface the right aircraft.", hasLink: false, link: "" },
+        { title: "One standard.", body: "First flight or fiftieth, identical execution. No tier-of-the-month.", hasLink: false, link: "" },
+      ],
+      fleet: [
+        { name: "Turboprop", pax: 9, range: "1,200", img: "public/images/fleet/turboprop.webp" },
+        { name: "Light", pax: 7, range: "1,660", img: "public/images/fleet/light.webp" },
+        { name: "Midsize", pax: 9, range: "2,400", img: "public/images/fleet/midsize.webp" },
+        { name: "Super-mid", pax: 9, range: "3,500", img: "public/images/fleet/supermid.webp" },
+        { name: "Heavy", pax: 14, range: "4,500", img: "public/images/fleet/heavy.webp" },
+        { name: "Ultra long range", pax: 16, range: "7,500", img: "public/images/fleet/ultra.webp" },
+      ],
+      footerCols: [
+        { h: "Aircraft", links: ["Turboprop", "Light jets", "Midsize", "Super-midsize", "Heavy", "Ultra long range", "All aircraft"] },
+        { h: "Programs", links: ["JetNine Card", "On-demand", "Cost calculator", "Pricing guide", "Routes", "Charter by city", "Empty legs", "Safety"] },
+        { h: "Company", links: ["About", "Blog", "Contact", "FAQ", "Good questions", "Legal", "Privacy policy", "Terms of service", "My account"] },
+      ],
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -8,12 +8,12 @@ type Size = "sm" | "md" | "lg";
 // `width:auto`, so these never distort. The bone wordmark is a transparent
 // webp keyed from logo-dark.png — it sits seamlessly on any of the app's
 // dark (ink) surfaces, which is everywhere BrandMark renders (site nav,
-// footer, admin shell, quote nav). The taller heights vs a plain wordmark
-// give the ghost 9 room to read.
+// footer, admin shell, quote nav). sm is the mobile header, md the desktop
+// header + footer, lg for anywhere the mark is the subject of the page.
 const heightPx: Record<Size, number> = {
-  sm: 40,
-  md: 52,
-  lg: 64,
+  sm: 28,
+  md: 36,
+  lg: 48,
 };
 
 export function BrandMark({

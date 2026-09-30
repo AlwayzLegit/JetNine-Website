@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#07080A;color:#F4F1EA;font-family:'Instrument Sans',system-ui,sans-serif;font-size:16px;line-height:1.6;-webkit-font-smoothing:antialiased}
+a{color:inherit;text-decoration:none}a:hover{color:#fff}
+*{box-sizing:border-box;scrollbar-width:thin;scrollbar-color:#2C323B transparent}
+::-webkit-scrollbar{width:8px;height:8px}::-webkit-scrollbar-thumb{background:#2C323B;border-radius:4px}::-webkit-scrollbar-track{background:transparent}
+</style>
+</helmet>
+<div data-screen-label="Legal — simplified" style="background:#07080A;color:#F4F1EA;min-width:1100px">
+<x-import component-from-global-scope="JNHeader" from="./jn-chrome.js" hint-size="100%,72px"></x-import>
+
+<section style="max-width:1200px;margin:0 auto;padding:96px 40px 0;display:grid;grid-template-columns:1.4fr 1fr;gap:48px;align-items:end">
+  <div>
+    <p style="margin:0 0 16px;font-size:14px;font-weight:600;color:#C9C4B8">Legal &amp; disclosures</p>
+    <h1 style="margin:0;font-family:Fraunces,serif;font-weight:300;font-size:60px;line-height:1.02;letter-spacing:-.02em;max-width:14ch">The fine print, large enough to read.</h1>
+    <p style="margin:20px 0 0;max-width:56ch;font-size:19px;color:#C9C4B8">Three documents that govern the JetNine relationship: how we handle your data, what you and we agree to when you book, and the broker disclosure required by US DOT Part 295. Written plainly. Reviewed by counsel. Updated whenever they change — never quietly.</p>
+  </div>
+  <dl style="margin:0;background:#0E1014;border:1px solid #232830;border-radius:12px;padding:8px 24px">
+    <div style="display:grid;grid-template-columns:130px 1fr;gap:16px;padding:12px 0;border-bottom:1px solid #161A20;font-size:15px"><dt style="color:#8A9099">Effective</dt><dd style="margin:0">May 7, 2026</dd></div>
+    <div style="display:grid;grid-template-columns:130px 1fr;gap:16px;padding:12px 0;border-bottom:1px solid #161A20;font-size:15px"><dt style="color:#8A9099">Last edited</dt><dd style="margin:0">April 12, 2026</dd></div>
+    <div style="display:grid;grid-template-columns:130px 1fr;gap:16px;padding:12px 0;border-bottom:1px solid #161A20;font-size:15px"><dt style="color:#8A9099">Governing law</dt><dd style="margin:0">California, USA</dd></div>
+    <div style="display:grid;grid-template-columns:130px 1fr;gap:16px;padding:12px 0;border-bottom:1px solid #161A20;font-size:15px"><dt style="color:#8A9099">Questions</dt><dd style="margin:0">legal@jetnine.com</dd></div>
+    <div style="display:grid;grid-template-columns:130px 1fr;gap:16px;padding:12px 0;font-size:15px"><dt style="color:#8A9099">Broker status</dt><dd style="margin:0">Part 295 · registered with US DOT</dd></div>
+  </dl>
+</section>
+
+<section style="max-width:1200px;margin:32px auto 0;padding:0 40px">
+  <div style="background:rgba(232,226,210,.05);border:1px solid #E8E2D2;border-radius:12px;padding:20px 28px;display:flex;gap:24px;align-items:baseline;flex-wrap:wrap"><span style="font-size:13px;font-weight:600;color:#C9A24A;white-space:nowrap">Required disclosure</span><p style="margin:0;max-width:76ch;font-size:17px">JetNine is an indirect air carrier — a Part 295 broker. Every flight is operated by an independent FAA Part 135 certified carrier. <em style="font-style:normal;color:#E8E2D2">We are not the operator of your aircraft.</em></p></div>
+</section>
+
+<section style="max-width:1200px;margin:0 auto;padding:48px 40px 128px;display:grid;grid-template-columns:260px minmax(0,1fr);gap:48px;align-items:start">
+  <nav aria-label="Contents" style="position:sticky;top:96px;display:flex;flex-direction:column;gap:20px">
+    <sc-for list="{{ toc }}" as="d" hint-placeholder-count="3">
+      <div><div style="font-size:16px;font-weight:500;margin-bottom:6px">{{ d.title }}</div><ol style="list-style:none;margin:0;padding:0 0 0 12px;border-left:1px solid #232830;display:flex;flex-direction:column;gap:2px"><sc-for list="{{ d.items }}" as="i" hint-placeholder-count="5"><li><a href="{{ i.href }}" style="display:block;padding:4px 0;font-size:14px;color:#C9C4B8">{{ i.n }} · {{ i.label }}</a></li></sc-for></ol></div>
+    </sc-for>
+  </nav>
+
+  <div style="min-width:0;display:flex;flex-direction:column;gap:72px">
+    <sc-for list="{{ docs }}" as="d" hint-placeholder-count="3">
+      <article>
+        <header style="margin-bottom:28px"><span style="font-size:13px;font-weight:600;color:#C9A24A">{{ d.kicker }}</span><h2 style="margin:8px 0 0;font-family:Fraunces,serif;font-weight:300;font-size:40px;line-height:1.1;letter-spacing:-.015em">{{ d.title }}</h2><p style="margin:12px 0 0;max-width:72ch;font-size:17px;color:#C9C4B8">{{ d.intro }}</p></header>
+        <div style="display:flex;flex-direction:column;gap:36px">
+          <sc-for list="{{ d.sections }}" as="s" hint-placeholder-count="5">
+            <section id="{{ s.id }}" style="scroll-margin-top:96px">
+              <div style="display:flex;align-items:baseline;gap:14px;border-bottom:1px solid #232830;padding-bottom:10px"><span style="font-size:14px;font-weight:600;color:#8A9099">{{ s.n }}</span><h3 style="margin:0;font-size:24px;font-weight:500;line-height:1.25">{{ s.title }}</h3></div>
+              <div style="margin-top:14px;max-width:72ch;display:flex;flex-direction:column;gap:12px;color:#C9C4B8">
+                <sc-for list="{{ s.paras }}" as="p" hint-placeholder-count="2"><p style="margin:0">{{ p }}</p></sc-for>
+                <sc-if value="{{ s.hasList }}" hint-placeholder-val="{{ false }}"><ul style="list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px"><sc-for list="{{ s.list }}" as="li" hint-placeholder-count="4"><li style="display:grid;grid-template-columns:auto 1fr;gap:10px"><span style="color:#E8E2D2">—</span><span><strong style="font-weight:500;color:#F4F1EA">{{ li.head }}</strong> {{ li.body }}</span></li></sc-for></ul></sc-if>
+                <sc-if value="{{ s.hasAfter }}" hint-placeholder-val="{{ false }}"><p style="margin:0">{{ s.after }}</p></sc-if>
+              </div>
+            </section>
+          </sc-for>
+        </div>
+      </article>
+    </sc-for>
+    <p style="margin:0;border-top:1px solid #232830;padding-top:24px;text-align:center;font-size:15px;color:#C9C4B8">Questions about these documents? <a href="mailto:legal@jetnine.com" style="text-decoration:underline;text-underline-offset:3px;color:#F4F1EA">legal@jetnine.com</a></p>
+  </div>
+</section>
+
+<x-import component-from-global-scope="JNFooter" from="./jn-chrome.js" hint-size="100%,360px"></x-import>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  renderVals() {
+    const S = (id, n, title, paras, list, after) => ({ id, n, title, paras, list: list || [], hasList: !!(list && list.length), after: after || "", hasAfter: !!after });
+    const L = (head, body) => ({ head, body });
+    const docs = [
+      { kicker: "Document I", title: "Privacy policy.", intro: "Privacy is structural at JetNine. The inquiry desk and the dispatch desk are the only people inside the company who see your trip details — and operators only ever see a route, not a name.", sections: [
+        S("what-we-collect", "1.1", "What we collect", ["We collect the minimum needed to quote and run flights. That breaks down into three buckets:"], [L("Identity & contact.", "Name, email, phone, and (for international flights) passport details and date of birth as required by APIS & CBP."), L("Trip details.", "Route, dates, passenger count, baggage, preferences (Wi-Fi, catering, pets, ground transport), and any notes you provide."), L("Payment.", "Bank routing for wires, or a tokenized card reference held by our PCI-compliant payment processor. We do not store full card numbers on our servers.")], "We use minimal analytics — first-party only, no ad networks, no behavioral tracking. Cookies are limited to session and preference state."),
+        S("how-we-use", "1.2", "How we use it", [], [L("01.", "To produce a quote and source aircraft for your trip."), L("02.", "To execute the trip — coordinate with the operator, private terminal, and ground."), L("03.", "To bill, account, and meet our tax and audit obligations."), L("04.", "To remember your preferences if you ask us to (account holders only)."), L("05.", "To send you trip-specific status updates (never marketing without consent).")]),
+        S("what-we-dont", "1.3", "What we don't do", [], [L("We do not sell your data.", ""), L("We do not share it with marketing networks.", ""), L("We do not use it to train external models.", ""), L("We do not retarget you.", ""), L("We do not pass your name to operators competing for your trip.", ""), L("We do not run a referral or affiliate program that exposes your identity.", "")]),
+        S("sharing", "1.4", "Sharing & subprocessors", ["The only third parties that touch your data, and the reason:"], [L("The operating carrier —", "route, date, passenger count, baggage, special requests. Not your name or contact unless you authorize."), L("Private terminal & ground —", "arrival window, vehicle preference, your name on the manifest at the terminal desk."), L("Payment processor —", "Stripe, for card transactions. PCI-DSS Level 1."), L("Customs & immigration —", "passport & APIS data submitted to CBP and equivalents on international flights, as required by law."), L("Cloud infrastructure —", "AWS US-West-2 for primary storage; encrypted at rest and in transit.")], "Full subprocessor list is available on request to legal@jetnine.com."),
+        S("retention", "1.5", "Retention", ["Trip records: seven years after the flight, to satisfy IRS & FAA recordkeeping. Quote requests that don't book: 180 days, then deleted unless you've opted into ongoing service. Account preferences: kept while your account is active, deleted within 30 days of account closure."]),
+        S("your-rights", "1.6", "Your rights", ["You can ask us, at any time and at no charge, to:"], [L("Show you everything we have on file", "(within 30 days)."), L("Correct anything that's wrong.", ""), L("Delete data not subject to a regulatory hold", "(trips inside the seven-year window stay; everything else can go)."), L("Export a copy in machine-readable form.", "")], "Email legal@jetnine.com. California residents (CCPA), EU residents (GDPR), and Virginia residents (CDPA) have additional statutory rights mirrored in this policy."),
+        S("sms", "1.7", "Text messaging", ["If you opt in to empty-leg alerts, we send two kinds of text message: a one-time confirmation when you set up a watchlist, and an alert when a repositioning flight matches your saved route and dates. Nothing is sent until you confirm via the link in the first message."], [L("Frequency —", "one message per matching flight. Frequency varies with how often your route matches; there are no marketing blasts."), L("Rates —", "message and data rates may apply, per your carrier's plan."), L("Opting out —", "reply STOP at any time to end all alerts; reply START to resume. Reply HELP for help, or call +1 (424) 487-2707."), L("Your number stays here —", "mobile numbers and text opt-in data are never shared with or sold to third parties or affiliates for marketing or promotional purposes. They are used solely to deliver the alerts you asked for."), L("Delivery —", "carriers are not liable for delayed or undelivered messages.")]),
+      ]},
+      { kicker: "Document II", title: "Terms of service.", intro: "When you book a flight through JetNine, you and we agree to the terms below. Plain English where we can, defined terms where the law requires precision.", sections: [
+        S("agreement", "2.1", "The agreement", ["JetNine means JetNine LLC, a California limited liability company. You means the individual or entity that requests, books, or pays for a flight. Operator means the FAA Part 135 certified air carrier that operates the aircraft. Flight means the on-demand charter flight booked through JetNine.", "By submitting a booking request, you accept these Terms. If you book on behalf of a company, you represent that you have authority to bind that company."]),
+        S("quotes-bookings", "2.2", "Quotes & bookings", ["Quotes are valid for the time period stated on the quote (typically 24–72 hours, shorter inside 48 hours of departure). A quote is an offer; a booking exists only when both you and JetNine sign the trip sheet.", "The trip sheet supersedes the quote and lists: the operating carrier, registered tail number, crew composition, fuel and surcharge breakdown, private terminals of departure and arrival, and any agreed special arrangements."]),
+        S("payment", "2.3", "Payment", ["Full payment is due before wheels-up. Domestic: cleared funds by 24 hours before scheduled departure. International: 48 hours. Wire is the default; ACH and card are accepted within stated limits.", "Reserve and Card members: trip cost is debited against your deposit balance on confirmation; operator and pass-through expenses are reconciled within 48 hours of trip completion."]),
+        S("cancellation", "2.4", "Cancellation & changes", ["Cancellation by you, applied to total trip cost:"], [L("More than 72 hours before departure:", "full refund minus a $250 admin fee."), L("72–24 hours:", "25% retained."), L("24–6 hours:", "50% retained."), L("Less than 6 hours:", "100% retained.")], "Cancellation by JetNine or the operator (mechanical, crew, weather): full refund, plus best efforts to re-source aircraft at no incremental cost. Empty legs and discounted one-off flights have stricter terms stated on the trip sheet."),
+        S("operator-relationship", "2.5", "Operator relationship", ["Part 295 notice: JetNine is an indirect air carrier (broker). The Operator is the direct air carrier and exercises operational control of the flight. JetNine does not own, operate, or maintain the aircraft, and does not employ flight or cabin crew.", "Vetting: every Operator on the JetNine network meets ARG/US Gold Plus or Wyvern Wingman standard at minimum, carries a $300M combined single-limit liability minimum, and passes a JetNine review of safety record and pilot experience."]),
+        S("liability", "2.6", "Limitation of liability", ["To the maximum extent permitted by law, JetNine's aggregate liability arising from any single trip is limited to the amount paid by you for that trip. JetNine is not liable for the Operator's acts or omissions, including operational decisions made by the Pilot in Command.", "Nothing in these Terms limits liability that cannot be excluded by law — including death or personal injury caused by negligence, fraud, or fraudulent misrepresentation."]),
+        S("disputes", "2.7", "Disputes", ["Governing law: California, without regard to conflict-of-laws principles. Venue: state and federal courts located in Los Angeles County, California. Both parties waive jury trial.", "Before filing, both parties agree to a 30-day good-faith negotiation period and, if requested by either party, mediation through JAMS in Los Angeles."]),
+      ]},
+      { kicker: "Document III", title: "Part 295 broker disclosure.", intro: "Required by 14 CFR Part 295 and reproduced here in plain English. The short version: JetNine arranges your flight; an independent FAA Part 135 carrier flies it.", sections: [
+        S("part-295", "3.1", "Broker status", ["JetNine LLC operates as an indirect air carrier — specifically, an air charter broker registered with the U.S. Department of Transportation under 14 CFR Part 295.", "An indirect air carrier holds out, sells, or arranges air transportation but does not directly operate aircraft. JetNine sources, contracts, and sells charter air transportation provided by independent FAA-certificated direct air carriers."]),
+        S("operator-detail", "3.2", "The operator", ["Every JetNine flight is operated by an independent direct air carrier holding an FAA Part 135 air-carrier certificate. The carrier — not JetNine — exercises operational control, including:"], [L("Crew composition, qualifications, and duty time", ""), L("Aircraft airworthiness and maintenance", ""), L("Routing, dispatch, and fuel planning", ""), L("The go/no-go decision", "for weather, mechanical, or any safety-of-flight reason"), L("All required reporting", "to the FAA, NTSB, and TSA")], "The operating carrier and tail number for your flight are stated on your trip sheet before you sign. You may verify any operator's Part 135 certificate status on the FAA's certificate-holder lookup at faa.gov/licenses_certificates."),
+        S("part-295-rights", "3.3", "Your rights as the customer", ["Under Part 295 you are entitled to:"], [L("Written disclosure of the broker relationship before booking.", "(This document, plus the trip sheet.)"), L("The identity of the operating carrier in writing before you pay.", ""), L("A clear breakdown of the price, including the broker fee.", ""), L("Access to the operator's FAA Part 135 certificate number.", ""), L("Refund of advance payments", "if the flight is not provided as agreed and JetNine is unable to substitute equivalent transportation.")], "Complaints concerning Part 295 broker conduct may be filed with the U.S. DOT Office of Aviation Consumer Protection: 1-202-366-2220, transportation.gov/airconsumer."),
+        S("definitions", "3.4", "Definitions", ["Terms used in this document:"], [L("Direct air carrier —", "an entity holding an FAA Part 135 air-carrier certificate that directly operates aircraft for compensation."), L("Indirect air carrier —", "an entity that arranges air transportation but does not operate aircraft. Air charter brokers under Part 295 are indirect air carriers."), L("Operational control —", "authority over initiating, conducting, or terminating a flight. Held exclusively by the direct air carrier."), L("Part 295 —", "14 CFR Part 295 — U.S. DOT regulation governing air charter brokers."), L("Part 135 —", "14 CFR Part 135 — FAA regulation governing on-demand commuter and charter operations."), L("Trip sheet —", "the written confirmation issued by JetNine before each flight stating operating carrier, tail number, crew, private terminals, and itemized pricing.")]),
+      ]},
+    ];
+    return {
+      docs,
+      toc: docs.map(d => ({ title: d.title.replace(/\.$/, ""), items: d.sections.map(s => ({ n: s.n, label: s.title, href: `#${s.id}` })) })),
+    };
+  }
+}
+</script>
+</body>
+</html>

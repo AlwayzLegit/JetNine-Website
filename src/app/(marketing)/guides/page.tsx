@@ -1,13 +1,14 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { pageMetadata } from "@/lib/page-meta";
-import { Reveal } from "@/components/reveal";
-import { ClosingCTA } from "@/components/closing-cta";
+import { PageHero } from "@/components/page-hero";
+import { CtaBand } from "@/components/cta-band";
 import { QuoteLauncher } from "@/components/quote-launcher";
 import { ProofStrip } from "@/components/proof-strip";
 import { GuideGate } from "@/components/guide-gate";
 import { GUIDE_CHAPTERS } from "@/lib/guides";
 import { RATES_UPDATED } from "@/lib/rates";
+import { SITE } from "@/lib/constants";
 
 export const metadata: Metadata = pageMetadata({
   title: "Private Jet Charter Pricing Guide (2026)",
@@ -41,58 +42,54 @@ export default function GuidesHubPage() {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(seriesJsonLd) }}
       />
 
-      <header className="border-b border-ink-3 bg-ink pt-[200px] pb-20 max-md:pt-[140px] max-md:pb-14">
-        <div className="container-jn">
-          <Reveal className="mb-6 inline-flex items-center gap-3 font-mono text-[11px] uppercase tracking-[0.16em] text-bone-2">
-            <span className="block h-px w-8 bg-clearance" />
-            The charter pricing guide · {GUIDE_CHAPTERS.length} chapters
-          </Reveal>
-          <Reveal as="h1" stagger={1} className="display-xl max-w-[18ch]">
-            Charter pricing, with the prices left in.
-          </Reveal>
-          <Reveal as="p" stagger={2} className="mt-8 max-w-[62ch] text-[18px] leading-[1.55] text-bone-2">
+      <PageHero
+        eyebrow={`The charter pricing guide · ${GUIDE_CHAPTERS.length} chapters`}
+        title="Charter pricing, with the prices left in."
+        lead={
+          <>
             Most charter guides explain everything about cost except the numbers. This one is
             written by the desk that publishes its rate card: real hourly rates, a real itemized
             quote, and the honest levers that move a price — in the order you&rsquo;d ask.
-          </Reveal>
-          <Reveal stagger={3} className="mt-8 font-mono text-[10px] uppercase tracking-[0.14em] text-steel">
-            — By the JetNine dispatch desk · Updated {RATES_UPDATED} · Rates reviewed quarterly
-          </Reveal>
-        </div>
-      </header>
+          </>
+        }
+      >
+        <p className="mt-6 text-[14px] text-steel">
+          By the JetNine dispatch desk · Updated {RATES_UPDATED} · Rates reviewed quarterly
+        </p>
+      </PageHero>
 
       <ProofStrip />
 
-      <section className="py-24 max-md:py-16">
+      <section className="section-jn">
         <div className="container-jn">
-          <ul className="divide-y divide-ink-3 border-y border-ink-3">
-            {GUIDE_CHAPTERS.map((c, i) => (
-              <Reveal key={c.slug} as="li" stagger={(i % 3) as 0 | 1 | 2}>
+          <ol className="card divide-y divide-line-faint">
+            {GUIDE_CHAPTERS.map((c) => (
+              <li key={c.slug}>
                 <Link
                   href={c.href}
-                  className="group grid grid-cols-1 gap-6 py-10 transition-colors hover:bg-ink-2 lg:grid-cols-[auto_1fr_auto] lg:items-center lg:px-6"
+                  className="group grid grid-cols-[56px_minmax(0,1fr)] items-center gap-5 px-7 py-6 transition-colors hover:bg-surface-2 md:grid-cols-[72px_minmax(0,1fr)_auto] md:gap-6 max-md:px-5"
                 >
-                  <span className="font-mono text-[36px] font-light leading-none text-clearance">
+                  <span className="font-serif text-[36px] font-light leading-none text-clearance">
                     {String(c.chapter).padStart(2, "0")}
                   </span>
                   <span>
-                    <span className="block font-serif text-[24px] font-normal leading-[1.2] tracking-tight text-bone group-hover:text-clearance">
+                    <span className="title-card-sm block text-bone transition-colors group-hover:text-clearance">
                       {c.title}
                     </span>
-                    <span className="mt-2 block max-w-[70ch] text-[14px] leading-[1.6] text-bone-2">
+                    <span className="mt-1.5 block max-w-[70ch] text-[15px] leading-[1.6] text-bone-2">
                       {c.description}
                     </span>
                   </span>
-                  <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-bone-2 group-hover:text-clearance">
+                  <span className="text-[15px] font-medium text-bone max-md:col-start-2">
                     Read <span className="arrow">→</span>
                   </span>
                 </Link>
-              </Reveal>
+              </li>
             ))}
-          </ul>
-          <p className="mt-10 max-w-[68ch] text-[15px] leading-[1.6] text-bone-2">
+          </ol>
+          <p className="mt-6 max-w-[68ch] text-[16px] leading-[1.6] text-bone-2">
             Prefer the number to the reading? The{" "}
-            <Link href="/cost-calculator" className="text-clearance">
+            <Link href="/cost-calculator" className="text-link-strong">
               cost calculator
             </Link>{" "}
             runs your route against the same rate card in about ninety seconds.
@@ -108,9 +105,11 @@ export default function GuidesHubPage() {
         body="Route, date, and passenger count — live indicative pricing from the same engine behind every figure in this guide."
       />
 
-      <ClosingCTA
-        heading="Written by the desk that answers."
+      <CtaBand
+        title="Written by the desk that answers."
         body="Questions the guide doesn't cover go straight to a senior dispatcher — average pick-up under twenty seconds, every hour of every day."
+        primary={{ label: "Request a quote", href: "/quote/mission" }}
+        secondary={{ label: `Call dispatch · ${SITE.dispatchPhone}`, href: `tel:${SITE.dispatchPhoneE164}` }}
       />
     </>
   );

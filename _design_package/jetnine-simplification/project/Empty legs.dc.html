@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#07080A;color:#F4F1EA;font-family:'Instrument Sans',system-ui,sans-serif;font-size:16px;line-height:1.55;-webkit-font-smoothing:antialiased}
+a{color:inherit;text-decoration:none}a:hover{color:#fff}
+*{box-sizing:border-box;scrollbar-width:thin;scrollbar-color:#2C323B transparent}
+::-webkit-scrollbar{width:8px;height:8px}::-webkit-scrollbar-thumb{background:#2C323B;border-radius:4px}::-webkit-scrollbar-track{background:transparent}
+input::placeholder{color:#8A9099}
+</style>
+</helmet>
+<div data-screen-label="Empty legs — simplified" style="background:#07080A;color:#F4F1EA;min-width:1100px">
+<x-import component-from-global-scope="JNHeader" from="./jn-chrome.js" hint-size="100%,72px"></x-import>
+
+<section style="max-width:1200px;margin:0 auto;padding:96px 40px 0;display:grid;grid-template-columns:1.4fr 1fr;gap:48px;align-items:end">
+  <div>
+    <p style="margin:0 0 16px;font-size:14px;font-weight:600;color:#C9C4B8">Empty legs · live board</p>
+    <h1 style="margin:0;font-family:Fraunces,serif;font-weight:300;font-size:60px;line-height:1.02;letter-spacing:-.02em;max-width:14ch">{{ count }} empty legs, live now.</h1>
+    <p style="margin:20px 0 0;max-width:58ch;font-size:19px;color:#C9C4B8">When an aircraft has dropped a passenger somewhere and needs to fly home empty, that flight is for sale. Date-locked, route-locked, but priced like nothing else in the air. The desk posts them as operators release them.</p>
+  </div>
+  <div style="background:#0E1014;border:1px solid #232830;border-radius:12px;padding:28px">
+    <div style="display:flex;align-items:center;gap:10px;font-size:14px;color:#C9C4B8"><span style="width:8px;height:8px;border-radius:4px;background:#8FB58A"></span>Live board · refreshed every minute</div>
+    <div style="margin-top:12px;font-family:Fraunces,serif;font-weight:300;font-size:80px;line-height:1;letter-spacing:-.02em">{{ count }}</div>
+    <p style="margin:12px 0 0;font-size:15px;color:#C9C4B8">Available repositioning legs across the network. Some priced at less than the equivalent first-class commercial fare.</p>
+    <div style="margin-top:18px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;border-top:1px solid #232830;padding-top:16px;font-size:15px"><div><div style="font-size:13px;color:#8A9099">Next departs</div>{{ nextOut }}</div><div><div style="font-size:13px;color:#8A9099">Furthest</div>{{ furthest }}</div><div><div style="font-size:13px;color:#8A9099">Best discount</div>{{ bestDisc }}</div></div>
+  </div>
+</section>
+
+<section style="max-width:1200px;margin:0 auto;padding:48px 40px 0">
+  <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap">
+    <div role="radiogroup" aria-label="Filter" style="display:inline-flex;background:#161A20;border-radius:8px;padding:4px;gap:2px"><sc-for list="{{ filters }}" as="f" hint-placeholder-count="4"><button type="button" onClick="{{ f.select }}" style="border:none;cursor:pointer;height:36px;padding:0 16px;border-radius:6px;font:500 14px 'Instrument Sans',sans-serif;background:{{ f.bg }};color:{{ f.fg }}">{{ f.label }}</button></sc-for></div>
+    <span style="font-size:14px;color:#8A9099">Whole aircraft, not a seat · price is per flight · first call wins</span>
+  </div>
+  <div style="margin-top:16px;display:flex;flex-direction:column;gap:10px">
+    <sc-for list="{{ legs }}" as="l" hint-placeholder-count="5">
+      <article style="display:grid;grid-template-columns:150px minmax(0,1.4fr) minmax(0,1fr) 180px auto;gap:24px;align-items:center;background:#0E1014;border:1px solid {{ l.border }};border-radius:12px;padding:22px 28px">
+        <div><div style="font-size:16px;font-weight:500">{{ l.day }}</div><div style="font-size:14px;color:#8A9099">{{ l.time }}</div></div>
+        <div><div style="font-family:Fraunces,serif;font-size:26px;line-height:1.1">{{ l.from }} <span style="color:#8A9099">→</span> {{ l.to }}</div><div style="margin-top:4px;font-size:14px;color:#C9C4B8">{{ l.airports }} · about {{ l.duration }}</div></div>
+        <div style="font-size:15px">{{ l.aircraft }}<div style="font-size:14px;color:#8A9099">{{ l.category }} · up to {{ l.seats }} passengers · safety-audited operator</div></div>
+        <div><div style="font-family:Fraunces,serif;font-weight:300;font-size:30px;line-height:1">{{ l.price }}</div><div style="margin-top:4px;font-size:14px;color:#8A9099"><span style="text-decoration:line-through">{{ l.was }}</span> · <span style="color:#C9A24A;font-weight:600">{{ l.off }} off</span></div></div>
+        <a href="tel:+14244872707" style="display:inline-flex;align-items:center;justify-content:center;height:44px;padding:0 18px;border-radius:8px;background:{{ l.btnBg }};color:{{ l.btnFg }};border:1px solid {{ l.btnBorder }};font-weight:500;font-size:15px;white-space:nowrap">Call to book</a>
+      </article>
+    </sc-for>
+  </div>
+  <p style="margin:16px 0 0;font-size:14px;color:#8A9099">Recently sold: Aspen → Los Angeles, $6,900, sold in 3 h · Miami → New York, $9,400, sold in 14 h · Las Vegas → San Francisco, $4,200, sold in 2 days</p>
+</section>
+
+<section style="max-width:1200px;margin:0 auto;padding:112px 40px 0">
+  <p style="margin:0 0 12px;font-size:14px;font-weight:600;color:#8A9099">How it works</p>
+  <h2 style="margin:0;font-family:Fraunces,serif;font-weight:300;font-size:44px;line-height:1.08;letter-spacing:-.015em;max-width:22ch">Repositioning legs are the deal of the year.</h2>
+  <p style="margin:16px 0 0;max-width:62ch;font-size:18px;color:#C9C4B8">If your dates and route are flexible, you can fly the same aircraft at a fraction of the on-demand charter price. Three things to know before you book.</p>
+  <div style="margin-top:32px;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px">
+    <div style="background:#0E1014;border:1px solid #232830;border-radius:12px;padding:28px"><div style="font-size:13px;font-weight:600;color:#C9A24A">Dates &amp; route locked</div><h3 style="margin:12px 0 0;font-size:22px;font-weight:500;line-height:1.25">Take it as scheduled.</h3><p style="margin:10px 0 0;color:#C9C4B8">Empty legs are positioning flights — the aircraft is already going there, with or without you. Departure window typically holds within an hour of the listed time. The route is the route; no diversion to a different city.</p></div>
+    <div style="background:#0E1014;border:1px solid #232830;border-radius:12px;padding:28px"><div style="font-size:13px;font-weight:600;color:#C9A24A">Cancel risk</div><h3 style="margin:12px 0 0;font-size:22px;font-weight:500;line-height:1.25">If the original trip falls through, so does yours.</h3><p style="margin:10px 0 0;color:#C9C4B8">The reason the leg exists is that an outbound charter is bringing the aircraft to that city. If that outbound cancels, the empty leg cancels too. Your payment is fully refunded and you get a credit toward a regular charter, but you'll need a backup plan.</p></div>
+    <div style="background:#0E1014;border:1px solid #232830;border-radius:12px;padding:28px"><div style="font-size:13px;font-weight:600;color:#C9A24A">First call wins</div><h3 style="margin:12px 0 0;font-size:22px;font-weight:500;line-height:1.25">One booking per leg.</h3><p style="margin:10px 0 0;color:#C9C4B8">Empty legs aren't held — they're sold the moment a confirmation comes through. If you see one you want, call the dispatch line and we'll lock it on the spot. No soft-hold, no waitlist.</p></div>
+  </div>
+</section>
+
+<section id="watchlist" style="max-width:1200px;margin:0 auto;padding:112px 40px 0;scroll-margin-top:96px">
+  <div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.2fr);gap:40px;align-items:start">
+    <div>
+      <p style="margin:0 0 12px;font-size:14px;font-weight:600;color:#8A9099">Watchlist</p>
+      <h2 style="margin:0;font-family:Fraunces,serif;font-weight:300;font-size:44px;line-height:1.08;letter-spacing:-.015em">Set a route. We’ll text when one shows up.</h2>
+      <p style="margin:16px 0 0;font-size:18px;color:#C9C4B8">If the lanes you fly are predictable, this is the simplest way to get the discount. Tell us the city pair and date window, we’ll match against the live board every fifteen minutes, and text the moment something fits. No spam, only matches.</p>
+      <ul style="list-style:none;margin:20px 0 0;padding:0;display:flex;flex-direction:column;gap:10px;font-size:15px;color:#C9C4B8"><li style="display:grid;grid-template-columns:auto 1fr;gap:10px"><span style="color:#E8E2D2">✓</span>Matched against the live board every 15 minutes</li><li style="display:grid;grid-template-columns:auto 1fr;gap:10px"><span style="color:#E8E2D2">✓</span>One text per match — never a marketing blast</li><li style="display:grid;grid-template-columns:auto 1fr;gap:10px"><span style="color:#E8E2D2">✓</span>First-call advantage: the text lands the moment the leg lists</li><li style="display:grid;grid-template-columns:auto 1fr;gap:10px"><span style="color:#E8E2D2">✓</span>No fees, no account required, cancel with one reply</li></ul>
+    </div>
+    <form style="background:#0E1014;border:1px solid #232830;border-radius:12px;padding:32px;display:flex;flex-direction:column;gap:12px">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <label style="display:flex;flex-direction:column;gap:4px;background:#161A20;border-radius:8px;padding:10px 14px"><span style="font-size:13px;color:#C9C4B8">From</span><input type="text" placeholder="Los Angeles" style="background:transparent;border:none;outline:none;color:#F4F1EA;font:16px 'Instrument Sans',sans-serif;width:100%"></label>
+        <label style="display:flex;flex-direction:column;gap:4px;background:#161A20;border-radius:8px;padding:10px 14px"><span style="font-size:13px;color:#C9C4B8">To</span><input type="text" placeholder="Aspen" style="background:transparent;border:none;outline:none;color:#F4F1EA;font:16px 'Instrument Sans',sans-serif;width:100%"></label>
+        <label style="display:flex;flex-direction:column;gap:4px;background:#161A20;border-radius:8px;padding:10px 14px"><span style="font-size:13px;color:#C9C4B8">Earliest date</span><input type="text" placeholder="Oct 1" style="background:transparent;border:none;outline:none;color:#F4F1EA;font:16px 'Instrument Sans',sans-serif;width:100%"></label>
+        <label style="display:flex;flex-direction:column;gap:4px;background:#161A20;border-radius:8px;padding:10px 14px"><span style="font-size:13px;color:#C9C4B8">Latest date</span><input type="text" placeholder="Dec 20" style="background:transparent;border:none;outline:none;color:#F4F1EA;font:16px 'Instrument Sans',sans-serif;width:100%"></label>
+        <label style="display:flex;flex-direction:column;gap:4px;background:#161A20;border-radius:8px;padding:10px 14px"><span style="font-size:13px;color:#C9C4B8">Passengers</span><input type="text" placeholder="4" style="background:transparent;border:none;outline:none;color:#F4F1EA;font:16px 'Instrument Sans',sans-serif;width:100%"></label>
+        <label style="display:flex;flex-direction:column;gap:4px;background:#161A20;border-radius:8px;padding:10px 14px"><span style="font-size:13px;color:#C9C4B8">Mobile for texts</span><input type="tel" placeholder="+1 (818) 555-0142" style="background:transparent;border:none;outline:none;color:#F4F1EA;font:16px 'Instrument Sans',sans-serif;width:100%"></label>
+      </div>
+      <button type="button" style="height:52px;border-radius:8px;border:none;background:#E8E2D2;color:#07080A;font:500 16px 'Instrument Sans',sans-serif;cursor:pointer">Text me when one shows up</button>
+      <p style="margin:0;font-size:13px;color:#8A9099">We text once to confirm, then only for matches. Reply STOP any time.</p>
+    </form>
+  </div>
+</section>
+
+<section style="max-width:1200px;margin:0 auto;padding:112px 40px 128px">
+  <p style="margin:0 0 12px;font-size:14px;font-weight:600;color:#8A9099">Before you book</p>
+  <h2 style="margin:0;font-family:Fraunces,serif;font-weight:300;font-size:44px;line-height:1.08;letter-spacing:-.015em;max-width:24ch">Empty legs, answered straight.</h2>
+  <div style="margin-top:32px;display:grid;grid-template-columns:1fr 1fr;gap:16px 40px">
+    <sc-for list="{{ faq }}" as="f" hint-placeholder-count="6"><div style="border-top:1px solid #232830;padding-top:18px"><h3 style="margin:0;font-size:19px;font-weight:500;line-height:1.3">{{ f.q }}</h3><p style="margin:8px 0 0;color:#C9C4B8">{{ f.a }}</p></div></sc-for>
+  </div>
+</section>
+
+<x-import component-from-global-scope="JNFooter" from="./jn-chrome.js" hint-size="100%,360px"></x-import>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = { filter: "all" };
+  renderVals() {
+    const filter = this.state.filter;
+    const LEGS = [
+      { day: "Today", time: "4:30 PM", from: "Aspen", to: "Los Angeles", airports: "Aspen/Pitkin → Van Nuys", duration: "2 h", aircraft: "Citation XLS · 2019", category: "Midsize", seats: 8, price: "$7,400", was: "$18,900", off: "61%", featured: true, region: "west", hours: 5 },
+      { day: "Tomorrow", time: "9:00 AM", from: "New York", to: "Miami", airports: "Teterboro → Opa-locka", duration: "2 h 50 m", aircraft: "Challenger 350 · 2021", category: "Super-mid", seats: 9, price: "$11,800", was: "$26,500", off: "55%", featured: false, region: "east", hours: 22 },
+      { day: "Thu, Oct 2", time: "11:15 AM", from: "Las Vegas", to: "San Francisco", airports: "Henderson → San Francisco", duration: "1 h 25 m", aircraft: "Phenom 300 · 2018", category: "Light", seats: 7, price: "$4,600", was: "$9,800", off: "53%", featured: false, region: "west", hours: 90 },
+      { day: "Fri, Oct 3", time: "6:00 PM", from: "London", to: "New York", airports: "Luton → Teterboro", duration: "7 h 40 m", aircraft: "Gulfstream G450 · 2016", category: "Heavy", seats: 13, price: "$38,000", was: "$92,000", off: "59%", featured: false, region: "intl", hours: 120 },
+      { day: "Sat, Oct 4", time: "8:30 AM", from: "Scottsdale", to: "Los Angeles", airports: "Scottsdale → Van Nuys", duration: "1 h 20 m", aircraft: "King Air 350 · 2020", category: "Turboprop", seats: 8, price: "$3,200", was: "$6,900", off: "54%", featured: false, region: "west", hours: 135 },
+      { day: "Mon, Oct 6", time: "7:45 AM", from: "West Palm Beach", to: "New York", airports: "Palm Beach → Teterboro", duration: "2 h 40 m", aircraft: "Citation Sovereign · 2017", category: "Midsize", seats: 8, price: "$8,900", was: "$21,000", off: "58%", featured: false, region: "east", hours: 183 },
+    ];
+    const legs = LEGS.filter(l => filter === "all" || l.region === filter || (filter === "soon" && l.hours <= 48));
+    const mk = (key, label) => ({ label, select: () => this.setState({ filter: key }), bg: filter === key ? "#E8E2D2" : "transparent", fg: filter === key ? "#07080A" : "#C9C4B8" });
+    return {
+      count: LEGS.length, nextOut: "in 5 h", furthest: "8 days out", bestDisc: "61% off",
+      filters: [mk("all", "All"), mk("soon", "Next 48 hours"), mk("west", "West coast"), mk("east", "East coast"), mk("intl", "International")],
+      legs: legs.map(l => ({ ...l, border: l.featured ? "#E8E2D2" : "#232830", btnBg: l.featured ? "#E8E2D2" : "transparent", btnFg: l.featured ? "#07080A" : "#F4F1EA", btnBorder: l.featured ? "#E8E2D2" : "#2C323B" })),
+      faq: [
+        { q: "What is an empty leg flight?", a: "A positioning flight. An aircraft dropped a charter passenger somewhere and has to fly home — or to its next pickup — empty. That flight is for sale at a steep discount because the operator flies it either way. Same aircraft, same crew, same service; the only difference is the price and that the schedule is fixed." },
+        { q: "How much cheaper is an empty leg than a normal charter?", a: "Typically 30–60% off the equivalent on-demand charter price on our board, and occasionally deeper when departure is close. Some legs price below the equivalent first-class commercial fare for the same route." },
+        { q: "Do I get the entire aircraft?", a: "Yes. An empty leg is the whole cabin, not a seat. Bring your party up to the listed seat count — the price is per aircraft, not per person." },
+        { q: "Can I change the departure time or route?", a: "No — that's the trade. Empty legs are date- and route-locked because the aircraft is already scheduled to fly that route. Departure typically holds within an hour of the listed time. If you need flexibility, a regular on-demand quote is the right tool." },
+        { q: "What happens if the empty leg cancels?", a: "If the outbound charter that created the leg falls through, the leg falls through with it. Your payment is refunded in full and you receive a credit toward a regular charter. We recommend a backup plan for anything time-critical." },
+        { q: "How do the text alerts work?", a: "Set a watchlist with your city pair and date window. We match it against the live board every fifteen minutes and text you the moment a leg fits — one text per match, no marketing blasts, cancel any time." },
+      ],
+    };
+  }
+}
+</script>
+</body>
+</html>

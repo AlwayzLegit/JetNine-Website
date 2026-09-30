@@ -2,12 +2,14 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { pageMetadata } from "@/lib/page-meta";
 import { PRICE_STACK, PRICE_STACK_TOTAL } from "@/lib/rates";
-import { PageHeader } from "@/components/page-header";
-import { ClosingCTA } from "@/components/closing-cta";
-import { QuoteLauncher } from "@/components/quote-launcher";
-import { GuideGate } from "@/components/guide-gate";
-import { Reveal } from "@/components/reveal";
 import { SITE } from "@/lib/constants";
+import { PageHero } from "@/components/page-hero";
+import { CtaBand } from "@/components/cta-band";
+import { GuideGate } from "@/components/guide-gate";
+import { FaqAccordion } from "@/components/memberships/faq-accordion";
+import { StepExplorer } from "@/components/how-it-works/step-explorer";
+import { STEPS } from "@/components/how-it-works/steps";
+import { plainDesc, plainLabel } from "@/components/how-it-works/price-copy";
 
 export const metadata: Metadata = pageMetadata({
   title: "How Private Jet Charter Works",
@@ -17,84 +19,15 @@ export const metadata: Metadata = pageMetadata({
 });
 
 const HERO_STATS = [
-  { label: "Quote turnaround", value: "<30 MIN", sub: "Median, business hours" },
-  { label: "Dispatcher tenure", value: "14 YR", sub: "Average on the desk" },
-  { label: "Wheels-up notice", value: "2 HR", sub: "From confirmed quote" },
-  { label: "Network reach", value: "20K A/C", sub: "Worldwide, 5,000 ops" },
-];
-
-const STEPS = [
-  {
-    num: "01",
-    label: "You",
-    title: "You tell us the route.",
-    body: "Phone, form, or email — whichever's faster. We need the city pair, the dates, the headcount. Everything else is optional & can be sorted later.",
-    metaLabel: "What we ask",
-    items: [
-      "Departure & arrival cities (airport optional — we'll pick the best FBO)",
-      "Outbound date & flexible-hours window",
-      "Passenger count & pet count",
-      "Anything else? — special requests captured up front",
-    ],
-  },
-  {
-    num: "02",
-    label: "Dispatch",
-    title: "Dispatch picks up — within five minutes.",
-    body: "A senior dispatcher (not a queue, not a chatbot, not a junior on their first month) reviews the brief and starts sourcing. Real human, every time.",
-    metaLabel: "Who you get",
-    items: [
-      "14 years of average dispatch experience",
-      "Direct line to your dispatcher for the life of the trip",
-      "Same person handles the quote, the contract, and any in-flight changes",
-      "24 / 7 / 365 — including holidays, weather days, and 3 a.m. callouts",
-    ],
-  },
-  {
-    num: "03",
-    label: "Quote",
-    title: "Three to five specific airframes return — under thirty minutes.",
-    body: "Not a category bracket. Real tail numbers, real years, real photos, real availability windows, real all-in pricing. Every option vetted to our safety floor before it lands in your inbox.",
-    metaLabel: "What you see",
-    items: [
-      "Tail number, operator, year of manufacture, refurb date",
-      "Cabin photos and floorplan",
-      "All-in price (fuel, taxes, FET 7.5%, repositioning, crew, catering, ground)",
-      "Availability window & soft-hold expiry",
-      "Operator's ARG/US, Wyvern, IS-BAO standing",
-    ],
-  },
-  {
-    num: "04",
-    label: "Accept",
-    title: "You pick. We hold the airframe.",
-    body: "No commitment until you accept. Soft hold — up to four hours — while you decide, share with the team, get a sign-off. After that, contract goes out and the airframe locks.",
-    metaLabel: "The decision window",
-    items: [
-      "Free 4-hour soft hold on your preferred airframe",
-      "Extend by request — most operators allow 24h with a deposit",
-      "One-page charter agreement (Part 295 disclosure included)",
-      "Wire, ACH, or major card — your choice",
-    ],
-  },
-  {
-    num: "05",
-    label: "Fly",
-    title: "Confirmation, trip sheet, take-off.",
-    body: "Final trip sheet hits your inbox 24 hours before departure. FBO instructions, ground transport details, crew names, weather brief. Everyone arrives ten minutes before scheduled wheels-up.",
-    metaLabel: "Day of",
-    items: [
-      "Show up at the FBO ten minutes before scheduled departure",
-      "No security line, no boarding pass — your name is on the manifest",
-      "Crew greets you on the ramp, bags loaded directly",
-      "Wheels up within the agreed window — average ground time, eight minutes",
-    ],
-  },
+  { value: "Under 30 min", label: "Quote turnaround, business hours" },
+  { value: "14 years", label: "Average dispatcher experience" },
+  { value: "2 hours", label: "Wheels-up notice from confirmed quote" },
+  { value: "20,000 aircraft", label: "Worldwide, 5,000 operators" },
 ];
 
 const VS_ROWS: { row: string; app: string; jn: string }[] = [
   { row: "Quote source", app: "Stale fleet database, refreshed weekly", jn: "Live operator calls, every quote" },
-  { row: "Quote latency", app: "Instant, but indicative only", jn: "< 30 min, with real airframes" },
+  { row: "Quote latency", app: "Instant, but indicative only", jn: "Under 30 min, with real aircraft" },
   { row: "Pricing", app: "Hourly + add-ons, surprise fees", jn: "All-in, locked at acceptance" },
   { row: "Who you talk to", app: "Tier-1 support, rotating", jn: "Same dispatcher, every flight" },
   { row: "In-flight changes", app: "Submit ticket, wait", jn: "Direct cell, no queue" },
@@ -103,17 +36,17 @@ const VS_ROWS: { row: string; app: string; jn: string }[] = [
 
 const PROMISES = [
   {
-    num: "PROMISE 01",
+    num: "Promise 01",
     title: "Quote in thirty minutes, or it's free.",
-    body: "If we don't return three to five specific airframes within thirty minutes of business-hours request, your first hour of flight time is on us — applied automatically to the accepted booking.",
+    body: "If we don't return three to five specific aircraft within thirty minutes of business-hours request, your first hour of flight time is on us — applied automatically to the accepted booking.",
   },
   {
-    num: "PROMISE 02",
+    num: "Promise 02",
     title: "Locked pricing, no surprises.",
     body: "The all-in number you accept is the number on the invoice. If anything changes — fuel, route, weather diversion — that's our cost to absorb, not yours. Period.",
   },
   {
-    num: "PROMISE 03",
+    num: "Promise 03",
     title: "Your dispatcher, on-call.",
     body: "Direct cell number, day and night, for the life of the trip. The same person who quoted you handles every change, every escalation, every weather call. No tickets, no queues, no rotating staff.",
   },
@@ -130,11 +63,11 @@ const FAQ = [
   },
   {
     q: "How do you vet operators?",
-    a: "Floor: ARG/US Gold or higher, current FAA Part 135 certificate, $300M minimum hull insurance, two ATP-rated pilots, no event-of-significance in the last 24 months. We add Wyvern Wingman or IS-BAO Stage 2 as a strong preference for international and ultra-long-range missions. The full vetting protocol lives on the safety page; the short version is — we don't put you on an airframe we wouldn't put our own families on.",
+    a: "Floor: ARG/US Gold or higher, current FAA Part 135 certificate, $300M minimum hull insurance, two ATP-rated pilots, no event-of-significance in the last 24 months. We add Wyvern Wingman or IS-BAO Stage 2 as a strong preference for international and ultra-long-range missions. The full vetting protocol lives on the safety page; the short version is — we don't put you on an aircraft we wouldn't put our own families on.",
   },
   {
     q: "What if the weather goes sideways?",
-    a: "Your dispatcher monitors weather from twelve hours out. If a divert or delay is likely, you'll get a call, not a notification — usually with an alternate plan already drafted. Common moves: shift wheels-up by an hour, divert to an alternate FBO, swap aircraft if the original can't depart. All re-routing cost is ours. The locked price holds.",
+    a: "Your dispatcher monitors weather from twelve hours out. If a divert or delay is likely, you'll get a call, not a notification — usually with an alternate plan already drafted. Common moves: shift wheels-up by an hour, divert to an alternate airport, swap aircraft if the original can't depart. All re-routing cost is ours. The locked price holds.",
   },
   {
     q: "Can I cancel after I've booked?",
@@ -142,7 +75,7 @@ const FAQ = [
   },
   {
     q: "What happens if my flight is delayed by the operator?",
-    a: "Mechanical or crew issue on the operator's side: we substitute another airframe at our cost, no questions, usually within two hours at major metros. If a substitution isn't possible inside your window, your flight is refunded in full plus a $5,000 inconvenience credit. Has happened twice in the last 18 months. Both times, the client flew within the window on a different airframe.",
+    a: "Mechanical or crew issue on the operator's side: we substitute another aircraft at our cost, no questions, usually within two hours at major metros. If a substitution isn't possible inside your window, your flight is refunded in full plus a $5,000 inconvenience credit. Has happened twice in the last 18 months. Both times, the client flew within the window on a different aircraft.",
   },
   {
     q: "How does the all-in pricing actually work?",
@@ -182,150 +115,116 @@ export default function HowItWorksPage() {
         // Built from STEPS catalog at build time — no user input, no XSS.
         dangerouslySetInnerHTML={{ __html: JSON.stringify(howToJsonLd) }}
       />
-      <PageHeader
-        kicker="How it works · operations"
+      <PageHero
+        eyebrow="How it works"
         title="A senior dispatcher, not a chatbot. One number to call."
-        lead="No app to download. No queue. No ten-minute hold music. Tell us the route — by phone, by form, by email — and a senior dispatcher with twenty years on the desk picks up. Specific airframes & pricing back within thirty minutes. The simplest model in the industry, on purpose."
+        lead="No app to download. No queue. No ten-minute hold music. Tell us the route — by phone, by form, by email — and a senior dispatcher picks up. Specific aircraft & pricing back within thirty minutes."
         imageSrc="/images/hero/how-it-works.webp"
         imagePosition="70% center"
       />
 
-      {/* Hero stat strip */}
-      <section className="border-b border-ink-3 bg-ink-2 py-8">
-        <div className="container-jn flex flex-wrap items-center justify-between gap-6">
-          {HERO_STATS.map((s, i) => (
-            <div
-              key={s.label}
-              className={[
-                "flex min-w-[180px] flex-1 flex-col gap-1 px-6",
-                i !== HERO_STATS.length - 1 ? "border-r border-ink-3" : "",
-              ].join(" ")}
-            >
-              <span className="font-serif text-[28px] font-light leading-none tracking-tight text-bone">
-                {s.value}
-              </span>
-              <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-bone-2">
-                {s.label}
-              </span>
-              <span className="font-mono text-[10px] uppercase tracking-[0.08em] text-steel">
-                {s.sub}
-              </span>
+      {/* Stat strip */}
+      <section className="border-y border-line-faint bg-ink-2" aria-label="Key numbers">
+        <div className="container-jn grid grid-cols-2 gap-4 py-7 md:grid-cols-4">
+          {HERO_STATS.map((s) => (
+            <div key={s.label}>
+              <div className="font-serif text-[30px] font-light leading-[1.05] max-md:text-[26px]">{s.value}</div>
+              <div className="mt-[6px] text-[14px] text-steel">{s.label}</div>
             </div>
           ))}
         </div>
       </section>
 
-      {/* ─── Process ─── */}
-      <section className="py-32 max-md:py-20">
-        <div className="container-jn">
-          <div className="mb-20 grid items-end gap-12 lg:grid-cols-[1fr_1.6fr]">
-            <Reveal>
-              <p className="caption">— The process</p>
-            </Reveal>
-            <div>
-              <Reveal as="h2" stagger={1} className="display-m max-w-[22ch]">
-                Five steps. Most clients fly within a week.
-              </Reveal>
-              <Reveal as="p" stagger={2} className="mt-6 max-w-[62ch] text-[18px] leading-[1.55] text-bone-2">
-                From first call to wheels-up. Same five steps every time, regardless of category,
-                distance, or hour.
-              </Reveal>
+      {/* The process */}
+      <section className="container-jn section-jn max-md:pt-20">
+        <p className="eyebrow">The process</p>
+        <h2 className="title-section max-w-[22ch]">Five steps. Most clients fly within a week.</h2>
+        <p className="mt-4 max-w-[62ch] text-[18px] text-bone-2">
+          From first call to wheels-up. Same five steps every time, regardless of category,
+          distance, or hour.
+        </p>
+        <StepExplorer />
+      </section>
+
+      {/* Pricing */}
+      <section className="container-jn section-jn max-md:pt-20">
+        <p className="eyebrow">Pricing</p>
+        <h2 className="title-section max-w-[22ch]">All-in. Locked at acceptance.</h2>
+        <p className="mt-4 max-w-[62ch] text-[18px] text-bone-2">
+          Every quote is the all-in number. Fuel, FET, repositioning, crew, catering, ground
+          transport — already inside. Below: an example midsize round-trip, broken down line by line.
+        </p>
+        <div className="mt-8 grid grid-cols-1 items-start gap-5 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
+          <div className="card px-7 py-2 max-md:px-5">
+            <p className="border-b border-line pb-3 pt-4 text-[14px] text-steel">
+              Example · Los Angeles ⇄ New York · midsize · about 10 hours in the air
+            </p>
+            <ul>
+              {PRICE_STACK.map((p) => (
+                <li
+                  key={p.n}
+                  className="grid grid-cols-[1fr_auto] items-baseline gap-6 border-b border-line-faint py-4"
+                >
+                  <div>
+                    <div className="text-[16px] font-medium">{plainLabel(p)}</div>
+                    <div className="mt-[2px] text-[14px] text-steel">{plainDesc(p)}</div>
+                  </div>
+                  <span className="text-[17px]">{p.val}</span>
+                </li>
+              ))}
+            </ul>
+            <div className="grid grid-cols-[1fr_auto] items-baseline gap-6 pb-4 pt-5">
+              <span className="font-serif text-[26px]">All-in</span>
+              <span className="font-serif text-[40px] font-light leading-none">{PRICE_STACK_TOTAL}</span>
             </div>
           </div>
-
-          <ol className="flex flex-col gap-4">
-            {STEPS.map((s, i) => (
-              <Reveal
-                key={s.num}
-                stagger={(i % 3) as 0 | 1 | 2}
-                as="li"
-                className="grid grid-cols-1 gap-8 rounded-[4px] border border-ink-3 bg-ink-2 p-10 lg:grid-cols-[auto_1.2fr_1.4fr] lg:items-start"
-              >
-                <div className="flex items-baseline gap-4 lg:flex-col lg:items-start lg:gap-1">
-                  <span className="font-serif text-[64px] font-light leading-none text-clearance">
-                    {s.num}
-                  </span>
-                  <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-bone-2">
-                    — {s.label}
-                  </span>
-                </div>
-                <div>
-                  <h3 className="font-serif text-[24px] font-normal leading-[1.2] tracking-tight text-bone">
-                    {s.title}
-                  </h3>
-                  <p className="mt-4 max-w-[48ch] text-[15px] leading-[1.65] text-bone-2">
-                    {s.body}
-                  </p>
-                </div>
-                <div>
-                  <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-steel">
-                    — {s.metaLabel}
-                  </span>
-                  <ul className="mt-3 flex flex-col gap-2">
-                    {s.items.map((it) => (
-                      <li
-                        key={it}
-                        className="grid grid-cols-[auto_1fr] items-baseline gap-3 text-[13px] leading-[1.5] text-bone"
-                      >
-                        <span className="text-clearance">—</span>
-                        <span>{it}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              </Reveal>
-            ))}
-          </ol>
+          <div className="card p-7 max-md:p-5">
+            <h3 className="text-[19px] font-medium leading-[1.3]">
+              No memberships, no hourly minimums, no annual fees.
+            </h3>
+            <p className="mt-[10px] text-bone-2">
+              Pay per flight. The price you accept is the price you pay — even if jet-fuel spikes
+              between acceptance and departure, your number is locked.
+            </p>
+            <Link href="/quote/mission" className="btn btn-primary btn-lg mt-5">
+              Price my trip <span className="arrow" aria-hidden="true">→</span>
+            </Link>
+          </div>
         </div>
       </section>
 
-      {/* ─── Dispatch vs apps ─── */}
-      <section className="border-t border-ink-3 py-32 max-md:py-20">
-        <div className="container-jn">
-          <div className="mb-16 grid items-end gap-12 lg:grid-cols-[1fr_1.6fr]">
-            <Reveal>
-              <p className="caption">— Comparison</p>
-            </Reveal>
-            <Reveal as="h2" stagger={1} className="display-m max-w-[24ch]">
-              Why a phone call beats an app.
-            </Reveal>
-          </div>
-          <Reveal as="p" className="mb-6 max-w-[68ch] text-[18px] leading-[1.55] text-bone-2">
-            The trade in private aviation has gotten cute. Apps that quote in seconds because they
-            don&rsquo;t actually know what&rsquo;s available. Marketplaces that bid you against four
-            other clients. Membership tiers with hidden hourly minimums. We don&rsquo;t do any of it.
-          </Reveal>
-          <Reveal stagger={1} as="p" className="mb-12 max-w-[68ch] text-[18px] leading-[1.55] text-bone-2">
-            The senior dispatcher model is older, slower in the wrong ways, faster in the right
-            ones. It&rsquo;s how charter has worked at the high end since the 1970s. It still works.
-          </Reveal>
-
-          {/* tabIndex + role: keyboard users must be able to scroll this. */}
-          <div className="overflow-x-auto" tabIndex={0} role="region" aria-label="Charter model comparison">
-            <table className="w-full min-w-[700px] border-collapse text-left">
+      {/* Comparison */}
+      <section className="container-jn section-jn max-md:pt-20">
+        <p className="eyebrow">Comparison</p>
+        <h2 className="title-section max-w-[24ch]">Why a phone call beats an app.</h2>
+        <div className="card mt-8 overflow-hidden">
+          {/* tabIndex + role: keyboard users must be able to scroll this on phones. */}
+          <div
+            className="overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+            tabIndex={0}
+            role="region"
+            aria-label="Charter model comparison"
+          >
+            <table className="table-jn min-w-[640px] [&_td]:px-6 [&_th]:px-6">
               <thead>
                 <tr>
-                  {["", "App / marketplace", "JetNine"].map((h, i) => (
-                    <th
-                      key={h || i}
-                      className={[
-                        "border-b border-ink-3 px-6 py-5 font-mono text-[10px] uppercase tracking-[0.16em]",
-                        i === 2 ? "text-clearance" : "text-bone-2",
-                      ].join(" ")}
-                    >
-                      {h}
-                    </th>
-                  ))}
+                  <th scope="col">
+                    <span className="sr-only">What we compared</span>
+                  </th>
+                  <th scope="col">App / marketplace</th>
+                  <th scope="col" className="text-clearance">
+                    JetNine
+                  </th>
                 </tr>
               </thead>
               <tbody>
                 {VS_ROWS.map((r) => (
-                  <tr key={r.row} className="border-b border-ink-3">
-                    <td className="px-6 py-5 font-mono text-[11px] uppercase tracking-[0.08em] text-bone-2">
+                  <tr key={r.row}>
+                    <th scope="row" className="border-b border-line-faint py-4 text-[15px] font-normal text-bone-2">
                       {r.row}
-                    </td>
-                    <td className="px-6 py-5 text-[14px] leading-[1.55] text-bone-2">{r.app}</td>
-                    <td className="px-6 py-5 text-[14px] leading-[1.55] text-bone">{r.jn}</td>
+                    </th>
+                    <td className="text-steel">{r.app}</td>
+                    <td>{r.jn}</td>
                   </tr>
                 ))}
               </tbody>
@@ -334,147 +233,36 @@ export default function HowItWorksPage() {
         </div>
       </section>
 
-      {/* ─── Pricing example ─── */}
-      <section className="border-t border-ink-3 py-32 max-md:py-20">
-        <div className="container-jn">
-          <div className="mb-16 grid items-end gap-12 lg:grid-cols-[1fr_1.6fr]">
-            <Reveal>
-              <p className="caption">— Pricing</p>
-            </Reveal>
-            <div>
-              <Reveal as="h2" stagger={1} className="display-m max-w-[22ch]">
-                All-in. Locked at acceptance.
-              </Reveal>
-              <Reveal as="p" stagger={2} className="mt-6 max-w-[62ch] text-[18px] leading-[1.55] text-bone-2">
-                Every quote is the all-in number. Fuel, FET, repositioning, crew, catering, ground
-                transport — already inside. You won&rsquo;t see surprise lines on the final invoice.
-                Below: an example midsize round-trip, broken down line by line.
-              </Reveal>
-            </div>
-          </div>
-
-          <Reveal stagger={1} className="rounded-[4px] border border-ink-3 bg-ink-2 p-10 sm:p-14">
-            <ul className="divide-y divide-ink-3">
-              {PRICE_STACK.map((p) => (
-                <li
-                  key={p.n}
-                  className="grid grid-cols-[auto_1fr_auto] items-baseline gap-6 py-5"
-                >
-                  <span className="font-mono text-[11px] uppercase tracking-[0.14em] text-clearance">
-                    {p.n}
-                  </span>
-                  <div>
-                    <div className="font-mono text-[11px] uppercase tracking-[0.14em] text-bone">
-                      {p.label}
-                    </div>
-                    <div className="mt-1 text-[13px] leading-[1.5] text-bone-2">{p.desc}</div>
-                  </div>
-                  <span className="font-mono text-[14px] tracking-[0.04em] text-bone">{p.val}</span>
-                </li>
-              ))}
-              <li className="grid grid-cols-[auto_1fr_auto] items-baseline gap-6 border-t-2 border-clearance py-6">
-                <span className="font-mono text-[11px] uppercase tracking-[0.14em] text-clearance">
-                  Σ
-                </span>
-                <span className="font-serif text-[26px] font-normal leading-tight text-bone">
-                  All-in
-                </span>
-                <span
-                  className="font-serif text-[36px] font-light leading-none tracking-tight text-bone"
-                  style={{ letterSpacing: "-0.01em" }}
-                >
-                  {PRICE_STACK_TOTAL}
-                </span>
-              </li>
-            </ul>
-            <p className="mt-8 max-w-[68ch] rounded-[2px] border border-ink-3 bg-ink p-6 text-[14px] leading-[1.6] text-bone-2">
-              <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-clearance">
-                — Note
-              </span>
-              {" "}
-              <br />
-              <strong className="font-medium text-bone">
-                No memberships, no hourly minimums, no annual fees.
-              </strong>{" "}
-              Pay per flight. The price you accept is the price you pay — even if jet-fuel spikes
-              between acceptance and departure, your number is locked.
-            </p>
-          </Reveal>
+      {/* Our promises */}
+      <section className="container-jn section-jn max-md:pt-20">
+        <p className="eyebrow">Our promises</p>
+        <h2 className="title-section max-w-[22ch]">Three things we commit to in writing.</h2>
+        <div className="mt-8 grid grid-cols-1 gap-4 md:grid-cols-3">
+          {PROMISES.map((p) => (
+            <article key={p.num} className="card p-7 max-md:p-5">
+              <p className="text-[13px] font-semibold text-gold">{p.num}</p>
+              <h3 className="title-card-sm mt-3">{p.title}</h3>
+              <p className="mt-[10px] text-bone-2">{p.body}</p>
+            </article>
+          ))}
         </div>
       </section>
 
-      {/* ─── The promises ─── */}
-      <section className="border-t border-ink-3 py-32 max-md:py-20">
-        <div className="container-jn">
-          <div className="mb-16 grid items-end gap-12 lg:grid-cols-[1fr_1.6fr]">
-            <Reveal>
-              <p className="caption">— Our promises</p>
-            </Reveal>
-            <Reveal as="h2" stagger={1} className="display-m max-w-[22ch]">
-              Three things we commit to in writing.
-            </Reveal>
-          </div>
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-            {PROMISES.map((p, i) => (
-              <Reveal
-                key={p.num}
-                stagger={(i as 0 | 1 | 2)}
-                className="rounded-[4px] border border-ink-3 bg-ink-2 p-10"
-              >
-                <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-clearance">
-                  — {p.num}
-                </span>
-                <h3 className="mt-6 font-serif text-[22px] font-normal leading-[1.25] tracking-tight text-bone">
-                  {p.title}
-                </h3>
-                <p className="mt-4 text-[15px] leading-[1.6] text-bone-2">{p.body}</p>
-              </Reveal>
-            ))}
-          </div>
-        </div>
+      {/* FAQ */}
+      <section className="container-jn section-jn max-md:pt-20">
+        <p className="eyebrow">FAQ</p>
+        <h2 className="title-section max-w-[24ch]">The questions most clients ask first.</h2>
+        <FaqAccordion items={FAQ} className="mt-8 max-w-[820px]" />
       </section>
 
-      {/* ─── FAQ ─── */}
-      <section className="border-t border-ink-3 py-32 max-md:py-20">
-        <div className="container-jn">
-          <div className="mb-16 grid items-end gap-12 lg:grid-cols-[1fr_1.6fr]">
-            <Reveal>
-              <p className="caption">— FAQ</p>
-            </Reveal>
-            <Reveal as="h2" stagger={1} className="display-m max-w-[24ch]">
-              The questions most clients ask first.
-            </Reveal>
-          </div>
-          <div className="mx-auto max-w-[78ch] divide-y divide-ink-3 border-y border-ink-3">
-            {FAQ.map((f, i) => (
-              <details key={f.q} className="group py-6">
-                <summary className="flex cursor-pointer list-none items-start justify-between gap-6">
-                  <h3 className="font-serif text-[20px] font-normal leading-[1.3] tracking-tight text-bone transition-colors group-hover:text-clearance">
-                    <span className="mr-3 font-mono text-[11px] tracking-[0.14em] text-clearance">
-                      {String(i + 1).padStart(2, "0")}
-                    </span>
-                    {f.q}
-                  </h3>
-                  <span className="font-mono text-[14px] text-clearance transition-transform duration-200 group-open:rotate-45">
-                    +
-                  </span>
-                </summary>
-                <p className="mt-4 max-w-[72ch] pl-9 text-[15px] leading-[1.7] text-bone-2">
-                  {f.a}
-                </p>
-              </details>
-            ))}
-          </div>
-        </div>
-      </section>
+      <div className="section-jn max-md:pt-20">
+        <GuideGate context="how-it-works" />
+      </div>
 
-      <GuideGate context="how-it-works" />
-
-      <QuoteLauncher context="how-it-works" />
-
-      <ClosingCTA
-        heading="One number. One conversation. One number on the invoice."
+      <CtaBand
+        title="One number. One conversation. One number on the invoice."
         body="Tell us the route. We'll get you in the air."
+        primary={{ label: "Request a quote", href: "/quote/mission" }}
         secondary={{
           label: `Call dispatch · ${SITE.dispatchPhone}`,
           href: `tel:${SITE.dispatchPhoneE164}`,

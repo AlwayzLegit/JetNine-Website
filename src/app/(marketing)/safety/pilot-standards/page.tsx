@@ -1,13 +1,13 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { pageMetadata } from "@/lib/page-meta";
-import { PageHeader } from "@/components/page-header";
-import { ClosingCTA } from "@/components/closing-cta";
-import { Reveal } from "@/components/reveal";
+import { PageHero } from "@/components/page-hero";
+import { CtaBand } from "@/components/cta-band";
+import { SITE } from "@/lib/constants";
 
-// Safety cluster subpage — expands the pilot-qualification line of the
-// /safety floor (item 03) into a standalone page. All minimums quoted
-// here are the pillar's own published numbers.
+// Safety cluster subpage — expands the pilot line of the /safety floor
+// into a standalone page. All minimums quoted here are the pillar's own
+// published numbers.
 export const metadata: Metadata = pageMetadata({
   title: "Private Jet Pilot Standards — Crew Minimums",
   description:
@@ -18,27 +18,27 @@ export const metadata: Metadata = pageMetadata({
 const STANDARDS = [
   {
     num: "01",
-    k: "TWO PILOTS, ALWAYS",
+    k: "Two pilots, always",
     h: "Two ATP-rated pilots, in-type, on every flight.",
     p: "The Airline Transport Pilot certificate is the FAA's highest — the same license the airlines require of a captain. Both seats on a JetNine flight hold one, and both pilots are rated on the specific aircraft type they're flying, not just the class.",
   },
   {
     num: "02",
-    k: "HOURS FLOOR",
-    h: "3,500 hours minimum for the pilot-in-command. 1,500 in-type.",
-    p: "The second-in-command holds a 2,500-hour minimum. For context, an airline first officer can be hired at 1,500 total hours — our SIC floor exceeds it, and our PIC floor more than doubles it. Preferred operators field PICs above 5,000 hours.",
+    k: "Hours floor",
+    h: "3,500 hours minimum for the captain. 1,500 in-type.",
+    p: "The co-pilot holds a 2,500-hour minimum. For context, an airline first officer can be hired at 1,500 total hours — our co-pilot floor exceeds it, and our captain floor more than doubles it. Preferred operators field captains above 5,000 hours.",
   },
   {
     num: "03",
-    k: "CURRENCY",
+    k: "Currency",
     h: "Both pilots current on the aircraft within 90 days.",
     p: "Currency is checked at the operator level during the annual audit and again at the trip level before every booking — along with duty-time limits, so a crew that's legal on paper but fatigued in practice doesn't fly.",
   },
   {
     num: "04",
-    k: "NO CARVE-OUTS",
-    h: "No exceptions for daylight, short-leg, or VFR conditions.",
-    p: "Minimums that flex with the weather aren't minimums. A twenty-minute repositioning hop in clear skies is crewed to the same standard as a transatlantic night crossing — and legs over 8 hours block-time get an augmented crew on preferred operators.",
+    k: "No carve-outs",
+    h: "No exceptions for daylight, short-leg, or clear-weather conditions.",
+    p: "Minimums that flex with the weather aren't minimums. A twenty-minute repositioning hop in clear skies is crewed to the same standard as a transatlantic night crossing — and legs over 8 hours get an extra crew member on preferred operators.",
   },
 ];
 
@@ -53,7 +53,7 @@ const FAQ = [
   },
   {
     q: "Do these standards apply to empty legs too?",
-    a: "Yes. An empty leg is the same airframe, the same operator, and the same crew standard as a full-price charter — the discount comes from the repositioning economics, never from the safety floor.",
+    a: "Yes. An empty leg is the same aircraft, the same operator, and the same crew standard as a full-price charter — the discount comes from the repositioning economics, never from the safety floor.",
   },
 ];
 
@@ -90,74 +90,58 @@ export default function PilotStandardsPage() {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }}
       />
 
-      <PageHeader
-        kicker="Safety · pilot standards"
+      <PageHero
+        eyebrow="Safety · pilot standards"
         title="Who's flying you, exactly."
         lead="Aircraft get the photographs; crews decide the outcome. These are the pilot minimums behind every JetNine flight — written, audited annually, and re-checked before each booking."
       />
 
-      <section className="py-32 max-md:py-20">
-        <div className="container-jn">
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            {STANDARDS.map((c, i) => (
-              <Reveal
-                key={c.num}
-                stagger={(i % 3) as 0 | 1 | 2}
-                className="rounded-[4px] border border-ink-3 bg-ink-2 p-10"
-              >
-                <div className="mb-6 flex items-baseline gap-4">
-                  <span className="font-mono text-[42px] font-light leading-none text-clearance">
-                    {c.num}
-                  </span>
-                  <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-bone-2">
-                    — {c.k}
-                  </span>
-                </div>
-                <h2 className="font-serif text-[22px] font-normal leading-[1.25] tracking-tight text-bone">
-                  {c.h}
-                </h2>
-                <p className="mt-3 text-[15px] leading-[1.6] text-bone-2">{c.p}</p>
-              </Reveal>
-            ))}
-          </div>
-          <p className="mt-10 max-w-[70ch] text-[15px] leading-[1.6] text-bone-2">
-            Pilot qualification is one line of a seven-part floor — certification, audit standing,
-            insurance, maintenance, safety record, and operator stability are published on the{" "}
-            <Link href="/safety" className="text-clearance">
-              safety standards page
-            </Link>
-            , and the process that enforces them is on{" "}
-            <Link href="/safety/operator-vetting" className="text-clearance">
-              operator vetting
-            </Link>
-            .
-          </p>
+      <section className="container-jn pt-12">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          {STANDARDS.map((c) => (
+            <div key={c.num} className="card card-pad">
+              <div className="mb-5 flex items-baseline gap-4">
+                <span className="font-serif text-[42px] font-light leading-none text-clearance">
+                  {c.num}
+                </span>
+                <span className="label-jn">{c.k}</span>
+              </div>
+              <h2 className="title-card-sm text-bone">{c.h}</h2>
+              <p className="mt-3 text-[15px] leading-[1.6] text-bone-2">{c.p}</p>
+            </div>
+          ))}
+        </div>
+        <p className="mt-8 max-w-[70ch] text-[16px] leading-[1.6] text-bone-2">
+          Pilot qualification is one line of a seven-part floor — certification, audit standing,
+          insurance, maintenance, safety record, and operator stability are published on the{" "}
+          <Link href="/safety" className="text-link-strong">
+            safety standards page
+          </Link>
+          , and the process that enforces them is on{" "}
+          <Link href="/safety/operator-vetting" className="text-link-strong">
+            operator vetting
+          </Link>
+          .
+        </p>
+      </section>
+
+      <section className="container-jn section-jn max-md:pt-20">
+        <h2 className="eyebrow">Asked about crews</h2>
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+          {FAQ.map((f) => (
+            <div key={f.q} className="card card-pad">
+              <h3 className="title-card-sm text-bone">{f.q}</h3>
+              <p className="mt-3 text-[15px] leading-[1.6] text-bone-2">{f.a}</p>
+            </div>
+          ))}
         </div>
       </section>
 
-      <section className="border-t border-ink-3 bg-ink-2 py-32 max-md:py-20">
-        <div className="container-jn">
-          <div className="mb-14">
-            <Reveal>
-              <p className="caption mb-6">— Asked about crews</p>
-            </Reveal>
-          </div>
-          <div className="grid grid-cols-1 gap-x-12 gap-y-10 md:grid-cols-3">
-            {FAQ.map((f) => (
-              <Reveal key={f.q} className="border-t border-ink-3 pt-6">
-                <h3 className="font-serif text-[19px] font-normal leading-[1.3] tracking-tight text-bone">
-                  {f.q}
-                </h3>
-                <p className="mt-3 text-[15px] leading-[1.6] text-bone-2">{f.a}</p>
-              </Reveal>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      <ClosingCTA
-        heading="The crew standard rides on every quote."
-        body="Price a mission — the airframes that come back already meet everything on this page."
+      <CtaBand
+        title="The crew standard rides on every quote."
+        body="Price a trip — the aircraft that come back already meet everything on this page."
+        primary={{ label: "Request a quote", href: "/quote/mission" }}
+        secondary={{ label: "Call dispatch", href: `tel:${SITE.dispatchPhoneE164}` }}
       />
     </>
   );

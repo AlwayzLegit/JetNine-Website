@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { pageMetadata } from "@/lib/page-meta";
-import { Reveal } from "@/components/reveal";
 import { GuideShell } from "@/components/guide/guide-shell";
 import { getGuideChapter } from "@/lib/guides";
 
@@ -51,53 +50,51 @@ export default function OneWayVsRoundTripPage() {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }}
       />
 
-      <section className="py-24 max-md:py-16">
+      <section className="section-jn">
         <div className="container-jn">
-          <Reveal>
-            <p className="caption mb-6">— The mechanics</p>
-          </Reveal>
-          <Reveal as="h2" stagger={1} className="display-m max-w-[26ch]">
+          <p className="eyebrow">The mechanics</p>
+          <h2 className="title-section max-w-[26ch]">
             The aircraft always flies both directions. The question is who&rsquo;s aboard.
-          </Reveal>
-          <div className="mt-12 grid grid-cols-1 gap-4 md:grid-cols-3">
+          </h2>
+          <div className="mt-8 grid grid-cols-1 gap-4 md:grid-cols-3">
             {[
               {
                 n: "01",
-                k: "ROUND TRIP",
+                k: "Round trip",
                 h: "You buy both directions.",
-                p: "The airframe stays with you (or returns for you), so every flown hour is a billed hour with you aboard. Per hour it's the most efficient way to buy the aircraft — which is why a round trip never costs double a one-way.",
+                p: "The aircraft stays with you (or returns for you), so every flown hour is a billed hour with you aboard. Per hour it's the most efficient way to buy the aircraft — which is why a round trip never costs double a one-way.",
               },
               {
                 n: "02",
-                k: "ONE WAY",
+                k: "One way",
                 h: "You buy one direction plus the operator's problem.",
                 p: "After drop-off, the aircraft ferries home or toward its next mission. Your quote carries a share of that repositioning — smaller when you're flying into a busy charter market where the return leg is easy to resell, larger when you're flying somewhere aircraft rarely start from.",
               },
               {
                 n: "03",
-                k: "EMPTY LEG",
+                k: "Empty leg",
                 h: "You buy someone else's repositioning.",
                 p: "The mirror image of a one-way premium: that ferry flight goes on sale at 30–60% off. Date-locked and route-locked — but if your plans bend, it's the cheapest whole-aircraft flying there is.",
               },
-            ].map((c, i) => (
-              <Reveal key={c.n} stagger={(i % 3) as 0 | 1 | 2} className="rounded-[4px] border border-ink-3 bg-ink-2 p-10">
-                <div className="mb-6 flex items-baseline gap-4">
-                  <span className="font-mono text-[42px] font-light leading-none text-clearance">{c.n}</span>
-                  <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-bone-2">— {c.k}</span>
+            ].map((c) => (
+              <div key={c.n} className="card card-pad max-md:p-5">
+                <div className="mb-5 flex items-baseline gap-4">
+                  <span className="font-serif text-[48px] font-light leading-none text-clearance">{c.n}</span>
+                  <span className="label-jn">{c.k}</span>
                 </div>
-                <h3 className="font-serif text-[22px] font-normal leading-[1.25] tracking-tight text-bone">{c.h}</h3>
-                <p className="mt-3 text-[15px] leading-[1.6] text-bone-2">{c.p}</p>
-              </Reveal>
+                <h3 className="title-card-sm text-bone">{c.h}</h3>
+                <p className="mt-3 text-[16px] leading-[1.6] text-bone-2">{c.p}</p>
+              </div>
             ))}
           </div>
-          <p className="mt-10 max-w-[68ch] text-[15px] leading-[1.6] text-bone-2">
+          <p className="mt-8 max-w-[68ch] text-[16px] leading-[1.6] text-bone-2">
             Practical upshot: quote the round trip whenever your dates are firm, quote one-ways when
             they aren&rsquo;t, and put a{" "}
-            <Link href="/empty-legs" className="text-clearance">
+            <Link href="/empty-legs" className="text-link-strong">
               watchlist
             </Link>{" "}
             on whichever direction can flex. The wizard prices all three patterns —{" "}
-            <Link href="/quote/mission" className="text-clearance">
+            <Link href="/quote/mission" className="text-link-strong">
               run your route
             </Link>{" "}
             both ways and compare; it takes about ninety seconds each.
@@ -105,19 +102,15 @@ export default function OneWayVsRoundTripPage() {
         </div>
       </section>
 
-      <section className="border-t border-ink-3 bg-ink-2 py-24 max-md:py-16">
+      <section className="section-jn">
         <div className="container-jn">
-          <Reveal>
-            <p className="caption mb-10">— Asked about directions</p>
-          </Reveal>
-          <div className="grid grid-cols-1 gap-x-12 gap-y-10 md:grid-cols-3">
+          <h2 className="title-section max-w-[24ch]">Asked about directions.</h2>
+          <div className="mt-8 grid grid-cols-1 gap-4 md:grid-cols-3">
             {FAQ.map((f) => (
-              <Reveal key={f.q} className="border-t border-ink-3 pt-6">
-                <h3 className="font-serif text-[19px] font-normal leading-[1.3] tracking-tight text-bone">
-                  {f.q}
-                </h3>
-                <p className="mt-3 text-[15px] leading-[1.6] text-bone-2">{f.a}</p>
-              </Reveal>
+              <div key={f.q} className="card card-pad max-md:p-5">
+                <h3 className="title-card-sm text-bone">{f.q}</h3>
+                <p className="mt-3 text-[16px] leading-[1.6] text-bone-2">{f.a}</p>
+              </div>
             ))}
           </div>
         </div>

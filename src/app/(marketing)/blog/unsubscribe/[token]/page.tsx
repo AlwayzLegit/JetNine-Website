@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
-import { Reveal } from "@/components/reveal";
-import { BlogUnsubscribeCard } from "../unsubscribe-card";
+import { BlogUnsubscribeCard } from "@/components/blog/unsubscribe-card";
+import { BlogTokenPageShell } from "@/components/blog/token-page-shell";
 
 // Reading only. The unsubscribe itself is a POST from the card, so a
 // scanner walking the email cannot unsubscribe the reader — the header
@@ -25,22 +25,11 @@ export default async function BlogUnsubscribePage({
   const { token } = await params;
 
   return (
-    <>
-      <header className="border-b border-ink-3 bg-ink pt-[200px] pb-16 max-md:pt-[140px] max-md:pb-12">
-        <div className="container-jn">
-          <Reveal className="mb-6 inline-flex items-center gap-3 font-mono text-[11px] uppercase tracking-[0.16em] text-bone-2">
-            <span className="block h-px w-8 bg-clearance" />
-            Blog · weekly digest
-          </Reveal>
-        </div>
-      </header>
-      <section className="py-20 max-md:py-14">
-        <div className="container-jn">
-          <div className="mx-auto max-w-[720px]">
-            <BlogUnsubscribeCard token={token} />
-          </div>
-        </div>
-      </section>
-    </>
+    <BlogTokenPageShell
+      title="Stop the digest."
+      lead="This only stops the emails. The blog stays open to you."
+    >
+      <BlogUnsubscribeCard token={token} />
+    </BlogTokenPageShell>
   );
 }

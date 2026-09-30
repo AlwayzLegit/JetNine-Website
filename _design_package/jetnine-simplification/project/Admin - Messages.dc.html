@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#07080A;color:#F4F1EA;font-family:'Instrument Sans',system-ui,sans-serif;font-size:15px;line-height:1.5;-webkit-font-smoothing:antialiased}
+a{color:inherit;text-decoration:none}a:hover{color:#fff}
+*{box-sizing:border-box;scrollbar-width:thin;scrollbar-color:#2C323B transparent}
+::-webkit-scrollbar{width:8px;height:8px}::-webkit-scrollbar-thumb{background:#2C323B;border-radius:4px}::-webkit-scrollbar-track{background:transparent}
+input::placeholder,textarea::placeholder{color:#8A9099}
+</style>
+</helmet>
+<div data-screen-label="Admin — Messages" style="display:grid;grid-template-columns:220px minmax(0,1fr);min-height:100vh;min-width:1180px;background:#07080A;color:#F4F1EA">
+
+<aside style="position:sticky;top:0;height:100vh;display:flex;flex-direction:column;padding:20px 14px;background:#0A0C10;border-right:1px solid #161A20">
+  <a href="Home.dc.html" style="display:flex;align-items:center;gap:10px;padding:6px 10px 22px"><img src="public/images/brand/wordmark-bone.webp" alt="JetNine" style="height:30px;width:auto;display:block"><span style="font-size:12px;color:#8A9099;border:1px solid #232830;border-radius:4px;padding:1px 6px">Team</span></a>
+  <nav aria-label="Sections" style="display:flex;flex-direction:column;gap:2px;font-size:15px">
+    <a href="Admin - Requests.dc.html" style="display:flex;align-items:center;justify-content:space-between;height:40px;padding:0 12px;border-radius:8px;color:#C9C4B8">Requests <span style="min-width:22px;height:22px;padding:0 7px;border-radius:11px;background:#C9A24A;color:#07080A;font-size:12px;font-weight:600;display:flex;align-items:center;justify-content:center">2</span></a>
+    <a href="Admin - Trips.dc.html" style="display:flex;align-items:center;height:40px;padding:0 12px;border-radius:8px;color:#C9C4B8">Trips</a>
+    <a href="Admin - Clients.dc.html" style="display:flex;align-items:center;height:40px;padding:0 12px;border-radius:8px;color:#C9C4B8">Clients</a>
+    <a href="Admin - Messages.dc.html" aria-current="page" style="display:flex;align-items:center;justify-content:space-between;height:40px;padding:0 12px;border-radius:8px;background:#161A20;color:#F4F1EA;font-weight:500">Messages <span style="min-width:22px;height:22px;padding:0 7px;border-radius:11px;border:1px solid #2C323B;font-size:12px;display:flex;align-items:center;justify-content:center;color:#F4F1EA">1</span></a>
+    <a href="Admin - Settings.dc.html" style="display:flex;align-items:center;height:40px;padding:0 12px;border-radius:8px;color:#C9C4B8">Settings</a>
+  </nav>
+  <a href="#" style="margin-top:16px;display:flex;align-items:center;gap:8px;height:40px;padding:0 12px;border-radius:8px;border:1px solid #232830;color:#C9C4B8;font-size:14px">Open Avinode <span aria-hidden="true">↗</span></a>
+  <div style="margin-top:auto;padding:0 10px;display:flex;align-items:center;gap:10px"><span style="width:32px;height:32px;border-radius:50%;background:#161A20;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;color:#E8E2D2">A</span><div style="font-size:14px;line-height:1.3">Alex<br><a href="#" style="color:#8A9099">Sign out</a></div></div>
+</aside>
+
+<main style="display:grid;grid-template-columns:380px minmax(0,1fr);height:100vh;overflow:hidden">
+  <section style="border-right:1px solid #161A20;display:flex;flex-direction:column;min-height:0">
+    <div style="padding:28px 24px 0">
+      <h1 style="margin:0;font-family:Fraunces,serif;font-weight:300;font-size:36px;line-height:1.1;letter-spacing:-.01em">Messages</h1>
+      <p style="margin:6px 0 0;font-size:14px;color:#C9C4B8">Texts, emails and call notes, one thread per client.</p>
+      <label style="margin-top:16px;display:flex;align-items:center;gap:8px;height:44px;padding:0 14px;border-radius:8px;background:#0E1014;border:1px solid #232830"><span aria-hidden="true" style="color:#8A9099">⌕</span><input type="search" placeholder="Search a name" style="flex:1;background:transparent;border:none;outline:none;color:#F4F1EA;font:15px 'Instrument Sans',sans-serif"></label>
+      <div role="tablist" style="margin-top:12px;display:flex;gap:4px;border-bottom:1px solid #232830">
+        <sc-for list="{{ tabs }}" as="t" hint-placeholder-count="3"><button type="button" role="tab" onClick="{{ t.select }}" style="cursor:pointer;border:none;background:transparent;padding:10px 12px;font:500 14px 'Instrument Sans',sans-serif;color:{{ t.color }};border-bottom:2px solid {{ t.underline }};margin-bottom:-1px">{{ t.label }}</button></sc-for>
+      </div>
+    </div>
+    <div style="flex:1;overflow:auto;padding:8px 12px 24px">
+      <sc-for list="{{ threads }}" as="t" hint-placeholder-count="5">
+        <button type="button" onClick="{{ t.select }}" style="width:100%;display:grid;grid-template-columns:40px minmax(0,1fr) auto;gap:12px;align-items:start;padding:14px 12px;border:none;border-radius:10px;background:{{ t.bg }};color:#F4F1EA;text-align:left;cursor:pointer;font-family:'Instrument Sans',sans-serif">
+          <span style="width:40px;height:40px;border-radius:50%;background:#161A20;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:600;color:#E8E2D2">{{ t.initial }}</span>
+          <span style="min-width:0"><span style="display:flex;align-items:center;gap:8px"><span style="font-size:16px;font-weight:{{ t.weight }}">{{ t.name }}</span><sc-if value="{{ t.unread }}" hint-placeholder-val="{{ false }}"><span style="width:8px;height:8px;border-radius:50%;background:#C9A24A"></span></sc-if></span><span style="display:block;font-size:14px;color:#8A9099;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ t.context }}</span><span style="display:block;margin-top:2px;font-size:14px;color:{{ t.previewColor }};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ t.preview }}</span></span>
+          <span style="font-size:13px;color:#8A9099;white-space:nowrap">{{ t.when }}</span>
+        </button>
+      </sc-for>
+    </div>
+  </section>
+
+  <section style="display:flex;flex-direction:column;min-height:0">
+    <header style="display:flex;align-items:center;justify-content:space-between;gap:16px;padding:20px 32px;border-bottom:1px solid #161A20">
+      <div><div style="font-size:20px;font-weight:500">{{ active.name }}</div><div style="font-size:14px;color:#8A9099">{{ active.context }} · <a href="Admin - Request.dc.html" style="color:#C9C4B8;text-decoration:underline;text-underline-offset:3px">{{ active.linkLabel }}</a></div></div>
+      <div style="display:flex;gap:8px"><a href="#" style="display:inline-flex;align-items:center;height:40px;padding:0 16px;border-radius:8px;border:1px solid #2C323B;font-weight:500;font-size:14px">Call</a><a href="Admin - Clients.dc.html" style="display:inline-flex;align-items:center;height:40px;padding:0 16px;border-radius:8px;border:1px solid #2C323B;font-weight:500;font-size:14px">Client page</a></div>
+    </header>
+    <div style="flex:1;overflow:auto;padding:24px 32px;display:flex;flex-direction:column;gap:14px">
+      <sc-for list="{{ active.msgs }}" as="m" hint-placeholder-count="5">
+        <div style="display:flex;flex-direction:column;align-items:{{ m.align }}">
+          <div style="max-width:70%;padding:12px 16px;border-radius:{{ m.radius }};background:{{ m.bg }};border:1px solid {{ m.border }};color:{{ m.color }};font-size:15px;line-height:1.5;white-space:pre-line">{{ m.text }}</div>
+          <div style="margin-top:4px;font-size:13px;color:#8A9099">{{ m.meta }}</div>
+        </div>
+      </sc-for>
+    </div>
+    <footer style="padding:16px 32px 24px;border-top:1px solid #161A20">
+      <div style="display:flex;gap:6px;margin-bottom:10px"><sc-for list="{{ channels }}" as="c" hint-placeholder-count="3"><button type="button" onClick="{{ c.select }}" style="cursor:pointer;height:32px;padding:0 12px;border-radius:999px;border:1px solid #2C323B;background:{{ c.bg }};color:{{ c.fg }};font:500 13px 'Instrument Sans',sans-serif">{{ c.label }}</button></sc-for><span style="margin-left:auto;font-size:13px;color:#8A9099;align-self:center">{{ channelHint }}</span></div>
+      <div style="display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:end">
+        <textarea rows="2" placeholder="{{ placeholder }}" style="width:100%;resize:none;background:#0E1014;border:1px solid #232830;border-radius:10px;padding:12px 14px;color:#F4F1EA;font:15px/1.5 'Instrument Sans',sans-serif;outline:none"></textarea>
+        <button type="button" style="height:48px;padding:0 20px;border-radius:8px;border:none;background:#E8E2D2;color:#07080A;font:500 15px 'Instrument Sans',sans-serif;cursor:pointer">Send</button>
+      </div>
+      <div style="margin-top:10px;display:flex;gap:6px;flex-wrap:wrap;align-items:center"><span style="font-size:13px;color:#8A9099">Quick replies:</span><sc-for list="{{ quick }}" as="q" hint-placeholder-count="4"><button type="button" style="cursor:pointer;height:30px;padding:0 10px;border-radius:999px;border:1px solid #2C323B;background:transparent;color:#C9C4B8;font:13px 'Instrument Sans',sans-serif">{{ q }}</button></sc-for></div>
+    </footer>
+  </section>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = { tab: "all", active: 0, channel: "text" };
+  renderVals() {
+    const s = this.state;
+    const IN = { align: "flex-start", radius: "12px 12px 12px 4px", bg: "#0E1014", border: "#232830", color: "#F4F1EA" };
+    const OUT = { align: "flex-end", radius: "12px 12px 4px 12px", bg: "#E8E2D2", border: "#E8E2D2", color: "#07080A" };
+    const NOTE = { align: "stretch", radius: "8px", bg: "rgba(201,162,74,.08)", border: "rgba(201,162,74,.4)", color: "#C9C4B8" };
+    const threads = [
+      { name: "Dana Whitfield", context: "Los Angeles → Aspen · Oct 3–5", linkLabel: "Open request", unread: true, when: "10 min", preview: "Can we leave a bit earlier on the 3rd if possible?", type: "client", msgs: [
+        { ...OUT, text: "Hi Dana — got your request for Aspen, Oct 3–5, 4 passengers. Working on options now, you'll have them within 30 minutes.", meta: "You · text · 12 min ago" },
+        { ...IN, text: "Can we leave a bit earlier on the 3rd if possible?", meta: "Dana · text · 10 min ago" },
+        { ...NOTE, text: "Internal note: repeat client, offer the XLS she flew in June.", meta: "Alex · note · 9 min ago" },
+      ]},
+      { name: "Tom Okafor", context: "San Francisco → Sun Valley · Oct 18–21", linkLabel: "Open request", unread: false, when: "Yesterday", preview: "You: Three options are ready — have a look when you get a moment.", type: "client", msgs: [
+        { ...OUT, text: "Three options are ready — have a look when you get a moment: jetnine.com/options/0138", meta: "You · email + text · yesterday 3:12 PM" },
+        { ...NOTE, text: "Opened the link twice, no reply yet. Nudge tomorrow if still quiet.", meta: "Alex · note · yesterday 6:40 PM" },
+      ]},
+      { name: "After-hours call · unknown number", context: "New York → London · Oct 15 · 8 passengers", linkLabel: "Open request", unread: false, when: "Sat", preview: "Call summary: wants a heavy jet, flexible on the 15th or 16th…", type: "call", msgs: [
+        { ...IN, text: "Call summary (2 min 40 s): caller wants New York to London on Oct 15 or 16 for 8 passengers, prefers an overnight departure, asked for a price range. Did not leave a name; call back at +1 (646) 555-0170.", meta: "Phone answering · Sat 11:48 PM · listen to recording" },
+        { ...NOTE, text: "Logged as a request. Call back Monday morning.", meta: "System · Sat 11:49 PM" },
+      ]},
+      { name: "Marcus Lee", context: "New York (Teterboro) → West Palm Beach · Oct 8", linkLabel: "Open trip", unread: false, when: "Fri", preview: "You: Deposit invoice attached — due within 3 days to hold the aircraft.", type: "client", msgs: [
+        { ...OUT, text: "Marcus, your Challenger 300 is held for Oct 8. Deposit invoice attached — due within 3 days to keep the aircraft.", meta: "You · email · Fri 1:40 PM" },
+        { ...NOTE, text: "Email bounced once, retried and delivered.", meta: "System · Fri 1:41 PM" },
+      ]},
+      { name: "Elena Rossi", context: "Miami → New York (Teterboro) · today", linkLabel: "Open trip", unread: false, when: "Today", preview: "You: You're on schedule — landing about 4:55 PM, two SUVs waiting.", type: "client", msgs: [
+        { ...IN, text: "Assistant here — is Elena still on time?", meta: "Elena's office · text · 3:02 PM" },
+        { ...OUT, text: "You're on schedule — landing about 4:55 PM, two SUVs waiting at Meridian.", meta: "You · text · 3:04 PM" },
+      ]},
+    ];
+    const tab = s.tab;
+    const list = threads.map((t, i) => ({ ...t, i })).filter(t => tab === "all" || (tab === "unread" && t.unread) || (tab === "calls" && t.type === "call"));
+    const active = threads[s.active];
+    const mk = (key, label) => ({ label, select: () => this.setState({ tab: key }), color: tab === key ? "#F4F1EA" : "#8A9099", underline: tab === key ? "#E8E2D2" : "transparent" });
+    const CH = { text: ["Text", "Goes to the mobile on file", "Text Dana…"], email: ["Email", "Sent from dispatch@jetnine.com", "Write an email…"], note: ["Internal note", "Only the team can see notes", "Add a note for the team…"] };
+    return {
+      tabs: [mk("all", "All"), mk("unread", "Unread · 1"), mk("calls", "Call notes · 1")],
+      threads: list.map(t => ({ ...t, initial: t.type === "call" ? "☎" : t.name[0], bg: t.i === s.active ? "#161A20" : "transparent", weight: t.unread ? 600 : 500, previewColor: t.unread ? "#F4F1EA" : "#8A9099", select: () => this.setState({ active: t.i }) })),
+      active,
+      channels: Object.entries(CH).map(([k, [label]]) => ({ label, select: () => this.setState({ channel: k }), bg: s.channel === k ? "#E8E2D2" : "transparent", fg: s.channel === k ? "#07080A" : "#C9C4B8" })),
+      channelHint: CH[s.channel][1], placeholder: CH[s.channel][2].replace("Dana", active.name.split(" ")[0]),
+      quick: ["Options coming within 30 min", "Aircraft is held for 24 h", "Where to go on the day", "Deposit reminder"],
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#07080A;color:#F4F1EA;font-family:'Instrument Sans',system-ui,sans-serif;font-size:16px;line-height:1.55;-webkit-font-smoothing:antialiased}
+a{color:inherit;text-decoration:none}a:hover{color:#fff}
+*{box-sizing:border-box;scrollbar-width:thin;scrollbar-color:#2C323B transparent}
+::-webkit-scrollbar{width:8px;height:8px}::-webkit-scrollbar-thumb{background:#2C323B;border-radius:4px}::-webkit-scrollbar-track{background:transparent}
+</style>
+</helmet>
+<div data-screen-label="Account — overview" style="background:#07080A;color:#F4F1EA;min-height:100vh;min-width:1280px">
+
+<header style="position:sticky;top:0;z-index:50;background:rgba(7,8,10,.86);backdrop-filter:blur(14px);border-bottom:1px solid #161A20">
+  <div style="max-width:1200px;margin:0 auto;padding:0 40px;height:72px;display:flex;align-items:center;justify-content:space-between;gap:24px">
+    <a href="Home.dc.html" aria-label="JetNine — Home" style="display:flex;align-items:center"><img src="public/images/brand/wordmark-bone.webp" alt="JetNine" style="height:36px;width:auto;display:block"></a>
+    <nav aria-label="Primary" style="display:flex;gap:28px;font-size:15px;color:#C9C4B8"><a href="Aircraft.dc.html">Aircraft</a><a href="Memberships.dc.html">Programs</a><a href="How it works.dc.html">How it works</a><a href="About.dc.html">About</a><a href="Blog.dc.html">Blog</a><a href="Contact.dc.html">Contact</a></nav>
+    <div style="display:flex;align-items:center;gap:20px"><a href="tel:+14244872707" style="font-size:15px;color:#C9C4B8;white-space:nowrap">+1 (424) 487-2707</a><a href="Quote.dc.html" style="display:inline-flex;align-items:center;gap:8px;height:44px;padding:0 20px;border-radius:8px;background:#E8E2D2;color:#07080A;font-weight:500;font-size:15px;white-space:nowrap">Request quote <span aria-hidden="true">→</span></a></div>
+  </div>
+</header>
+
+<main style="max-width:1280px;margin:0 auto;padding:48px 40px 96px;display:grid;grid-template-columns:200px minmax(0,1fr);gap:40px;align-items:start">
+  <nav aria-label="Account" style="position:sticky;top:96px;display:flex;flex-direction:column;gap:2px;font-size:15px">
+    <div style="padding:0 12px 16px"><div style="font-size:13px;font-weight:600;color:#8A9099">Member account</div><div style="margin-top:4px;font-size:17px;font-weight:500">Dana Whitfield</div><div style="font-size:14px;color:#8A9099">dana.w@example.com</div></div>
+    <sc-for list="{{ nav }}" as="n" hint-placeholder-count="7">
+      <a href="#" style="display:flex;flex-direction:column;padding:10px 12px;border-radius:8px;background:{{ n.bg }};color:{{ n.color }}"><span style="font-weight:500">{{ n.label }}</span><span style="font-size:13px;color:#8A9099">{{ n.desc }}</span></a>
+    </sc-for>
+    <a href="Quote.dc.html" style="margin-top:12px;display:flex;align-items:center;justify-content:center;gap:8px;height:44px;border-radius:8px;background:#E8E2D2;color:#07080A;font-weight:500">Request a quote <span aria-hidden="true">→</span></a>
+    <a href="#" style="margin-top:12px;padding:10px 12px;font-size:14px;color:#8A9099">Sign out →</a>
+  </nav>
+
+  <div style="min-width:0">
+    <h1 style="margin:0;font-family:Fraunces,serif;font-weight:300;font-size:44px;line-height:1.1;letter-spacing:-.015em">Welcome back, Dana.</h1>
+    <p style="margin:10px 0 0;font-size:17px;color:#C9C4B8">One trip coming up, one quote in progress, nothing outstanding to pay.</p>
+
+    <div style="margin-top:32px;display:grid;grid-template-columns:minmax(0,1fr) 280px;gap:24px;align-items:start">
+      <div>
+        <div style="font-size:13px;font-weight:600;color:#8A9099">Upcoming trip</div>
+        <article style="margin-top:10px;display:grid;grid-template-columns:minmax(320px,1fr) 160px;gap:24px;background:#0E1014;border:1px solid #232830;border-radius:12px;padding:28px">
+          <div>
+            <h2 style="margin:0;font-family:Fraunces,serif;font-weight:300;font-size:32px;line-height:1.1;letter-spacing:-.01em">Los Angeles → Aspen</h2>
+            <p style="margin:8px 0 0;font-size:17px">Friday, Oct 3 · departs 9:00 AM · about 2 hours</p>
+            <dl style="margin:18px 0 0;display:grid;grid-template-columns:auto 1fr;gap:8px 16px;font-size:15px;line-height:1.5">
+              <dt style="color:#8A9099">Aircraft</dt><dd style="margin:0">Citation XLS · midsize jet · 8 seats</dd>
+              <dt style="color:#8A9099">Where to go</dt><dd style="margin:0">Clay Lacy Aviation, 7435 Valjean Ave, Van Nuys. Arrive 15 minutes before — drive up, someone meets you at the door.</dd>
+              <dt style="color:#8A9099">Passengers</dt><dd style="margin:0">4 · <a href="#" style="color:#C9C4B8;text-decoration:underline;text-underline-offset:3px">add names</a></dd>
+              <dt style="color:#8A9099">Status</dt><dd style="margin:0"><span style="color:#8FB58A">●</span> Confirmed · crew briefed</dd>
+            </dl>
+            <div style="margin-top:20px;display:flex;gap:10px;flex-wrap:wrap"><a href="Your request.dc.html" style="display:inline-flex;align-items:center;height:44px;padding:0 18px;border-radius:8px;border:1px solid #2C323B;font-weight:500;font-size:15px">Trip details</a><a href="#" style="display:inline-flex;align-items:center;height:44px;padding:0 18px;border-radius:8px;border:1px solid #2C323B;font-weight:500;font-size:15px">Add to calendar</a><a href="#" style="display:inline-flex;align-items:center;height:44px;padding:0 18px;border-radius:8px;border:1px solid #2C323B;font-weight:500;font-size:15px">Message dispatch</a></div>
+          </div>
+          <div style="aspect-ratio:1;border-radius:8px;overflow:hidden;background:#161A20"><img src="public/images/fleet/midsize.webp" alt="" style="width:100%;height:100%;object-fit:cover;display:block"></div>
+        </article>
+
+        <div style="margin-top:28px;display:flex;align-items:baseline;justify-content:space-between"><div style="font-size:13px;font-weight:600;color:#8A9099">Quotes · submitted &amp; in progress</div><a href="#" style="font-size:14px;color:#C9C4B8">All quotes →</a></div>
+        <a href="Your request.dc.html" style="margin-top:10px;display:grid;grid-template-columns:1fr auto;gap:16px;align-items:center;background:#0E1014;border:1px solid #232830;border-radius:12px;padding:18px 24px">
+          <div><div style="font-size:17px;font-weight:500">Miami → New York (Teterboro) · Oct 20 · 6 passengers</div><div style="margin-top:4px;font-size:15px;color:#C9C4B8"><span style="color:#C9A24A">●</span> Dispatch is sourcing aircraft — options by 3:40 PM today.</div></div><span style="font-size:15px;color:#C9C4B8">Track →</span>
+        </a>
+
+        <div style="margin-top:28px;display:flex;align-items:baseline;justify-content:space-between"><div style="font-size:13px;font-weight:600;color:#8A9099">Trips · past</div><a href="#" style="font-size:14px;color:#C9C4B8">All trips →</a></div>
+        <div style="margin-top:10px;background:#0E1014;border:1px solid #232830;border-radius:12px;overflow:hidden">
+          <sc-for list="{{ past }}" as="p" hint-placeholder-count="3"><div style="display:grid;grid-template-columns:1fr auto auto;gap:24px;align-items:center;padding:16px 24px;border-bottom:1px solid #161A20;font-size:15px"><div><span style="font-weight:500">{{ p.route }}</span> <span style="color:#8A9099">· {{ p.date }} · {{ p.aircraft }}</span></div><span>{{ p.price }}</span><a href="#" style="color:#C9C4B8;text-decoration:underline;text-underline-offset:3px">Invoice</a></div></sc-for>
+        </div>
+      </div>
+
+      <aside style="display:flex;flex-direction:column;gap:16px">
+        <div style="background:#0E1014;border:1px solid #232830;border-radius:12px;padding:24px">
+          <div style="font-size:13px;font-weight:600;color:#8A9099">Membership</div>
+          <div style="margin-top:8px;font-size:20px;font-weight:500">JetNine Card</div>
+          <div style="margin-top:14px;display:flex;justify-content:space-between;font-size:15px"><span>25 hours left</span><span style="color:#8A9099">of 50</span></div>
+          <div style="margin-top:8px;height:6px;border-radius:3px;background:#161A20;overflow:hidden"><div style="width:50%;height:100%;background:#E8E2D2"></div></div>
+          <div style="margin-top:8px;font-size:14px;color:#8A9099">Renews January 2027</div>
+          <a href="#" style="display:flex;align-items:center;justify-content:center;margin-top:16px;height:44px;border-radius:8px;border:1px solid #2C323B;font-weight:500;font-size:15px">Buy / top up</a>
+        </div>
+        <div style="background:#0E1014;border:1px solid #232830;border-radius:12px;padding:24px">
+          <div style="font-size:13px;font-weight:600;color:#8A9099">Invoices</div>
+          <div style="margin-top:8px;font-size:17px;font-weight:500">Nothing outstanding</div>
+          <div style="margin-top:4px;font-size:14px;color:#C9C4B8">Last paid: $23,100 · Aug 16</div>
+          <a href="#" style="display:inline-block;margin-top:12px;font-size:15px;text-decoration:underline;text-underline-offset:3px">All invoices</a>
+        </div>
+        <div style="background:#0E1014;border:1px solid #232830;border-radius:12px;padding:24px">
+          <div style="font-size:13px;font-weight:600;color:#8A9099">Your dispatcher</div>
+          <div style="margin-top:10px;display:flex;align-items:center;gap:12px"><span style="width:44px;height:44px;border-radius:50%;background:#161A20;display:flex;align-items:center;justify-content:center;font-weight:600;color:#E8E2D2">A</span><div><div style="font-size:17px;font-weight:500">Alex</div><div style="font-size:14px;color:#8FB58A">Dispatch open</div></div></div>
+          <div style="margin-top:16px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px"><a href="tel:+14244872707" style="display:flex;align-items:center;justify-content:center;height:44px;border-radius:8px;border:1px solid #2C323B;font-size:15px;font-weight:500">Call</a><a href="#" style="display:flex;align-items:center;justify-content:center;height:44px;border-radius:8px;border:1px solid #2C323B;font-size:15px;font-weight:500">Text</a><a href="#" style="display:flex;align-items:center;justify-content:center;height:44px;border-radius:8px;border:1px solid #2C323B;font-size:15px;font-weight:500">Email</a></div>
+        </div>
+      </aside>
+    </div>
+  </div>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  renderVals() {
+    const items = [
+      ["Overview", "Everything at a glance", true], ["Quotes", "Submitted & in progress", false], ["Trips", "Past, upcoming, in-flight", false], ["Invoices", "Outstanding & paid", false],
+      ["Membership", "Tier, balance, activity", false], ["Buy / top up", "Card checkout & reserve top-up", false], ["Preferences", "Cabin, catering, ground", false],
+    ];
+    return {
+      nav: items.map(([label, desc, active]) => ({ label, desc, bg: active ? "#161A20" : "transparent", color: active ? "#F4F1EA" : "#C9C4B8" })),
+      past: [
+        { route: "New York → West Palm Beach", date: "Aug 14", aircraft: "Challenger 350", price: "$23,100" },
+        { route: "Los Angeles → Las Vegas", date: "Jun 2", aircraft: "Phenom 300", price: "$9,400" },
+        { route: "Aspen → Los Angeles", date: "Mar 9", aircraft: "Citation XLS", price: "$11,800" },
+      ],
+    };
+  }
+}
+</script>
+</body>
+</html>

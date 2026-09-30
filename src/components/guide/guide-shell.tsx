@@ -1,12 +1,12 @@
 import Link from "next/link";
-import { Reveal } from "@/components/reveal";
-import { ClosingCTA } from "@/components/closing-cta";
+import { CtaBand } from "@/components/cta-band";
 import { QuoteLauncher } from "@/components/quote-launcher";
 import { GUIDE_CHAPTERS, type GuideChapter } from "@/lib/guides";
 import { RATES_UPDATED } from "@/lib/rates";
+import { SITE } from "@/lib/constants";
 
 /**
- * Shared frame for pricing-guide chapters: chapter kicker, H1, byline
+ * Shared frame for pricing-guide chapters: chapter eyebrow, H1, byline
  * with a visible update date (the audited leader's guide hub has neither
  * byline nor dates — cheap E-E-A-T ground to take), Article +
  * BreadcrumbList JSON-LD, chapter content, prev/next navigation, and the
@@ -57,6 +57,13 @@ export function GuideShell({
     ],
   };
 
+  const prevLink = prev
+    ? { href: prev.href, small: `← Chapter ${prev.chapter}`, big: prev.navTitle }
+    : { href: "/guides", small: "← All chapters", big: "The charter pricing guide" };
+  const nextLink = next
+    ? { href: next.href, small: `Chapter ${next.chapter} →`, big: next.navTitle }
+    : { href: "/cost-calculator", small: "Put it to work →", big: "Cost calculator" };
+
   return (
     <>
       <script
@@ -69,86 +76,39 @@ export function GuideShell({
         dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
       />
 
-      <header className="border-b border-ink-3 bg-ink pt-[200px] pb-16 max-md:pt-[140px] max-md:pb-12">
+      <header className="bg-ink pt-[96px] max-md:pt-14">
         <div className="container-jn">
-          <Reveal className="mb-6 flex flex-wrap items-center gap-x-4 gap-y-2 font-mono text-[11px] uppercase tracking-[0.16em] text-bone-2">
-            <span className="block h-px w-8 bg-clearance" />
+          <p className="eyebrow">
             <Link href="/guides" className="transition-colors hover:text-bone">
               The charter pricing guide
             </Link>
-            <span aria-hidden>·</span>
-            <span>
-              Chapter {String(chapter.chapter).padStart(2, "0")} of{" "}
-              {String(GUIDE_CHAPTERS.length).padStart(2, "0")}
-            </span>
-          </Reveal>
-          <Reveal as="h1" stagger={1} className="display-xl max-w-[20ch]">
-            {chapter.title}
-          </Reveal>
-          <Reveal as="p" stagger={2} className="mt-8 max-w-[62ch] text-[18px] leading-[1.55] text-bone-2">
-            {lead}
-          </Reveal>
-          <Reveal stagger={3} className="mt-8 font-mono text-[10px] uppercase tracking-[0.14em] text-steel">
-            — By the JetNine dispatch desk · Updated {RATES_UPDATED} · Rates reviewed quarterly
-          </Reveal>
+            <span aria-hidden> · </span>
+            Chapter {chapter.chapter} of {GUIDE_CHAPTERS.length}
+          </p>
+          <h1 className="title-page max-w-[18ch] !text-[clamp(40px,5vw,60px)]">{chapter.title}</h1>
+          <p className="lead mt-5 max-w-[62ch]">{lead}</p>
+          <p className="mt-6 text-[14px] text-steel">
+            By the JetNine dispatch desk · Updated {RATES_UPDATED} · Rates reviewed quarterly
+          </p>
         </div>
       </header>
 
       {children}
 
       {/* Prev / next chapter nav */}
-      <nav aria-label="Guide chapters" className="border-t border-ink-3 bg-ink">
-        <div className="container-jn grid grid-cols-1 sm:grid-cols-2">
-          {prev ? (
-            <Link
-              href={prev.href}
-              className="group flex flex-col gap-2 border-b border-ink-3 py-10 pr-8 transition-colors hover:bg-ink-2 sm:border-b-0 sm:border-r"
-            >
-              <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-steel">
-                ← Chapter {String(prev.chapter).padStart(2, "0")}
-              </span>
-              <span className="font-serif text-[20px] font-normal leading-[1.25] tracking-tight text-bone group-hover:text-clearance">
-                {prev.navTitle}
-              </span>
-            </Link>
-          ) : (
-            <Link
-              href="/guides"
-              className="group flex flex-col gap-2 border-b border-ink-3 py-10 pr-8 transition-colors hover:bg-ink-2 sm:border-b-0 sm:border-r"
-            >
-              <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-steel">
-                ← All chapters
-              </span>
-              <span className="font-serif text-[20px] font-normal leading-[1.25] tracking-tight text-bone group-hover:text-clearance">
-                The charter pricing guide
-              </span>
-            </Link>
-          )}
-          {next ? (
-            <Link
-              href={next.href}
-              className="group flex flex-col items-end gap-2 py-10 pl-8 text-right transition-colors hover:bg-ink-2"
-            >
-              <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-steel">
-                Chapter {String(next.chapter).padStart(2, "0")} →
-              </span>
-              <span className="font-serif text-[20px] font-normal leading-[1.25] tracking-tight text-bone group-hover:text-clearance">
-                {next.navTitle}
-              </span>
-            </Link>
-          ) : (
-            <Link
-              href="/cost-calculator"
-              className="group flex flex-col items-end gap-2 py-10 pl-8 text-right transition-colors hover:bg-ink-2"
-            >
-              <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-steel">
-                Put it to work →
-              </span>
-              <span className="font-serif text-[20px] font-normal leading-[1.25] tracking-tight text-bone group-hover:text-clearance">
-                Cost calculator
-              </span>
-            </Link>
-          )}
+      <nav aria-label="Guide chapters" className="section-jn">
+        <div className="container-jn grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <Link href={prevLink.href} className="card card-pad flex flex-col gap-2 max-md:p-5">
+            <span className="label-jn">{prevLink.small}</span>
+            <span className="title-card-sm text-bone">{prevLink.big}</span>
+          </Link>
+          <Link
+            href={nextLink.href}
+            className="card card-pad flex flex-col items-end gap-2 text-right max-md:p-5"
+          >
+            <span className="label-jn">{nextLink.small}</span>
+            <span className="title-card-sm text-bone">{nextLink.big}</span>
+          </Link>
         </div>
       </nav>
 
@@ -158,9 +118,11 @@ export function GuideShell({
         body="Route, date, and passenger count — the same engine behind every figure in this guide, live on your trip."
       />
 
-      <ClosingCTA
-        heading="Or just ask a human."
+      <CtaBand
+        title="Or just ask a human."
         body="The dispatch desk wrote this guide and picks up in under twenty seconds — every hour of every day."
+        primary={{ label: "Request a quote", href: "/quote/mission" }}
+        secondary={{ label: `Call dispatch · ${SITE.dispatchPhone}`, href: `tel:${SITE.dispatchPhoneE164}` }}
       />
     </>
   );

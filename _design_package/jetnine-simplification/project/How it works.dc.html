@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#07080A;color:#F4F1EA;font-family:'Instrument Sans',system-ui,sans-serif;font-size:16px;line-height:1.55;-webkit-font-smoothing:antialiased}
+a{color:inherit;text-decoration:none}a:hover{color:#fff}
+*{box-sizing:border-box;scrollbar-width:thin;scrollbar-color:#2C323B transparent}
+::-webkit-scrollbar{width:8px;height:8px}::-webkit-scrollbar-thumb{background:#2C323B;border-radius:4px}::-webkit-scrollbar-track{background:transparent}
+</style>
+</helmet>
+<div data-screen-label="How it works — simplified" style="background:#07080A;color:#F4F1EA;min-width:1100px">
+<x-import component-from-global-scope="JNHeader" from="./jn-chrome.js" current="How it works" hint-size="100%,72px"></x-import>
+
+<section style="position:relative;overflow:hidden;min-height:520px;display:flex;align-items:flex-end">
+  <img src="public/images/hero/how-it-works.webp" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:70% center">
+  <div aria-hidden="true" style="position:absolute;inset:0;background:linear-gradient(90deg,rgba(7,8,10,.92) 0%,rgba(7,8,10,.7) 45%,rgba(7,8,10,.3) 100%),linear-gradient(180deg,rgba(7,8,10,.4) 0%,rgba(7,8,10,0) 40%,#07080A 100%)"></div>
+  <div style="position:relative;z-index:1;width:100%;max-width:1200px;margin:0 auto;padding:120px 40px 56px">
+    <p style="margin:0 0 16px;font-size:14px;font-weight:600;color:#C9C4B8">How it works</p>
+    <h1 style="margin:0;font-family:Fraunces,serif;font-weight:300;font-size:60px;line-height:1.02;letter-spacing:-.02em;max-width:16ch">A senior dispatcher, not a chatbot. One number to call.</h1>
+    <p style="margin:20px 0 0;max-width:62ch;font-size:19px;color:#C9C4B8">No app to download. No queue. No ten-minute hold music. Tell us the route — by phone, by form, by email — and a senior dispatcher picks up. Specific aircraft &amp; pricing back within thirty minutes.</p>
+  </div>
+</section>
+
+<section style="border-top:1px solid #161A20;border-bottom:1px solid #161A20;background:#0A0C10">
+  <div style="max-width:1200px;margin:0 auto;padding:28px 40px;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px">
+    <div><div style="font-family:Fraunces,serif;font-weight:300;font-size:30px;line-height:1">Under 30 min</div><div style="margin-top:6px;font-size:14px;color:#8A9099">Quote turnaround, business hours</div></div>
+    <div><div style="font-family:Fraunces,serif;font-weight:300;font-size:30px;line-height:1">14 years</div><div style="margin-top:6px;font-size:14px;color:#8A9099">Average dispatcher experience</div></div>
+    <div><div style="font-family:Fraunces,serif;font-weight:300;font-size:30px;line-height:1">2 hours</div><div style="margin-top:6px;font-size:14px;color:#8A9099">Wheels-up notice from confirmed quote</div></div>
+    <div><div style="font-family:Fraunces,serif;font-weight:300;font-size:30px;line-height:1">20,000 aircraft</div><div style="margin-top:6px;font-size:14px;color:#8A9099">Worldwide, 5,000 operators</div></div>
+  </div>
+</section>
+
+<section style="max-width:1200px;margin:0 auto;padding:112px 40px 0">
+  <p style="margin:0 0 12px;font-size:14px;font-weight:600;color:#8A9099">The process</p>
+  <h2 style="margin:0;font-family:Fraunces,serif;font-weight:300;font-size:44px;line-height:1.08;letter-spacing:-.015em;max-width:22ch">Five steps. Most clients fly within a week.</h2>
+  <p style="margin:16px 0 0;max-width:62ch;font-size:18px;color:#C9C4B8">From first call to wheels-up. Same five steps every time, regardless of category, distance, or hour.</p>
+  <div style="margin-top:40px;display:grid;grid-template-columns:260px minmax(0,1fr);gap:32px;align-items:start">
+    <ol style="list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px;position:sticky;top:96px">
+      <sc-for list="{{ steps }}" as="s" hint-placeholder-count="5"><li><button type="button" onClick="{{ s.select }}" style="width:100%;display:grid;grid-template-columns:36px 1fr;gap:12px;align-items:center;padding:12px 14px;border:none;border-radius:10px;background:{{ s.bg }};color:{{ s.color }};text-align:left;cursor:pointer;font-family:'Instrument Sans',sans-serif"><span style="width:36px;height:36px;border-radius:18px;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:600;background:{{ s.numBg }};color:{{ s.numFg }};border:1px solid {{ s.numBorder }}">{{ s.n }}</span><span><span style="display:block;font-size:13px;color:#8A9099">{{ s.label }}</span><span style="display:block;font-size:16px;font-weight:500">{{ s.short }}</span></span></button></li></sc-for>
+    </ol>
+    <article style="background:#0E1014;border:1px solid #232830;border-radius:12px;padding:36px 40px;min-height:380px">
+      <div style="font-size:14px;font-weight:600;color:#8A9099">Step {{ active.n }} of 5 · {{ active.label }}</div>
+      <h3 style="margin:10px 0 0;font-family:Fraunces,serif;font-weight:400;font-size:32px;line-height:1.15;letter-spacing:-.01em">{{ active.title }}</h3>
+      <p style="margin:14px 0 0;max-width:60ch;font-size:17px;color:#C9C4B8">{{ active.body }}</p>
+      <div style="margin-top:28px;border-top:1px solid #232830;padding-top:20px"><div style="font-size:14px;font-weight:600;color:#8A9099">{{ active.metaLabel }}</div>
+        <ul style="list-style:none;margin:12px 0 0;padding:0;display:grid;grid-template-columns:1fr 1fr;gap:10px 24px;font-size:15px"><sc-for list="{{ active.items }}" as="i" hint-placeholder-count="4"><li style="display:grid;grid-template-columns:auto 1fr;gap:10px"><span style="color:#E8E2D2">✓</span><span>{{ i }}</span></li></sc-for></ul></div>
+      <div style="margin-top:28px;display:flex;gap:10px"><sc-if value="{{ hasPrev }}" hint-placeholder-val="{{ false }}"><button type="button" onClick="{{ prev }}" style="height:44px;padding:0 18px;border-radius:8px;border:1px solid #2C323B;background:transparent;color:#F4F1EA;font:500 15px 'Instrument Sans',sans-serif;cursor:pointer">← Previous</button></sc-if><sc-if value="{{ hasNext }}" hint-placeholder-val="{{ true }}"><button type="button" onClick="{{ next }}" style="height:44px;padding:0 18px;border-radius:8px;border:none;background:#E8E2D2;color:#07080A;font:500 15px 'Instrument Sans',sans-serif;cursor:pointer">Next step →</button></sc-if><sc-if value="{{ isLast }}" hint-placeholder-val="{{ false }}"><a href="Quote.dc.html" style="display:inline-flex;align-items:center;height:44px;padding:0 18px;border-radius:8px;background:#E8E2D2;color:#07080A;font-weight:500;font-size:15px">Request a quote →</a></sc-if></div>
+    </article>
+  </div>
+</section>
+
+<section style="max-width:1200px;margin:0 auto;padding:112px 40px 0">
+  <p style="margin:0 0 12px;font-size:14px;font-weight:600;color:#8A9099">Pricing</p>
+  <h2 style="margin:0;font-family:Fraunces,serif;font-weight:300;font-size:44px;line-height:1.08;letter-spacing:-.015em;max-width:22ch">All-in. Locked at acceptance.</h2>
+  <p style="margin:16px 0 0;max-width:62ch;font-size:18px;color:#C9C4B8">Every quote is the all-in number. Fuel, FET, repositioning, crew, catering, ground transport — already inside. Below: an example midsize round-trip, broken down line by line.</p>
+  <div style="margin-top:32px;display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);gap:20px;align-items:start">
+    <div style="background:#0E1014;border:1px solid #232830;border-radius:12px;padding:8px 28px">
+      <div style="padding:16px 0 12px;border-bottom:1px solid #232830;font-size:14px;color:#8A9099">Example · Los Angeles ⇄ New York · midsize · about 10 hours in the air</div>
+      <sc-for list="{{ stack }}" as="p" hint-placeholder-count="6"><div style="display:grid;grid-template-columns:1fr auto;gap:24px;align-items:baseline;padding:16px 0;border-bottom:1px solid #161A20"><div><div style="font-size:16px;font-weight:500">{{ p.label }}</div><div style="margin-top:2px;font-size:14px;color:#8A9099">{{ p.desc }}</div></div><span style="font-size:17px">{{ p.val }}</span></div></sc-for>
+      <div style="display:grid;grid-template-columns:1fr auto;gap:24px;align-items:baseline;padding:20px 0 16px"><span style="font-family:Fraunces,serif;font-size:26px">All-in</span><span style="font-family:Fraunces,serif;font-weight:300;font-size:40px;line-height:1">$47,260</span></div>
+    </div>
+    <div style="background:#0E1014;border:1px solid #232830;border-radius:12px;padding:28px"><div style="font-size:19px;font-weight:500">No memberships, no hourly minimums, no annual fees.</div><p style="margin:10px 0 0;color:#C9C4B8">Pay per flight. The price you accept is the price you pay — even if jet-fuel spikes between acceptance and departure, your number is locked.</p><a href="Quote.dc.html" style="display:inline-flex;align-items:center;gap:8px;margin-top:20px;height:48px;padding:0 22px;border-radius:8px;background:#E8E2D2;color:#07080A;font-weight:500;font-size:15px">Price my trip <span aria-hidden="true">→</span></a></div>
+  </div>
+</section>
+
+<section style="max-width:1200px;margin:0 auto;padding:112px 40px 0">
+  <p style="margin:0 0 12px;font-size:14px;font-weight:600;color:#8A9099">Comparison</p>
+  <h2 style="margin:0;font-family:Fraunces,serif;font-weight:300;font-size:44px;line-height:1.08;letter-spacing:-.015em;max-width:24ch">Why a phone call beats an app.</h2>
+  <div style="margin-top:32px;background:#0E1014;border:1px solid #232830;border-radius:12px;overflow:hidden">
+    <div style="display:grid;grid-template-columns:1fr 1.4fr 1.4fr;gap:16px;padding:14px 24px;border-bottom:1px solid #232830;font-size:13px;font-weight:600;color:#8A9099"><span></span><span>App / marketplace</span><span style="color:#E8E2D2">JetNine</span></div>
+    <sc-for list="{{ vs }}" as="r" hint-placeholder-count="6"><div style="display:grid;grid-template-columns:1fr 1.4fr 1.4fr;gap:16px;padding:16px 24px;border-bottom:1px solid #161A20;font-size:15px"><span style="color:#C9C4B8">{{ r.row }}</span><span style="color:#8A9099">{{ r.app }}</span><span>{{ r.jn }}</span></div></sc-for>
+  </div>
+</section>
+
+<section style="max-width:1200px;margin:0 auto;padding:112px 40px 0">
+  <p style="margin:0 0 12px;font-size:14px;font-weight:600;color:#8A9099">Our promises</p>
+  <h2 style="margin:0;font-family:Fraunces,serif;font-weight:300;font-size:44px;line-height:1.08;letter-spacing:-.015em;max-width:22ch">Three things we commit to in writing.</h2>
+  <div style="margin-top:32px;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px">
+    <sc-for list="{{ promises }}" as="p" hint-placeholder-count="3"><div style="background:#0E1014;border:1px solid #232830;border-radius:12px;padding:28px"><div style="font-size:13px;font-weight:600;color:#C9A24A">{{ p.num }}</div><h3 style="margin:12px 0 0;font-size:22px;font-weight:500;line-height:1.25">{{ p.title }}</h3><p style="margin:10px 0 0;color:#C9C4B8">{{ p.body }}</p></div></sc-for>
+  </div>
+</section>
+
+<section style="max-width:1200px;margin:0 auto;padding:112px 40px 0">
+  <p style="margin:0 0 12px;font-size:14px;font-weight:600;color:#8A9099">FAQ</p>
+  <h2 style="margin:0;font-family:Fraunces,serif;font-weight:300;font-size:44px;line-height:1.08;letter-spacing:-.015em;max-width:24ch">The questions most clients ask first.</h2>
+  <div style="margin-top:32px;max-width:820px;border-top:1px solid #232830">
+    <sc-for list="{{ faq }}" as="f" hint-placeholder-count="8">
+      <div style="border-bottom:1px solid #232830">
+        <button type="button" onClick="{{ f.toggle }}" style="width:100%;display:flex;align-items:flex-start;justify-content:space-between;gap:24px;padding:22px 0;border:none;background:transparent;color:#F4F1EA;cursor:pointer;text-align:left;font-family:'Instrument Sans',sans-serif"><span style="font-size:20px;font-weight:500;line-height:1.3">{{ f.q }}</span><span style="font-size:22px;color:#C9C4B8;line-height:1.2">{{ f.mark }}</span></button>
+        <sc-if value="{{ f.open }}" hint-placeholder-val="{{ false }}"><p style="margin:0;padding:0 48px 24px 0;font-size:16px;color:#C9C4B8;line-height:1.65">{{ f.a }}</p></sc-if>
+      </div>
+    </sc-for>
+  </div>
+</section>
+
+<section style="max-width:1200px;margin:0 auto;padding:112px 40px 128px;text-align:center">
+  <h2 style="margin:0 auto;font-family:Fraunces,serif;font-weight:300;font-size:52px;line-height:1.05;letter-spacing:-.015em;max-width:20ch">One number. One conversation. One number on the invoice.</h2>
+  <p style="margin:20px auto 0;max-width:56ch;font-size:18px;color:#C9C4B8">Tell us the route. We'll get you in the air.</p>
+  <div style="margin-top:32px;display:flex;justify-content:center;gap:16px"><a href="Quote.dc.html" style="display:inline-flex;align-items:center;gap:8px;height:52px;padding:0 28px;border-radius:8px;background:#E8E2D2;color:#07080A;font-weight:500;font-size:16px">Request a quote <span aria-hidden="true">→</span></a><a href="tel:+14244872707" style="display:inline-flex;align-items:center;height:52px;padding:0 28px;border-radius:8px;border:1px solid #2C323B;font-weight:500;font-size:16px">Call dispatch · +1 (424) 487-2707</a></div>
+</section>
+
+<x-import component-from-global-scope="JNFooter" from="./jn-chrome.js" hint-size="100%,360px"></x-import>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = { step: 0, open: 0 };
+  renderVals() {
+    const { step, open } = this.state;
+    const STEPS = [
+      { label: "You", short: "Tell us the route", title: "You tell us the route.", body: "Phone, form, or email — whichever's faster. We need the city pair, the dates, the headcount. Everything else is optional & can be sorted later.", metaLabel: "What we ask", items: ["Departure & arrival cities (airport optional — we'll pick the best private terminal)", "Outbound date & flexible-hours window", "Passenger count & pet count", "Anything else? — special requests captured up front"] },
+      { label: "Dispatch", short: "A dispatcher picks up", title: "Dispatch picks up — within five minutes.", body: "A senior dispatcher (not a queue, not a chatbot, not a junior on their first month) reviews the brief and starts sourcing. Real human, every time.", metaLabel: "Who you get", items: ["14 years of average dispatch experience", "Direct line to your dispatcher for the life of the trip", "Same person handles the quote, the contract, and any in-flight changes", "24 / 7 / 365 — including holidays, weather days, and 3 a.m. callouts"] },
+      { label: "Quote", short: "3–5 aircraft, priced", title: "Three to five specific aircraft return — under thirty minutes.", body: "Not a category bracket. Real tail numbers, real years, real photos, real availability windows, real all-in pricing. Every option vetted to our safety floor before it lands in your inbox.", metaLabel: "What you see", items: ["Tail number, operator, year of manufacture, refurb date", "Cabin photos and floorplan", "All-in price (fuel, taxes, FET 7.5%, repositioning, crew, catering, ground)", "Availability window & soft-hold expiry", "Operator's ARG/US, Wyvern, IS-BAO standing"] },
+      { label: "Accept", short: "You pick, we hold it", title: "You pick. We hold the aircraft.", body: "No commitment until you accept. Soft hold — up to four hours — while you decide, share with the team, get a sign-off. After that, contract goes out and the aircraft locks.", metaLabel: "The decision window", items: ["Free 4-hour soft hold on your preferred aircraft", "Extend by request — most operators allow 24h with a deposit", "One-page charter agreement (Part 295 disclosure included)", "Wire, ACH, or major card — your choice"] },
+      { label: "Fly", short: "Show up and board", title: "Confirmation, trip sheet, take-off.", body: "Final trip sheet hits your inbox 24 hours before departure. Private-terminal instructions, ground transport details, crew names, weather brief. Everyone arrives ten minutes before scheduled wheels-up.", metaLabel: "Day of", items: ["Show up at the private terminal ten minutes before scheduled departure", "No security line, no boarding pass — your name is on the manifest", "Crew greets you on the ramp, bags loaded directly", "Wheels up within the agreed window — average ground time, eight minutes"] },
+    ];
+    const active = { ...STEPS[step], n: step + 1 };
+    return {
+      active, hasPrev: step > 0, hasNext: step < 4, isLast: step === 4,
+      prev: () => this.setState(s => ({ step: Math.max(0, s.step - 1) })), next: () => this.setState(s => ({ step: Math.min(4, s.step + 1) })),
+      steps: STEPS.map((s, i) => { const on = i === step, done = i < step; return { ...s, n: i + 1, select: () => this.setState({ step: i }), bg: on ? "#161A20" : "transparent", color: on ? "#F4F1EA" : "#C9C4B8", numBg: on || done ? "#E8E2D2" : "transparent", numFg: on || done ? "#07080A" : "#8A9099", numBorder: on || done ? "#E8E2D2" : "#2C323B" }; }),
+      stack: [
+        { label: "Aircraft", desc: "Midsize · about 10 hours in the air · Los Angeles ⇄ New York round trip", val: "$36,400" }, { label: "Fuel surcharge", desc: "Variable component · indexed to weekly Jet-A spot", val: "$5,800" },
+        { label: "Repositioning", desc: "Ferry leg if applicable · zero on this mission", val: "$0" }, { label: "Crew & catering", desc: "Two-pilot crew · standard cold catering · standard bar", val: "$1,400" },
+        { label: "FET (7.5%)", desc: "Federal Excise Tax on domestic charter", val: "$3,300" }, { label: "Ground transport", desc: "Black sedan · both legs · curb to private terminal", val: "$360" },
+      ],
+      vs: [
+        { row: "Quote source", app: "Stale fleet database, refreshed weekly", jn: "Live operator calls, every quote" }, { row: "Quote latency", app: "Instant, but indicative only", jn: "Under 30 min, with real aircraft" },
+        { row: "Pricing", app: "Hourly + add-ons, surprise fees", jn: "All-in, locked at acceptance" }, { row: "Who you talk to", app: "Tier-1 support, rotating", jn: "Same dispatcher, every flight" },
+        { row: "In-flight changes", app: "Submit ticket, wait", jn: "Direct cell, no queue" }, { row: "After-hours", app: "Voicemail, email auto-reply", jn: "Live, 24/7/365" },
+      ],
+      promises: [
+        { num: "Promise 01", title: "Quote in thirty minutes, or it's free.", body: "If we don't return three to five specific aircraft within thirty minutes of business-hours request, your first hour of flight time is on us — applied automatically to the accepted booking." },
+        { num: "Promise 02", title: "Locked pricing, no surprises.", body: "The all-in number you accept is the number on the invoice. If anything changes — fuel, route, weather diversion — that's our cost to absorb, not yours. Period." },
+        { num: "Promise 03", title: "Your dispatcher, on-call.", body: "Direct cell number, day and night, for the life of the trip. The same person who quoted you handles every change, every escalation, every weather call. No tickets, no queues, no rotating staff." },
+      ],
+      faq: [
+        ["How is JetNine different from a fractional like NetJets?", "Fractionals sell shares of an aircraft — a per-year deposit, hourly rate, plus monthly management fee. Good if you fly 25+ hours a year on the same one or two routes. JetNine charges per flight, no annual commitment, with access to twenty thousand aircraft instead of a single fleet of two hundred. We're a better fit for variable schedules and varied missions; fractional is a better fit for fixed, frequent flyers."],
+        ["What's a Part 295 broker, and is JetNine one?", "Yes. JetNine is an indirect air carrier under Part 295 of the US DOT regulations. We arrange charter on behalf of clients with FAA Part 135 certified operators — we don't operate aircraft ourselves. The Part 295 disclosure is in every charter agreement, plain English. It clarifies who is the operator of record (the certificated operator, not us) and where liability sits. Standard, transparent, audited."],
+        ["How do you vet operators?", "Floor: ARG/US Gold or higher, current FAA Part 135 certificate, $300M minimum hull insurance, two ATP-rated pilots, no event-of-significance in the last 24 months. We add Wyvern Wingman or IS-BAO Stage 2 as a strong preference for international and ultra-long-range missions. The short version is — we don't put you on an aircraft we wouldn't put our own families on."],
+        ["What if the weather goes sideways?", "Your dispatcher monitors weather from twelve hours out. If a divert or delay is likely, you'll get a call, not a notification — usually with an alternate plan already drafted. Common moves: shift wheels-up by an hour, divert to an alternate airport, swap aircraft if the original can't depart. All re-routing cost is ours. The locked price holds."],
+        ["Can I cancel after I've booked?", "Up to 72 hours before departure: full refund minus a $1,500 admin fee. Inside 72 hours: 50% refund. Inside 24 hours: forfeited, with one exception — documented medical or family emergency, in which case we credit 100% to a future flight within 12 months. We are not in the business of pocketing your money on a bad day."],
+        ["What happens if my flight is delayed by the operator?", "Mechanical or crew issue on the operator's side: we substitute another aircraft at our cost, no questions, usually within two hours at major metros. If a substitution isn't possible inside your window, your flight is refunded in full plus a $5,000 inconvenience credit."],
+        ["How does the all-in pricing actually work?", "When you accept a quote, the price freezes. If fuel jumps 15% between acceptance and departure, that's our problem. If a Part 135 operator changes a fee, our problem. If we have to reposition an aircraft an extra leg because of a weather divert, our problem. The number on the agreement is the number on the invoice. The only adjustments are extras the client adds after acceptance — itemized and approved in advance."],
+        ["Do you offer empty-leg flights?", "Yes. Repositioning legs surface on a live board at 30–60% off the equivalent charter price. They're date- & route-locked — you take the flight as scheduled, not as designed. If your dates and lanes are flexible, ask your dispatcher to monitor empty legs that match your patterns; we'll text when one shows up."],
+      ].map(([q, a], i) => ({ q, a, open: open === i, mark: open === i ? "−" : "+", toggle: () => this.setState(s => ({ open: s.open === i ? -1 : i })) })),
+    };
+  }
+}
+</script>
+</body>
+</html>

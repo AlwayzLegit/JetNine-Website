@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#07080A;color:#F4F1EA;font-family:'Instrument Sans',system-ui,sans-serif;font-size:16px;line-height:1.55;-webkit-font-smoothing:antialiased}
+a{color:inherit;text-decoration:none}a:hover{color:#fff}
+*{box-sizing:border-box;scrollbar-width:thin;scrollbar-color:#2C323B transparent}
+::-webkit-scrollbar{width:8px;height:8px}::-webkit-scrollbar-thumb{background:#2C323B;border-radius:4px}::-webkit-scrollbar-track{background:transparent}
+</style>
+</helmet>
+<div data-screen-label="Programs / Memberships — simplified" style="background:#07080A;color:#F4F1EA;min-width:1100px">
+<x-import component-from-global-scope="JNHeader" from="./jn-chrome.js" current="Programs" hint-size="100%,72px"></x-import>
+
+<section style="position:relative;overflow:hidden;min-height:520px;display:flex;align-items:flex-end">
+  <img src="public/images/hero/memberships.webp" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:58% center">
+  <div aria-hidden="true" style="position:absolute;inset:0;background:linear-gradient(90deg,rgba(7,8,10,.92) 0%,rgba(7,8,10,.7) 45%,rgba(7,8,10,.3) 100%),linear-gradient(180deg,rgba(7,8,10,.4) 0%,rgba(7,8,10,0) 40%,#07080A 100%)"></div>
+  <div style="position:relative;z-index:1;width:100%;max-width:1200px;margin:0 auto;padding:120px 40px 56px">
+    <p style="margin:0 0 16px;font-size:14px;font-weight:600;color:#C9C4B8">Memberships · jet card · on-demand</p>
+    <h1 style="margin:0;font-family:Fraunces,serif;font-weight:300;font-size:56px;line-height:1.05;letter-spacing:-.02em;max-width:18ch">Jet card, reserve, or on-demand: three ways to fly, no membership required.</h1>
+    <p style="margin:20px 0 0;max-width:62ch;font-size:19px;color:#C9C4B8">Most charter brokers want you on a yearly retainer. We don't. The default is on-demand — pay per flight, locked pricing, zero commitment. The jet card and reserve programs exist because some clients want fixed hourly rates and guaranteed availability. Pick the one that fits your year.</p>
+  </div>
+</section>
+
+<section style="max-width:1200px;margin:0 auto;padding:48px 40px 0">
+  <div style="background:#0E1014;border:1px solid #232830;border-radius:12px;padding:24px 28px;display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:24px;align-items:center">
+    <div><div style="font-size:14px;font-weight:600;color:#8A9099">Pick by how often you actually fly</div><div style="margin-top:4px;font-size:19px;font-weight:500">How many hours a year?</div></div>
+    <div style="display:flex;align-items:center;gap:16px"><input type="range" min="5" max="200" step="5" value="{{ hours }}" onChange="{{ setHours }}" aria-label="Flight hours per year" style="flex:1;accent-color:#E8E2D2"><span style="min-width:150px;font-family:Fraunces,serif;font-weight:300;font-size:32px;line-height:1">{{ hours }} <span style="font-family:'Instrument Sans',sans-serif;font-size:15px;color:#C9C4B8">hours / year</span></span></div>
+    <div style="font-size:15px;max-width:28ch"><span style="color:#8A9099">Our suggestion:</span> <strong style="font-weight:500">{{ suggestion }}</strong></div>
+  </div>
+</section>
+
+<section id="tiers" style="max-width:1200px;margin:0 auto;padding:48px 40px 0">
+  <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px">
+    <sc-for list="{{ programs }}" as="p" hint-placeholder-count="3">
+      <div style="display:flex;flex-direction:column;gap:18px;background:#0E1014;border:1px solid {{ p.border }};border-radius:12px;padding:32px;box-shadow:{{ p.shadow }}">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px"><span style="font-size:13px;font-weight:600;color:#8A9099">{{ p.badge }}</span><sc-if value="{{ p.hasChip }}" hint-placeholder-val="{{ false }}"><span style="height:24px;padding:0 10px;border-radius:12px;background:#E8E2D2;color:#07080A;font-size:12px;font-weight:600;display:inline-flex;align-items:center">{{ p.chip }}</span></sc-if></div>
+        <h3 style="margin:0;font-family:Fraunces,serif;font-weight:400;font-size:32px;line-height:1.1;letter-spacing:-.01em">{{ p.name }}</h3>
+        <p style="margin:0;color:#C9C4B8">{{ p.strap }}</p>
+        <div style="border-top:1px solid #232830;padding-top:18px"><div style="font-family:Fraunces,serif;font-weight:300;font-size:40px;line-height:1">{{ p.price }}</div><p style="margin:8px 0 0;font-size:14px;color:#C9C4B8">{{ p.priceSub }}</p></div>
+        <ul style="list-style:none;margin:0;padding:18px 0 0;border-top:1px solid #232830;display:flex;flex-direction:column;gap:10px;font-size:15px"><sc-for list="{{ p.features }}" as="f" hint-placeholder-count="5"><li style="display:grid;grid-template-columns:auto 1fr;gap:10px"><span style="color:#E8E2D2">✓</span><span>{{ f }}</span></li></sc-for></ul>
+        <a href="{{ p.href }}" style="margin-top:auto;display:inline-flex;align-items:center;justify-content:center;gap:8px;height:52px;border-radius:8px;background:{{ p.ctaBg }};color:{{ p.ctaFg }};border:1px solid {{ p.ctaBorder }};font-weight:500;font-size:16px">{{ p.cta }} <span aria-hidden="true">→</span></a>
+      </div>
+    </sc-for>
+  </div>
+</section>
+
+<section id="rates" style="max-width:1200px;margin:0 auto;padding:112px 40px 0">
+  <p style="margin:0 0 12px;font-size:14px;font-weight:600;color:#8A9099">Hourly rates</p>
+  <h2 style="margin:0;font-family:Fraunces,serif;font-weight:300;font-size:44px;line-height:1.08;letter-spacing:-.015em;max-width:22ch">JetNine Card rates, by category.</h2>
+  <p style="margin:16px 0 0;max-width:62ch;font-size:18px;color:#C9C4B8">Locked for 24 months from card activation. Includes everything except FET (7.5%, federal) and private-terminal ramp fees. Compare to typical on-demand market rates — the savings are 12–18% on average, more during peak.</p>
+  <div style="margin-top:32px;background:#0E1014;border:1px solid #232830;border-radius:12px;overflow:hidden">
+    <div style="display:grid;grid-template-columns:1.2fr 1.6fr 1.2fr 1fr;gap:16px;padding:14px 24px;border-bottom:1px solid #232830;font-size:13px;font-weight:600;color:#8A9099"><span>Category</span><span>Typical mission</span><span>On-demand market</span><span style="text-align:right">Locked card rate</span></div>
+    <sc-for list="{{ rates }}" as="r" hint-placeholder-count="5"><div style="display:grid;grid-template-columns:1.2fr 1.6fr 1.2fr 1fr;gap:16px;align-items:center;padding:18px 24px;border-bottom:1px solid #161A20"><span style="font-family:Fraunces,serif;font-size:22px">{{ r.category }}</span><span style="font-size:15px;color:#C9C4B8">{{ r.mission }}<span style="display:block;font-size:14px;color:#8A9099">e.g. {{ r.sample }}</span></span><span style="font-size:15px;color:#C9C4B8">{{ r.market }}</span><span style="text-align:right;font-size:19px;font-weight:500">{{ r.locked }}</span></div></sc-for>
+  </div>
+  <p style="margin:12px 0 0;font-size:14px;color:#8A9099">Rates reviewed quarterly · updated August 2026</p>
+</section>
+
+<section id="deposits" style="max-width:1200px;margin:0 auto;padding:112px 40px 0">
+  <p style="margin:0 0 12px;font-size:14px;font-weight:600;color:#8A9099">Card tiers</p>
+  <h2 style="margin:0;font-family:Fraunces,serif;font-weight:300;font-size:44px;line-height:1.08;letter-spacing:-.015em;max-width:22ch">Three deposit levels. Same locked rates, more perks.</h2>
+  <p style="margin:16px 0 0;max-width:62ch;font-size:18px;color:#C9C4B8">Higher deposits earn faster call-out, larger annual allowances, and elevated empty-leg priority. The hourly rate is the same across tiers — what changes is the service envelope.</p>
+  <div style="margin-top:32px;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px">
+    <sc-for list="{{ tiers }}" as="t" hint-placeholder-count="3">
+      <div style="display:flex;flex-direction:column;gap:16px;background:#0E1014;border:1px solid {{ t.border }};border-radius:12px;padding:32px;box-shadow:{{ t.shadow }}">
+        <span style="font-size:13px;font-weight:600;color:#8A9099">{{ t.badge }}</span>
+        <h3 style="margin:0;font-family:Fraunces,serif;font-weight:400;font-size:28px;line-height:1.15">{{ t.name }}</h3>
+        <div style="border-top:1px solid #232830;border-bottom:1px solid #232830;padding:18px 0"><div style="font-family:Fraunces,serif;font-weight:300;font-size:40px;line-height:1">{{ t.deposit }}</div><div style="margin-top:6px;font-size:14px;color:#C9C4B8">Refundable deposit</div></div>
+        <ul style="list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:10px;font-size:15px"><sc-for list="{{ t.items }}" as="i" hint-placeholder-count="5"><li style="display:grid;grid-template-columns:auto 1fr;gap:10px"><span style="color:#E8E2D2">✓</span><span>{{ i }}</span></li></sc-for></ul>
+      </div>
+    </sc-for>
+  </div>
+</section>
+
+<section style="max-width:1200px;margin:0 auto;padding:112px 40px 0">
+  <p style="margin:0 0 12px;font-size:14px;font-weight:600;color:#8A9099">Availability commitment</p>
+  <h2 style="margin:0;font-family:Fraunces,serif;font-weight:300;font-size:44px;line-height:1.08;letter-spacing:-.015em;max-width:22ch">If we don’t deliver, we make it right.</h2>
+  <p style="margin:16px 0 0;max-width:64ch;font-size:18px;color:#C9C4B8">Guaranteed call-out is a commitment, not a marketing line. If we can’t put an aircraft in the air for you within your tier’s window, here’s what happens.</p>
+  <div style="margin-top:32px;display:grid;grid-template-columns:1fr 1fr;gap:16px">
+    <sc-for list="{{ availability }}" as="a" hint-placeholder-count="4"><div style="display:grid;grid-template-columns:1fr auto;gap:16px;align-items:start;background:#0E1014;border:1px solid #232830;border-radius:12px;padding:24px 28px"><div><div style="font-size:20px;font-weight:500">{{ a.title }}</div><div style="margin-top:4px;font-size:15px;color:#C9C4B8">{{ a.sub }}</div></div><span style="font-size:14px;font-weight:600;color:#C9A24A;white-space:nowrap">{{ a.val }}</span></div></sc-for>
+  </div>
+</section>
+
+<section id="faq" style="max-width:1200px;margin:0 auto;padding:112px 40px 0">
+  <p style="margin:0 0 12px;font-size:14px;font-weight:600;color:#8A9099">FAQ</p>
+  <h2 style="margin:0;font-family:Fraunces,serif;font-weight:300;font-size:44px;line-height:1.08;letter-spacing:-.015em;max-width:24ch">The questions most card prospects ask.</h2>
+  <div style="margin-top:32px;max-width:820px;border-top:1px solid #232830">
+    <sc-for list="{{ faq }}" as="f" hint-placeholder-count="7">
+      <div style="border-bottom:1px solid #232830">
+        <button type="button" onClick="{{ f.toggle }}" style="width:100%;display:flex;align-items:flex-start;justify-content:space-between;gap:24px;padding:22px 0;border:none;background:transparent;color:#F4F1EA;cursor:pointer;text-align:left;font-family:'Instrument Sans',sans-serif"><span style="font-size:20px;font-weight:500;line-height:1.3">{{ f.q }}</span><span style="font-size:22px;color:#C9C4B8;line-height:1.2">{{ f.mark }}</span></button>
+        <sc-if value="{{ f.open }}" hint-placeholder-val="{{ false }}"><p style="margin:0;padding:0 48px 24px 0;font-size:16px;color:#C9C4B8;line-height:1.65">{{ f.a }}</p></sc-if>
+      </div>
+    </sc-for>
+  </div>
+</section>
+
+<section style="max-width:1200px;margin:0 auto;padding:112px 40px 128px;text-align:center">
+  <h2 style="margin:0 auto;font-family:Fraunces,serif;font-weight:300;font-size:52px;line-height:1.05;letter-spacing:-.015em;max-width:20ch">Talk to dispatch. We'll model the right program for you.</h2>
+  <p style="margin:20px auto 0;max-width:60ch;font-size:18px;color:#C9C4B8">Annual hours, typical lanes, peak-day exposure — fifteen minutes on the phone and we'll show you which program saves you money in writing.</p>
+  <div style="margin-top:32px;display:flex;justify-content:center;gap:16px"><a href="tel:+14244872707" style="display:inline-flex;align-items:center;gap:8px;height:52px;padding:0 28px;border-radius:8px;background:#E8E2D2;color:#07080A;font-weight:500;font-size:16px">Call dispatch</a><a href="Quote.dc.html" style="display:inline-flex;align-items:center;height:52px;padding:0 28px;border-radius:8px;border:1px solid #2C323B;font-weight:500;font-size:16px">Request a quote</a></div>
+</section>
+
+<x-import component-from-global-scope="JNFooter" from="./jn-chrome.js" hint-size="100%,360px"></x-import>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = { hours: 40, open: 0 };
+  renderVals() {
+    const { hours, open } = this.state;
+    const pick = hours < 25 ? "ondemand" : hours <= 100 ? "card" : "reserve";
+    const suggestion = { ondemand: "Stay on-demand — no deposit needed.", card: "The JetNine Card pays for itself in locked rates.", reserve: "Reserve — guaranteed call-out and a dedicated dispatcher." }[pick];
+    const PROGRAMS = [
+      { key: "ondemand", badge: "Program 01", chip: "", name: "On-Demand", strap: "Pay per flight, no commitment. The default. The right choice for most.", price: "$0", priceSub: "No deposit, no annual fee, no minimum spend.", features: ["All-in pricing — every quote includes fuel, FET, repositioning, crew, catering, ground.", "Locked at acceptance — the number you accept is the number on the invoice.", "30-min quote turnaround with three to five specific aircraft.", "Empty-leg watchlist included free; no SMS-alert fees.", "Best fit for under 25 flight hours per year."], cta: "Request a quote", href: "Quote.dc.html" },
+      { key: "card", badge: "Program 02", chip: "Most chosen", name: "JetNine Card", strap: "Refundable deposit. Fixed hourly rate. No peak-day surcharges, ever.", price: "From $100k", priceSub: "Deposit is yours — applied against flights, refundable if unused after 24 months.", features: ["Fixed hourly rates by category, locked for 24 months from card activation.", "No peak-day pricing. Thanksgiving Wednesday at the same rate as a Tuesday in March.", "72-hour call-out — guaranteed availability with three days notice.", "Same dispatcher relationship; same vetting protocol.", "Best fit for 25–100 flight hours per year."], cta: "See card tiers", href: "#deposits" },
+      { key: "reserve", badge: "Program 03", chip: "", name: "Reserve", strap: "Guaranteed availability with as little as 8 hours notice. Dedicated dispatcher. White-glove.", price: "From $500k", priceSub: "Annual program review. By application — limited number of seats.", features: ["8-hour call-out — guaranteed aircraft in the air, anywhere in the continental US.", "Dedicated dispatcher assigned to your account; same person, every time.", "Priority access to the largest-cabin aircraft during demand peaks.", "Annual catering & ground-transport allowance included.", "Best fit for 100+ flight hours per year, time-critical missions."], cta: "Apply for Reserve", href: "Contact.dc.html" },
+    ];
+    return {
+      hours, setHours: e => this.setState({ hours: Number(e.target.value) }), suggestion,
+      programs: PROGRAMS.map(p => { const hi = p.key === pick; return { ...p, hasChip: !!p.chip, border: hi ? "#E8E2D2" : "#232830", shadow: hi ? "0 0 0 1px #E8E2D2" : "none", ctaBg: hi ? "#E8E2D2" : "transparent", ctaFg: hi ? "#07080A" : "#F4F1EA", ctaBorder: hi ? "#E8E2D2" : "#2C323B" }; }),
+      rates: [
+        { category: "Light", mission: "3–4 passengers · 1,500 nm · regional hops", sample: "Los Angeles → Aspen", market: "$3,200–3,600/hr", locked: "$2,950/hr" },
+        { category: "Midsize", mission: "5–6 passengers · 2,500 nm · coast to coast", sample: "Los Angeles → New York", market: "$4,200–4,600/hr", locked: "$3,950/hr" },
+        { category: "Super-mid", mission: "6–8 passengers · 3,500 nm · coast to coast nonstop", sample: "San Francisco → Miami", market: "$5,400–5,900/hr", locked: "$5,100/hr" },
+        { category: "Heavy", mission: "8–12 passengers · 4,500 nm · transatlantic", sample: "New York → London", market: "$7,800–8,400/hr", locked: "$7,400/hr" },
+        { category: "Ultra long range", mission: "12–16 passengers · 6,500+ nm · transpacific", sample: "Los Angeles → Tokyo", market: "$10,400–11,200/hr", locked: "$9,850/hr" },
+      ],
+      tiers: [
+        { badge: "Tier 01 · Base", name: "Card · 100", deposit: "$100k", items: ["Locked hourly rates for 24 months", "72-hour guaranteed call-out", "$2,500 catering allowance / year", "Standard empty-leg watchlist access", "One named cardholder"], border: "#232830", shadow: "none" },
+        { badge: "Tier 02 · Preferred", name: "Card · 250", deposit: "$250k", items: ["Locked hourly rates for 24 months", "48-hour guaranteed call-out", "$8,000 catering & ground allowance / year", "Priority empty-leg access — 30 min advance window", "Up to three named cardholders", "Direct dispatcher cell number"], border: "#E8E2D2", shadow: "0 0 0 1px #E8E2D2" },
+        { badge: "Tier 03 · Elite", name: "Card · 500", deposit: "$500k", items: ["Locked hourly rates for 36 months", "24-hour guaranteed call-out", "$20,000 catering & ground allowance / year", "First-look empty-leg access — 60 min advance window", "Unlimited named cardholders & dependents", "Annual safety briefing & aircraft selection consultation", "Path to Reserve qualification"], border: "#232830", shadow: "none" },
+      ],
+      availability: [
+        { title: "Substitute aircraft", sub: "Same category or one tier up, our cost.", val: "No charge" }, { title: "Commercial first-class", sub: "If no aircraft is reachable, we book commercial.", val: "Our cost" },
+        { title: "Hour credit", sub: "Failed call-out triggers a flight credit.", val: "+1 hour" }, { title: "No questions asked", sub: "Triggered by missed window, regardless of cause.", val: "Always" },
+      ],
+      faq: [
+        ["Is the deposit actually refundable?", "Yes, in plain terms. The deposit is held as a flight-credit balance. You can fly it down to zero, top it up, or — at any point in the 24-month locked-rate window — request a refund of the unused balance. We process refunds within ten business days, no penalties, no clawbacks. The only thing we don't refund is hours already flown."],
+        ["What happens if I run out of deposit balance mid-year?", "Top it up, in any amount, any time. Or roll back to on-demand for the rest of the year — your locked rate stays in place if you re-load before the 24-month rate window expires. We don't penalize over-flying or charge the higher market rate retroactively; the locked rate is the locked rate."],
+        ["Why is this cheaper than on-demand?", "Two reasons. First, the deposit gives us working capital to negotiate fleet-wide rate commitments with operators on your behalf — savings we pass through. Second, by knowing your annual flying volume in advance, we can place you on operators with capacity gaps, who give us better rates than spot-market lookups. The card is genuinely a discount, not a marketing wrapper."],
+        ["Are peak holidays really the same rate?", "Yes, with one nuance: the rate is the same, but availability isn't. Thanksgiving Wednesday and the days around the Super Bowl are genuinely capacity-constrained — even with the card, we can't manufacture aircraft that don't exist. Card holders get priority over on-demand bookings, and we recommend booking peak dates 60+ days out. Once confirmed, the rate is your locked rate. Period."],
+        ["Can I change tiers mid-year?", "Up only, any time — top up to a higher tier and the new perks kick in within 48 hours. Down requires written request 30 days before the next anniversary; we'll true up the deposit difference and refund the delta. Rates locked at the original tier carry over for the duration of the 24-month window."],
+        ["How does Reserve actually work?", "Reserve is built around a dedicated dispatcher and a pre-positioned operator pool — we maintain standing arrangements with three to five operators in key metros so that an 8-hour call-out is realistic, not aspirational. It's by application because the operator commitments are finite; we run roughly 40 Reserve seats at any time."],
+        ["Do I lose my locked rate if I don't fly enough?", "No minimum hours, no use-it-or-lose-it. The deposit sits there at the locked rate; if you fly five hours in a year, you fly five hours at the locked rate. The 24-month rate window is from card activation, not from minimum-hours benchmarks. The only way to lose the locked rate is to let the 24 months expire without re-loading."],
+      ].map(([q, a], i) => ({ q, a, open: open === i, mark: open === i ? "−" : "+", toggle: () => this.setState(s => ({ open: s.open === i ? -1 : i })) })),
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,9 +1,9 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { pageMetadata } from "@/lib/page-meta";
-import { PageHeader } from "@/components/page-header";
-import { ClosingCTA } from "@/components/closing-cta";
-import { Reveal } from "@/components/reveal";
+import { PageHero } from "@/components/page-hero";
+import { CtaBand } from "@/components/cta-band";
+import { SITE } from "@/lib/constants";
 
 // Safety cluster subpage — expands the /safety pillar's vetting funnel
 // into a standalone page. Every figure here comes from the pillar
@@ -56,11 +56,11 @@ const FAQ = [
   },
   {
     q: "What gets an operator removed from the network?",
-    a: "One safety strike. A lapsed audit, an insurance shortfall, an NTSB-reportable event, or anything our chief pilot flags on a spot-check ends the relationship. We would rather refund an entire trip than fly an airframe we aren't comfortable with.",
+    a: "One safety strike. A lapsed audit, an insurance shortfall, an NTSB-reportable event, or anything our chief pilot flags on a spot-check ends the relationship. We would rather refund an entire trip than fly an aircraft we aren't comfortable with.",
   },
   {
     q: "Does a client request ever override the floor?",
-    a: "No. There is no exception process, no rate that justifies a waiver, and no schedule pressure that changes the answer. If the only available airframe is one we rejected, we'll say so and help you wait or fly commercial.",
+    a: "No. There is no exception process, no rate that justifies a waiver, and no schedule pressure that changes the answer. If the only available aircraft is one we rejected, we'll say so and help you wait or fly commercial.",
   },
 ];
 
@@ -97,76 +97,64 @@ export default function OperatorVettingPage() {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }}
       />
 
-      <PageHeader
-        kicker="Safety · operator vetting"
+      <PageHero
+        eyebrow="Safety · operator vetting"
         title="5,000 operators go in. 380 come out."
-        lead="A charter broker's real product is the operators it says no to. This is the funnel every airframe on a JetNine quote has already passed — and keeps passing, every twelve months."
+        lead="A charter broker's real product is the operators it says no to. This is the funnel every aircraft on a JetNine quote has already passed — and keeps passing, every twelve months."
       />
 
-      <section className="py-32 max-md:py-20">
-        <div className="container-jn">
-          <ul className="divide-y divide-ink-3 border-y border-ink-3">
-            {STAGES.map((s, i) => (
-              <Reveal
-                key={s.num}
-                stagger={(i % 3) as 0 | 1 | 2}
-                as="li"
-                className="grid grid-cols-1 gap-6 py-10 lg:grid-cols-[auto_220px_1fr]"
-              >
-                <span className="font-mono text-[36px] font-light leading-none text-clearance">
-                  {s.num}
-                </span>
-                <div>
-                  <div className="font-serif text-[30px] font-light leading-none tracking-tight text-bone">
-                    {s.count}
-                  </div>
-                  <div className="mt-2 font-mono text-[10px] uppercase tracking-[0.14em] text-bone-2">
-                    {s.name}
-                  </div>
+      <section className="container-jn pt-12">
+        <ol className="flex flex-col gap-4">
+          {STAGES.map((s) => (
+            <li
+              key={s.num}
+              className="card grid grid-cols-1 gap-5 p-7 max-md:p-5 lg:grid-cols-[64px_220px_minmax(0,1fr)] lg:gap-8"
+            >
+              <span className="font-serif text-[36px] font-light leading-none text-clearance">
+                {s.num}
+              </span>
+              <div>
+                <div className="font-serif text-[36px] font-light leading-none tracking-tight text-bone">
+                  {s.count}
                 </div>
-                <p className="max-w-[64ch] text-[15px] leading-[1.65] text-bone-2">{s.body}</p>
-              </Reveal>
-            ))}
-          </ul>
-          <p className="mt-10 max-w-[70ch] text-[15px] leading-[1.6] text-bone-2">
-            The written floor behind these filters — certification, audit standing, pilot
-            qualification, insurance, maintenance, safety record, operator stability — is published
-            in full on the{" "}
-            <Link href="/safety" className="text-clearance">
-              safety standards page
-            </Link>
-            . What the certifications themselves mean is on{" "}
-            <Link href="/safety/ratings-explained" className="text-clearance">
-              ratings, explained
-            </Link>
-            .
-          </p>
+                <div className="label-jn mt-2">{s.name}</div>
+              </div>
+              <p className="max-w-[64ch] text-[16px] leading-[1.6] text-bone-2">{s.body}</p>
+            </li>
+          ))}
+        </ol>
+        <p className="mt-8 max-w-[70ch] text-[16px] leading-[1.6] text-bone-2">
+          The written floor behind these filters — certification, audit standing, pilot
+          qualification, insurance, maintenance, safety record, operator stability — is published
+          in full on the{" "}
+          <Link href="/safety" className="text-link-strong">
+            safety standards page
+          </Link>
+          . What the certifications themselves mean is on{" "}
+          <Link href="/safety/ratings-explained" className="text-link-strong">
+            ratings, explained
+          </Link>
+          .
+        </p>
+      </section>
+
+      <section className="container-jn section-jn max-md:pt-20">
+        <h2 className="eyebrow">Asked about vetting</h2>
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+          {FAQ.map((f) => (
+            <div key={f.q} className="card card-pad">
+              <h3 className="title-card-sm text-bone">{f.q}</h3>
+              <p className="mt-3 text-[15px] leading-[1.6] text-bone-2">{f.a}</p>
+            </div>
+          ))}
         </div>
       </section>
 
-      <section className="border-t border-ink-3 bg-ink-2 py-32 max-md:py-20">
-        <div className="container-jn">
-          <div className="mb-14">
-            <Reveal>
-              <p className="caption mb-6">— Asked about vetting</p>
-            </Reveal>
-          </div>
-          <div className="grid grid-cols-1 gap-x-12 gap-y-10 md:grid-cols-3">
-            {FAQ.map((f) => (
-              <Reveal key={f.q} className="border-t border-ink-3 pt-6">
-                <h3 className="font-serif text-[19px] font-normal leading-[1.3] tracking-tight text-bone">
-                  {f.q}
-                </h3>
-                <p className="mt-3 text-[15px] leading-[1.6] text-bone-2">{f.a}</p>
-              </Reveal>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      <ClosingCTA
-        heading="Fly the 380, not the 5,000."
-        body="Every quote we return is an airframe that already passed this page. Price a mission and see."
+      <CtaBand
+        title="Fly the 380, not the 5,000."
+        body="Every quote we return is an aircraft that already passed this page. Price a trip and see."
+        primary={{ label: "Request a quote", href: "/quote/mission" }}
+        secondary={{ label: "Call dispatch", href: `tel:${SITE.dispatchPhoneE164}` }}
       />
     </>
   );

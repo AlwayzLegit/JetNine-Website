@@ -3,6 +3,9 @@ import { BrandMark } from "./brand-mark";
 
 type FooterCol = { heading: string; links: { label: string; href: string }[] };
 
+// Same link list as the live site — every link resolves. Column headings
+// and the legal line follow the simplification handoff (Instrument Sans,
+// sentence case, no mono labels).
 const FOOTER_COLS: FooterCol[] = [
   {
     heading: "Aircraft",
@@ -50,17 +53,16 @@ const FOOTER_COLS: FooterCol[] = [
 export function SiteFooter() {
   const year = new Date().getFullYear();
   return (
-    <footer className="border-t border-ink-3 bg-ink pt-24 pb-16">
+    <footer className="border-t border-line-faint bg-ink pt-16 pb-10">
       <div className="container-jn">
-        <div className="grid grid-cols-1 gap-12 sm:grid-cols-2 lg:grid-cols-[2fr_1fr_1fr_1.5fr]">
+        <div className="grid grid-cols-1 gap-10 sm:grid-cols-2 lg:grid-cols-[1.6fr_1fr_1fr_1fr]">
           <div>
-            <BrandMark size="lg" />
-            <p className="mt-6 max-w-[34ch] text-[14px] leading-[1.6] text-bone-2">
+            <BrandMark />
+            <p className="mt-4 max-w-[30ch] text-[15px] leading-[1.55] text-bone-2">
               On-demand private aviation. One number, one desk, ready when you are.
             </p>
-            <p className="mt-6 font-mono text-[11px] uppercase tracking-[0.12em] text-steel">
-              — Operating hours
-              {" "}
+            <p className="mt-5 text-[14px] leading-[1.55] text-steel">
+              Operating hours
               <br />
               <span className="text-bone-2">24 / 7 · always answered</span>
             </p>
@@ -68,15 +70,13 @@ export function SiteFooter() {
 
           {FOOTER_COLS.map((col) => (
             <div key={col.heading}>
-              <h4 className="mb-6 font-mono text-[10px] uppercase tracking-[0.16em] text-bone-2">
-                {col.heading}
-              </h4>
-              <ul className="flex flex-col gap-3">
+              <h4 className="mb-[14px] text-[14px] font-semibold text-steel">{col.heading}</h4>
+              <ul className="flex flex-col gap-[10px]">
                 {col.links.map((link) => (
-                  <li key={link.href}>
+                  <li key={link.label}>
                     <Link
                       href={link.href}
-                      className="text-[14px] text-bone transition-colors hover:text-clearance"
+                      className="text-[15px] text-bone transition-colors hover:text-bone-2"
                     >
                       {link.label}
                     </Link>
@@ -87,13 +87,9 @@ export function SiteFooter() {
           ))}
         </div>
 
-        <div className="mt-16 flex flex-wrap items-center justify-between gap-4 border-t border-ink-3 pt-8">
-          <p className="font-mono text-[11px] uppercase tracking-[0.08em] text-steel">
-            © {year} JetNine · Part 295 indirect air carrier
-          </p>
-          <p className="font-mono text-[11px] uppercase tracking-[0.08em] text-steel">
-            Flights operated by FAA Part 135 certificated air carriers
-          </p>
+        <div className="mt-12 flex flex-wrap items-center justify-between gap-x-6 gap-y-2 border-t border-line-faint pt-6 text-[13px] leading-[1.5] text-steel">
+          <span>© {year} JetNine · Part 295 indirect air carrier</span>
+          <span>Flights operated by FAA Part 135 certificated air carriers</span>
         </div>
       </div>
     </footer>

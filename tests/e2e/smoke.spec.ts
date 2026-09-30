@@ -67,39 +67,36 @@ test.describe("public marketing surface", () => {
 });
 
 test.describe("contact page", () => {
-  test("renders the KVNY field diagram and live desk clock", async ({ page }) => {
+  test("renders the live desk clock", async ({ page }) => {
     const response = await page.goto("/contact");
     expect(response?.status()).toBe(200);
-    await expect(page.getByTestId("kvny-map")).toBeVisible();
-    // Runway designators are factual content, not decoration — assert
-    // they survive any future redesign of the SVG.
-    await expect(page.getByTestId("kvny-map")).toContainText("16R");
     await expect(page.getByTestId("desk-clock")).toBeVisible();
-    // Clock ticks after hydration: a real HH:MM:SS replaces the SSR
-    // placeholder within a tick or two.
-    await expect(page.getByTestId("desk-clock")).toContainText(/\d{2}:\d{2}:\d{2}/, {
-      timeout: 10_000,
-    });
+    // Clock ticks after hydration: a real h:mm in Los Angeles replaces
+    // the SSR placeholder within a tick or two.
+    await expect(page.getByTestId("desk-clock")).toContainText(
+      /\d{1,2}:\d{2} (AM|PM) in Los Angeles/,
+      { timeout: 10_000 },
+    );
   });
 
   test("contact form rejects an empty submit client-side", async ({ page }) => {
     await page.goto("/contact");
     await page.getByRole("button", { name: /send to dispatch/i }).click();
-    await expect(page.getByText(/CHECK —/)).toBeVisible();
+    await expect(page.getByText(/Check —/)).toBeVisible();
   });
 
   test("card inquiry does not require trip fields", async ({ page }) => {
     // Trip fields are quote-only. With the local dummy DATABASE_URL the
-    // insert fails, so DB_INSERT_FAILED here proves validation PASSED
+    // insert fails, so "Not sent" here proves validation PASSED
     // without from/to/date — the regression this guards is the form
-    // bouncing a Card question with CHECK — FROM, TO, DATE.
+    // bouncing a Card question with "Check — departing, arriving, date".
     await page.goto("/contact");
     await page.getByRole("button", { name: /card \/ reserve/i }).click();
     await page.getByLabel(/first name/i).fill("Smoke");
     await page.getByLabel(/last name/i).fill("CardAsk");
     await page.getByLabel(/^email$/i).fill("smoke@example.com");
     await page.getByRole("button", { name: /send to dispatch/i }).click();
-    await expect(page.getByText(/NOT SENT — DB_INSERT_FAILED/)).toBeVisible({
+    await expect(page.getByText(/Not sent\./)).toBeVisible({
       timeout: 15_000,
     });
   });
@@ -114,9 +111,9 @@ test.describe("contact page", () => {
     await page.getByLabel(/^email$/i).fill("smoke@example.com");
     await page.getByLabel(/departing/i).fill("KVNY");
     await page.getByLabel(/arriving/i).fill("KTEB");
-    await page.getByLabel(/date \/ window/i).fill("whenever");
+    await page.getByLabel(/date or window/i).fill("whenever");
     await page.getByRole("button", { name: /send to dispatch/i }).click();
-    await expect(page.getByText(/NOT SENT — DB_INSERT_FAILED/)).toBeVisible({
+    await expect(page.getByText(/Not sent\./)).toBeVisible({
       timeout: 15_000,
     });
   });

@@ -1,11 +1,10 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { eq, or } from "drizzle-orm";
 import { db } from "@/db";
 import { emptyLegWatchlists } from "@/db/schema/empty-legs";
-import { Reveal } from "@/components/reveal";
 import { hashToken, isExpired } from "@/lib/watchlist-confirm";
-import { ConfirmCard } from "../confirm-card";
+import { WatchlistConfirmCard } from "@/components/empty-legs/confirm-card";
+import { DeadTokenCard, TokenPageShell } from "@/components/empty-legs/token-page-shell";
 
 // Per-token and consent-bearing, so never cached and never indexed. The
 // page only reads; the confirmation itself is a POST from the card, so a
@@ -30,37 +29,14 @@ function formatWindow(earliest: string | null, latest: string | null): string {
   return earliest ? `from ${fmt(earliest)}` : `until ${fmt(latest!)}`;
 }
 
-function Shell({ children }: { children: React.ReactNode }) {
-  return (
-    <>
-      <header className="border-b border-ink-3 bg-ink pt-[200px] pb-16 max-md:pt-[140px] max-md:pb-12">
-        <div className="container-jn">
-          <Reveal className="mb-6 inline-flex items-center gap-3 font-mono text-[11px] uppercase tracking-[0.16em] text-bone-2">
-            <span className="block h-px w-8 bg-clearance" />
-            Empty legs · watchlist
-          </Reveal>
-        </div>
-      </header>
-      <section className="py-20 max-md:py-14">
-        <div className="container-jn">
-          <div className="mx-auto max-w-[720px]">{children}</div>
-        </div>
-      </section>
-    </>
-  );
-}
+const TITLE = "Confirm your alerts.";
+const LEAD = "One click and the watchlist goes live. Nothing is sent until then.";
 
 function Dead({ heading, body }: { heading: string; body: string }) {
   return (
-    <Shell>
-      <div className="rounded-[4px] border border-ink-3 bg-ink-2 p-10 text-center">
-        <h1 className="font-serif text-[26px] font-normal leading-tight text-bone">{heading}</h1>
-        <p className="mx-auto mt-4 max-w-[52ch] text-[15px] leading-[1.55] text-bone-2">{body}</p>
-        <Link href="/empty-legs" className="btn btn-primary mt-8">
-          Back to the board <span className="arrow">→</span>
-        </Link>
-      </div>
-    </Shell>
+    <TokenPageShell title={TITLE}>
+      <DeadTokenCard heading={heading} body={body} />
+    </TokenPageShell>
   );
 }
 
@@ -118,12 +94,12 @@ export default async function ConfirmPage({ params }: { params: Promise<{ token:
   }
 
   return (
-    <Shell>
-      <ConfirmCard
+    <TokenPageShell title={TITLE} lead={LEAD}>
+      <WatchlistConfirmCard
         token={token}
-        route={`${row.fromText?.toUpperCase() ?? "—"} → ${row.toText?.toUpperCase() ?? "—"}`}
+        route={`${row.fromText ?? "—"} → ${row.toText ?? "—"}`}
         window={formatWindow(row.earliestOn, row.latestOn)}
       />
-    </Shell>
+    </TokenPageShell>
   );
 }

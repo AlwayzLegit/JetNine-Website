@@ -44,11 +44,12 @@ export function Placeholder({
   sizes?: string;
 }) {
   const altText = (imageAlt ?? caption ?? "").replace(/^—\s*/, "");
+  const captionText = caption?.replace(/^—\s*/, "");
 
   return (
     <div
       className={[
-        "relative overflow-hidden bg-gradient-to-br from-ink-3 to-[#0A0C10]",
+        "relative overflow-hidden rounded-card bg-gradient-to-br from-surface-2 to-ink-2",
         aspectClass[aspect],
         className,
       ].join(" ")}
@@ -89,8 +90,8 @@ export function Placeholder({
         />
       ) : null}
 
-      {/* Caption — small mono uppercase, top-left. When an image is shown
-          we add a subtle dark gradient under the caption for legibility. */}
+      {/* Caption — 13px label, top-left. When an image is shown we add a
+          subtle dark gradient under the caption for legibility. */}
       {caption ? (
         <>
           {imageUrl ? (
@@ -99,8 +100,8 @@ export function Placeholder({
               className="pointer-events-none absolute inset-x-0 top-0 z-10 h-16 bg-gradient-to-b from-ink/60 to-transparent"
             />
           ) : null}
-          <span className="absolute left-4 top-4 z-10 font-mono text-[10px] uppercase tracking-[0.16em] text-bone-2">
-            {caption}
+          <span className="absolute left-4 top-4 z-10 text-[13px] font-semibold text-bone-2">
+            {captionText}
           </span>
         </>
       ) : null}

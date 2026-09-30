@@ -26,9 +26,35 @@ operators, aircraft, airports and live ops are no longer managed here.
 | 5 | Admin: five-section desk | 1, owner decisions below |
 | 6 | Dictionary in emails/SMS, mobile pass, launch checks (a11y audits, URL + JSON-LD diff, Semrush re-run, PostHog comparison) | 2–5 |
 
-Phase 1 is done on the branch (see "Phase 1 status" below). Phases 2–4
-have no open questions and follow in that order. Phase 5 waits on the
-decisions below.
+Phases 1 and 2 are done on the branch (see the status notes below).
+Phases 3–4 have no open questions and follow in that order. Phase 5 waits
+on the decisions below.
+
+### Phase 2 status
+
+Shipped: the eleven designed pages (Home, Aircraft, Memberships, How it
+works, Contact, About, FAQ, Empty legs, Safety, Blog & guides, Legal) rebuilt
+from their prototypes, plus the restyle of every template page (city,
+route, question, guide, aircraft category and model, blog post, cost
+calculator, the token confirm / unsubscribe pages, the 404). Shared page
+grammar lives in `globals.css` (`.eyebrow`, `.title-*`, `.card`, `.chip`,
+`.segmented`, `.accordion-*`, `.stepper`, `.range-jn`, `.switch`, `.dl-jn`,
+`.table-jn`, `.pill`) with `PageHero` and `CtaBand` as the shared hero and
+closing band. `PageHeader` and `ClosingCTA` are thin wrappers over those.
+
+Kept as promised: every URL, `metadata`, JSON-LD, revalidate export, the
+analytics events, the legal text verbatim (including §1.7 SMS disclosures),
+the watchlist SMS consent line, the Part 295 line, the contact and
+watchlist server actions and their field names. The Van Nuys runway map on
+/contact was dropped for the prototype's dispatch-room photo.
+
+Still to do in later phases: the jargon inside `rates.ts`, `fleet.ts`,
+`questions.ts` and the page `metadata` descriptions ("airframe", "NM",
+"pax") is de-jargoned at render time on the rebuilt pages; the source data
+and the JSON-LD text still carry it (Phase 6 dictionary pass). Founder
+photos are placeholders until portraits are supplied. The quote-launcher
+card on the template pages still fires `quote_launcher_submitted`; the
+designed pages link straight to `/quote/mission` instead.
 
 ### Phase 1 status
 

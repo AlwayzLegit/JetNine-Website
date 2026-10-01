@@ -1,5 +1,6 @@
 "use server";
 
+import { randomBytes } from "node:crypto";
 import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { eq } from "drizzle-orm";
@@ -9,6 +10,7 @@ import { findAirport } from "@/lib/airports";
 import { toE164 } from "@/lib/phone";
 import type { QuoteDraft } from "@/lib/quote-store";
 import { getCurrentUser } from "@/lib/auth";
+import { statusPath } from "@/lib/request-status";
 import { getMemberByUserId } from "@/lib/member";
 import { logAudit } from "@/lib/audit";
 import { checkRateLimit } from "@/lib/rate-limit";
@@ -18,7 +20,7 @@ import {
 } from "@/lib/email";
 
 export type SubmitResult =
-  | { ok: true; ref: string; id: string; deduped?: true }
+  | { ok: true; ref: string; id: string; statusUrl: string; deduped?: true }
   | { ok: false; error: string; retryAfterMs?: number };
 
 // Limits chosen to be generous for real users (one party rarely submits
@@ -97,7 +99,7 @@ export async function submitQuote(draft: QuoteDraft): Promise<SubmitResult> {
   if (idempotencyKey) {
     try {
       const existing = await db
-        .select({ id: quotes.id, quoteCode: quotes.quoteCode })
+        .select({ id: quotes.id, quoteCode: quotes.quoteCode, statusToken: quotes.statusToken })
         .from(quotes)
         .where(eq(quotes.clientIdempotencyKey, idempotencyKey))
         .limit(1);
@@ -106,6 +108,7 @@ export async function submitQuote(draft: QuoteDraft): Promise<SubmitResult> {
           ok: true,
           ref: existing[0].quoteCode,
           id: existing[0].id,
+          statusUrl: statusPath(existing[0].statusToken ?? ""),
           deduped: true,
         };
       }
@@ -123,6 +126,9 @@ export async function submitQuote(draft: QuoteDraft): Promise<SubmitResult> {
   // smoke can assert against DB state) but flip status='cancelled' +
   // skip both ack and dispatch-notification emails.
   const isSmoke = draft.firstName.trim().startsWith("[SMOKE]");
+
+  // Guest status link token — 192 bits of randomness, hex. See schema.
+  const statusToken = randomBytes(24).toString("hex");
 
   // Link the member when the visitor is signed in — the SESSION is the
   // proof of identity, never the typed email (binding by contact email
@@ -192,6 +198,7 @@ export async function submitQuote(draft: QuoteDraft): Promise<SubmitResult> {
           consentMarketing: draft.consent.marketing,
 
           clientIdempotencyKey: idempotencyKey,
+          statusToken,
 
           status: isSmoke ? "cancelled" : "submitted",
       };
@@ -252,7 +259,7 @@ export async function submitQuote(draft: QuoteDraft): Promise<SubmitResult> {
     // they don't generate noise in inboxes on every deploy. The DB row
     // is still there for the smoke runner to assert against.
     if (isSmoke) {
-      return { ok: true, ref: inserted.quoteCode, id: inserted.id };
+      return { ok: true, ref: inserted.quoteCode, id: inserted.id, statusUrl: statusPath(statusToken) };
     }
 
     // Fire-and-forget delivery — never block the user's submit response on
@@ -264,6 +271,7 @@ export async function submitQuote(draft: QuoteDraft): Promise<SubmitResult> {
       const baseUrl =
         process.env.NEXT_PUBLIC_SITE_URL ?? `${proto}://${host}`;
       const workbenchUrl = `${baseUrl}/admin/quote/${inserted.id}`;
+      const statusUrl = `${baseUrl}${statusPath(statusToken)}`;
 
       const legSummaries = draft.legs.map((l) => ({
         fromIata: l.fromIata ?? null,
@@ -280,6 +288,7 @@ export async function submitQuote(draft: QuoteDraft): Promise<SubmitResult> {
           phone: draft.phone,
           legs: legSummaries,
           paxCount: draft.pax,
+          statusUrl,
         }),
         sendDispatchNewQuoteNotification({
           quoteCode: inserted.quoteCode,
@@ -323,7 +332,7 @@ export async function submitQuote(draft: QuoteDraft): Promise<SubmitResult> {
       console.error("submitQuote email side-effect failed", err);
     }
 
-    return { ok: true, ref: inserted.quoteCode, id: inserted.id };
+    return { ok: true, ref: inserted.quoteCode, id: inserted.id, statusUrl: statusPath(statusToken) };
   } catch (err) {
     // Unique-violation on client_idempotency_key — a parallel submit
     // already created the row. Look it up and return it as a dedupe hit.
@@ -334,7 +343,7 @@ export async function submitQuote(draft: QuoteDraft): Promise<SubmitResult> {
     ) {
       try {
         const existing = await db
-          .select({ id: quotes.id, quoteCode: quotes.quoteCode })
+          .select({ id: quotes.id, quoteCode: quotes.quoteCode, statusToken: quotes.statusToken })
           .from(quotes)
           .where(eq(quotes.clientIdempotencyKey, idempotencyKey))
           .limit(1);
@@ -343,6 +352,7 @@ export async function submitQuote(draft: QuoteDraft): Promise<SubmitResult> {
             ok: true,
             ref: existing[0].quoteCode,
             id: existing[0].id,
+            statusUrl: statusPath(existing[0].statusToken ?? ""),
             deduped: true,
           };
         }

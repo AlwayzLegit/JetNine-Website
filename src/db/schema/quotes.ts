@@ -133,6 +133,13 @@ export const quotes = pgTable(
     // paths that don't set it.
     clientIdempotencyKey: text("client_idempotency_key"),
 
+    // Guest status link — /request/<token>. 24 random bytes as hex, set
+    // server-side at insert (migration 0048 backfills older rows). Stored
+    // in clear text like the watchlist unsubscribe token: the link has to
+    // be readable at send time for every later email, and the row it
+    // unlocks is the quote itself, so a leaked dump gains nothing extra.
+    statusToken: text("status_token"),
+
     // Lifecycle
     status: quoteStatusEnum("status").notNull().default("submitted"),
     assignedDispatcherId: uuid("assigned_dispatcher_id").references(() => staff.id, {
@@ -172,6 +179,7 @@ export const quotes = pgTable(
   },
   (t) => [
     uniqueIndex("quotes_quote_code_uq").on(t.quoteCode),
+    uniqueIndex("quotes_status_token_uq").on(t.statusToken),
     index("quotes_status_idx").on(t.status),
     index("quotes_member_idx").on(t.memberId),
     index("quotes_dispatcher_idx").on(t.assignedDispatcherId),

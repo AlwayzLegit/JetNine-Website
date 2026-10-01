@@ -161,6 +161,8 @@ type QuoteSubmittedContext = {
   phone?: string | null;
   legs: { fromIata: string | null; toIata: string | null; date: string | null }[];
   paxCount: number;
+  /** Guest status page (/request/<token>) — included when the quote has one. */
+  statusUrl?: string;
 };
 
 export async function sendQuoteAcknowledgmentEmail(
@@ -179,8 +181,9 @@ export async function sendQuoteAcknowledgmentEmail(
     ``,
     `Reference:  ${ctx.quoteCode}`,
     `Route:      ${route}`,
-    `Pax:        ${ctx.paxCount}`,
+    `Passengers: ${ctx.paxCount}`,
     ``,
+    ...(ctx.statusUrl ? [`Follow your request here: ${ctx.statusUrl}`, ``] : []),
     `If you need to reach us sooner: dispatch is on ${SITE.dispatchPhone}, 24/7.`,
     ``,
     `JetNine LLC · 14 CFR Part 295 indirect air carrier · all flights operated by an FAA Part 135 direct air carrier.`,
@@ -198,8 +201,13 @@ export async function sendQuoteAcknowledgmentEmail(
       </p>
       <table style="margin:24px 0;border-collapse:collapse;font-size:13px;">
         <tr><td style="padding:4px 16px 4px 0;color:#6B7280;text-transform:uppercase;letter-spacing:0.08em;font-size:11px;">Route</td><td style="padding:4px 0;">${escapeHtml(route)}</td></tr>
-        <tr><td style="padding:4px 16px 4px 0;color:#6B7280;text-transform:uppercase;letter-spacing:0.08em;font-size:11px;">Pax</td><td style="padding:4px 0;">${ctx.paxCount}</td></tr>
+        <tr><td style="padding:4px 16px 4px 0;color:#6B7280;text-transform:uppercase;letter-spacing:0.08em;font-size:11px;">Passengers</td><td style="padding:4px 0;">${ctx.paxCount}</td></tr>
       </table>
+      ${
+        ctx.statusUrl
+          ? `<p style="margin:0 0 24px;font-size:14px;"><a href="${ctx.statusUrl}" style="color:#0F1115;font-weight:600;">Follow your request →</a><br/><span style="color:#6B7280;font-size:12px;">Your options will appear on that page as soon as dispatch sends them.</span></p>`
+          : ""
+      }
       <p style="margin:24px 0 8px;font-size:13px;color:#6B7280;">Need us sooner?</p>
       <p style="margin:0;font-size:14px;"><a href="tel:${SITE.dispatchPhoneE164}" style="color:#0F1115;">${SITE.dispatchPhone}</a> · 24/7</p>
       <p style="margin:40px 0 0;font-size:11px;color:#9CA3AF;line-height:1.6;">
@@ -573,6 +581,8 @@ export type QuoteOptionsEmailContext = {
   route: string;
   paxCount: number;
   options: QuoteOptionEmailItem[];
+  /** Guest status page where the client can pick an option. */
+  statusUrl?: string;
 };
 
 const usdFmt = new Intl.NumberFormat("en-US", {
@@ -610,10 +620,11 @@ export async function sendQuoteOptionsEmail(
   const text = [
     `${ctx.firstName},`,
     ``,
-    `Here are your options for ${ctx.route} (${ctx.paxCount} pax). Every airframe below flies with an independently vetted FAA Part 135 operator, and every price is all-in — fuel, taxes, FET, repositioning, crew.`,
+    `Here are your options for ${ctx.route} (${ctx.paxCount} passengers). Every aircraft below flies with an independently vetted FAA Part 135 operator, and every price is all-in — fuel, taxes, FET, repositioning, crew.`,
     ``,
     optText,
     ``,
+    ...(ctx.statusUrl ? [`Choose an option here: ${ctx.statusUrl}`, ``] : []),
     `To hold an aircraft, reply to this email or call dispatch on ${SITE.dispatchPhone} — we answer 24/7. Availability moves fast; a soft hold costs nothing.`,
     ``,
     `Reference: ${ctx.quoteCode}`,
@@ -653,8 +664,13 @@ export async function sendQuoteOptionsEmail(
         <strong>all-in</strong> — fuel, taxes, FET, repositioning, crew.
       </p>
       ${optionsHtml}
+      ${
+        ctx.statusUrl
+          ? `<p style="margin:20px 0 0;font-size:14px;"><a href="${ctx.statusUrl}" style="display:inline-block;padding:12px 20px;border-radius:8px;background:#0F1115;color:#FFFFFF;font-weight:600;text-decoration:none;">Choose an option →</a></p>`
+          : ""
+      }
       <p style="margin:20px 0 0;font-size:14px;">
-        To hold an aircraft, <strong>reply to this email</strong> or call
+        To hold an aircraft, ${ctx.statusUrl ? "pick one on the page above, " : ""}<strong>reply to this email</strong> or call
         <a href="tel:${SITE.dispatchPhoneE164}" style="color:#0F1115;">${SITE.dispatchPhone}</a> — 24/7.
         Availability moves fast; a soft hold costs nothing.
       </p>

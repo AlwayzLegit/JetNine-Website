@@ -26,9 +26,28 @@ operators, aircraft, airports and live ops are no longer managed here.
 | 5 | Admin: five-section desk | 1, owner decisions below |
 | 6 | Dictionary in emails/SMS, mobile pass, launch checks (a11y audits, URL + JSON-LD diff, Semrush re-run, PostHog comparison) | 2–5 |
 
-Phases 1 and 2 are done on the branch (see the status notes below).
-Phases 3–4 have no open questions and follow in that order. Phase 5 waits
-on the decisions below.
+Phases 1–3 are done (1–2 merged in #67; 3 on the branch, see the status
+notes below). Phase 4 has no open questions. Phase 5 waits on the
+decisions below.
+
+### Phase 3 status
+
+Shipped: the four-step quote flow rebuilt from `Quote.dc.html` (sticky
+quote header, 4-column step bar, "Your trip so far" sidebar, compact
+fields, segmented trip type, leg blocks, category cards with plain-words
+fit reasons, collapsed optional sections, contact tiles and agreements,
+review with Edit links and the Send-to-dispatch card) and the "Your
+request" page at `/request/<token>` with the received, options, chosen,
+booked and closed stages. Choosing an option marks it accepted, moves the
+quote to `accepted` and alerts the desk. The acknowledgment and options
+emails carry the link; the admin workbench shows it.
+
+Schema: migration `0048_quote_status_token.sql` must be applied before
+this phase deploys (see DEPLOY.md §8b). Not in scope: SMS copies of the
+link (the handoff's "we texted you a copy" line reads "we emailed you a
+copy" until SMS consent is collected per quote), Add-to-calendar on the
+booked stage (a mailto to dispatch for now), and the member Account ›
+Quotes list, which Phase 4 rebuilds to link each row to its status page.
 
 ### Phase 2 status
 

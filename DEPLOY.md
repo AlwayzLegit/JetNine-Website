@@ -141,7 +141,9 @@ Schema: migration `0048_quote_status_token.sql` adds `quotes.status_token`
 (24 random bytes, hex, unique) and backfills existing rows. Apply it before
 deploying the phase-3 build — the submit action writes the column. The page
 `/request/<token>` is `noindex` and disallowed in robots; lookups are
-rate-limited per IP. No new env vars.
+rate-limited per IP. No new env vars. Migration `0049_quotes_anon_select_revoke.sql`
+(also applied) removes the anon-key read path on `quotes` / `quote_legs` that 0003
+left open and rotates every token; keep it applied before 0048's links go out.
 
 ## 9. Custom domain
 

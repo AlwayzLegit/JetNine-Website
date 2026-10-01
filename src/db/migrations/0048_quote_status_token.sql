@@ -15,3 +15,11 @@ update public.quotes
 
 create unique index if not exists quotes_status_token_uq
   on public.quotes (status_token);
+
+-- Every insert path gets a token from the database itself (an old app
+-- instance mid-rolling-deploy included), and the column is never null.
+alter table public.quotes
+  alter column status_token set default encode(gen_random_bytes(24), 'hex');
+
+alter table public.quotes
+  alter column status_token set not null;

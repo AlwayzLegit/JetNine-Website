@@ -2,7 +2,7 @@
 
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
-import type { AircraftCategorySlug } from "@/lib/fleet";
+import { getFleetEntry, type AircraftCategorySlug } from "@/lib/fleet";
 import type { Leg, CateringTier, GroundType } from "@/lib/quote-pricing";
 
 export type TripType = "roundtrip" | "oneway" | "multileg";
@@ -273,8 +273,29 @@ export function isMissionComplete(s: QuoteDraft): boolean {
   return s.legs.every((l) => l.fromIata && l.toIata && l.date && l.time) && s.pax >= 1;
 }
 
+/**
+ * Does the chosen category fit the mission? Same rule the aircraft step
+ * uses to grey a card out: enough seats for every passenger and enough
+ * range for the longest leg. Shared so the step bar, the later steps'
+ * guards and the server all agree after the mission is edited.
+ */
+export function categoryFits(
+  category: AircraftCategorySlug,
+  pax: number,
+  legs: Pick<Leg, "distanceNm">[],
+): { ok: true } | { ok: false; reason: "pax" | "range" } {
+  const entry = getFleetEntry(category);
+  if (!entry) return { ok: false, reason: "pax" };
+  if (entry.pax < pax) return { ok: false, reason: "pax" };
+  const longest = Math.max(0, ...legs.map((l) => l.distanceNm ?? 0));
+  if (entry.rangeNm < longest) return { ok: false, reason: "range" };
+  return { ok: true };
+}
+
 export function isAircraftComplete(s: QuoteDraft): boolean {
-  return Boolean(s.category && s.catering && s.ground);
+  return (
+    Boolean(s.category && s.catering && s.ground) && categoryFits(s.category, s.pax, s.legs).ok
+  );
 }
 
 export function isContactComplete(s: QuoteDraft): boolean {

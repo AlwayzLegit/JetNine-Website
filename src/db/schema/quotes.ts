@@ -133,12 +133,16 @@ export const quotes = pgTable(
     // paths that don't set it.
     clientIdempotencyKey: text("client_idempotency_key"),
 
-    // Guest status link — /request/<token>. 24 random bytes as hex, set
-    // server-side at insert (migration 0048 backfills older rows). Stored
-    // in clear text like the watchlist unsubscribe token: the link has to
-    // be readable at send time for every later email, and the row it
+    // Guest status link — /request/<token>. 24 random bytes as hex. The
+    // database defaults it so every insert path has one (migration 0048
+    // backfilled older rows); the submit action also sets it explicitly
+    // so it can build the link without a second read. Stored in clear
+    // text like the watchlist unsubscribe token: the link has to be
+    // readable at send time for every later email, and the row it
     // unlocks is the quote itself, so a leaked dump gains nothing extra.
-    statusToken: text("status_token"),
+    statusToken: text("status_token")
+      .notNull()
+      .default(sql`encode(gen_random_bytes(24), 'hex')`),
 
     // Lifecycle
     status: quoteStatusEnum("status").notNull().default("submitted"),

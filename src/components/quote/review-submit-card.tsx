@@ -76,5 +76,16 @@ function ErrorSentence({ error }: { error: SubmitError }) {
       </>
     );
   }
+  if (error.code === "CATEGORY_DOES_NOT_FIT") {
+    return (
+      <>
+        The aircraft category no longer fits your trip.{" "}
+        <Link href="/quote/aircraft" className="text-link-strong !text-danger">
+          Pick another category
+        </Link>
+        . ({error.code})
+      </>
+    );
+  }
   return <>Not sent ({error.code}). Try again, or call dispatch.</>;
 }

@@ -1,6 +1,6 @@
 "use server";
 
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { db } from "@/db";
@@ -75,9 +75,21 @@ export async function chooseOption(token: string, optionId: string): Promise<Cho
     user = null;
   }
 
+  // Claim the quote first, conditionally on it still being open: two
+  // holders of the link choosing at once can both pass the read above,
+  // but only one UPDATE … WHERE status IN (open) will match a row. The
+  // loser sees NOT_OPEN and the page refreshes to the winner's choice.
   const now = new Date();
+  let claimed = false;
   try {
     await db.transaction(async (tx) => {
+      const rows = await tx
+        .update(quotes)
+        .set({ status: "accepted", acceptedAt: now, updatedAt: now })
+        .where(and(eq(quotes.id, q.id), inArray(quotes.status, ["options_sent", "held"])))
+        .returning({ id: quotes.id });
+      if (rows.length === 0) return;
+      claimed = true;
       await tx
         .update(sourcedOptions)
         .set({ isChosen: false, updatedAt: now })
@@ -86,15 +98,12 @@ export async function chooseOption(token: string, optionId: string): Promise<Cho
         .update(sourcedOptions)
         .set({ isChosen: true, status: "accepted", updatedAt: now })
         .where(eq(sourcedOptions.id, opt.id));
-      await tx
-        .update(quotes)
-        .set({ status: "accepted", acceptedAt: now, updatedAt: now })
-        .where(eq(quotes.id, q.id));
     });
   } catch (err) {
     console.error("chooseOption failed", err);
     return { ok: false, error: "DB_UPDATE_FAILED" };
   }
+  if (!claimed) return { ok: false, error: "NOT_OPEN" };
 
   await logAudit({
     actorUserId: user?.id ?? null,

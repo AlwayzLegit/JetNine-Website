@@ -8,7 +8,7 @@ import { db } from "@/db";
 import { quotes, quoteLegs, type NewQuote, type NewQuoteLeg } from "@/db/schema/quotes";
 import { findAirport } from "@/lib/airports";
 import { toE164 } from "@/lib/phone";
-import type { QuoteDraft } from "@/lib/quote-store";
+import { categoryFits, type QuoteDraft } from "@/lib/quote-store";
 import { getCurrentUser } from "@/lib/auth";
 import { statusPath } from "@/lib/request-status";
 import { getMemberByUserId } from "@/lib/member";
@@ -54,6 +54,11 @@ export async function submitQuote(draft: QuoteDraft): Promise<SubmitResult> {
   }
   if (draft.notes && draft.notes.length > 800) {
     return { ok: false, error: "NOTES_TOO_LONG" };
+  }
+  // The category must still fit the mission — the wizard greys out
+  // categories that don't, but the mission can be edited afterwards.
+  if (!categoryFits(draft.category, draft.pax, draft.legs).ok) {
+    return { ok: false, error: "CATEGORY_DOES_NOT_FIT" };
   }
   // Floor the depart date at "today, anywhere on earth" (UTC-12). The
   // wizard collects local dates with no timezone, so a strict UTC-today
@@ -108,7 +113,7 @@ export async function submitQuote(draft: QuoteDraft): Promise<SubmitResult> {
           ok: true,
           ref: existing[0].quoteCode,
           id: existing[0].id,
-          statusUrl: statusPath(existing[0].statusToken ?? ""),
+          statusUrl: statusPath(existing[0].statusToken),
           deduped: true,
         };
       }
@@ -352,7 +357,7 @@ export async function submitQuote(draft: QuoteDraft): Promise<SubmitResult> {
             ok: true,
             ref: existing[0].quoteCode,
             id: existing[0].id,
-            statusUrl: statusPath(existing[0].statusToken ?? ""),
+            statusUrl: statusPath(existing[0].statusToken),
             deduped: true,
           };
         }

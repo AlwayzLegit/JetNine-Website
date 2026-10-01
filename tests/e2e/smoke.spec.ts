@@ -139,6 +139,22 @@ test.describe("quote wizard", () => {
   });
 });
 
+test.describe("request status page", () => {
+  test("malformed token is a 404", async ({ page }) => {
+    const response = await page.goto("/request/not-a-token");
+    expect(response?.status()).toBe(404);
+    await expect(page.getByText(/can't find that request/i)).toBeVisible();
+  });
+
+  test("well-formed token degrades gracefully without a DB", async ({ page }) => {
+    // Dummy DATABASE_URL: the lookup throws, the page must hold rather
+    // than 500 — the link in the acknowledgment email keeps working.
+    const response = await page.goto(`/request/${"a".repeat(48)}`);
+    expect(response?.status()).toBeLessThan(500);
+    await expect(page.getByText(/can't load this right now|can't find that request/i)).toBeVisible();
+  });
+});
+
 test.describe("auth surface", () => {
   test("sign-in page renders", async ({ page }) => {
     await page.goto("/sign-in");

@@ -2,6 +2,12 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import {
+  isAircraftComplete,
+  isContactComplete,
+  isMissionComplete,
+  useQuoteStore,
+} from "@/lib/quote-store";
 
 const STEPS = [
   { idx: 1, label: "Mission", href: "/quote/mission" },
@@ -10,86 +16,96 @@ const STEPS = [
   { idx: 4, label: "Review", href: "/quote/review" },
 ] as const;
 
+// Four-column step bar under the quote header. 28px number circle —
+// clearance-filled for done and current steps, outlined for upcoming —
+// then "Step n of 4" in steel over the step name. The current step gets a
+// 2px clearance bottom border. A step is a link only once everything
+// before it is complete (the store's step guards); otherwise it is inert.
+// Phones keep the circles and the current step's name only.
+//
+// Reading the store here is SSR-safe: hydration is skipped until the
+// StoreHydrationGate rehydrates, so server and first client render both
+// see the defaults (every guard false), then the links appear.
 export function QuoteStepper() {
   const pathname = usePathname();
+  const draft = useQuoteStore();
   const currentIdx =
     STEPS.find((s) => pathname === s.href || pathname.startsWith(s.href + "/"))?.idx ?? 1;
 
+  const missionDone = isMissionComplete(draft);
+  const aircraftDone = missionDone && isAircraftComplete(draft);
+  const contactDone = aircraftDone && isContactComplete(draft);
+  const reachable = [true, missionDone, aircraftDone, contactDone];
+
   return (
-    <div className="border-b border-ink-3 bg-ink py-5">
-      <div className="container-jn flex flex-wrap items-center gap-x-6 gap-y-3">
-        {STEPS.map((s, i) => {
-          const state: "done" | "active" | "pending" =
-            s.idx < currentIdx ? "done" : s.idx === currentIdx ? "active" : "pending";
-          const clickable = state !== "pending";
-          const content = (
-            <span
-              // Pending state shows muted color via text-steel below;
-              // double-dimming with opacity-60 dropped contrast below
-              // WCAG AA on the bracket-text color (#7B8290 × 0.6).
-              // Cursor-default is still appropriate; opacity is not.
-              className={[
-                "flex items-center gap-3 transition-colors",
-                state === "pending" ? "cursor-default" : "cursor-pointer hover:text-bone",
-              ].join(" ")}
-            >
+    <nav aria-label="Steps" className="border-b border-line-faint bg-ink">
+      <ol className="container-jn flex gap-2 md:grid md:grid-cols-4">
+        {STEPS.map((s) => {
+          const state: "done" | "current" | "upcoming" =
+            s.idx < currentIdx ? "done" : s.idx === currentIdx ? "current" : "upcoming";
+          const isLink = reachable[s.idx - 1] || state === "current";
+
+          const inner = (
+            <>
               <span
-                aria-hidden
+                aria-hidden="true"
                 className={[
-                  "flex h-7 w-7 items-center justify-center rounded-full font-mono text-[11px] tracking-[0.04em]",
-                  state === "done"
-                    ? "border border-bone bg-ink text-clearance"
-                    : state === "active"
-                      ? "bg-clearance text-ink"
-                      : "border border-ink-3 bg-ink-3 text-steel",
+                  "flex h-7 w-7 flex-none items-center justify-center rounded-full border text-[13px] font-semibold",
+                  state === "upcoming"
+                    ? "border-line-2 text-steel"
+                    : "border-clearance bg-clearance text-ink",
                 ].join(" ")}
               >
-                {state === "done" ? "✓" : String(s.idx).padStart(2, "0")}
+                {s.idx}
               </span>
-              <span className="flex flex-col leading-tight max-md:hidden">
+              <span
+                className={[
+                  "flex flex-col leading-[1.25]",
+                  state === "current" ? "" : "max-md:sr-only",
+                ].join(" ")}
+              >
+                <span className="text-[12px] text-steel max-md:sr-only">Step {s.idx} of 4</span>
                 <span
                   className={[
-                    "font-mono text-[9px] uppercase tracking-[0.14em]",
-                    state === "pending" ? "text-steel" : "text-bone-2",
-                  ].join(" ")}
-                >
-                  Step {String(s.idx).padStart(2, "0")}
-                </span>
-                <span
-                  className={[
-                    "font-mono text-[11px] uppercase tracking-[0.08em]",
-                    state === "pending" ? "text-steel" : "text-bone",
+                    "text-[15px] font-medium",
+                    state === "current" ? "text-bone" : "text-bone-2",
                   ].join(" ")}
                 >
                   {s.label}
                 </span>
               </span>
-            </span>
+            </>
           );
+
+          const itemClass = [
+            "flex min-h-[56px] w-full items-center gap-3 border-b-2 px-1 py-3.5 text-left",
+            state === "current" ? "border-clearance" : "border-transparent",
+            isLink ? "transition-colors hover:text-bone" : "cursor-default",
+          ].join(" ");
+
           return (
-            <div key={s.idx} className="flex items-center gap-6">
-              {clickable ? (
-                // aria-label: on mobile the text label is max-md:hidden and the
-                // number circle is aria-hidden, leaving the link nameless.
-                <Link href={s.href} aria-label={`Step ${s.idx}: ${s.label}`}>
-                  {content}
+            <li
+              key={s.idx}
+              className={state === "current" ? "min-w-0 max-md:flex-1" : "max-md:flex-none"}
+            >
+              {isLink ? (
+                <Link
+                  href={s.href}
+                  className={itemClass}
+                  aria-current={state === "current" ? "step" : undefined}
+                  aria-label={`Step ${s.idx} of 4: ${s.label}`}
+                >
+                  {inner}
                 </Link>
               ) : (
-                content
+                <span className={itemClass} aria-label={`Step ${s.idx} of 4: ${s.label}, not yet available`}>
+                  {inner}
+                </span>
               )}
-              {i < STEPS.length - 1 ? (
-                <span
-                  aria-hidden
-                  className={[
-                    "h-px w-6",
-                    s.idx < currentIdx ? "bg-clearance" : "bg-ink-3",
-                  ].join(" ")}
-                />
-              ) : null}
-            </div>
+            </li>
           );
         })}
-      </div>
-    </div>
+      </ol>
+    </nav>
   );
 }

@@ -39,18 +39,17 @@ export function StoreHydrationGate({
 
   if (!ready) {
     return (
+      // Two grid children, matching the step's form column + sidebar in
+      // the quote layout's `minmax(0,1fr) 340px` grid.
       skeleton ?? (
-        <div className="container-jn py-12">
-          <div
-            className="h-12 w-3/4 max-w-[40ch] rounded-[2px] bg-ink-3"
-            aria-hidden
-          />
-          <div className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-[1fr_380px]">
-            <div className="h-[480px] rounded-[4px] bg-ink-2" aria-hidden />
-            <div className="h-[480px] rounded-[4px] bg-ink-2" aria-hidden />
+        <>
+          <div className="min-w-0">
+            <div className="h-12 w-3/4 max-w-[40ch] rounded-control bg-surface-2" aria-hidden />
+            <div className="mt-6 h-[480px] rounded-card bg-surface" aria-hidden />
+            <p className="sr-only">Loading your quote draft…</p>
           </div>
-          <p className="sr-only">Loading your quote draft…</p>
-        </div>
+          <div className="h-[480px] rounded-card bg-surface max-lg:hidden" aria-hidden />
+        </>
       )
     );
   }

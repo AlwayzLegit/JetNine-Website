@@ -1,19 +1,63 @@
 "use client";
 
-import { useQuoteStore } from "@/lib/quote-store";
-import { computeIndicative, formatHours, CRUISE_KT } from "@/lib/quote-pricing";
+import { useQuoteStore, type TripType } from "@/lib/quote-store";
+import { computeIndicative, formatHours, type Leg } from "@/lib/quote-pricing";
 import { getFleetEntry } from "@/lib/fleet";
 
-const TRIP_LABEL = { roundtrip: "ROUND TRIP", oneway: "ONE WAY", multileg: "MULTI-LEG" };
-
-type Props = {
-  step: 1 | 2 | 3;
+const TRIP_LABEL: Record<TripType, string> = {
+  roundtrip: "Round trip",
+  oneway: "One way",
+  multileg: "Multi-leg",
 };
 
+const CATERING_NAME = { standard: "Standard", plus: "Plus", premium: "Premium", custom: "Custom" } as const;
+const GROUND_SHORT = { none: "—", sedan: "Black sedan", suv: "SUV / Sprinter" } as const;
+
+// "Fri, Oct 3" from a YYYY-MM-DD string. Parsed as local calendar parts
+// so a UTC midnight never rolls the day back for US visitors.
+export function formatLegDate(iso: string | undefined): string | null {
+  if (!iso) return null;
+  const [y, m, d] = iso.split("-").map(Number);
+  if (!y || !m || !d) return null;
+  return new Date(y, m - 1, d).toLocaleDateString("en-US", {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+  });
+}
+
+// "9:00 AM" from HH:MM.
+export function formatLegTime(hhmm: string | undefined): string | null {
+  if (!hhmm) return null;
+  const [h, m] = hhmm.split(":").map(Number);
+  if (Number.isNaN(h) || Number.isNaN(m)) return null;
+  const suffix = h >= 12 ? "PM" : "AM";
+  const h12 = h % 12 === 0 ? 12 : h % 12;
+  return `${h12}:${String(m).padStart(2, "0")} ${suffix}`;
+}
+
+export function legEndpoint(city: string | undefined, iata: string | undefined): string {
+  if (!iata) return "—";
+  return city ? `${city} (${iata})` : iata;
+}
+
+function legWhen(l: Leg): string | null {
+  const parts = [formatLegDate(l.date), formatLegTime(l.time)].filter(Boolean);
+  return parts.length ? parts.join(", ") : null;
+}
+
+type Props = {
+  step: 1 | 2 | 3 | 4;
+};
+
+// "Your trip so far" — the sticky right column of every quote step. Reads
+// the store itself and recomputes distance, flight time and the indicative
+// range on every change. Rows grow with the step: Aircraft / Catering /
+// Ground from step 2, Contact from step 3. Hidden below `lg`; a compact
+// range card takes its place at the end of the form on phones.
 export function QuoteSidebar({ step }: Props) {
   const s = useQuoteStore();
   const totalDistance = s.legs.reduce((sum, l) => sum + (l.distanceNm ?? 0), 0);
-  const totalHours = totalDistance > 0 ? totalDistance / CRUISE_KT[s.category] + 0.4 * s.legs.length : 0;
   const indicative = computeIndicative({
     category: s.category,
     legs: s.legs,
@@ -21,164 +65,89 @@ export function QuoteSidebar({ step }: Props) {
     ground: s.ground,
   });
   const fleet = getFleetEntry(s.category);
-
-  const activeToggles = (Object.entries(s.cabin) as [keyof typeof s.cabin, boolean][])
-    .filter(([, v]) => v)
-    .map(([k]) => k);
-
   const hasRoute = s.legs.some((l) => l.fromIata && l.toIata);
+  const priceText = indicative?.formatted ?? "$ — – $ —";
+  const timeText = indicative ? `~${formatHours(indicative.hours)}` : "—";
+  const priceNote =
+    indicative && fleet
+      ? `${fleet.name} · ${timeText} total flight time. Fuel, taxes, FET, repositioning & crew included. Final pricing comes with specific aircraft.`
+      : "Add where you're flying to see an indicative range. Final pricing comes with specific aircraft.";
+  const fullName = `${s.firstName} ${s.lastName}`.trim();
 
   return (
-    <aside className="sticky top-32 min-w-0 self-start rounded-[4px] border border-ink-3 bg-ink-2 p-7">
-      <div className="mb-6 flex items-baseline justify-between">
-        <p className="caption">— Mission preview</p>
-        <span className="rounded-[2px] bg-ink-3 px-2 py-1 font-mono text-[9px] uppercase tracking-[0.14em] text-clearance">
-          {TRIP_LABEL[s.tripType]}
-        </span>
-      </div>
+    <>
+      <aside
+        aria-label="Your trip so far"
+        className="card self-start p-6 max-lg:hidden lg:sticky lg:top-[calc(var(--header-h)+88px)]"
+      >
+        <div className="flex items-baseline justify-between gap-3">
+          <h2 className="text-[13px] font-semibold text-steel">Your trip so far</h2>
+          <span className="text-[12px] font-semibold text-clearance">{TRIP_LABEL[s.tripType]}</span>
+        </div>
 
-      {/* Itinerary */}
-      <div className="border-t border-ink-3 pt-5">
-        <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-bone-2">Itinerary</span>
-        {!hasRoute ? (
-          <p className="mt-3 text-[13px] leading-[1.5] text-steel">No route entered yet.</p>
-        ) : (
-          <ul className="mt-3 flex flex-col gap-3">
-            {s.legs.map((l, i) => (
-              <li key={l.id} className="grid grid-cols-[auto_1fr] items-baseline gap-3 text-[13px]">
-                <span className="font-mono text-[10px] tracking-[0.04em] text-steel">
-                  {String(i + 1).padStart(2, "0")}
-                </span>
-                <div>
-                  <div className="font-serif text-bone">
-                    {l.fromIata ?? "—"} <span className="text-steel">→</span> {l.toIata ?? "—"}
-                  </div>
-                  {(l.fromCity || l.toCity) && (
-                    <div className="font-mono text-[10px] tracking-[0.04em] text-bone-2">
-                      {l.fromCity ?? "—"} · {l.toCity ?? "—"}
-                    </div>
-                  )}
-                </div>
+        <ul className="mt-3 flex flex-col gap-1.5">
+          {hasRoute ? (
+            s.legs.map((l) => (
+              <li key={l.id} className="text-[16px] text-bone">
+                {legEndpoint(l.fromCity, l.fromIata)} <span className="text-steel">→</span>{" "}
+                {legEndpoint(l.toCity, l.toIata)}
+                <span className="block text-[13px] text-steel">{legWhen(l) ?? "Date and time to come"}</span>
               </li>
-            ))}
-          </ul>
-        )}
-      </div>
-
-      {/* Details */}
-      <div className="mt-6 border-t border-ink-3 pt-5">
-        <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-bone-2">Details</span>
-        <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-3">
-          <dt className="font-mono text-[10px] uppercase tracking-[0.04em] text-steel">Passengers</dt>
-          <dd className="text-right font-mono text-[12px] tracking-[0.04em] text-bone">{s.pax}</dd>
-          <dt className="font-mono text-[10px] uppercase tracking-[0.04em] text-steel">Distance</dt>
-          <dd className="text-right font-mono text-[12px] tracking-[0.04em] text-bone">
-            {totalDistance > 0 ? `${totalDistance.toLocaleString()} NM` : "—"}
-          </dd>
-          <dt className="font-mono text-[10px] uppercase tracking-[0.04em] text-steel">Est. time</dt>
-          <dd className="text-right font-mono text-[12px] tracking-[0.04em] text-bone">
-            {totalHours > 0 ? formatHours(totalHours) : "—"}
-          </dd>
-          {step >= 2 && (
-            <>
-              <dt className="font-mono text-[10px] uppercase tracking-[0.04em] text-steel">Aircraft</dt>
-              <dd className="text-right font-mono text-[11px] uppercase tracking-[0.06em] text-bone">
-                {fleet?.shortName.toUpperCase() ?? s.category.toUpperCase()}
-              </dd>
-              <dt className="font-mono text-[10px] uppercase tracking-[0.04em] text-steel">Catering</dt>
-              <dd className="text-right font-mono text-[11px] uppercase tracking-[0.06em] text-bone">
-                {s.catering.toUpperCase()}
-              </dd>
-              <dt className="font-mono text-[10px] uppercase tracking-[0.04em] text-steel">Ground</dt>
-              <dd className="text-right font-mono text-[11px] uppercase tracking-[0.06em] text-bone">
-                {s.ground === "none" ? "—" : s.ground === "suv" ? "SUV / SPRINTER" : "BLACK SEDAN"}
-              </dd>
-            </>
-          )}
-        </dl>
-      </div>
-
-      {/* Cabin preferences (step 2+) */}
-      {step >= 2 && (
-        <div className="mt-6 border-t border-ink-3 pt-5">
-          <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-bone-2">
-            Preferences
-          </span>
-          {activeToggles.length === 0 && s.kids === 0 && s.pets === 0 && s.bags === 0 && !s.notes ? (
-            <p className="mt-3 text-[13px] leading-[1.5] text-steel">No extras yet.</p>
+            ))
           ) : (
-            <ul className="mt-3 flex flex-col gap-2 text-[13px] leading-[1.5] text-bone">
-              {activeToggles.map((k) => (
-                <li key={k} className="grid grid-cols-[auto_1fr] items-baseline gap-2">
-                  <span className="text-clearance">✓</span>
-                  <span className="capitalize">{k}</span>
-                </li>
-              ))}
-              {s.kids > 0 && (
-                <li className="grid grid-cols-[auto_1fr] items-baseline gap-2">
-                  <span className="text-clearance">·</span>
-                  <span>{s.kids} children</span>
-                </li>
-              )}
-              {s.pets > 0 && (
-                <li className="grid grid-cols-[auto_1fr] items-baseline gap-2">
-                  <span className="text-clearance">·</span>
-                  <span>{s.pets} pets</span>
-                </li>
-              )}
-              {s.bags > 0 && (
-                <li className="grid grid-cols-[auto_1fr] items-baseline gap-2">
-                  <span className="text-clearance">·</span>
-                  <span>{s.bags} extra bags</span>
-                </li>
-              )}
-              {s.notes && (
-                <li className="grid grid-cols-[auto_1fr] items-baseline gap-2">
-                  <span className="text-clearance">·</span>
-                  <span>Custom notes</span>
-                </li>
-              )}
-            </ul>
+            <li className="text-[15px] text-steel">Add a from and a to to see your route.</li>
           )}
-        </div>
-      )}
+        </ul>
 
-      {/* Contact (step 3+) */}
-      {step >= 3 && (
-        <div className="mt-6 border-t border-ink-3 pt-5">
-          <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-bone-2">Contact</span>
-          <dl className="mt-3 grid grid-cols-1 gap-2 text-[12px]">
-            <dt className="font-mono text-[10px] uppercase tracking-[0.04em] text-steel">Name</dt>
-            <dd className="text-bone">
-              {(s.firstName + " " + s.lastName).trim().toUpperCase() || "—"}
-            </dd>
-            <dt className="font-mono text-[10px] uppercase tracking-[0.04em] text-steel">Email</dt>
-            <dd className="font-mono text-[11px] tracking-[0.04em] text-bone-2">{s.email || "—"}</dd>
-            <dt className="font-mono text-[10px] uppercase tracking-[0.04em] text-steel">Phone</dt>
-            <dd className="font-mono text-[11px] tracking-[0.04em] text-bone-2">
-              {s.phone ? `${s.phoneCountry} ${s.phone}` : "—"}
-            </dd>
-          </dl>
-        </div>
-      )}
+        <dl className="mt-4 grid grid-cols-[1fr_auto] gap-x-4 gap-y-2 border-t border-line pt-4 text-[15px]">
+          <dt className="text-steel">Passengers</dt>
+          <dd className="text-right text-bone">{s.pax}</dd>
+          <dt className="text-steel">Distance</dt>
+          <dd className="text-right text-bone">
+            {totalDistance > 0 ? `${totalDistance.toLocaleString("en-US")} nm` : "—"}
+          </dd>
+          <dt className="text-steel">Flight time</dt>
+          <dd className="text-right text-bone">{timeText}</dd>
+          {step >= 2 ? (
+            <>
+              <dt className="text-steel">Aircraft</dt>
+              <dd className="text-right text-bone">{fleet?.name ?? "—"}</dd>
+              <dt className="text-steel">Catering</dt>
+              <dd className="text-right text-bone">{CATERING_NAME[s.catering]}</dd>
+              <dt className="text-steel">Ground</dt>
+              <dd className="text-right text-bone">{GROUND_SHORT[s.ground]}</dd>
+            </>
+          ) : null}
+        </dl>
 
-      {/* Indicative */}
-      <div className="mt-6 border-t border-ink-3 pt-5">
-        <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-bone-2">
-          — Indicative range
-        </span>
-        <div
-          className="mt-3 font-serif text-[28px] font-light leading-tight tracking-tight text-bone"
-          style={{ letterSpacing: "-0.01em" }}
-        >
-          {indicative?.formatted ?? "$ — – $ —"}
+        {step >= 3 ? (
+          <div className="mt-4 border-t border-line pt-4 text-[15px]">
+            <div className="text-[13px] text-steel">Contact</div>
+            <div className="mt-1 text-bone">{fullName || "—"}</div>
+            <div className="break-words text-[14px] text-bone-2">{s.email || "—"}</div>
+          </div>
+        ) : null}
+
+        <div className="mt-4 border-t border-line pt-4">
+          <div className="text-[13px] font-semibold text-steel">Indicative range</div>
+          <div className="mt-1.5 font-serif text-[30px] font-light leading-[1.1] text-bone">{priceText}</div>
+          <p className="mt-2.5 text-[14px] text-bone-2">{priceNote}</p>
         </div>
-        <p className="mt-4 text-[12px] leading-[1.55] text-bone-2">
-          {fleet
-            ? `${fleet.shortName} · ~${formatHours(totalHours || 0)} total flight time. Fuel, taxes, FET, repos & crew included.`
-            : "Pick a category to refine the estimate. Final pricing comes with specific airframes in step 04."}
-        </p>
+      </aside>
+
+      {/* Phones and tablets: the range as a compact card at the end of the
+          form (Mobile.dc "Quote step 1"), since the column is hidden. */}
+      <div className="card flex items-center justify-between gap-4 px-4 py-3.5 lg:hidden">
+        <div className="min-w-0">
+          <div className="text-[13px] text-steel">Indicative range</div>
+          <div className="font-serif text-[22px] font-light leading-[1.15] text-bone">{priceText}</div>
+        </div>
+        <div className="text-right text-[13px] text-steel">
+          {TRIP_LABEL[s.tripType]}
+          <br />
+          {indicative ? `${timeText} in the air` : `${s.pax} passengers`}
+        </div>
       </div>
-    </aside>
+    </>
   );
 }

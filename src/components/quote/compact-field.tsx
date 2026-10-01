@@ -5,7 +5,7 @@
 // test finds the airport inputs by their exact label text.
 
 export const COMPACT_INPUT_CLASS =
-  "w-full bg-transparent text-[16px] leading-[1.4] text-bone outline-none placeholder:text-steel [color-scheme:dark]";
+  "w-full min-w-0 bg-transparent text-[16px] leading-[1.4] text-bone outline-none placeholder:text-steel [color-scheme:dark]";
 
 type Props = {
   id: string;

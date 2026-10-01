@@ -1,33 +1,26 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 import {
   isAircraftComplete,
   isMissionComplete,
   useQuoteStore,
+  type CabinFlags,
 } from "@/lib/quote-store";
 import { QuoteSidebar } from "@/components/quote/quote-sidebar";
-import { SavedIndicator } from "@/components/quote/saved-indicator";
+import { StepFooter } from "@/components/quote/step-footer";
+import { CollapsibleSection } from "@/components/quote/collapsible-section";
 import { StoreHydrationGate } from "@/components/quote/store-hydration";
 import { FLEET, type AircraftCategorySlug } from "@/lib/fleet";
-import {
-  HOURLY_USD,
-  type CateringTier,
-  type GroundType,
-} from "@/lib/quote-pricing";
-import { useEffect } from "react";
+import { recommendCategory, type CateringTier, type GroundType } from "@/lib/quote-pricing";
 
-const CABIN_TOGGLES: {
-  key: keyof ReturnType<typeof useQuoteStore.getState>["cabin"];
-  name: string;
-  desc: string;
-}[] = [
+const CABIN_TOGGLES: { key: keyof CabinFlags; name: string; desc: string }[] = [
   { key: "wifi", name: "Wi-Fi", desc: "Gogo Avance L5 or better, on most cabins" },
-  { key: "attendant", name: "Flight attendant", desc: "Standard on heavy & ULR, available on midsize+" },
+  { key: "attendant", name: "Flight attendant", desc: "Standard on heavy & ultra long range, available on midsize+" },
   { key: "lavatory", name: "Enclosed lavatory", desc: "Standard on midsize+, optional on light" },
   { key: "standup", name: "Stand-up cabin", desc: "Midsize and larger only" },
-  { key: "lieflat", name: "Lie-flat seating", desc: "Available on heavy & ULR airframes" },
+  { key: "lieflat", name: "Lie-flat seating", desc: "Available on heavy & ultra-long-range aircraft" },
   { key: "pet", name: "Pet-friendly", desc: "In-cabin, no carrier — confirmed at booking" },
 ];
 
@@ -38,19 +31,29 @@ const CATERING: { id: CateringTier; name: string; price: string; desc: string }[
   { id: "custom", name: "Custom", price: "Quoted", desc: "Your own menu, your own caterer, your own dietary specs." },
 ];
 
-const GROUND: { id: GroundType; name: string; desc: string }[] = [
-  { id: "none", name: "None — I’ve got it", desc: "No ground transport at any leg." },
-  { id: "sedan", name: "Black sedan", desc: "One vehicle per leg, professional chauffeur. ~$180/leg." },
-  { id: "suv", name: "SUV / Sprinter", desc: "For groups or extra baggage. From ~$280/leg." },
+const GROUND: { id: GroundType; name: string; short: string; desc: string }[] = [
+  { id: "none", name: "None — I’ve got it", short: "None — self-arrange", desc: "No ground transport at any leg." },
+  { id: "sedan", name: "Black sedan", short: "Black sedan", desc: "One vehicle per leg, professional chauffeur. ~$180/leg." },
+  { id: "suv", name: "SUV / Sprinter", short: "SUV / Sprinter", desc: "For groups or extra baggage. From ~$280/leg." },
+];
+
+const EXTRAS: { k: "kids" | "pets" | "bags"; name: string; desc: string; max: number; one: string; many: string }[] = [
+  { k: "kids", name: "Children", desc: "Under 12, with car-seat as needed", max: 8, one: "child", many: "children" },
+  { k: "pets", name: "Pets", desc: "In cabin, no carrier required", max: 4, one: "pet", many: "pets" },
+  { k: "bags", name: "Extra bags", desc: "Beyond 1 carry-on + 1 checked per passenger", max: 12, one: "extra bag", many: "extra bags" },
 ];
 
 const EXAMPLE_CHIPS: { key: string; label: string; text: string }[] = [
   { key: "quiet", label: "Quiet flight requested", text: "Quiet flight requested — please limit cabin announcements." },
   { key: "champagne", label: "Champagne on arrival", text: "Champagne on arrival, chilled." },
-  { key: "wheelchair", label: "Wheelchair assist", text: "One passenger needs wheelchair assist at both FBOs." },
+  { key: "wheelchair", label: "Wheelchair assist", text: "One passenger needs wheelchair assist at both private terminals." },
   { key: "kosher", label: "Kosher catering", text: "Kosher meals please — strict." },
   { key: "bedrest", label: "Need bed/lie-flat seat", text: "Lie-flat / bed configuration required for one passenger." },
 ];
+
+const NOTES_MAX = 800;
+
+type SectionKey = "cabin" | "catering" | "ground" | "extras" | "notes";
 
 export default function AircraftStep() {
   return (
@@ -63,338 +66,331 @@ export default function AircraftStep() {
 function AircraftStepInner() {
   const router = useRouter();
   const s = useQuoteStore();
+  const [open, setOpen] = useState<Partial<Record<SectionKey, boolean>>>({});
+  const [showErrors, setShowErrors] = useState(false);
 
   // Bounce to mission if upstream not done.
   useEffect(() => {
     if (!isMissionComplete(s)) router.replace("/quote/mission");
   }, [s, router]);
 
-  const longestLeg = Math.max(...s.legs.map((l) => l.distanceNm ?? 0));
-  const canContinue = isAircraftComplete(s);
+  const longestLeg = Math.max(0, ...s.legs.map((l) => l.distanceNm ?? 0));
+  const recommended = recommendCategory(s.pax, longestLeg);
 
   function categoryFits(cat: AircraftCategorySlug): { ok: boolean; reason?: string } {
     const fleet = FLEET.find((f) => f.slug === cat)!;
-    if (fleet.pax < s.pax) return { ok: false, reason: `Too small for ${s.pax} pax` };
-    if (fleet.rangeNm < longestLeg) return { ok: false, reason: `Range short of ${longestLeg} NM` };
+    if (fleet.pax < s.pax) return { ok: false, reason: `Too small for ${s.pax} passengers` };
+    if (fleet.rangeNm < longestLeg) {
+      return { ok: false, reason: `Range short of ${longestLeg.toLocaleString("en-US")} nm` };
+    }
     return { ok: true };
   }
 
+  const selectedFits = categoryFits(s.category).ok;
+  const complete = isAircraftComplete(s) && selectedFits;
+  const error =
+    showErrors && !complete ? "Pick an aircraft category that fits your passengers and route." : null;
+
+  const toggle = (k: SectionKey) => () => setOpen((o) => ({ ...o, [k]: !o[k] }));
+
   function appendNote(text: string) {
     const sep = s.notes ? "\n" : "";
-    s.setNotes((s.notes + sep + text).slice(0, 800));
+    s.setNotes((s.notes + sep + text).slice(0, NOTES_MAX));
   }
 
+  function onContinue() {
+    if (!complete) {
+      setShowErrors(true);
+      return;
+    }
+    router.push("/quote/contact");
+  }
+
+  // One-line summaries for the collapsed headers — always the current selection.
+  const cabinOn = CABIN_TOGGLES.filter((t) => s.cabin[t.key]).map((t) => t.name);
+  const cabinSummary = cabinOn.length ? cabinOn.join(" · ") : "None requested";
+  const cateringSummary = `Catering: ${CATERING.find((c) => c.id === s.catering)?.name ?? "—"}`;
+  const groundSummary = `Ground transport: ${GROUND.find((g) => g.id === s.ground)?.short ?? "—"}`;
+  const extrasList = EXTRAS.filter((x) => s[x.k] > 0).map(
+    (x) => `${s[x.k]} ${s[x.k] === 1 ? x.one : x.many}`,
+  );
+  const extrasSummary = extrasList.length ? extrasList.join(" · ") : "None";
+  const notesFirstLine = s.notes.trim().split("\n")[0];
+  const notesSummary = notesFirstLine
+    ? notesFirstLine.length > 72
+      ? `${notesFirstLine.slice(0, 72)}…`
+      : notesFirstLine
+    : "Special requests, mobility needs, time-sensitive details.";
+
+  const tileBase =
+    "rounded-control border bg-ink-2 p-4 text-left transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-clearance";
+  const tileBorder = (on: boolean) => (on ? "border-clearance" : "border-line hover:border-line-2");
+
   return (
-    <div className="container-jn py-12 lg:py-16">
-      <div className="grid gap-10 lg:grid-cols-[1fr_380px] lg:gap-12">
-        <div className="flex min-w-0 flex-col gap-12">
-          <header>
-            <p className="caption mb-4">— Step 02 · Aircraft &amp; preferences</p>
-            <h1 className="display-l max-w-[18ch]">The shape of the flight.</h1>
-            <p className="mt-5 max-w-[60ch] text-[17px] leading-[1.55] text-bone-2">
-              Pick a category and tell us how you want it set up. Everything is optional except
-              category — dispatch can fill in the rest. We&rsquo;ve pre-recommended the right size
-              for your route &amp; pax.
-            </p>
-          </header>
+    <>
+      <div className="min-w-0">
+        <p className="eyebrow">Step 2 · Aircraft &amp; preferences</p>
+        <h1 className="title-section max-w-[18ch] md:text-[52px]">The shape of the flight.</h1>
+        <p className="mt-4 max-w-[60ch] text-[17px] leading-[1.55] text-bone-2">
+          Pick a category and tell us how you want it set up. Everything is optional except
+          category — dispatch can fill in the rest. We&rsquo;ve pre-recommended the right size for
+          your route &amp; passengers.
+        </p>
 
-          {/* 01 — Category */}
-          <Section n="01" lead="Match the airframe to the mission." sub="Greyed-out categories don't fit your pax count or route distance — adjust either to unlock.">
-            <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
-              {FLEET.map((f) => {
-                const fit = categoryFits(f.slug);
-                const selected = s.category === f.slug;
-                const recommend = f.slug === "midsize" && fit.ok;
-                return (
-                  <button
-                    key={f.slug}
-                    type="button"
-                    disabled={!fit.ok}
-                    onClick={() => s.setCategory(f.slug)}
-                    className={[
-                      "relative flex flex-col gap-4 rounded-[4px] border bg-ink-2 p-6 text-left transition-all duration-200 ease-out-quint",
-                      !fit.ok
-                        ? "cursor-not-allowed opacity-40"
-                        : selected
-                          ? "border-clearance shadow-[0_0_0_1px_var(--clearance)]"
-                          : "border-ink-3 hover:-translate-y-0.5 hover:border-[rgba(232,226,210,0.3)]",
-                    ].join(" ")}
-                  >
-                    {recommend ? (
-                      <span className="absolute right-3 top-3 rounded-[2px] bg-clearance px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.14em] text-ink">
-                        Recommended
-                      </span>
-                    ) : null}
-                    {selected ? (
-                      <span className="absolute left-3 top-3 font-mono text-[14px] text-clearance">✓</span>
-                    ) : null}
-                    <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-bone-2">
-                      — CAT {String(f.index).padStart(2, "0")}
+        {/* Category */}
+        <section className="mt-9" aria-labelledby="category-heading">
+          <h2 id="category-heading" className="title-card-sm">
+            Match the aircraft to the trip.
+          </h2>
+          <p className="mt-1.5 text-[15px] text-bone-2">
+            Greyed-out categories don&rsquo;t fit your passenger count or route distance — adjust
+            either to unlock.
+          </p>
+          {/* 3-up grid; a horizontal snap strip on phones (scrollbar hidden). */}
+          <div className="mt-5 grid gap-3 md:grid-cols-3 max-md:-mx-[var(--pad-x)] max-md:flex max-md:snap-x max-md:overflow-x-auto max-md:px-[var(--pad-x)] max-md:pb-1 max-md:[scrollbar-width:none] max-md:[&::-webkit-scrollbar]:hidden">
+            {FLEET.map((f) => {
+              const fit = categoryFits(f.slug);
+              const selected = s.category === f.slug;
+              const recommend = f.slug === recommended && fit.ok;
+              return (
+                <button
+                  key={f.slug}
+                  type="button"
+                  disabled={!fit.ok}
+                  aria-pressed={selected}
+                  onClick={() => s.setCategory(f.slug)}
+                  className={[
+                    "card relative p-5 text-left transition-colors max-md:w-[260px] max-md:flex-none max-md:snap-start",
+                    !fit.ok
+                      ? "cursor-not-allowed opacity-40"
+                      : selected
+                        ? "card-selected"
+                        : "hover:border-line-2",
+                    showErrors && selected && !fit.ok ? "!border-danger !opacity-70" : "",
+                  ].join(" ")}
+                >
+                  {recommend ? (
+                    <span className="absolute right-3.5 top-3.5 text-[12px] font-semibold text-gold">
+                      Recommended
                     </span>
-                    <h3 className="font-serif text-[24px] font-normal leading-[1.15] tracking-tight text-bone">
-                      {f.name}
-                    </h3>
-                    <div
-                      className={[
-                        "inline-flex w-fit rounded-full border px-2.5 py-0.5 font-mono text-[10px] uppercase tracking-[0.14em]",
-                        fit.ok
-                          ? "border-ink-3 text-bone-2"
-                          : "border-[var(--warn)] text-[var(--warn)]",
-                      ].join(" ")}
-                    >
-                      {f.pax} PAX
-                    </div>
-                    {!fit.ok ? (
-                      <p className="font-mono text-[10px] uppercase tracking-[0.08em] text-[var(--warn)]">
-                        ⚠ {fit.reason}
-                      </p>
-                    ) : null}
-                    <dl className="grid grid-cols-3 gap-2 border-t border-ink-3 pt-4">
-                      {[
-                        ["RANGE", `${f.rangeNm.toLocaleString()} NM`],
-                        ["SPEED", `${f.speedKt} KT`],
-                        ["HOURLY", `$${(HOURLY_USD[f.slug] / 1000).toFixed(1)}k`],
-                      ].map(([lbl, val]) => (
-                        <div key={lbl} className="flex flex-col gap-0.5">
-                          <dt className="font-mono text-[9px] uppercase tracking-[0.12em] text-steel">
-                            {lbl}
-                          </dt>
-                          <dd className="font-mono text-[11px] tracking-[0.04em] text-bone">
-                            {val}
-                          </dd>
-                        </div>
-                      ))}
-                    </dl>
-                  </button>
-                );
-              })}
-            </div>
-          </Section>
+                  ) : null}
+                  <span className={`block text-[20px] font-medium leading-[1.25] text-bone ${recommend ? "pr-24" : ""}`}>{f.name}</span>
+                  <span className="mt-1 block text-[14px] text-bone-2">
+                    Up to {f.pax} passengers · range {f.rangeNm.toLocaleString("en-US")} nm
+                  </span>
+                  {!fit.ok ? (
+                    <span className="mt-2 block text-[13px] text-danger">{fit.reason}</span>
+                  ) : null}
+                </button>
+              );
+            })}
+          </div>
+        </section>
 
-          {/* 02 — Cabin */}
-          <Section n="02" lead="Cabin preferences." sub="All standard on most airframes. We'll match to operators that have what you ask for.">
-            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+        {/* Optional groups */}
+        <div className="mt-7 flex flex-col gap-2.5">
+          <p className="label-jn">Optional — open only what you care about</p>
+
+          <CollapsibleSection
+            id="cabin"
+            title="Cabin preferences"
+            summary={cabinSummary}
+            open={!!open.cabin}
+            onToggle={toggle("cabin")}
+          >
+            <p className="mb-3.5 text-[14px] text-bone-2">
+              All standard on most aircraft. We&rsquo;ll match to operators that have what you ask
+              for.
+            </p>
+            <div className="grid gap-2.5 md:grid-cols-2">
               {CABIN_TOGGLES.map((t) => {
                 const on = s.cabin[t.key];
                 return (
                   <button
                     key={t.key}
                     type="button"
+                    role="switch"
+                    aria-checked={on}
                     onClick={() => s.toggleCabin(t.key)}
-                    className={[
-                      "flex items-start gap-4 rounded-[4px] border bg-ink-2 p-5 text-left transition-colors",
-                      on ? "border-clearance" : "border-ink-3 hover:border-bone-2",
-                    ].join(" ")}
+                    className={`${tileBase} flex min-h-[56px] items-start gap-3.5 ${tileBorder(on)}`}
                   >
                     <span
+                      aria-hidden="true"
                       className={[
-                        "mt-1 flex h-5 w-9 items-center rounded-full p-0.5 transition-colors",
-                        on ? "bg-clearance" : "bg-ink-4",
+                        "switch mt-0.5",
+                        on ? "!bg-clearance after:translate-x-4 after:!bg-ink" : "",
                       ].join(" ")}
-                    >
-                      <span
-                        className={[
-                          "h-4 w-4 rounded-full bg-bone transition-transform",
-                          on ? "translate-x-4" : "translate-x-0",
-                        ].join(" ")}
-                      />
+                    />
+                    <span>
+                      <span className="block text-[16px] font-medium text-bone">{t.name}</span>
+                      <span className="mt-0.5 block text-[13px] text-steel">{t.desc}</span>
                     </span>
-                    <div>
-                      <div className="font-serif text-[17px] text-bone">{t.name}</div>
-                      <div className="mt-1 text-[13px] leading-[1.5] text-bone-2">{t.desc}</div>
-                    </div>
                   </button>
                 );
               })}
             </div>
-          </Section>
+          </CollapsibleSection>
 
-          {/* 03 — Catering */}
-          <Section n="03" lead="What's on board." sub="Curated menus from network providers. Custom requests & dietary in notes below.">
-            <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
+          <CollapsibleSection
+            id="catering"
+            title="What’s on board"
+            summary={cateringSummary}
+            open={!!open.catering}
+            onToggle={toggle("catering")}
+          >
+            <p className="mb-3.5 text-[14px] text-bone-2">
+              Curated menus from network providers. Custom requests &amp; dietary in notes below.
+            </p>
+            <div className="grid gap-2.5 sm:grid-cols-2 md:grid-cols-4">
               {CATERING.map((c) => {
                 const selected = s.catering === c.id;
                 return (
                   <button
                     key={c.id}
                     type="button"
+                    aria-pressed={selected}
                     onClick={() => s.setCatering(c.id)}
-                    className={[
-                      "flex h-full flex-col gap-3 rounded-[4px] border bg-ink-2 p-5 text-left transition-colors",
-                      selected ? "border-clearance" : "border-ink-3 hover:border-bone-2",
-                    ].join(" ")}
+                    className={`${tileBase} min-h-[56px] ${tileBorder(selected)}`}
                   >
-                    <div className="flex items-center justify-between">
-                      <span className="font-serif text-[18px] text-bone">{c.name}</span>
-                      <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-clearance">
-                        {c.price}
-                      </span>
-                    </div>
-                    <p className="text-[13px] leading-[1.55] text-bone-2">{c.desc}</p>
+                    <span className="flex items-baseline justify-between gap-2">
+                      <span className="text-[16px] font-medium text-bone">{c.name}</span>
+                      <span className="text-[13px] text-gold">{c.price}</span>
+                    </span>
+                    <span className="mt-1.5 block text-[13px] text-steel">{c.desc}</span>
                   </button>
                 );
               })}
             </div>
-          </Section>
+          </CollapsibleSection>
 
-          {/* 04 — Ground */}
-          <Section n="04" lead="Curb to cabin." sub="Black car or chauffeur to FBO at every leg. Independent of the air charter cost.">
-            <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+          <CollapsibleSection
+            id="ground"
+            title="Curb to cabin"
+            summary={groundSummary}
+            open={!!open.ground}
+            onToggle={toggle("ground")}
+          >
+            <p className="mb-3.5 text-[14px] text-bone-2">
+              Black car or chauffeur to the private terminal at every leg. Independent of the air
+              charter cost.
+            </p>
+            <div className="grid gap-2.5 md:grid-cols-3">
               {GROUND.map((g) => {
                 const selected = s.ground === g.id;
                 return (
                   <button
                     key={g.id}
                     type="button"
+                    aria-pressed={selected}
                     onClick={() => s.setGround(g.id)}
-                    className={[
-                      "flex h-full flex-col gap-2 rounded-[4px] border bg-ink-2 p-5 text-left transition-colors",
-                      selected ? "border-clearance" : "border-ink-3 hover:border-bone-2",
-                    ].join(" ")}
+                    className={`${tileBase} min-h-[56px] ${tileBorder(selected)}`}
                   >
-                    <span className="font-serif text-[17px] text-bone">{g.name}</span>
-                    <p className="text-[13px] leading-[1.55] text-bone-2">{g.desc}</p>
+                    <span className="block text-[16px] font-medium text-bone">{g.name}</span>
+                    <span className="mt-1.5 block text-[13px] text-steel">{g.desc}</span>
                   </button>
                 );
               })}
             </div>
-          </Section>
+          </CollapsibleSection>
 
-          {/* 05 — Extras */}
-          <Section n="05" lead="Anyone or anything else?" sub="Pets fly in cabin on most airframes. Crew adjusts catering & safety briefing for kids.">
-            <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-              {[
-                { k: "kids" as const, name: "Children", desc: "Under 12, with car-seat as needed", max: 8 },
-                { k: "pets" as const, name: "Pets", desc: "In cabin, no carrier required", max: 4 },
-                { k: "bags" as const, name: "Extra bags", desc: "Beyond 1 carry-on + 1 checked / pax", max: 12 },
-              ].map(({ k, name, desc, max }) => {
-                const value = s[k];
+          <CollapsibleSection
+            id="extras"
+            title="Anyone or anything else?"
+            summary={extrasSummary}
+            open={!!open.extras}
+            onToggle={toggle("extras")}
+          >
+            <p className="mb-3.5 text-[14px] text-bone-2">
+              Pets fly in cabin on most aircraft. Crew adjusts catering &amp; safety briefing for
+              kids.
+            </p>
+            <div className="grid gap-2.5 md:grid-cols-3">
+              {EXTRAS.map((x) => {
+                const value = s[x.k];
                 return (
-                  <div key={k} className="rounded-[4px] border border-ink-3 bg-ink-2 p-5">
-                    <div className="flex items-center justify-between">
-                      <span className="font-serif text-[17px] text-bone">{name}</span>
-                      <div className="flex items-center gap-3">
+                  <div key={x.k} className="rounded-control border border-line bg-ink-2 p-4">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-[16px] font-medium text-bone">{x.name}</span>
+                      <span className="stepper gap-1.5 max-md:[&>button]:h-11 max-md:[&>button]:w-11">
                         <button
                           type="button"
-                          onClick={() => s.setExtra(k, value - 1)}
+                          onClick={() => s.setExtra(x.k, value - 1)}
                           disabled={value <= 0}
-                          className="flex h-8 w-8 items-center justify-center rounded-full border border-ink-3 text-bone disabled:opacity-30"
+                          aria-label={`Fewer ${x.many}`}
                         >
                           −
                         </button>
-                        <span className="w-6 text-center font-serif text-[20px] text-bone">{value}</span>
+                        <span className="min-w-[20px] text-center text-[17px] text-bone" aria-live="polite">
+                          {value}
+                          <span className="sr-only"> {value === 1 ? x.one : x.many}</span>
+                        </span>
                         <button
                           type="button"
-                          onClick={() => s.setExtra(k, value + 1)}
-                          disabled={value >= max}
-                          className="flex h-8 w-8 items-center justify-center rounded-full border border-ink-3 text-bone disabled:opacity-30"
+                          onClick={() => s.setExtra(x.k, value + 1)}
+                          disabled={value >= x.max}
+                          aria-label={`More ${x.many}`}
                         >
                           +
                         </button>
-                      </div>
+                      </span>
                     </div>
-                    <p className="mt-3 text-[12px] leading-[1.5] text-bone-2">{desc}</p>
+                    <p className="mt-2 text-[13px] text-steel">{x.desc}</p>
                   </div>
                 );
               })}
             </div>
-          </Section>
+          </CollapsibleSection>
 
-          {/* 06 — Notes */}
-          <Section n="06" lead="Anything else dispatch should know?" sub="Special requests, mobility needs, time-sensitive details. Free-form.">
-            <div className="rounded-[4px] border border-ink-3 bg-ink-2 p-6">
-              <label htmlFor="notes" className="font-mono text-[10px] uppercase tracking-[0.12em] text-bone-2">
-                Notes for dispatch
-              </label>
-              <textarea
-                id="notes"
-                value={s.notes}
-                onChange={(e) => s.setNotes(e.target.value)}
-                rows={5}
-                maxLength={800}
-                placeholder="e.g. Wedding party — need full recline seats and extra cabin baggage. One passenger uses a wheelchair, will need ground assist at both FBOs."
-                className="mt-3 w-full resize-y bg-transparent text-[14px] leading-[1.6] text-bone outline-none placeholder:text-steel"
-              />
-              <div className="mt-3 flex items-center justify-between">
-                <span className="font-mono text-[10px] uppercase tracking-[0.08em] text-steel">
-                  Visible to dispatch &amp; operator only
-                </span>
-                <span className="font-mono text-[10px] tracking-[0.04em] text-bone-2">
-                  {s.notes.length} / 800
-                </span>
-              </div>
-            </div>
-            <div className="mt-4 flex flex-wrap items-center gap-2">
-              <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-bone-2">
-                — Add common
-              </span>
+          <CollapsibleSection
+            id="notes"
+            title="Anything else dispatch should know?"
+            summary={notesSummary}
+            open={!!open.notes}
+            onToggle={toggle("notes")}
+          >
+            <label htmlFor="notes" className="sr-only">
+              Notes for dispatch
+            </label>
+            <textarea
+              id="notes"
+              value={s.notes}
+              onChange={(e) => s.setNotes(e.target.value)}
+              rows={4}
+              maxLength={NOTES_MAX}
+              placeholder="e.g. Wedding party — need full recline seats and extra cabin baggage. One passenger uses a wheelchair, will need ground assist at both terminals."
+              className="w-full resize-y rounded-control border border-line bg-ink-2 px-3.5 py-3 text-[15px] leading-[1.55] text-bone outline-none transition-shadow placeholder:text-steel focus:shadow-[0_0_0_1px_var(--clearance)]"
+            />
+            <div className="mt-2.5 flex flex-wrap items-center gap-2">
+              <span className="text-[13px] text-steel">Add common:</span>
               {EXAMPLE_CHIPS.map((c) => (
                 <button
                   key={c.key}
                   type="button"
                   onClick={() => appendNote(c.text)}
-                  className="rounded-full border border-ink-3 bg-ink-2 px-3 py-1 font-mono text-[10px] uppercase tracking-[0.12em] text-bone-2 transition-colors hover:border-clearance hover:text-bone"
+                  className="chip chip-sm max-md:!h-11"
                 >
                   {c.label}
                 </button>
               ))}
             </div>
-          </Section>
-
-          {/* Step actions */}
-          <div className="mt-4 flex flex-wrap items-center justify-between gap-4 border-t border-ink-3 pt-8">
-            <div className="flex flex-col gap-1">
-              <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-clearance">
-                Step 02 of 04
+            <div className="mt-2 flex items-center justify-between gap-4 text-[13px] text-steel">
+              <span>Visible to dispatch &amp; operator only</span>
+              <span aria-live="polite">
+                {s.notes.length} / {NOTES_MAX}
               </span>
-              <SavedIndicator />
             </div>
-            {/* flex-wrap: see mission step — prevents mobile sideways scroll. */}
-            <div className="flex flex-wrap items-center justify-end gap-x-6 gap-y-3">
-              <Link href="/quote/mission" className="btn btn-ghost">
-                ← Back
-              </Link>
-              <button
-                type="button"
-                disabled={!canContinue}
-                onClick={() => router.push("/quote/contact")}
-                className="btn btn-primary btn-lg disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                Continue to contact <span className="arrow">→</span>
-              </button>
-            </div>
-          </div>
+          </CollapsibleSection>
         </div>
 
-        <QuoteSidebar step={2} />
+        <StepFooter
+          step={2}
+          backHref="/quote/mission"
+          error={error}
+          next={{ label: "Continue to contact", onClick: onContinue }}
+        />
       </div>
-    </div>
-  );
-}
 
-function Section({
-  n,
-  lead,
-  sub,
-  children,
-}: {
-  n: string;
-  lead: string;
-  sub: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <section className="grid gap-6 lg:grid-cols-[200px_1fr] lg:gap-10">
-      <div>
-        <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-clearance">
-          — {n}
-        </span>
-        <h2 className="mt-3 font-serif text-[22px] font-normal leading-[1.2] tracking-tight text-bone">
-          {lead}
-        </h2>
-        <p className="mt-3 text-[13px] leading-[1.55] text-bone-2">{sub}</p>
-      </div>
-      <div>{children}</div>
-    </section>
+      <QuoteSidebar step={2} />
+    </>
   );
 }

@@ -1,16 +1,13 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useState } from "react";
 import { findAirport, distanceNm, type Airport } from "@/lib/airports";
-import {
-  isMissionComplete,
-  useQuoteStore,
-  type TripType,
-} from "@/lib/quote-store";
-import { MissionSidebar } from "@/components/quote/mission-sidebar";
+import { isMissionComplete, useQuoteStore, type TripType } from "@/lib/quote-store";
+import { QuoteSidebar } from "@/components/quote/quote-sidebar";
 import { AirportInput } from "@/components/quote/airport-input";
-import { SavedIndicator } from "@/components/quote/saved-indicator";
+import { CompactField, COMPACT_INPUT_CLASS } from "@/components/quote/compact-field";
+import { StepFooter } from "@/components/quote/step-footer";
 import { StoreHydrationGate } from "@/components/quote/store-hydration";
 
 const TRIP_TYPES: { id: TripType; label: string }[] = [
@@ -27,11 +24,18 @@ const COMMON_ROUTES = [
   { from: "VNY", to: "ASE" },
 ];
 
+const MAX_LEGS = 6;
+
 function paxHint(pax: number): string {
-  if (pax <= 4) return "Light or midsize jet · plenty of room with full baggage.";
-  if (pax <= 8) return "Midsize or super-mid · stand-up cabin, full galley.";
-  if (pax <= 12) return "Heavy jet · two cabin zones, dedicated galley & lavatory.";
-  return "Ultra-long-range or executive airliner · charter capacity.";
+  if (pax <= 7) return "Light or midsize jet · plenty of room with full baggage.";
+  if (pax <= 9) return "Midsize or super-mid jet · room to stand and stretch.";
+  return "Heavy or ultra long range · the whole group, with beds.";
+}
+
+function legTitle(tripType: TripType, i: number): string {
+  if (i === 0) return "Outbound";
+  if (tripType === "roundtrip") return "Return";
+  return `Leg ${i + 1}`;
 }
 
 export default function MissionStep() {
@@ -48,44 +52,40 @@ export default function MissionStep() {
 // Static copy rendered outside the hydration gate so it's always in the
 // server HTML. /quote/mission is the wizard's one indexable step, and the
 // form itself only appears after client rehydration — without this block
-// the crawlable page is nearly empty (Semrush: low word count).
+// the crawlable page is nearly empty (Semrush: low word count). Spans
+// both columns of the layout grid, under the form and the sidebar.
 function HowQuotingWorks() {
   return (
     <section
-      aria-label="How quoting works"
-      className="container-jn mt-20 border-t border-ink-3 pt-10 pb-4"
+      aria-labelledby="how-quoting-works"
+      className="border-t border-line pt-10 lg:col-span-2"
     >
-      <h2 className="caption mb-6">— How quoting works</h2>
-      <div className="grid gap-8 text-[14px] leading-[1.6] text-bone-2 sm:grid-cols-3">
+      <h2 id="how-quoting-works" className="title-card-sm">
+        How quoting works
+      </h2>
+      <div className="mt-6 grid gap-8 text-[15px] leading-[1.6] text-bone-2 md:grid-cols-3">
         <div>
-          <h3 className="mb-2 font-mono text-[11px] uppercase tracking-[0.12em] text-bone">
-            Tell us the mission
-          </h3>
+          <h3 className="mb-2 text-[16px] font-medium text-bone">Tell us the trip</h3>
           <p>
-            Route, dates, and passenger count are enough to start. Round trip,
-            one way, or multi-leg — the wizard prices each leg as you type and
-            saves your draft automatically, so you can come back anytime.
+            Route, dates, and passenger count are enough to start. Round trip, one way, or
+            multi-leg — the form prices each leg as you type and saves your draft automatically,
+            so you can come back anytime.
           </p>
         </div>
         <div>
-          <h3 className="mb-2 font-mono text-[11px] uppercase tracking-[0.12em] text-bone">
-            Dispatch goes to work
-          </h3>
+          <h3 className="mb-2 text-[16px] font-medium text-bone">Dispatch goes to work</h3>
           <p>
-            A senior dispatcher sources three to five vetted airframes that fit
-            the mission — ARG/US or Wyvern audited operators only — and returns
-            all-in pricing within 30 minutes during operating hours.
+            A senior dispatcher sources three to five vetted aircraft that fit the trip — ARG/US
+            or Wyvern audited operators only — and returns all-in pricing within 30 minutes during
+            operating hours.
           </p>
         </div>
         <div>
-          <h3 className="mb-2 font-mono text-[11px] uppercase tracking-[0.12em] text-bone">
-            Fly on your terms
-          </h3>
+          <h3 className="mb-2 text-[16px] font-medium text-bone">Fly on your terms</h3>
           <p>
-            Review the options, pick an aircraft, and confirm. No membership
-            required, and every quote is the all-in number — fuel, FET,
-            repositioning, crew, catering, and ground included. Questions
-            first? Call dispatch any time.
+            Review the options, pick an aircraft, and confirm. No membership required, and every
+            quote is the all-in number — fuel, FET, repositioning, crew, catering, and ground
+            included. Questions first? Call dispatch any time.
           </p>
         </div>
       </div>
@@ -106,18 +106,15 @@ function localTodayIso(): string {
 function MissionStepInner() {
   const router = useRouter();
   const minDate = localTodayIso();
-  const tripType = useQuoteStore((s) => s.tripType);
-  const legs = useQuoteStore((s) => s.legs);
-  const pax = useQuoteStore((s) => s.pax);
   const draft = useQuoteStore();
+  const { tripType, legs, pax, setTripType, setPax, updateLeg, addLeg, removeLeg } = draft;
+  const [showErrors, setShowErrors] = useState(false);
 
-  const setTripType = useQuoteStore((s) => s.setTripType);
-  const setPax = useQuoteStore((s) => s.setPax);
-  const updateLeg = useQuoteStore((s) => s.updateLeg);
-  const addLeg = useQuoteStore((s) => s.addLeg);
-  const removeLeg = useQuoteStore((s) => s.removeLeg);
-
-  const canContinue = isMissionComplete(draft);
+  const complete = isMissionComplete(draft);
+  const error =
+    showErrors && !complete
+      ? "A few details are missing — each leg needs a from, a to, a date and a time."
+      : null;
 
   function pickAirport(legId: string, side: "from" | "to", a: Airport) {
     const leg = legs.find((l) => l.id === legId);
@@ -167,38 +164,39 @@ function MissionStepInner() {
     }
   }
 
-  return (
-    <div className="container-jn py-12 lg:py-16">
-      <div className="grid gap-10 lg:grid-cols-[1fr_380px] lg:gap-12">
-        {/* min-w-0: grid items default to min-width:auto, so a wide child
-            (or a native date/time input's intrinsic min width) can drag the
-            single mobile column past the viewport and clip text. */}
-        <div className="min-w-0">
-          <header className="mb-10">
-            <p className="caption mb-4">— Step 01 · Mission</p>
-            <h1 className="display-l max-w-[18ch]">Where, when, how many.</h1>
-            <p className="mt-5 max-w-[60ch] text-[17px] leading-[1.55] text-bone-2">
-              The basics. The more precise the better — but it doesn&rsquo;t have to be perfect.
-              Dispatch will follow up to refine. Every quote returns within 30 minutes during
-              operating hours — a real number in four steps, not a phone call.
-            </p>
-          </header>
+  function onContinue() {
+    if (!complete) {
+      setShowErrors(true);
+      return;
+    }
+    router.push("/quote/aircraft");
+  }
 
-          {/* Trip type segmented */}
-          <div className="mb-10">
-            <p className="caption mb-3">— Trip type</p>
-            <div className="inline-flex rounded-[2px] border border-ink-3 bg-ink-2 p-1">
+  return (
+    <>
+      {/* min-w-0: a native date/time input's intrinsic width can otherwise
+          drag the single phone column past the viewport. */}
+      <div className="min-w-0">
+        <p className="eyebrow">Step 1 · Mission</p>
+        <h1 className="title-section max-w-[18ch] md:text-[52px]">Where, when, how many.</h1>
+        <p className="mt-4 max-w-[60ch] text-[17px] leading-[1.55] text-bone-2">
+          The basics. The more precise the better — but it doesn&rsquo;t have to be perfect.
+          Dispatch will follow up to refine. Every quote returns within 30 minutes during
+          operating hours — a real number in four steps, not a phone call.
+        </p>
+
+        {/* Trip type + legs */}
+        <section className="card card-pad mt-9 max-md:p-4">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <h2 className="title-card-sm">Trip type</h2>
+            <div className="segmented max-md:flex max-md:w-full" role="group" aria-label="Trip type">
               {TRIP_TYPES.map((t) => (
                 <button
                   key={t.id}
                   type="button"
                   onClick={() => setTripType(t.id)}
-                  className={[
-                    "rounded-[2px] px-5 py-2 font-mono text-[11px] uppercase tracking-[0.14em] transition-colors",
-                    tripType === t.id
-                      ? "bg-clearance text-ink"
-                      : "text-bone-2 hover:text-bone",
-                  ].join(" ")}
+                  aria-pressed={tripType === t.id}
+                  className="max-md:flex-1 max-md:!h-11"
                 >
                   {t.label}
                 </button>
@@ -206,194 +204,142 @@ function MissionStepInner() {
             </div>
           </div>
 
-          {/* Legs */}
-          <div className="mb-10 flex flex-col gap-5">
+          <div className="mt-6 flex flex-col gap-4">
             {legs.map((l, i) => {
-              const label =
-                tripType === "roundtrip"
-                  ? i === 0
-                    ? "Outbound"
-                    : "Return"
-                  : tripType === "multileg"
-                    ? i === 0
-                      ? "Outbound"
-                      : `Sector ${String(i + 1).padStart(2, "0")}`
-                    : "Outbound";
+              const isReturn = tripType === "roundtrip" && i === 1;
               return (
-                <section
-                  key={l.id}
-                  className="rounded-[4px] border border-ink-3 bg-ink-2 p-7"
-                >
-                  <header className="mb-5 flex items-center justify-between">
-                    <div className="flex items-baseline gap-3">
-                      <span className="rounded-[2px] bg-ink-3 px-2 py-1 font-mono text-[10px] uppercase tracking-[0.12em] text-clearance">
-                        LEG {String(i + 1).padStart(2, "0")}
-                      </span>
-                      <span className="font-mono text-[11px] uppercase tracking-[0.08em] text-bone-2">
-                        {label}
-                      </span>
-                    </div>
-                    {tripType === "multileg" && legs.length > 1 ? (
+                <div key={l.id} className="rounded-control border border-line p-5 max-md:p-4">
+                  <div className="flex items-center justify-between gap-4">
+                    <h3 className="label-jn">{legTitle(tripType, i)}</h3>
+                    {i >= 2 ? (
                       <button
                         type="button"
                         onClick={() => removeLeg(l.id)}
-                        className="font-mono text-[10px] uppercase tracking-[0.12em] text-bone-2 transition-colors hover:text-[var(--error)]"
+                        className="-my-2 inline-flex h-11 items-center text-[14px] text-bone-2 transition-colors hover:text-danger"
                       >
-                        Remove
+                        Remove leg
                       </button>
                     ) : null}
-                  </header>
+                  </div>
 
-                  <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                  <div className="mt-3 grid grid-cols-1 gap-2.5 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
                     <AirportInput
-                      label={i === 0 ? "From" : "From"}
+                      label="From"
                       value={{ iata: l.fromIata, city: l.fromCity, name: l.fromName }}
+                      error={showErrors && !l.fromIata}
                       onSelect={(a) => pickAirport(l.id, "from", a)}
                     />
                     <AirportInput
                       label="To"
                       value={{ iata: l.toIata, city: l.toCity, name: l.toName }}
+                      error={showErrors && !l.toIata}
                       onSelect={(a) => pickAirport(l.id, "to", a)}
                     />
-                    <div className="field-jn">
-                      <label htmlFor={`date-${i}`}>
-                        {tripType === "roundtrip" && i === 1 ? "Return date" : "Depart date"}
-                      </label>
+                    <CompactField
+                      id={`date-${l.id}`}
+                      label={isReturn ? "Return date" : "Depart date"}
+                      error={showErrors && !l.date}
+                    >
                       <input
-                        id={`date-${i}`}
+                        id={`date-${l.id}`}
                         type="date"
                         min={minDate}
                         value={l.date ?? ""}
                         onChange={(e) => updateLeg(l.id, { date: e.target.value })}
+                        className={COMPACT_INPUT_CLASS}
                       />
-                    </div>
-                    <div className="field-jn">
-                      <label htmlFor={`time-${i}`}>
-                        {tripType === "roundtrip" && i === 1 ? "Return time" : "Depart time"}
-                      </label>
+                    </CompactField>
+                    <CompactField
+                      id={`time-${l.id}`}
+                      label={isReturn ? "Return time" : "Depart time"}
+                      error={showErrors && !l.time}
+                    >
                       <input
-                        id={`time-${i}`}
+                        id={`time-${l.id}`}
                         type="time"
                         value={l.time ?? ""}
                         onChange={(e) => updateLeg(l.id, { time: e.target.value })}
+                        className={COMPACT_INPUT_CLASS}
                       />
-                    </div>
+                    </CompactField>
                   </div>
-
-                  {l.distanceNm ? (
-                    <p className="mt-4 font-mono text-[10px] uppercase tracking-[0.12em] text-clearance">
-                      — {l.distanceNm.toLocaleString()} NM great-circle
-                    </p>
-                  ) : null}
-                </section>
+                </div>
               );
             })}
 
-            {tripType === "multileg" || legs.length < 5 ? (
+            {legs.length < MAX_LEGS ? (
               <button
                 type="button"
                 onClick={addLeg}
-                className="rounded-[4px] border border-dashed border-ink-3 bg-transparent px-5 py-4 font-mono text-[11px] uppercase tracking-[0.14em] text-bone-2 transition-colors hover:border-clearance hover:text-bone"
+                className="h-12 w-full rounded-control border border-dashed border-line-2 text-[15px] text-bone-2 transition-colors hover:border-steel hover:text-bone"
               >
                 + Add another leg
               </button>
             ) : null}
           </div>
 
-          {/* Common routes */}
-          <div className="mb-10">
-            <p className="caption mb-3">— Common routes</p>
-            <div className="flex flex-wrap gap-2">
-              {COMMON_ROUTES.map((r) => (
+          <div className="mt-5 flex flex-wrap items-center gap-2">
+            <span className="text-[14px] text-steel">Common routes:</span>
+            {COMMON_ROUTES.map((r) => {
+              const f = findAirport(r.from);
+              const t = findAirport(r.to);
+              if (!f || !t) return null;
+              return (
                 <button
                   key={`${r.from}-${r.to}`}
                   type="button"
                   onClick={() => applyPreset(r.from, r.to)}
-                  className="rounded-full border border-ink-3 bg-ink-2 px-4 py-1.5 font-mono text-[10px] uppercase tracking-[0.14em] text-bone-2 transition-colors hover:border-clearance hover:text-bone"
+                  className="chip max-md:h-11"
                 >
-                  {r.from} → {r.to}
+                  {f.city} ({f.iata}) → {t.city} ({t.iata})
                 </button>
-              ))}
-            </div>
+              );
+            })}
           </div>
+        </section>
 
-          {/* Pax */}
-          <div className="rounded-[4px] border border-ink-3 bg-ink-2 p-7">
-            <p className="caption mb-2">— Passengers</p>
-            <div className="flex items-center gap-6">
-              <button
-                type="button"
-                onClick={() => setPax(pax - 1)}
-                disabled={pax <= 1}
-                className="flex h-10 w-10 items-center justify-center rounded-full border border-ink-3 font-mono text-[14px] text-bone transition-colors hover:border-clearance disabled:opacity-30"
-              >
-                −
-              </button>
-              <div className="flex items-baseline gap-3">
-                <span
-                  className="font-serif text-[64px] font-light leading-none text-bone"
-                  style={{ letterSpacing: "-0.02em" }}
-                >
-                  {pax}
-                </span>
-                <span className="font-mono text-[11px] uppercase tracking-[0.14em] text-bone-2">
-                  PAX
-                </span>
-              </div>
-              <button
-                type="button"
-                onClick={() => setPax(pax + 1)}
-                disabled={pax >= 16}
-                className="flex h-10 w-10 items-center justify-center rounded-full border border-ink-3 font-mono text-[14px] text-bone transition-colors hover:border-clearance disabled:opacity-30"
-              >
-                +
-              </button>
-              <input
-                type="range"
-                min={1}
-                max={16}
-                step={1}
-                value={pax}
-                onChange={(e) => setPax(Number(e.target.value))}
-                aria-label="Passengers"
-                aria-valuenow={pax}
-                aria-valuemin={1}
-                aria-valuemax={16}
-                aria-valuetext={`${pax} passenger${pax === 1 ? "" : "s"}`}
-                className="flex-1 accent-clearance"
-              />
-            </div>
-            <p className="mt-4 text-[13px] leading-[1.55] text-bone-2">{paxHint(pax)}</p>
+        {/* Passengers */}
+        <section className="card card-pad mt-4 flex flex-wrap items-center justify-between gap-6 max-md:p-4">
+          <div>
+            <h2 className="title-card-sm">Passengers</h2>
+            <p className="mt-1.5 text-[15px] text-bone-2">{paxHint(pax)}</p>
           </div>
-
-          {/* Step actions */}
-          <div className="mt-12 flex flex-wrap items-center justify-between gap-4 border-t border-ink-3 pt-8">
-            <div className="flex flex-col gap-1">
-              <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-clearance">
-                Step 01 of 04
-              </span>
-              <SavedIndicator />
-            </div>
-            {/* flex-wrap: the btn-lg primary is ~330px wide; without wrap the
-                pair overflows the 430px mobile viewport (~5px sideways scroll). */}
-            <div className="flex flex-wrap items-center justify-end gap-x-6 gap-y-3">
-              <Link href="/" className="btn btn-ghost">
-                Cancel
-              </Link>
-              <button
-                type="button"
-                disabled={!canContinue}
-                onClick={() => router.push("/quote/aircraft")}
-                className="btn btn-primary btn-lg disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                Continue to aircraft <span className="arrow">→</span>
-              </button>
-            </div>
+          <div className="stepper stepper-lg justify-start rounded-control bg-surface-2 p-1">
+            <button
+              type="button"
+              onClick={() => setPax(pax - 1)}
+              disabled={pax <= 1}
+              aria-label="Fewer passengers"
+            >
+              −
+            </button>
+            <span
+              className="min-w-[40px] text-center font-serif text-[28px] font-light leading-none text-bone"
+              aria-live="polite"
+            >
+              {pax}
+              <span className="sr-only"> passengers</span>
+            </span>
+            <button
+              type="button"
+              onClick={() => setPax(pax + 1)}
+              disabled={pax >= 16}
+              aria-label="More passengers"
+            >
+              +
+            </button>
           </div>
-        </div>
+        </section>
 
-        <MissionSidebar />
+        <StepFooter
+          step={1}
+          cancelHref="/"
+          error={error}
+          next={{ label: "Continue to aircraft", onClick: onContinue }}
+        />
       </div>
-    </div>
+
+      <QuoteSidebar step={1} />
+    </>
   );
 }

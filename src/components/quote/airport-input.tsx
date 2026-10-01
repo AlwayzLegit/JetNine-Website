@@ -59,7 +59,7 @@ export function AirportInput({ label, value, error, onSelect }: Props) {
           type="text"
           role="combobox"
           aria-expanded={showList}
-          aria-controls={listId}
+          aria-controls={showList ? listId : undefined}
           aria-autocomplete="list"
           value={query}
           onChange={(e) => onChange(e.target.value)}

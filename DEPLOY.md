@@ -135,6 +135,14 @@ audit subject `ai_provider`). Admin-only (`requireAdmin`), every change audited
 as `ai_provider.*` / `ai_route.update`; key material never appears in the
 audit log or the UI (last four characters only).
 
+## 8b. Guest status link (redesign phase 3)
+
+Schema: migration `0048_quote_status_token.sql` adds `quotes.status_token`
+(24 random bytes, hex, unique) and backfills existing rows. Apply it before
+deploying the phase-3 build — the submit action writes the column. The page
+`/request/<token>` is `noindex` and disallowed in robots; lookups are
+rate-limited per IP. No new env vars.
+
 ## 9. Custom domain
 
 In Vercel → Domains → Add. Point your registrar's `A` record at Vercel's anycast IP (or `CNAME` for subdomain). Vercel issues a Let's Encrypt cert automatically.

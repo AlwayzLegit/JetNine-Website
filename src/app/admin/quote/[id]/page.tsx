@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { statusPath, statusUrl } from "@/lib/request-status";
 import { notFound } from "next/navigation";
 import { and, asc, desc, eq, gte, ne, sql } from "drizzle-orm";
 import { db } from "@/db";
@@ -328,6 +329,19 @@ export default async function QuoteWorkbenchPage({ params }: Props) {
               {sla.label}
             </span>
           </div>
+          {quote.statusToken ? (
+            <p className="mt-2 text-[13px] text-steel">
+              Client status link:{" "}
+              <a
+                href={statusPath(quote.statusToken)}
+                target="_blank"
+                rel="noreferrer"
+                className="text-link"
+              >
+                {statusUrl(quote.statusToken)}
+              </a>
+            </p>
+          ) : null}
           <p className="mt-3 font-mono text-[10px] uppercase tracking-[0.12em] text-steel">
             — Source: {quote.source.replace(/_/g, " ")} · received{" "}
             {quote.receivedAt ? quote.receivedAt.toISOString().slice(0, 16).replace("T", " ") : "—"}

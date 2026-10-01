@@ -2,6 +2,7 @@
 
 import { useEffect, useId, useRef, useState } from "react";
 import { searchAirports, type Airport } from "@/lib/airports";
+import { CompactField, COMPACT_INPUT_CLASS } from "./compact-field";
 
 type Props = {
   label: string;
@@ -10,20 +11,22 @@ type Props = {
   onSelect: (a: Airport) => void;
 };
 
+// City first, code in parentheses — the plain-words way to show an airport.
+function display(city: string | undefined, iata: string): string {
+  return `${city ?? ""} (${iata})`.trim();
+}
+
 export function AirportInput({ label, value, error, onSelect }: Props) {
   const inputId = useId();
-  const [query, setQuery] = useState<string>(
-    value.iata ? `${value.city ?? ""} (${value.iata})` : "",
-  );
+  const listId = useId();
+  const [query, setQuery] = useState<string>(value.iata ? display(value.city, value.iata) : "");
   const [open, setOpen] = useState(false);
   const [results, setResults] = useState<Airport[]>([]);
   const containerRef = useRef<HTMLDivElement | null>(null);
 
-  // Sync query if value updates externally (e.g. trip-type swap).
+  // Sync query if value updates externally (e.g. trip-type swap, route chip).
   useEffect(() => {
-    if (value.iata) {
-      setQuery(`${value.city ?? ""} (${value.iata})`);
-    }
+    if (value.iata) setQuery(display(value.city, value.iata));
   }, [value.iata, value.city]);
 
   useEffect(() => {
@@ -41,54 +44,64 @@ export function AirportInput({ label, value, error, onSelect }: Props) {
   }
 
   function pick(a: Airport) {
-    setQuery(`${a.city} (${a.iata})`);
+    setQuery(display(a.city, a.iata));
     setOpen(false);
     onSelect(a);
   }
 
+  const showList = open && results.length > 0;
+
   return (
     <div ref={containerRef} className="relative">
-      <div className={`field-jn ${error ? "error" : ""}`}>
-        <label htmlFor={inputId}>{label}</label>
+      <CompactField id={inputId} label={label} error={error}>
         <input
           id={inputId}
           type="text"
+          role="combobox"
+          aria-expanded={showList}
+          aria-controls={listId}
+          aria-autocomplete="list"
           value={query}
           onChange={(e) => onChange(e.target.value)}
           onFocus={() => {
             setResults(searchAirports(query));
             setOpen(true);
           }}
-          placeholder="City, airport or ICAO"
+          onKeyDown={(e) => {
+            if (e.key === "Escape") setOpen(false);
+          }}
+          placeholder="City, airport or code"
           autoComplete="off"
+          className={COMPACT_INPUT_CLASS}
         />
-        {value.iata ? (
-          <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 rounded-[2px] border border-ink-4 bg-ink px-1.5 py-0.5 font-mono text-[10px] tracking-[0.08em] text-clearance">
-            {value.iata}
-          </span>
-        ) : null}
-      </div>
-      {open && results.length > 0 ? (
-        <ul className="absolute left-0 right-0 top-full z-20 mt-1 max-h-72 overflow-auto rounded-[3px] border border-ink-3 bg-ink-2 shadow-lg">
+      </CompactField>
+      {showList ? (
+        <ul
+          id={listId}
+          role="listbox"
+          aria-label={`${label} suggestions`}
+          className="card absolute left-0 right-0 top-full z-20 mt-1 max-h-72 overflow-auto shadow-[0_24px_60px_rgba(0,0,0,0.45)]"
+        >
           {results.map((a) => (
-            <li key={a.icao}>
+            <li key={a.icao} role="option" aria-selected={a.iata === value.iata}>
               <button
                 type="button"
+                tabIndex={-1}
                 onMouseDown={(e) => {
+                  // mousedown (not click) so the click-outside listener
+                  // above doesn't close the list before the pick lands.
                   e.preventDefault();
                   pick(a);
                 }}
-                className="grid w-full grid-cols-[1fr_auto] items-center gap-4 border-b border-ink-3 px-4 py-3 text-left transition-colors last:border-b-0 hover:bg-ink"
+                className="grid min-h-[52px] w-full grid-cols-[1fr_auto] items-center gap-4 border-b border-line-faint px-4 py-2.5 text-left transition-colors last:border-b-0 hover:bg-surface-2"
               >
-                <div>
-                  <div className="font-serif text-[15px] text-bone">{a.city}</div>
-                  <div className="font-mono text-[10px] tracking-[0.04em] text-bone-2">
-                    {a.name}
-                  </div>
-                </div>
-                <div className="font-mono text-[10px] uppercase tracking-[0.1em] text-clearance">
-                  {a.iata} · {a.icao}
-                </div>
+                <span className="min-w-0">
+                  <span className="block truncate text-[16px] text-bone">
+                    {a.city} <span className="text-steel">({a.iata})</span>
+                  </span>
+                  <span className="block truncate text-[13px] text-steel">{a.name}</span>
+                </span>
+                <span className="text-[13px] text-steel">{a.icao}</span>
               </button>
             </li>
           ))}

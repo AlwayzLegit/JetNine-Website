@@ -95,10 +95,12 @@ so nothing moved on screen.
    tables in place, (b) keep them reachable under Settings › Connections as
    "reference data" for the empty-leg board and quote conversion, which
    still read those tables. I recommend (b) until Avinode replaces them.
-2. **"Your request" status page for guests.** Quotes can be submitted
-   without an account. A guest needs a tokenised link in the
-   acknowledgment email to see status; members see it under Account ›
-   Quotes. Confirm the tokenised guest link is wanted.
+2. **"Your request" status page for guests.** Decided 2026-10-01: the
+   tokenised guest link. Every quote gets a `status_token` (migration
+   0048); the acknowledgment and options emails link to
+   `/request/<token>`, the wizard lands there after submit, and the
+   client picks an option from that page. The admin workbench shows the
+   link so dispatch can paste it into a thread.
 3. **Settings › Team / Notifications / Connections.** These are new
    features (role management, notification toggles, connection status
    cards), not restyles. Build in phase 5, or defer?

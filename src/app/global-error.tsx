@@ -2,6 +2,13 @@
 
 import { useEffect } from "react";
 
+// Renders its own <html>, so globals.css may not be loaded: everything is
+// inline in the simplification tokens (ink / bone / bone-2 / steel /
+// clearance, 8px control radius, Instrument Sans with a system fallback).
+const SANS =
+  'var(--font-instrument-sans), "Instrument Sans", system-ui, -apple-system, "Segoe UI", sans-serif';
+const SERIF = 'var(--font-fraunces), Fraunces, Georgia, "Times New Roman", serif';
+
 export default function GlobalError({
   error,
   reset,
@@ -24,32 +31,32 @@ export default function GlobalError({
           minHeight: "100vh",
           background: "#07080A",
           color: "#F4F1EA",
-          fontFamily: "ui-sans-serif, system-ui, -apple-system, sans-serif",
+          fontFamily: SANS,
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          padding: "24px",
+          padding: "24px 20px",
+          boxSizing: "border-box",
         }}
       >
         <div style={{ maxWidth: 560, textAlign: "center" }}>
           <p
             style={{
-              fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
-              fontSize: 11,
-              letterSpacing: "0.12em",
-              textTransform: "uppercase",
-              color: "#C9C4B8",
-              marginBottom: 16,
+              fontSize: 14,
+              fontWeight: 600,
+              lineHeight: 1.4,
+              color: "#8A9099",
+              margin: "0 0 12px",
             }}
           >
-            — Status · 500
+            Something went wrong
           </p>
           <h1
             style={{
-              fontFamily: "ui-serif, Georgia, serif",
+              fontFamily: SERIF,
               fontWeight: 300,
-              fontSize: 56,
-              lineHeight: 1.05,
+              fontSize: "clamp(32px, 6vw, 44px)",
+              lineHeight: 1.1,
               letterSpacing: "-0.015em",
               margin: 0,
             }}
@@ -58,27 +65,19 @@ export default function GlobalError({
           </h1>
           <p
             style={{
-              marginTop: 20,
+              margin: "20px auto 0",
               maxWidth: "52ch",
-              marginInline: "auto",
-              fontSize: 15,
-              lineHeight: 1.65,
+              fontSize: 19,
+              lineHeight: 1.5,
               color: "#C9C4B8",
             }}
           >
-            The site hit a top-level error. Refresh to retry, or call dispatch directly at +1 (424) 487-2707.
+            The site hit an unexpected error. Refresh to retry, or call dispatch directly at +1
+            (424) 487-2707.
           </p>
           {error.digest ? (
-            <p
-              style={{
-                marginTop: 16,
-                fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
-                fontSize: 11,
-                letterSpacing: "0.06em",
-                color: "#8A8678",
-              }}
-            >
-              ref · {error.digest}
+            <p style={{ margin: "16px 0 0", fontSize: 13, lineHeight: 1.5, color: "#8A9099" }}>
+              Reference {error.digest}
             </p>
           ) : null}
           <button
@@ -86,18 +85,20 @@ export default function GlobalError({
             onClick={reset}
             style={{
               marginTop: 32,
+              height: 52,
+              padding: "0 28px",
               background: "#E8E2D2",
               color: "#07080A",
               border: "none",
-              padding: "14px 28px",
-              fontSize: 13,
-              letterSpacing: "0.14em",
-              textTransform: "uppercase",
+              borderRadius: 8,
+              fontFamily: SANS,
+              fontSize: 16,
+              fontWeight: 500,
+              lineHeight: 1,
               cursor: "pointer",
-              borderRadius: 2,
             }}
           >
-            Reload
+            Try again
           </button>
         </div>
       </body>

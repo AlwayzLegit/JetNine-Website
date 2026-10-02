@@ -84,6 +84,17 @@ export function minutesWords(min: number): string {
   return `${d} day${d === 1 ? "" : "s"}`;
 }
 
+/**
+ * The client-facing reply promise in words, from the desk setting
+ * (`getReplyPromiseMinutes`): 60 → "within an hour", otherwise
+ * "within 30 minutes". Pure, so client components can use it with a prop.
+ */
+export function replyPromiseWords(minutes: number | null | undefined = 30): string {
+  const m = minutes && Number.isFinite(minutes) && minutes > 0 ? Math.round(minutes) : 30;
+  if (m === 60) return "within an hour";
+  return `within ${m} minutes`;
+}
+
 // ─── Trips ──────────────────────────────────────────────────────────────
 
 export type TripStateInfo = {

@@ -681,6 +681,7 @@ export default async function RequestPage({ params }: Props) {
             <div className="mt-3">
               <MarkThreadRead subjectType="quote" subjectId={quote.id} />
               <MessageThread
+                now={now}
                 initial={thread}
                 defaultEmail={email}
                 defaultPhone={phone}

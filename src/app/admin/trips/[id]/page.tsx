@@ -367,6 +367,7 @@ export default async function AdminTripDetailPage({ params }: Props) {
             <div className="mt-3">
               <MarkThreadRead subjectType="trip" subjectId={trip.id} />
               <MessageThread
+                now={now}
                 initial={thread}
                 defaultEmail={memberRow?.email ?? null}
                 defaultPhone={memberRow?.phoneE164 ?? null}

@@ -580,6 +580,7 @@ export default async function MessagesPage({ searchParams }: Props) {
             <div className="flex min-h-0 flex-1 flex-col px-5 pb-6 pt-6 md:px-8">
               <MarkThreadRead subjectType={selectedThread.subjectType} subjectId={selectedThread.subjectId} />
               <MessageThread
+                now={now}
                 key={`${selectedThread.subjectType}:${selectedThread.subjectId}`}
                 initial={thread}
                 defaultEmail={selectedThread.email}

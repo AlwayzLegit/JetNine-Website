@@ -7,6 +7,7 @@ import { members, type NewMember } from "@/db/schema/members";
 import { users } from "@/db/schema/users";
 import { memberTierEnum } from "@/db/schema/enums";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { findAuthUserIdByEmail } from "@/lib/auth-users";
 import { requireStaff } from "@/lib/auth";
 import { logAudit } from "@/lib/audit";
 
@@ -82,16 +83,10 @@ export async function inviteMember(
   let authUserId: string;
   let isNewAuthUser = false;
 
-  const { data: existing } = await supa.auth.admin.listUsers({
-    page: 1,
-    perPage: 200,
-  });
-  const hit = existing?.users.find(
-    (u) => u.email?.toLowerCase() === email,
-  );
+  const hit = await findAuthUserIdByEmail(email);
 
   if (hit) {
-    authUserId = hit.id;
+    authUserId = hit;
   } else {
     const { data: invited, error: inviteErr } =
       await supa.auth.admin.inviteUserByEmail(email, {

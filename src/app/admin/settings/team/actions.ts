@@ -9,6 +9,7 @@ import { requireAdmin } from "@/lib/auth";
 import { logAudit } from "@/lib/audit";
 import { deskRole, DESK_ROLE_WORDS, personName, type DeskRole } from "@/lib/desk-status";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { findAuthUserIdByEmail, setUserRole } from "@/lib/auth-users";
 
 // Settings › Team. Owner-only (admin / superadmin). Two words map onto the
 // database roles: Owner = admin, Team = dispatcher. `superadmin` rows show
@@ -73,10 +74,9 @@ export async function inviteTeammate(formData: FormData): Promise<TeamActionResu
   //    pattern as inviteMember (src/app/admin/clients/actions.ts).
   let authUserId: string;
   let isNewAuthUser = false;
-  const { data: existing } = await supa.auth.admin.listUsers({ page: 1, perPage: 200 });
-  const hit = existing?.users.find((u) => u.email?.toLowerCase() === email);
+  const hit = await findAuthUserIdByEmail(email);
   if (hit) {
-    authUserId = hit.id;
+    authUserId = hit;
   } else {
     const { data: invited, error: inviteErr } = await supa.auth.admin.inviteUserByEmail(email, {
       data: { first_name: firstName, last_name: lastName },
@@ -101,15 +101,20 @@ export async function inviteTeammate(formData: FormData): Promise<TeamActionResu
 
   // 3) Role + names.
   const dbRole = dbRoleFor(role);
-  await db
-    .update(users)
-    .set({
-      role: dbRole,
+  try {
+    await setUserRole(authUserId, dbRole, {
       firstName: firstName ?? userRow.firstName,
       lastName: lastName ?? userRow.lastName,
-      updatedAt: new Date(),
-    })
-    .where(eq(users.id, authUserId));
+    });
+  } catch (err) {
+    console.error("[team] role update failed", err);
+    return {
+      ok: false,
+      error: isNewAuthUser
+        ? "The invite email went out, but the desk role could not be set. Open Team again and use Change on their row."
+        : "The desk role could not be set. Try again.",
+    };
+  }
 
   // 4) Staff row (display name) when none exists; a removed teammate's
   //    row is switched back on.
@@ -163,7 +168,12 @@ export async function setTeammateRole(userId: string, role: DeskRole): Promise<T
     return { ok: false, error: "At least one owner must remain." };
   }
 
-  await db.update(users).set({ role: dbRole, updatedAt: new Date() }).where(eq(users.id, userId));
+  try {
+    await setUserRole(userId, dbRole);
+  } catch (err) {
+    console.error("[team] role update failed", err);
+    return { ok: false, error: "The role could not be changed. Try again." };
+  }
 
   await logAudit({
     actorUserId: actor.id,
@@ -197,8 +207,13 @@ export async function removeTeammate(userId: string): Promise<TeamActionResult> 
 
   const name = target.displayName ?? personName(target.firstName, target.lastName, target.email);
 
-  await db.update(users).set({ role: "member", updatedAt: new Date() }).where(eq(users.id, userId));
-  await db.update(staff).set({ status: "off", updatedAt: new Date() }).where(eq(staff.userId, userId));
+  try {
+    await setUserRole(userId, "member");
+    await db.update(staff).set({ status: "off", updatedAt: new Date() }).where(eq(staff.userId, userId));
+  } catch (err) {
+    console.error("[team] remove failed", err);
+    return { ok: false, error: "Access could not be removed. Try again." };
+  }
 
   await logAudit({
     actorUserId: actor.id,

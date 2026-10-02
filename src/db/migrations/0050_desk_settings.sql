@@ -39,3 +39,26 @@ create policy "staff_notification_prefs_select_staff" on public.staff_notificati
 create policy "desk_settings_select_staff" on public.desk_settings
   for select to authenticated
   using (public.is_staff());
+
+-- Settings › Team changes roles from a Server Action. The site connects on
+-- the postgres role with no JWT, so public.is_admin() is false there and the
+-- role-immutability trigger from 0001 would block every role change. The
+-- action sets a transaction-local flag right before the update; the trigger
+-- honours it. PostgREST callers cannot set it (set_config needs a session,
+-- and the API role never runs arbitrary SQL), so the member-side guarantee
+-- is unchanged.
+
+create or replace function public.enforce_user_role_immutable()
+returns trigger
+language plpgsql
+as $$
+begin
+  if new.role is distinct from old.role
+     and not public.is_admin()
+     and coalesce(current_setting('jn.allow_role_change', true), '') <> '1' then
+    raise exception 'role can only be changed by admins'
+      using errcode = 'insufficient_privilege';
+  end if;
+  return new;
+end;
+$$;

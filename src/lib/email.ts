@@ -148,6 +148,17 @@ export async function sendEmail(payload: EmailPayload): Promise<SendResult> {
 // render right in a customer's mail client, you read the page and you read
 // the function side-by-side, not the page and a templating layer.
 
+/**
+ * Desk alerts always reach the shared dispatch inbox; per-user notification
+ * preferences (Settings › Notifications) add staff on top, never replace it.
+ */
+function withDispatchInbox(to: string[] | undefined): string | string[] {
+  const extra = (to ?? []).map((a) => a.trim().toLowerCase()).filter(Boolean);
+  const inbox = DISPATCH_NOTIFY.toLowerCase();
+  const list = Array.from(new Set([inbox, ...extra.filter((a) => a !== inbox)]));
+  return list.length === 1 ? DISPATCH_NOTIFY : [DISPATCH_NOTIFY, ...list.slice(1)];
+}
+
 const DISPATCH_NOTIFY =
   process.env.DISPATCH_NOTIFY_EMAIL ||
   process.env.NEXT_PUBLIC_DISPATCH_EMAIL ||
@@ -267,7 +278,7 @@ export async function sendDispatchNewQuoteNotification(
   `.trim();
 
   return sendEmail({
-    to: ctx.to && ctx.to.length > 0 ? ctx.to : DISPATCH_NOTIFY,
+    to: withDispatchInbox(ctx.to),
     subject,
     html,
     text,
@@ -920,8 +931,7 @@ export async function sendDispatchAlert(ctx: {
       ${ctx.link ? `<p style="margin:16px 0 0;font-size:14px;"><a href="${ctx.link.url}" style="color:#0F1115;font-weight:600;">${escapeHtml(ctx.link.label)} →</a></p>` : ""}
     `,
   );
-  const to = ctx.to && ctx.to.length > 0 ? ctx.to : DISPATCH_NOTIFY;
-  return sendEmail({ to, subject: ctx.subject, html, text });
+  return sendEmail({ to: withDispatchInbox(ctx.to), subject: ctx.subject, html, text });
 }
 
 

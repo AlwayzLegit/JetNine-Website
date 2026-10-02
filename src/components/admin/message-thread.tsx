@@ -79,6 +79,7 @@ export function MessageThread({
   compact = false,
   clientName,
   disabledNote,
+  now: nowProp,
 }: {
   initial: ThreadMessage[];
   defaultEmail: string | null;
@@ -95,6 +96,8 @@ export function MessageThread({
   clientName?: string | null;
   /** When set, the composer renders disabled with this sentence. */
   disabledNote?: string;
+  /** Server clock for "10 min ago", so SSR and hydration agree. */
+  now?: Date;
 }) {
   const firstName = (clientName ?? "").trim().split(" ")[0] || "the client";
   const canUse = (id: string) => {
@@ -115,7 +118,7 @@ export function MessageThread({
   const current = CHANNELS.find((c) => c.id === channel) ?? CHANNELS[0];
   const addressDefault =
     current.needs === "email" ? defaultEmail ?? "" : current.needs === "phone" ? defaultPhone ?? "" : "";
-  const now = new Date();
+  const [now] = useState(() => nowProp ?? new Date());
   const scrollRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const el = scrollRef.current;

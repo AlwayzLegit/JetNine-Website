@@ -32,8 +32,9 @@ export const dynamic = "force-dynamic";
 
 type Props = { searchParams: Promise<{ tab?: string; q?: string }> };
 
-const STAGE_ORDER: RequestStageKey[] = ["reply", "working", "sent", "booked"];
+const STAGE_ORDER: RequestStageKey[] = ["reply", "working", "sent", "booked", "closed"];
 const BOOKED_WINDOW_DAYS = 14;
+const CLOSED_WINDOW_DAYS = 30;
 const ROW_LIMIT = 200;
 
 // Post-deploy smoke tests submit real quotes flagged by a "[SMOKE]" first
@@ -62,16 +63,19 @@ export default async function RequestsPage({ searchParams }: Props) {
   const sp = await searchParams;
   const now = new Date();
   const q = (sp.q ?? "").trim().slice(0, 80);
-  const tabKeys = new Set<string>([...REQUEST_TABS.map((t) => t.key), "all"]);
+  const tabKeys = new Set<string>([...REQUEST_TABS.map((t) => t.key), "closed", "all"]);
   const tab = sp.tab && tabKeys.has(sp.tab) ? sp.tab : "reply";
 
   const bookedSince = new Date(now.getTime() - BOOKED_WINDOW_DAYS * 86_400_000);
+  const closedSince = new Date(now.getTime() - CLOSED_WINDOW_DAYS * 86_400_000);
   const openOrRecentlyBooked = or(
     inArray(quotes.status, [...OPEN_REQUEST_STATUSES]),
     and(
       inArray(quotes.status, ["accepted", "converted"]),
       sql`coalesce(${quotes.acceptedAt}, ${quotes.updatedAt}) >= ${bookedSince}`,
     ),
+    // Closed (declined / expired / cancelled) stays findable for a month.
+    and(inArray(quotes.status, ["declined", "expired", "cancelled"]), sql`${quotes.updatedAt} >= ${closedSince}`),
   );
 
   // Search: contact name / email, or any leg's city, airport name or code.
@@ -166,7 +170,6 @@ export default async function RequestsPage({ searchParams }: Props) {
   const byStage = new Map<RequestStageKey, typeof rows>();
   for (const r of rows) {
     const key = requestStage(r.status).key;
-    if (key === "closed") continue;
     const arr = byStage.get(key) ?? [];
     arr.push(r);
     byStage.set(key, arr);
@@ -175,11 +178,12 @@ export default async function RequestsPage({ searchParams }: Props) {
 
   const tabs: DeskTab[] = [
     ...REQUEST_TABS.map((t) => ({ ...t, count: byStage.get(t.key)?.length ?? 0 })),
+    { key: "closed", label: "Closed", count: byStage.get("closed")?.length ?? 0 },
     { key: "all", label: "All" },
   ];
 
   const visibleStages = STAGE_ORDER.filter(
-    (k) => (tab === "all" || k === tab) && (byStage.get(k)?.length ?? 0) > 0,
+    (k) => (tab === "all" ? k !== "closed" : k === tab) && (byStage.get(k)?.length ?? 0) > 0,
   );
 
   return (
@@ -300,6 +304,12 @@ function RequestRow({
       line1 = `${n} option${n === 1 ? "" : "s"} sent · ${relativeTime(sentAt, now).toLowerCase()}`;
       line2 = { text: r.status === "held" ? "Aircraft held for them" : "Waiting on the client", tone: "bone" };
       action = { label: "Nudge", href: `${href}#conversation`, primary: false };
+      break;
+    }
+    case "closed": {
+      line1 = `Closed ${relativeTime(r.updatedAt, now).toLowerCase()}`;
+      line2 = { text: stage.label, tone: "steel" };
+      action = { label: "Open", href, primary: false };
       break;
     }
     default: {

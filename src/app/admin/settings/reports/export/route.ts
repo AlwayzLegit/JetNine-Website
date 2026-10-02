@@ -30,8 +30,11 @@ type ExportRow = {
 
 function csvCell(v: string | number | null | undefined): string {
   if (v === null || v === undefined) return "";
-  const s = String(v);
-  return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+  let s = String(v);
+  // Spreadsheets treat a leading = + - @ as a formula; names come from the
+  // public quote form, so neutralise them.
+  if (/^[=+\-@]/.test(s)) s = `'${s}`;
+  return /[",\n\r']/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 }
 
 function place(city: string | null, name: string | null, iata: string | null): string {

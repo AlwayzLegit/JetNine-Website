@@ -7,8 +7,8 @@ import { OPEN_REQUEST_STATUSES, passengersWords, replyDueLine, requestStage, tri
 import { sendDispatchAlert } from "@/lib/email";
 import { formatClock, relativeTime } from "@/lib/request-page";
 
-// Morning summary — one email at 7 AM Los Angeles (vercel.json: "0 14 * * *"
-// UTC) to the staff who turned on "Morning summary" in Settings ›
+// Morning summary — one email at 7 AM Los Angeles (vercel.json: "0 14,15 * * *"
+// UTC, the route keeps the 7 AM one) to the staff who turned on "Morning summary" in Settings ›
 // Notifications. Lists today's flights and the open requests in plain
 // sentences. With nobody subscribed it sends nothing.
 
@@ -69,6 +69,13 @@ function place(city: string | null, name: string | null, iata: string | null): s
 export async function GET(request: Request): Promise<NextResponse> {
   if (!authorized(request)) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  }
+
+  // Two UTC slots cover daylight saving; only the one that is 7 AM in Los
+  // Angeles sends.
+  const laHour = Number(new Intl.DateTimeFormat("en-US", { timeZone: LA, hour: "numeric", hour12: false }).format(new Date()));
+  if (laHour !== 7) {
+    return NextResponse.json({ ok: true, skipped: `it is ${laHour}:00 in Los Angeles, not 7:00` });
   }
 
   const recipients = await recipientsFor("morningSummary");

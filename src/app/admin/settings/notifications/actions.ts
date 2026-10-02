@@ -37,7 +37,13 @@ export async function saveReplyPromise(formData: FormData): Promise<void> {
   if (!isReplyPromiseChoice(minutes)) return;
   const before = await getReplyPromiseMinutes();
   if (before === minutes) return;
-  await setReplyPromiseMinutes(minutes, actor.id);
+  try {
+    await setReplyPromiseMinutes(minutes, actor.id);
+  } catch (err) {
+    // Migration 0050 not applied yet: keep the page up; the default holds.
+    console.error("[settings/notifications] reply promise save failed", err);
+    return;
+  }
   await logAudit({
     actorUserId: actor.id,
     actorRole: actor.role,

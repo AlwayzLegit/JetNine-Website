@@ -29,7 +29,7 @@
     },
     {
       "path": "/api/cron/morning-summary",
-      "schedule": "0 14 * * *"
+      "schedule": "0 14,15 * * *"
     }
   ]
 }

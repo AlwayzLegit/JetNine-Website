@@ -97,6 +97,22 @@ const nextConfig: NextConfig = {
       { source: "/dashboard", destination: "/account", permanent: true },
       { source: "/fleet", destination: "/aircraft", permanent: true },
       { source: "/pricing", destination: "/cost-calculator", permanent: true },
+      // Dispatch desk collapse (redesign phase 5): fifteen sections became
+      // five. Old links live in dispatch emails and bookmarks, so they keep
+      // resolving. Not permanent — the desk is behind sign-in and these may
+      // move again.
+      { source: "/admin/dispatch", destination: "/admin/requests", permanent: false },
+      { source: "/admin/quote", destination: "/admin/requests", permanent: false },
+      { source: "/admin/quote/:id", destination: "/admin/requests/:id", permanent: false },
+      { source: "/admin/trip", destination: "/admin/trips", permanent: false },
+      { source: "/admin/trip/:id", destination: "/admin/trips/:id", permanent: false },
+      { source: "/admin/member", destination: "/admin/clients", permanent: false },
+      { source: "/admin/member/:id", destination: "/admin/clients/:id", permanent: false },
+      { source: "/admin/inquiries", destination: "/admin/messages?tab=form", permanent: false },
+      { source: "/admin/voice", destination: "/admin/messages?tab=calls", permanent: false },
+      { source: "/admin/reports", destination: "/admin/settings/reports", permanent: false },
+      { source: "/admin/audit", destination: "/admin/settings/history", permanent: false },
+      { source: "/admin/health", destination: "/admin/settings/connections", permanent: false },
     ];
   },
 };

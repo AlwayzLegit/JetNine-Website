@@ -151,7 +151,7 @@ export async function submitContactInquiry(formData: FormData): Promise<ContactR
     },
   });
 
-  revalidatePath("/admin/inquiries");
+  revalidatePath("/admin/messages");
 
   if (isSmoke) {
     return { ok: true, message: "DISPATCH WILL REPLY WITHIN 30 MIN" };
@@ -178,7 +178,7 @@ export async function submitContactInquiry(formData: FormData): Promise<ContactR
       dateText: dateText || null,
       paxText: paxText || null,
       notes: notes || null,
-      inquiriesUrl: `${baseUrl}/admin/inquiries`,
+      inquiriesUrl: `${baseUrl}/admin/messages?tab=form`,
     });
 
     await logAudit({

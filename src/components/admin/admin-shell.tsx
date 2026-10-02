@@ -1,45 +1,32 @@
-import { BrandMark } from "@/components/brand-mark";
-import { AdminNav } from "@/components/admin/admin-nav";
 import { signOut } from "@/app/(auth)/sign-in/actions";
 import type { CurrentUser } from "@/lib/auth";
+import { deskRole, DESK_ROLE_WORDS } from "@/lib/desk-status";
+import { DeskMobileHeader, DeskSidebar, DeskTabBar, type DeskCounts } from "@/components/admin/desk-sidebar";
 
+/**
+ * Dispatch desk shell (Phase 5): `220px minmax(0,1fr)` grid with the
+ * sticky sidebar on desktop; wordmark header + five-tab bar on phones.
+ * The desk is desktop-first (≥1100px) except the Requests list, which has
+ * its own phone layout.
+ */
 export function AdminShell({
   user,
   children,
-  unreadInbox = 0,
+  counts,
 }: {
   user: CurrentUser;
   children: React.ReactNode;
-  unreadInbox?: number;
+  counts: DeskCounts;
 }) {
+  const name = user.firstName || user.email.split("@")[0];
+  const role = deskRole(user.role);
+  const roleWord = role ? DESK_ROLE_WORDS[role].label : "Staff";
   return (
-    <div className="min-h-screen bg-ink">
-      <header className="border-b border-ink-3 bg-[rgba(7,8,10,0.92)] backdrop-blur-[14px]">
-        <div className="container-jn flex h-16 items-center justify-between">
-          <div className="flex items-center gap-8">
-            <BrandMark size="sm" />
-            <span className="rounded-[2px] border border-ink-3 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.16em] text-clearance">
-              Dispatch desk
-            </span>
-          </div>
-          <div className="flex items-center gap-4">
-            <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-bone-2">
-              {(user.firstName || user.email.split("@")[0]).toUpperCase()} ·{" "}
-              <span className="text-clearance">{user.role.toUpperCase()}</span>
-            </span>
-            <form action={signOut}>
-              <button
-                type="submit"
-                className="font-mono text-[10px] uppercase tracking-[0.14em] text-bone-2 transition-colors hover:text-bone"
-              >
-                Sign out →
-              </button>
-            </form>
-          </div>
-        </div>
-        <AdminNav unreadInbox={unreadInbox} />
-      </header>
-      <main>{children}</main>
+    <div className="min-h-screen bg-ink text-bone lg:grid lg:grid-cols-[220px_minmax(0,1fr)]">
+      <DeskSidebar counts={counts} name={name} roleWord={roleWord} signOutAction={signOut} />
+      <DeskMobileHeader />
+      <main className="min-w-0 pb-24 lg:pb-0">{children}</main>
+      <DeskTabBar counts={counts} />
     </div>
   );
 }

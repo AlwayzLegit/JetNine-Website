@@ -145,6 +145,22 @@ rate-limited per IP. No new env vars. Migration `0049_quotes_anon_select_revoke.
 (also applied) removes the anon-key read path on `quotes` / `quote_legs` that 0003
 left open and rotates every token; keep it applied before 0048's links go out.
 
+## 8c. Dispatch desk settings (redesign phase 5)
+
+Schema: migration `0050_desk_settings.sql` adds `staff_notification_prefs`
+(one row per staff user; absent row = defaults) and `desk_settings`
+(key/value; seeded with `reply_promise_minutes = 30`). Apply it before
+deploying the phase-5 build — Settings › Notifications reads and writes both,
+and the quote submit action reads the reply promise (it falls back to 30
+minutes if the table is missing, so a late migration degrades rather than
+breaks). No new env vars. A new cron `/api/cron/morning-summary` runs at 7 AM
+Los Angeles for staff who turned the morning summary on (same `CRON_SECRET`).
+
+Old desk URLs (`/admin/dispatch`, `/admin/quote/<id>`, `/admin/trip/<id>`,
+`/admin/member/<id>`, `/admin/inquiries`, `/admin/voice`, `/admin/reports`,
+`/admin/audit`, `/admin/health`) redirect to the five new sections, so links
+in older dispatch emails keep working.
+
 ## 9. Custom domain
 
 In Vercel → Domains → Add. Point your registrar's `A` record at Vercel's anycast IP (or `CNAME` for subdomain). Vercel issues a Let's Encrypt cert automatically.

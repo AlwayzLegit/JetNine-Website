@@ -114,7 +114,7 @@ export async function POST(
   }
 
   try {
-    const threadPath = m.subjectType === "quote" ? "quote" : m.subjectType === "trip" ? "trip" : null;
+    const threadPath = m.subjectType === "quote" ? "requests" : m.subjectType === "trip" ? "trips" : null;
     await sendDispatchAlert({
       subject: `[EMAIL ${type === "email.complained" ? "COMPLAINT" : "BOUNCE"}] ${m.toAddress ?? "unknown address"}`,
       headline:

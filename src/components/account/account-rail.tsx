@@ -65,7 +65,7 @@ export function AccountRail({ name, email, signOutAction, staff }: Props) {
       })}
       {staff ? (
         <Link
-          href="/admin/dispatch"
+          href="/admin/requests"
           className="mt-1 flex flex-col rounded-control px-3 py-2.5 text-bone-2 transition-colors hover:bg-surface-2/60 hover:text-bone"
         >
           <span className="font-medium">Dispatch desk</span>

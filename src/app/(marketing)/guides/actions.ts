@@ -105,7 +105,7 @@ export async function requestPricingGuide(formData: FormData): Promise<GuideRequ
       subject: `[LEAD] Pricing-guide download — ${email}`,
       headline: "New pricing-guide lead.",
       lines: [`${name} <${email}>${frequency ? ` · flies privately: ${frequency}` : ""}`],
-      link: { label: "Open the inquiries board", url: `${base}/admin/inquiries` },
+      link: { label: "Open the inquiries board", url: `${base}/admin/messages?tab=form` },
     });
   } catch (err) {
     console.error("requestPricingGuide dispatch ping failed (non-fatal)", err);

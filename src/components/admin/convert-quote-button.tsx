@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { convertQuoteToTrip } from "@/app/admin/quote/[id]/actions";
+import { convertQuoteToTrip } from "@/app/admin/requests/[id]/actions";
 
 export function ConvertQuoteButton({
   quoteId,
@@ -20,7 +20,7 @@ export function ConvertQuoteButton({
   if (alreadyConvertedTripId) {
     return (
       <a
-        href={`/admin/trip/${alreadyConvertedTripId}`}
+        href={`/admin/trips/${alreadyConvertedTripId}`}
         className="inline-flex items-center gap-2 rounded-[2px] border border-[var(--success)] px-3 py-1.5 font-mono text-[11px] uppercase tracking-[0.14em] text-[var(--success)] transition-colors hover:bg-[rgba(91,140,90,0.08)]"
       >
         Converted → trip
@@ -35,7 +35,7 @@ export function ConvertQuoteButton({
     startTransition(async () => {
       const result = await convertQuoteToTrip(quoteId);
       if (result.ok) {
-        router.push(`/admin/trip`);
+        router.push(`/admin/trips`);
       } else {
         setError(result.error);
       }

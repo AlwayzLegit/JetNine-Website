@@ -47,7 +47,7 @@ export function WhyJetNine() {
             <h3 className="title-card-sm">{r.title}</h3>
             <p className="mt-[10px] text-bone-2">{r.body}</p>
             {r.link ? (
-              <Link href={r.link.href} className="text-link-strong mt-4 inline-block text-[15px]">
+              <Link href={r.link.href} className="text-link-strong mt-1.5 inline-flex min-h-11 items-center text-[15px]">
                 {r.link.label} →
               </Link>
             ) : null}

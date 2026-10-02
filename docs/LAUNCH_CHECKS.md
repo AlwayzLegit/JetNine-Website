@@ -50,8 +50,10 @@ Fixes: the bleed strips use the real phone gutter (16px below 640px, not
 a fixed 20px); scrolling tables are positioned so a screen-reader label
 inside them cannot stretch the page; scroll regions take focus and carry
 a label; text links get a 44px tap area on phones without moving the
-layout; footer links are 44px rows on phones; the FAQ topic count uses
-steel instead of steel-dim.
+layout (`.tap-pad`, opt-in, inline links only) or become 44px rows
+(`inline-flex min-h-11 items-center`) when they stand alone; footer links
+are 44px rows on phones; the FAQ topic count uses steel instead of
+steel-dim.
 
 Re-run: `pnpm audit:launch --base http://localhost:3100` (exit 1 on any
 overflow, sub-24px control, serious axe finding or load error).

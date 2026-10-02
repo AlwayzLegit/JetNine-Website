@@ -94,7 +94,7 @@ export default function LegalPage() {
               <dt className="text-steel">{label}</dt>
               <dd className="text-bone">
                 {label === "Questions" ? (
-                  <a href={`mailto:${value}`} className="text-link-strong !no-underline hover:!underline">
+                  <a href={`mailto:${value}`} className="text-link-strong tap-pad !no-underline hover:!underline">
                     {value}
                   </a>
                 ) : (

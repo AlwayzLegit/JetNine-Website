@@ -209,11 +209,11 @@ export default function SafetyPage() {
               it. That is the standard, regulated structure for premium charter in the United
               States.
             </p>
-            <div className="mt-5 flex flex-col gap-2 text-[15px]">
-              <Link href="/legal#part-295" className="text-link">
+            <div className="mt-3 flex flex-col text-[15px]">
+              <Link href="/legal#part-295" className="text-link inline-flex min-h-11 items-center self-start">
                 Read the full broker disclosure →
               </Link>
-              <Link href="/legal#operator-detail" className="text-link">
+              <Link href="/legal#operator-detail" className="text-link inline-flex min-h-11 items-center self-start">
                 What the operator is responsible for →
               </Link>
             </div>

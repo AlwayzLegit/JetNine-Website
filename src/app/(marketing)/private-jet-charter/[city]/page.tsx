@@ -280,7 +280,7 @@ export default async function CityPage({ params }: RouteParams) {
             One-way, whole-aircraft indicative ranges from {city.primary.name}, in the category the
             wizard itself recommends per distance — computed by the same engine behind every quote.
           </p>
-          <div className="card relative mt-8 overflow-x-auto" tabIndex={0} role="region" aria-label="Lanes and prices — scrolls sideways">
+          <div className="card relative mt-8 overflow-x-auto">
             <table className="table-jn min-w-[760px]">
               <thead>
                 <tr>

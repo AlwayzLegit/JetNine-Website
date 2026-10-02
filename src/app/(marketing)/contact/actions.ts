@@ -14,6 +14,7 @@ import { logAudit } from "@/lib/audit";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { sendContactAckEmail, sendDispatchContactNotification } from "@/lib/email";
 import { getReplyPromiseMinutes } from "@/lib/desk-settings";
+import { replyPromiseWords } from "@/lib/desk-status";
 
 export type ContactResult =
   | { ok: true; message: string }
@@ -50,7 +51,7 @@ export async function submitContactInquiry(formData: FormData): Promise<ContactR
   // is an autofill bot. Pretend success so the bot moves on; insert nothing.
   if (field("company")) {
     console.warn("submitContactInquiry honeypot tripped — dropping submission");
-    return { ok: true, message: "Sent. Dispatch will reply within 30 minutes." };
+    return { ok: true, message: `Sent. A dispatcher will reply ${replyPromiseWords(await getReplyPromiseMinutes())}.` };
   }
 
   // Server-side validation — the client repeats this for fast feedback,
@@ -155,7 +156,7 @@ export async function submitContactInquiry(formData: FormData): Promise<ContactR
   revalidatePath("/admin/messages");
 
   if (isSmoke) {
-    return { ok: true, message: "Sent. Dispatch will reply within 30 minutes." };
+    return { ok: true, message: `Sent. A dispatcher will reply ${replyPromiseWords(await getReplyPromiseMinutes())}.` };
   }
 
   // Fire-and-forget — never block the visitor's submit on SMTP. The email
@@ -208,5 +209,5 @@ export async function submitContactInquiry(formData: FormData): Promise<ContactR
     }
   }
 
-  return { ok: true, message: "Sent. Dispatch will reply within 30 minutes." };
+  return { ok: true, message: `Sent. A dispatcher will reply ${replyPromiseWords(await getReplyPromiseMinutes())}.` };
 }

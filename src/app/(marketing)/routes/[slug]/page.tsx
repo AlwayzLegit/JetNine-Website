@@ -306,7 +306,7 @@ export default async function RoutePage({ params }: RouteParams) {
                       label="Quote it"
                       className="btn btn-secondary btn-sm"
                     />
-                    <Link href={o.href} className="text-link text-[15px]">
+                    <Link href={o.href} className="text-link inline-flex min-h-11 items-center text-[15px]">
                       Category <span className="arrow">→</span>
                     </Link>
                   </div>
@@ -325,7 +325,7 @@ export default async function RoutePage({ params }: RouteParams) {
               {cityGuides.map((c, i) => (
                 <span key={c.slug}>
                   {i > 0 ? " · " : ""}
-                  <Link href={`/private-jet-charter/${c.slug}`} className="text-link">
+                  <Link href={`/private-jet-charter/${c.slug}`} className="text-link tap-pad">
                     {c.name} airports &amp; lanes
                   </Link>
                 </span>

@@ -203,6 +203,15 @@ function placeLabel(city: string | null, name: string | null, code: string): str
   return words ? `${words} (${code})` : code;
 }
 
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 function routeLabel(leg: MatchableLeg): string {
   return (
     `${placeLabel(leg.fromCity, leg.fromName, leg.fromIata ?? leg.fromIcao)} → ` +
@@ -255,7 +264,7 @@ export function emailBody(
 
   const html =
     `<p>An empty leg matching your alert was just listed.</p>` +
-    `<p><strong>${routeLabel(leg)}</strong> &middot; ${when}<br>` +
+    `<p><strong>${escapeHtml(routeLabel(leg))}</strong> &middot; ${when}<br>` +
     `${cat} &middot; <strong>${price}</strong> (was ${was}, ${pct}% off)<br>` +
     `<span style="color:#666;font-size:13px">Reference ${leg.code}</span></p>` +
     `<p>Empty legs can&rsquo;t be held &mdash; the first person to call gets it. Call dispatch on ` +

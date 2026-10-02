@@ -212,7 +212,7 @@ export function plainTripText(line: string): string {
   return line
     .replace(/\b(\d{4}-\d{2}-\d{2})\b/g, (m) => formatDay(m) ?? m)
     .replace(/\b(\d+)\s*pax\b/gi, (_m, n: string) => passengersWords(Number(n)))
-    .replace(/(^|[^(A-Za-z])([A-Z]{3,4})(?![A-Za-z)])/g, (m, pre: string, code: string) => {
+    .replace(/(^|[^(A-Za-z])([A-Z]{3,4}(?:_[A-Z]{2})?)(?![A-Za-z_)])/g, (m, pre: string, code: string) => {
       const a = findAirport(code);
       return a ? `${pre}${a.city} (${iataOf(a.iata)})` : m;
     });
@@ -264,7 +264,8 @@ export async function sendQuoteAcknowledgmentEmail(
   const route = ctx.legs.map(legRoute).join(", ");
   const when = replyPromiseWords(ctx.replyMinutes);
 
-  const subject = `${ctx.quoteCode} — we've got your trip request`;
+  // Bracketed so a client's reply threads onto the request (inbound route).
+  const subject = `[${ctx.quoteCode}] We've got your trip request`;
   const text = [
     `${fullName},`,
     ``,

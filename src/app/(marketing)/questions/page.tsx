@@ -81,7 +81,7 @@ export default function QuestionsHubPage() {
                       </summary>
                       <div className="accordion-body">
                         <p className="text-[17px] leading-[1.6]">{q.short}</p>
-                        <Link href={`/questions/${q.slug}`} className="text-link-strong mt-4 inline-block text-[15px]">
+                        <Link href={`/questions/${q.slug}`} className="text-link-strong mt-1.5 inline-flex min-h-11 items-center text-[15px]">
                           The full answer <span className="arrow">→</span>
                         </Link>
                       </div>

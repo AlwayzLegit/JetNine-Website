@@ -16,7 +16,9 @@ if (!url && !isBuildPhase) {
 }
 
 // During build with no env, hand postgres-js a syntactically-valid stub
-// URL. postgres-js doesn't connect until a query runs, and no query
+// URL. postgres-js doesn't connect until a query runs. A few build-time
+// reads (the quote layout's reply promise) do query; they catch the
+// connection error and fall back to defaults. Otherwise no query
 // runs during `next build` because all DB-touching routes are
 // `force-dynamic`. If a future route is wrongly statically rendered and
 // reaches for the DB, the failure happens at query time with a clear

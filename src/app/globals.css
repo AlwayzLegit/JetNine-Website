@@ -177,11 +177,12 @@
   }
   .text-link:hover { color: var(--bone); }
   .text-link-strong { color: var(--bone); font-weight: 500; text-decoration: underline; text-underline-offset: 3px; }
-  /* Phones: grow the tap area of text links to ~44px without moving the
-     layout. Vertical padding on an inline box does not change line height;
-     the matching negative margin cancels it for inline-block links. */
+  /* Phones: opt-in tap area for INLINE links (breadcrumbs, links in a
+     line of text). Vertical padding on an inline box grows the hit area
+     without changing line height. Do not use on block / inline-block /
+     flex links — give those `inline-flex min-h-11 items-center` instead. */
   @media (max-width: 767px) {
-    .text-link, .text-link-strong, .tap-pad { padding-block: 13px; margin-block: -13px; }
+    .tap-pad { padding-block: 13px; }
   }
 
   /* Segmented control */

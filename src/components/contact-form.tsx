@@ -76,7 +76,7 @@ export function ContactForm() {
     startTransition(async () => {
       const result = await submitContactInquiry(data);
       if (result.ok) {
-        setMsg({ tone: "ok", text: "Sent. A dispatcher will reply within 30 minutes." });
+        setMsg({ tone: "ok", text: result.message ?? "Sent. A dispatcher will reply within 30 minutes." });
         track("contact_inquiry_submitted", { reason });
         form.reset();
         setReason("quote");

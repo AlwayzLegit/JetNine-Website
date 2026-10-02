@@ -44,7 +44,7 @@ export function MembershipCard({ membership }: { membership: MembershipSummary |
         <p className="mt-2 text-[14px] leading-[1.5] text-bone-2">
           Pay as you fly. A card or reserve program locks your rate and guarantees an aircraft.
         </p>
-        <Link href="/memberships" className="text-link mt-3 inline-block text-[15px]">
+        <Link href="/memberships" className="text-link mt-1 inline-flex min-h-11 items-center text-[15px]">
           See programs
         </Link>
       </div>
@@ -109,7 +109,7 @@ export function InvoicesCard({ summary }: { summary: InvoiceSummary | null }) {
           : `${s.dueCount} invoice${s.dueCount === 1 ? "" : "s"} due · ${USD.format(s.dueTotalUsd)}`}
       </div>
       {lastPaid ? <div className="mt-1 text-[14px] text-bone-2">Last paid: {lastPaid}</div> : null}
-      <Link href="/account/invoices" className="text-link mt-3 inline-block text-[15px]">
+      <Link href="/account/invoices" className="text-link mt-1 inline-flex min-h-11 items-center text-[15px]">
         All invoices
       </Link>
     </div>

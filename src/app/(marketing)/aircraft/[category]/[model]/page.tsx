@@ -207,11 +207,11 @@ export default async function ModelPage({ params }: RouteParams) {
         lead={plainWords(m.lead)}
       >
         <nav aria-label="Breadcrumb" className="mt-6 text-[15px] text-bone-2">
-          <Link href="/aircraft" className="text-link">
+          <Link href="/aircraft" className="text-link tap-pad">
             Aircraft
           </Link>
           <span aria-hidden> · </span>
-          <Link href={entry.href} className="text-link">
+          <Link href={entry.href} className="text-link tap-pad">
             {entry.name}
           </Link>
           <span aria-hidden> · </span>

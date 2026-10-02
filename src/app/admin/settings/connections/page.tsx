@@ -1,225 +1,270 @@
-import { requireStaff } from "@/lib/auth";
-import { snapshot, type HealthSnapshot } from "@/lib/health";
+import Link from "next/link";
+import { sql } from "drizzle-orm";
+import { db } from "@/db";
+import { requireAdmin } from "@/lib/auth";
+import { snapshot } from "@/lib/health";
+import { PROVIDER_META, getRoute, listProviders } from "@/lib/ai-providers";
+import { DeskHeader, DotSentence } from "@/components/admin/desk-ui";
+import { sendTestEmail } from "./actions";
 
 export const dynamic = "force-dynamic";
 
-const STATUS_TONE: Record<HealthSnapshot["status"], string> = {
-  healthy: "border-[var(--success)] text-[var(--success)]",
-  degraded: "border-[var(--warn)] text-[var(--warn)]",
-  unhealthy: "border-[var(--error)] text-[var(--error)]",
-};
+// Same link as the sidebar's "Open Avinode ↗" (desk-sidebar.tsx is a client
+// module, so the constant is repeated here rather than imported).
+const AVINODE_URL = "https://marketplace.avinode.com/";
 
-// Per-integration spec — drives the table below. Each row pulls a
-// boolean (or several) out of the snapshot's checks.* object and
-// renders an at-a-glance green/red dot plus the relevant configuration
-// metadata.
+type Tone = "success" | "gold" | "danger" | "steel";
+
 type Row = {
-  key: keyof HealthSnapshot["checks"];
-  label: string;
-  // Pull the booleans this row cares about.
-  fields: (s: HealthSnapshot["checks"][keyof HealthSnapshot["checks"]]) => Array<{
-    label: string;
-    ok: boolean;
-    detail?: string;
-  }>;
-  whyItMatters: string;
-  fixHint: string;
+  key: string;
+  name: string;
+  does: string;
+  tone: Tone;
+  status: string;
+  action: { label: string; href: string; external?: boolean } | { label: string; test: true } | null;
+  /** Shown under the row inside "What to check" when the dot is not green. */
+  hint?: string;
 };
 
-const ROWS: Row[] = [
-  {
-    key: "db",
-    label: "Database",
-    fields: (s) => [
-      {
-        label: "Connection",
-        ok: Boolean(s.ok),
-        detail:
-          typeof s.latencyMs === "number"
-            ? `${s.latencyMs}ms`
-            : undefined,
-      },
-    ],
-    whyItMatters:
-      "Hard dependency. If unreachable: quote submission fails, sign-in fails, every admin page 500s, every account page 500s.",
-    fixHint:
-      "Check Vercel → Project → Environment Variables. DATABASE_URL must be the Supabase Transaction pooler URL (port 6543). If the DB password was rotated, update DATABASE_URL + DIRECT_URL.",
-  },
-  {
-    key: "site",
-    label: "Site / domain",
-    fields: (s) => [
-      { label: "NEXT_PUBLIC_SITE_URL", ok: Boolean(s.siteUrlConfigured) },
-      {
-        label: "canonical",
-        ok: Boolean(s.canonical),
-        detail: typeof s.host === "string" && s.host ? String(s.host) : undefined,
-      },
-    ],
-    whyItMatters:
-      "This is the host Stripe checkout redirects to and the links inside dispatch emails point at. If it isn't jetnine.com in production, members paying an invoice get bounced to the *.vercel.app host and email links go off-brand.",
-    fixHint:
-      "At the domain switchover, set NEXT_PUBLIC_SITE_URL=https://jetnine.com (Vercel → Production) and attach jetnine.com + www to the project. Amber here on preview deploys is expected — they aren't canonical.",
-  },
-  {
-    key: "stripe",
-    label: "Stripe",
-    fields: (s) => [
-      { label: "Secret key", ok: Boolean(s.configured), detail: String(s.mode ?? "") },
-      { label: "Webhook secret", ok: Boolean(s.webhookConfigured) },
-    ],
-    whyItMatters:
-      "Without keys: invoice Pay-now returns STRIPE_NOT_CONFIGURED, Card-tier purchase fails, no payments collected.",
-    fixHint:
-      "Vercel env: STRIPE_SECRET_KEY (sk_live_… or sk_test_…) + STRIPE_WEBHOOK_SECRET (whsec_…). Register webhook at /api/stripe/webhook with events checkout.session.completed, payment_intent.payment_failed, charge.refunded.",
-  },
-  {
-    key: "email",
-    label: "Email",
-    fields: (s) => [
-      { label: "Outbound", ok: Boolean(s.outboundConfigured), detail: String(s.provider ?? "") },
-      { label: "Inbound (Postmark)", ok: Boolean(s.inboundConfigured) },
-      { label: "EMAIL_FROM", ok: Boolean(s.fromConfigured) },
-    ],
-    whyItMatters:
-      "Without outbound: dispatcher thread messages log to stdout instead of sending. Without inbound: customer email replies don't thread back. NOTE: this row only covers the APP's transactional email (Resend). Login magic-links + member invites are sent by Supabase Auth, NOT this layer — see Fix.",
-    fixHint:
-      "Pick Resend or Postmark. Set RESEND_API_KEY or POSTMARK_SERVER_TOKEN + EMAIL_FROM (verify the jetnine.com domain in the provider). For inbound replies, configure Postmark Inbound Stream → /api/email/inbound/<INBOUND_EMAIL_SECRET>. SEPARATELY: point Supabase → Auth → SMTP at Resend so login/invite emails are branded + escape Supabase's built-in rate limits (dashboard-only, no env var here to probe).",
-  },
-  {
-    key: "twilio",
-    label: "Twilio",
-    fields: (s) => [
-      { label: "SMS", ok: Boolean(s.smsConfigured) },
-      { label: "WhatsApp", ok: Boolean(s.whatsappConfigured) },
-    ],
-    whyItMatters:
-      "Without keys: SMS / WhatsApp thread messages log to stdout. Inbound webhook returns 503.",
-    fixHint:
-      "TWILIO_ACCOUNT_SID + TWILIO_AUTH_TOKEN + TWILIO_SMS_FROM (E.164). WhatsApp adds TWILIO_WHATSAPP_FROM (needs WABA approval). Number's Messaging webhook → /api/twilio/inbound.",
-  },
-  {
-    key: "sentry",
-    label: "Sentry",
-    fields: (s) => [
-      { label: "Browser DSN", ok: Boolean(s.browserConfigured) },
-      { label: "Server DSN", ok: Boolean(s.serverConfigured) },
-    ],
-    whyItMatters:
-      "Without DSN: errors hit console.error only. You won't see production errors until a customer complains.",
-    fixHint:
-      "NEXT_PUBLIC_SENTRY_DSN + SENTRY_DSN (can be the same value from Sentry project Settings → Client Keys).",
-  },
-  {
-    key: "posthog",
-    label: "PostHog",
-    fields: (s) => [{ label: "Project key", ok: Boolean(s.configured) }],
-    whyItMatters: "No analytics until configured. Won't know what's working.",
-    fixHint:
-      "NEXT_PUBLIC_POSTHOG_KEY=phc_… (PostHog → Project Settings). Optional NEXT_PUBLIC_POSTHOG_HOST if not us.i.posthog.com.",
-  },
-  {
-    key: "ai",
-    label: "AI provider keys",
-    fields: (s) => [{ label: "Key storage", ok: Boolean(s.keyStorageConfigured) }],
-    whyItMatters:
-      "The voice desk reads its Anthropic / OpenAI keys from the database, encrypted with this key. Without it /admin/settings/ai cannot store anything and the voice service falls back to ANTHROPIC_API_KEY on Render.",
-    fixHint:
-      "AI_KEYS_ENCRYPTION_KEY=<openssl rand -hex 32>, the same value on Vercel and on the Render voice service. Then manage keys at /admin/settings/ai.",
-  },
-];
+/** "+1 (424) 487-2707" from E.164; anything non-NANP stays as typed. */
+function phoneWords(e164: string | undefined): string | null {
+  if (!e164) return null;
+  const m = /^\+1(\d{3})(\d{3})(\d{4})$/.exec(e164.trim());
+  return m ? `+1 (${m[1]}) ${m[2]}-${m[3]}` : e164.trim();
+}
 
-export default async function AdminHealthPage() {
-  await requireStaff();
-  const snap = await snapshot();
+async function emailsSentToday(): Promise<number | null> {
+  try {
+    const [row] = await db.execute<{ n: number }>(sql`
+      select count(*)::int as n
+      from public.messages
+      where channel = 'email' and direction = 'out' and delivery_status = 'sent'
+        and (occurred_at at time zone 'America/Los_Angeles')::date
+            = (now() at time zone 'America/Los_Angeles')::date
+    `);
+    return row?.n ?? 0;
+  } catch {
+    return null;
+  }
+}
+
+async function phoneAnswering(): Promise<{ tone: Tone; status: string; hint?: string }> {
+  try {
+    const [providers, route] = await Promise.all([listProviders(), getRoute("voice_agent")]);
+    const byId = new Map(providers.map((p) => [p.id, p]));
+    const primary = route.primaryProviderId ? byId.get(route.primaryProviderId) : null;
+    const fallback = route.fallbackProviderId ? byId.get(route.fallbackProviderId) : null;
+    const short = (kind: "anthropic" | "openai") => (kind === "anthropic" ? "Anthropic" : "OpenAI");
+    if (primary) {
+      const backup = fallback ? `, ${short(fallback.provider)} as backup` : ", no backup";
+      const tone: Tone = primary.lastTestOk === false ? "gold" : "success";
+      return {
+        tone,
+        status: `On · ${short(primary.provider)} answers${backup}`,
+        hint:
+          primary.lastTestOk === false
+            ? `The last test of the ${PROVIDER_META[primary.provider].label} key failed. Open Manage, run the test again or replace the key.`
+            : undefined,
+      };
+    }
+    if (providers.some((p) => p.enabled)) {
+      return {
+        tone: "gold",
+        status: "Keys stored, nobody picked to answer",
+        hint: "Open Manage and choose which provider answers the phone. Until then the voice service falls back to the ANTHROPIC_API_KEY on Render, if set.",
+      };
+    }
+    return {
+      tone: "steel",
+      status: "Not set up",
+      hint: "Store an Anthropic or OpenAI key under Manage, test it, then pick it as the one that answers. AI_KEYS_ENCRYPTION_KEY must be set on Vercel and on the Render voice service first.",
+    };
+  } catch {
+    return {
+      tone: "danger",
+      status: "Not reachable",
+      hint: "The ai_providers tables are missing or unreadable. Apply migration 0047_ai_providers.sql to the database, then reload.",
+    };
+  }
+}
+
+type Props = { searchParams: Promise<{ test?: string; provider?: string }> };
+
+export default async function ConnectionsPage({ searchParams }: Props) {
+  const user = await requireAdmin();
+  const sp = await searchParams;
+  const [snap, sentToday, ai] = await Promise.all([snapshot(), emailsSentToday(), phoneAnswering()]);
+  const c = snap.checks;
+
+  const emailOk = Boolean(c.email.outboundConfigured);
+  const emailFrom = Boolean(c.email.fromConfigured);
+  const smsOk = Boolean(c.twilio.smsConfigured);
+  const deskNumber = phoneWords(process.env.TWILIO_SMS_FROM);
+  const stripeMode = String(c.stripe.mode ?? "unconfigured");
+  const dbOk = Boolean(c.db.ok);
+  const siteCanonical = Boolean(c.site.canonical);
+  const sentryOk = Boolean(c.sentry.serverConfigured);
+  const posthogOk = Boolean(c.posthog.configured);
+
+  const rows: Row[] = [
+    {
+      key: "avinode",
+      name: "Avinode",
+      does: "Where you search aircraft and get operator prices",
+      tone: "success",
+      status: "Linked from the sidebar",
+      action: { label: "Open ↗", href: AVINODE_URL, external: true },
+    },
+    {
+      key: "email",
+      name: "Email (Resend)",
+      does: "Sends quotes, confirmations and receipts to clients",
+      tone: emailOk ? (emailFrom ? "success" : "gold") : "danger",
+      status: emailOk
+        ? emailFrom
+          ? `Working · ${sentToday ?? 0} sent today`
+          : "Key set · sender address missing"
+        : "Not set up",
+      action: emailOk ? { label: "Send a test", test: true } : { label: "Open Resend ↗", href: "https://resend.com/", external: true },
+      hint: emailOk
+        ? "Set EMAIL_FROM to a verified sender, e.g. 'JetNine <dispatch@jetnine.com>' (verify the jetnine.com domain in Resend)."
+        : "Without outbound email, dispatcher thread messages log to the server console instead of sending. Set RESEND_API_KEY (or POSTMARK_SERVER_TOKEN) and EMAIL_FROM on Vercel and verify the jetnine.com domain in the provider. Sign-in links and invites are sent by Supabase Auth, not this layer: point Supabase › Auth › SMTP at Resend so those are branded too.",
+    },
+    {
+      key: "twilio",
+      name: "Text messages (Twilio)",
+      does: "Client texts and the desk phone number",
+      tone: smsOk ? "success" : "danger",
+      status: smsOk ? `Working${deskNumber ? ` · ${deskNumber}` : ""}` : "Not set up",
+      action: { label: "Open Twilio ↗", href: "https://console.twilio.com/", external: true },
+      hint: "Without keys, text messages from the desk log to the server console and the inbound webhook answers 503. Set TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN and TWILIO_SMS_FROM (E.164) on Vercel, and point the number's messaging webhook at /api/twilio/inbound. WhatsApp adds TWILIO_WHATSAPP_FROM.",
+    },
+    {
+      key: "ai",
+      name: "Phone answering (AI)",
+      does: "Takes calls after hours and logs them as requests",
+      tone: ai.tone,
+      status: ai.status,
+      action: { label: "Manage", href: "/admin/settings/ai" },
+      hint: ai.hint,
+    },
+    {
+      key: "stripe",
+      name: "Payments (Stripe)",
+      does: "Deposits, invoices and card top-ups",
+      tone: c.stripe.configured ? (c.stripe.webhookConfigured ? (stripeMode === "live" ? "success" : "gold") : "gold") : "danger",
+      status: c.stripe.configured
+        ? c.stripe.webhookConfigured
+          ? `Working · ${stripeMode === "live" ? "live" : "test"} mode`
+          : `Key set · webhook missing (${stripeMode} mode)`
+        : "Not set up",
+      action: { label: "Open Stripe ↗", href: "https://dashboard.stripe.com/", external: true },
+      hint: c.stripe.configured
+        ? c.stripe.webhookConfigured
+          ? "Test mode: real cards are not charged. Swap STRIPE_SECRET_KEY for the sk_live_ key and the matching STRIPE_WEBHOOK_SECRET when you are ready to take payments."
+          : "Set STRIPE_WEBHOOK_SECRET (whsec_…) and register the webhook at /api/stripe/webhook with checkout.session.completed, payment_intent.payment_failed and charge.refunded. Without it, payments are taken but invoices never flip to paid."
+        : "Without keys, Pay now on an invoice fails and card memberships cannot be bought. Set STRIPE_SECRET_KEY (sk_live_… or sk_test_…) and STRIPE_WEBHOOK_SECRET on Vercel, and register the webhook at /api/stripe/webhook.",
+    },
+    {
+      key: "db",
+      name: "Database and site",
+      does: "Where everything is stored, and the address clients see",
+      tone: dbOk ? (siteCanonical ? "success" : "gold") : "danger",
+      status: dbOk
+        ? `Working${typeof c.db.latencyMs === "number" ? ` · ${c.db.latencyMs} ms` : ""}${siteCanonical ? "" : ` · site address is ${String(c.site.host || "not set")}`}`
+        : "Database not reachable",
+      action: { label: "Open Vercel ↗", href: "https://vercel.com/", external: true },
+      hint: dbOk
+        ? "Links in emails and the Stripe return address use this host. At the domain switchover set NEXT_PUBLIC_SITE_URL=https://jetnine.com on Vercel (production) and attach jetnine.com and www to the project. Amber on a preview deploy is expected."
+        : "Hard dependency: sign-in, quotes and every desk page fail without it. Check DATABASE_URL on Vercel (the Supabase transaction pooler URL, port 6543). If the database password was rotated, update DATABASE_URL and DIRECT_URL.",
+    },
+    {
+      key: "observability",
+      name: "Error tracking and analytics",
+      does: "Sentry catches errors; PostHog counts what people do on the site",
+      tone: sentryOk && posthogOk ? "success" : sentryOk || posthogOk ? "gold" : "danger",
+      status:
+        sentryOk && posthogOk
+          ? "Working · Sentry and PostHog"
+          : sentryOk
+            ? "Sentry only · no analytics"
+            : posthogOk
+              ? "PostHog only · errors not tracked"
+              : "Not set up",
+      action: { label: "Open Sentry ↗", href: "https://sentry.io/", external: true },
+      hint: [
+        sentryOk ? null : "Without a Sentry DSN, errors only hit the server console and you find out when a client complains. Set SENTRY_DSN and NEXT_PUBLIC_SENTRY_DSN (Sentry › Project settings › Client keys).",
+        posthogOk ? null : "Without PostHog there are no site analytics. Set NEXT_PUBLIC_POSTHOG_KEY=phc_… (PostHog › Project settings), and NEXT_PUBLIC_POSTHOG_HOST if not us.i.posthog.com.",
+      ]
+        .filter(Boolean)
+        .join(" "),
+    },
+  ];
+
+  const testNote =
+    sp.test === "sent"
+      ? sp.provider === "logger"
+        ? `No email provider is set, so the test was written to the server log instead of sent to ${user.email}.`
+        : `Test email sent to ${user.email}. Give it a minute.`
+      : sp.test === "failed"
+        ? "The test email did not go out. Check the sender address and the Resend key."
+        : null;
 
   return (
-    <div className="container-jn py-10">
-      <header className="mb-10 flex flex-wrap items-end justify-between gap-6">
-        <div>
-          <p className="caption mb-3">— Health · diagnostic</p>
-          <h1 className="font-serif text-[36px] font-light leading-tight tracking-tight text-bone">
-            Is everything wired?
-          </h1>
-          <p className="mt-3 max-w-[60ch] text-[14px] leading-[1.55] text-bone-2">
-            Same data as <code className="font-mono text-[12px] text-clearance">GET /api/health</code> —
-            rendered for the dispatch desk. Green = configured + working.
-            Red = needs operator action; the fix hint says where.
-            Refresh the page to re-probe.
-          </p>
-        </div>
-        <div className="flex flex-col items-end gap-2">
-          <span
-            className={[
-              "inline-block rounded-full border px-3 py-1 font-mono text-[11px] uppercase tracking-[0.14em]",
-              STATUS_TONE[snap.status],
-            ].join(" ")}
-          >
-            {snap.status}
-          </span>
-          <span className="font-mono text-[10px] uppercase tracking-[0.08em] text-steel">
-            {snap.env} · {snap.region} · sha {snap.sha}
-          </span>
-        </div>
-      </header>
+    <div>
+      <DeskHeader title="Connections" lead="The outside services the desk relies on. Green means working." />
 
-      <div className="flex flex-col gap-3">
-        {ROWS.map((r) => {
-          const checkData = snap.checks[r.key];
-          const fields = r.fields(checkData);
-          const rowOk = fields.every((f) => f.ok);
-          return (
-            <details
-              key={r.key}
-              className={[
-                "rounded-[4px] border bg-ink-2 transition-colors",
-                rowOk ? "border-ink-3" : "border-[var(--error)]",
-              ].join(" ")}
-              open={!rowOk}
-            >
-              <summary className="cursor-pointer list-none px-5 py-4">
-                <div className="grid grid-cols-[auto_1fr_auto] items-center gap-5">
-                  <span
-                    aria-hidden
-                    className={[
-                      "h-2.5 w-2.5 rounded-full",
-                      rowOk ? "bg-[var(--success)]" : "bg-[var(--error)]",
-                    ].join(" ")}
-                  />
-                  <span className="font-mono text-[12px] uppercase tracking-[0.14em] text-bone">
-                    {r.label}
-                  </span>
-                  <span className="flex gap-3 font-mono text-[10px] tracking-[0.04em] text-bone-2">
-                    {fields.map((f) => (
-                      <span key={f.label} className={f.ok ? "text-[var(--success)]" : "text-[var(--error)]"}>
-                        {f.ok ? "✓" : "✗"} {f.label}
-                        {f.detail ? ` (${f.detail})` : ""}
-                      </span>
-                    ))}
-                  </span>
-                </div>
-              </summary>
-              <div className="border-t border-ink-3 px-5 py-4 text-[13px] leading-[1.55] text-bone-2">
-                <p>
-                  <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-steel">
-                    Why it matters —{" "}
-                  </span>
-                  {r.whyItMatters}
-                </p>
-                <p className="mt-3">
-                  <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-clearance">
-                    Fix —{" "}
-                  </span>
-                  {r.fixHint}
-                </p>
+      {testNote ? (
+        <p role="status" className={`mt-4 text-[14px] ${sp.test === "failed" ? "text-danger" : "text-bone-2"}`}>
+          {testNote}
+        </p>
+      ) : null}
+
+      <div className="card mt-6 overflow-hidden">
+        {rows.map((r) => (
+          <div key={r.key} className="border-b border-line-faint last:border-b-0">
+            <div className="grid grid-cols-1 items-center gap-3 px-6 py-4 md:grid-cols-[minmax(0,1fr)_260px_auto] md:gap-6">
+              <div className="min-w-0">
+                <div className="text-[16px] font-medium text-bone">{r.name}</div>
+                <div className="text-[14px] text-steel">{r.does}</div>
               </div>
-            </details>
-          );
-        })}
+              <DotSentence tone={r.tone} className="text-[14px] text-bone">
+                {r.status}
+              </DotSentence>
+              <div className="text-[14px] md:text-right">
+                {r.action === null ? null : "test" in r.action ? (
+                  <form action={sendTestEmail}>
+                    <button type="submit" className="text-link">
+                      {r.action.label}
+                    </button>
+                  </form>
+                ) : r.action.external ? (
+                  <a href={r.action.href} target="_blank" rel="noreferrer" className="text-link">
+                    {r.action.label}
+                  </a>
+                ) : (
+                  <Link href={r.action.href} className="text-link">
+                    {r.action.label}
+                  </Link>
+                )}
+              </div>
+            </div>
+            {r.tone !== "success" && r.hint ? (
+              <details className="px-6 pb-4 text-[14px]">
+                <summary className="cursor-pointer text-bone-2 hover:text-bone">What to check</summary>
+                <p className="mt-2 max-w-[72ch] text-steel">{r.hint}</p>
+              </details>
+            ) : null}
+          </div>
+        ))}
       </div>
 
-      <p className="mt-8 font-mono text-[10px] uppercase tracking-[0.08em] text-steel">
-        — Captured {snap.timestamp}
+      <p className="mt-4 text-[14px] text-steel">
+        Something failed? Emails that didn’t send and calls that didn’t log appear under{" "}
+        <Link href="/admin/messages?tab=problems" className="text-link">
+          Messages › Problems
+        </Link>
+        , with a retry button.
       </p>
     </div>
   );

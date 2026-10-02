@@ -65,7 +65,7 @@ export function DeskSearch({
   action?: string;
   /** Extra params to keep (tab, period…). */
   hidden?: Record<string, string | undefined>;
-  width?: number;
+  width?: number | string;
 }) {
   return (
     <form action={action} method="get" role="search" className="flex">

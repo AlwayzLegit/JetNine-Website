@@ -26,11 +26,11 @@ export function OperatorCreateForm() {
     startTransition(async () => {
       const result = await createOperator(data);
       if (result.ok) {
-        setMsg({ tone: "ok", text: "ADDED — opening detail." });
+        setMsg({ tone: "ok", text: "Added — opening the operator now." });
         form.reset();
         router.push(`/admin/operators/${result.id}`);
       } else {
-        setMsg({ tone: "error", text: `BLOCKED — ${result.error.toUpperCase()}` });
+        setMsg({ tone: "error", text: result.error });
       }
     });
   }
@@ -48,18 +48,18 @@ export function OperatorCreateForm() {
   }
 
   return (
-    <div className="rounded-[4px] border border-clearance bg-ink-2 p-5">
-      <div className="mb-4 flex items-baseline justify-between">
-        <p className="caption text-clearance">— Add operator</p>
+    <div className="card card-highlight w-full p-5">
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <h3 className="label-jn text-[13px]">Add operator</h3>
         <button
           type="button"
           onClick={() => {
             setOpen(false);
             setMsg(null);
           }}
-          className="font-mono text-[10px] uppercase tracking-[0.14em] text-bone-2 hover:text-bone"
+          className="btn btn-secondary h-9 px-3.5 text-[14px]"
         >
-          Close ✕
+          Close
         </button>
       </div>
       <form onSubmit={onSubmit} className="flex flex-col gap-4">
@@ -76,7 +76,7 @@ export function OperatorCreateForm() {
             />
           </div>
           <div className="field-jn">
-            <label htmlFor="oc-cert">FAA cert number</label>
+            <label htmlFor="oc-cert">FAA certificate number</label>
             <input id="oc-cert" name="certNumber" type="text" placeholder="WXYZ123A" maxLength={40} />
           </div>
           <div className="field-jn">
@@ -114,18 +114,18 @@ export function OperatorCreateForm() {
               ))}
             </select>
           </div>
-          <label className="flex h-full cursor-pointer items-center gap-3 rounded-[2px] border border-ink-3 bg-ink p-4">
+          <label className="flex h-full cursor-pointer items-center gap-3 rounded-control border border-line bg-surface-2 p-4">
             <input type="checkbox" name="wyvernWingman" className="h-4 w-4 accent-clearance" />
-            <span className="font-serif text-[14px] text-bone">Wyvern Wingman</span>
+            <span className="text-[15px] text-bone">Wyvern Wingman</span>
           </label>
         </div>
 
-        <label className="flex cursor-pointer items-center gap-3 rounded-[2px] border border-ink-3 bg-ink p-4">
+        <label className="flex cursor-pointer items-center gap-3 rounded-control border border-line bg-surface-2 p-4">
           <input type="checkbox" name="isPreferred" className="h-4 w-4 accent-clearance" />
           <div>
-            <div className="font-serif text-[14px] text-bone">Preferred partner</div>
-            <div className="mt-1 text-[12px] leading-[1.5] text-bone-2">
-              Sorts first on workbench candidates. Toggle later if needed.
+            <div className="text-[15px] text-bone">Preferred partner</div>
+            <div className="mt-1 text-[13px] leading-[1.5] text-steel">
+              Sorts first when picking aircraft for a request. You can change this later.
             </div>
           </div>
         </label>
@@ -134,17 +134,12 @@ export function OperatorCreateForm() {
 
         <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
           {msg ? (
-            <span
-              className={[
-                "font-mono text-[11px] uppercase tracking-[0.12em]",
-                msg.tone === "error" ? "text-[var(--error)]" : "text-[var(--success)]",
-              ].join(" ")}
-            >
+            <span className={`text-[14px] ${msg.tone === "error" ? "text-danger" : "text-success"}`}>
               {msg.text}
             </span>
           ) : (
-            <span className="font-mono text-[10px] uppercase tracking-[0.08em] text-steel">
-              — Open the operator after creating to fill in renewals, terms, contacts.
+            <span className="text-[13px] text-steel">
+              Open the operator after creating it to fill in renewals, terms and contacts.
             </span>
           )}
           <button

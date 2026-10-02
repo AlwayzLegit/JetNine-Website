@@ -584,7 +584,16 @@ export default async function RequestPage({ params }: Props) {
           defaultMarkupPct={DEFAULT_MARKUP_PCT}
           clientFirstName={first}
           quoteStatus={quote.status}
-          avinode={{ paxCount: quote.paxCount, requestedCategory: quote.requestedCategory, legs }}
+          avinode={{
+            paxCount: quote.paxCount,
+            requestedCategory: quote.requestedCategory,
+            legs: legs.map((l) => ({
+              fromIcao: l.fromIcao,
+              toIcao: l.toIcao,
+              departDate: l.departDate,
+              departTime: l.departTime,
+            })),
+          }}
         >
           <details>
             <summary className="text-link cursor-pointer list-none text-[14px]">Our fleet matches and holds</summary>

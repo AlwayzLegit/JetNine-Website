@@ -4,6 +4,8 @@ import { useState, useTransition, type FormEvent } from "react";
 import { createFbo, deleteFbo, toggleFboFlag } from "@/app/admin/airports/actions";
 import type { Fbo } from "@/db/schema/airports";
 
+const ROW_BTN = "btn btn-secondary h-9 px-3.5 text-[14px] disabled:cursor-wait disabled:opacity-50";
+
 export function FboEditor({
   airportId,
   initial,
@@ -43,10 +45,10 @@ export function FboEditor({
           updatedAt: new Date(),
         };
         setList((prev) => [...prev, optimistic]);
-        setMsg({ tone: "ok", text: "ADDED — FBO on file." });
+        setMsg({ tone: "ok", text: "Added — FBO on file." });
         form.reset();
       } else {
-        setMsg({ tone: "error", text: `BLOCKED — ${result.error.toUpperCase()}` });
+        setMsg({ tone: "error", text: result.error });
       }
     });
   }
@@ -57,9 +59,9 @@ export function FboEditor({
       const result = await deleteFbo(airportId, fboId);
       if (result.ok) {
         setList((prev) => prev.filter((f) => f.id !== fboId));
-        setMsg({ tone: "ok", text: "REMOVED." });
+        setMsg({ tone: "ok", text: "Removed." });
       } else {
-        setMsg({ tone: "error", text: `BLOCKED — ${result.error.toUpperCase()}` });
+        setMsg({ tone: "error", text: result.error });
       }
     });
   }
@@ -84,14 +86,14 @@ export function FboEditor({
           text:
             field === "isPrimary"
               ? next
-                ? "PRIMARY SET."
-                : "PRIMARY CLEARED."
+                ? "Set as primary."
+                : "No longer primary."
               : next
-                ? "PREFERRED."
-                : "UN-PREFERRED.",
+                ? "Marked preferred."
+                : "No longer preferred.",
         });
       } else {
-        setMsg({ tone: "error", text: `BLOCKED — ${result.error.toUpperCase()}` });
+        setMsg({ tone: "error", text: result.error });
       }
     });
   }
@@ -106,9 +108,9 @@ export function FboEditor({
   return (
     <div className="flex flex-col gap-5">
       {sorted.length === 0 ? (
-        <p className="rounded-[2px] border border-dashed border-ink-3 bg-ink p-4 font-mono text-[10px] uppercase tracking-[0.1em] text-bone-2">
-          — No FBOs on file. Add at least one for class-B+ airports so dispatch knows where to
-          email arrival instructions.
+        <p className="rounded-control border border-dashed border-line-2 bg-surface-2 p-4 text-[14px] text-bone-2">
+          No FBOs on file. Add at least one for busy airports so dispatch knows where to email arrival
+          instructions.
         </p>
       ) : (
         <ul className="flex flex-col gap-3">
@@ -116,110 +118,76 @@ export function FboEditor({
             <li
               key={f.id}
               className={[
-                "rounded-[3px] border bg-ink p-4",
-                f.isPrimary
-                  ? "border-clearance"
-                  : f.isPreferred
-                    ? "border-bone-2"
-                    : "border-ink-3",
+                "rounded-control border bg-surface-2 p-4",
+                f.isPrimary ? "border-clearance" : f.isPreferred ? "border-line-2" : "border-line",
               ].join(" ")}
             >
-              <div className="flex items-baseline justify-between gap-3">
-                <span className="font-serif text-[16px] text-bone">{f.name}</span>
-                <div className="flex gap-2">
-                  {f.isPrimary ? (
-                    <span className="rounded-[2px] bg-clearance px-1.5 py-0.5 font-mono text-[8px] uppercase tracking-[0.14em] text-ink">
-                      Primary
-                    </span>
-                  ) : null}
-                  {f.isPreferred && !f.isPrimary ? (
-                    <span className="rounded-[2px] border border-clearance px-1.5 py-0.5 font-mono text-[8px] uppercase tracking-[0.14em] text-clearance">
-                      Preferred
-                    </span>
-                  ) : null}
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <span className="text-[16px] font-medium text-bone">{f.name}</span>
+                <div className="flex flex-wrap gap-2">
+                  {f.isPrimary ? <span className="pill pill-clearance">Primary</span> : null}
+                  {f.isPreferred && !f.isPrimary ? <span className="pill pill-outline">Preferred</span> : null}
                   {f.customs24h ? (
-                    <span className="rounded-[2px] border border-[var(--warn)] px-1.5 py-0.5 font-mono text-[8px] uppercase tracking-[0.14em] text-[var(--warn)]">
-                      Customs 24h
-                    </span>
+                    <span className="pill pill-outline text-gold">Customs 24 h</span>
                   ) : null}
                 </div>
               </div>
-              <dl className="mt-2 grid grid-cols-1 gap-1 text-[11px] sm:grid-cols-2">
+              <dl className="mt-2 grid grid-cols-1 gap-1 text-[14px] sm:grid-cols-2">
                 {f.phoneE164 ? (
-                  <a
-                    href={`tel:${f.phoneE164}`}
-                    className="font-mono tracking-[0.04em] text-clearance hover:underline"
-                  >
+                  <a href={`tel:${f.phoneE164}`} className="text-link">
                     {f.phoneE164}
                   </a>
                 ) : null}
                 {f.afterHoursPhoneE164 ? (
-                  <a
-                    href={`tel:${f.afterHoursPhoneE164}`}
-                    className="font-mono tracking-[0.04em] text-bone-2 hover:text-clearance hover:underline"
-                  >
-                    after-hours: {f.afterHoursPhoneE164}
+                  <a href={`tel:${f.afterHoursPhoneE164}`} className="text-link">
+                    After hours: {f.afterHoursPhoneE164}
                   </a>
                 ) : null}
                 {f.email ? (
-                  <a
-                    href={`mailto:${f.email}`}
-                    className="font-mono tracking-[0.04em] text-clearance hover:underline"
-                  >
+                  <a href={`mailto:${f.email}`} className="text-link">
                     {f.email}
                   </a>
                 ) : null}
-                {f.radioFreqMhz ? (
-                  <span className="font-mono tracking-[0.04em] text-bone-2">
-                    Radio {f.radioFreqMhz} MHz
-                  </span>
-                ) : null}
+                {f.radioFreqMhz ? <span className="text-bone-2">Radio {f.radioFreqMhz} MHz</span> : null}
                 {f.website ? (
-                  <a
-                    href={f.website}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="font-mono tracking-[0.04em] text-bone-2 hover:text-clearance hover:underline"
-                  >
+                  <a href={f.website} target="_blank" rel="noopener noreferrer" className="text-link">
                     {f.website.replace(/^https?:\/\//, "")}
                   </a>
                 ) : null}
                 {f.hoursWeekday || f.hoursWeekend ? (
-                  <span className="font-mono tracking-[0.04em] text-bone-2">
-                    {f.hoursWeekday ?? "—"}{" "}
-                    {f.hoursWeekend ? `· wknd ${f.hoursWeekend}` : ""}
+                  <span className="text-bone-2">
+                    {f.hoursWeekday ?? "—"}
+                    {f.hoursWeekend ? ` · weekends ${f.hoursWeekend}` : ""}
                   </span>
                 ) : null}
               </dl>
-              {f.notes ? (
-                <p className="mt-2 text-[12px] leading-[1.5] text-bone-2">{f.notes}</p>
-              ) : null}
-              <div className="mt-3 flex flex-wrap items-center justify-between gap-3 border-t border-ink-3 pt-3">
-                <div className="flex gap-4">
+              {f.notes ? <p className="mt-2 text-[14px] leading-[1.5] text-bone-2">{f.notes}</p> : null}
+              <div className="mt-3 flex flex-wrap items-center justify-between gap-3 border-t border-line pt-3">
+                <div className="flex flex-wrap gap-2">
                   <button
                     type="button"
                     onClick={() => onToggle(f.id, "isPrimary", !f.isPrimary)}
                     disabled={pending}
-                    className="font-mono text-[10px] uppercase tracking-[0.14em] text-bone-2 transition-colors hover:text-clearance disabled:cursor-wait disabled:opacity-50"
+                    className={ROW_BTN}
                   >
-                    {f.isPrimary ? "Clear primary" : "Set primary"} →
+                    {f.isPrimary ? "Clear primary" : "Set primary"}
                   </button>
                   <button
                     type="button"
                     onClick={() => onToggle(f.id, "isPreferred", !f.isPreferred)}
                     disabled={pending}
-                    className="font-mono text-[10px] uppercase tracking-[0.14em] text-bone-2 transition-colors hover:text-clearance disabled:cursor-wait disabled:opacity-50"
+                    className={ROW_BTN}
                   >
-                    {f.isPreferred ? "Un-prefer" : "Prefer"} →
+                    {f.isPreferred ? "Un-prefer" : "Prefer"}
                   </button>
                 </div>
                 <button
                   type="button"
                   onClick={() => onDelete(f.id)}
                   disabled={pending}
-                  className="font-mono text-[10px] uppercase tracking-[0.14em] text-bone-2 transition-colors hover:text-[var(--error)] disabled:cursor-wait disabled:opacity-50"
+                  className={`${ROW_BTN} text-danger`}
                 >
-                  Remove →
+                  Remove
                 </button>
               </div>
             </li>
@@ -227,8 +195,8 @@ export function FboEditor({
         </ul>
       )}
 
-      <form onSubmit={onAdd} className="rounded-[3px] border border-ink-3 bg-ink p-4">
-        <p className="caption mb-3">— Add FBO</p>
+      <form onSubmit={onAdd} className="rounded-control border border-line bg-surface-2 p-4">
+        <h3 className="label-jn mb-3 text-[13px]">Add FBO</h3>
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
           <div className="field-jn">
             <label htmlFor="fbo-name">Name</label>
@@ -252,7 +220,7 @@ export function FboEditor({
             />
           </div>
           <div className="field-jn">
-            <label htmlFor="fbo-phone">Phone (E.164)</label>
+            <label htmlFor="fbo-phone">Phone (with country code)</label>
             <input id="fbo-phone" name="phoneE164" type="tel" placeholder="+18185551234" />
           </div>
           <div className="field-jn">
@@ -273,7 +241,7 @@ export function FboEditor({
             <input id="fbo-website" name="website" type="url" placeholder="https://example.com" />
           </div>
           <div className="field-jn">
-            <label htmlFor="fbo-hours-wkd">Hours (weekday)</label>
+            <label htmlFor="fbo-hours-wkd">Hours (weekdays)</label>
             <input
               id="fbo-hours-wkd"
               name="hoursWeekday"
@@ -283,7 +251,7 @@ export function FboEditor({
             />
           </div>
           <div className="field-jn">
-            <label htmlFor="fbo-hours-wknd">Hours (weekend)</label>
+            <label htmlFor="fbo-hours-wknd">Hours (weekends)</label>
             <input
               id="fbo-hours-wknd"
               name="hoursWeekend"
@@ -294,23 +262,17 @@ export function FboEditor({
           </div>
         </div>
         <div className="mt-3 grid grid-cols-1 gap-2 md:grid-cols-3">
-          <label className="flex cursor-pointer items-center gap-3">
+          <label className="flex cursor-pointer items-center gap-3 py-1">
             <input type="checkbox" name="isPrimary" className="h-4 w-4 accent-clearance" />
-            <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-bone-2">
-              Primary FBO
-            </span>
+            <span className="text-[14px] text-bone-2">Primary FBO</span>
           </label>
-          <label className="flex cursor-pointer items-center gap-3">
+          <label className="flex cursor-pointer items-center gap-3 py-1">
             <input type="checkbox" name="isPreferred" className="h-4 w-4 accent-clearance" />
-            <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-bone-2">
-              Preferred
-            </span>
+            <span className="text-[14px] text-bone-2">Preferred</span>
           </label>
-          <label className="flex cursor-pointer items-center gap-3">
-            <input type="checkbox" name="customs24h" className="h-4 w-4 accent-[var(--warn)]" />
-            <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-bone-2">
-              Customs 24h
-            </span>
+          <label className="flex cursor-pointer items-center gap-3 py-1">
+            <input type="checkbox" name="customs24h" className="h-4 w-4 accent-gold" />
+            <span className="text-[14px] text-bone-2">Customs 24 h</span>
           </label>
         </div>
         <div className="field-jn mt-3">
@@ -325,18 +287,11 @@ export function FboEditor({
         </div>
         <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
           {msg ? (
-            <span
-              className={[
-                "font-mono text-[11px] uppercase tracking-[0.12em]",
-                msg.tone === "error" ? "text-[var(--error)]" : "text-[var(--success)]",
-              ].join(" ")}
-            >
+            <span className={`text-[14px] ${msg.tone === "error" ? "text-danger" : "text-success"}`}>
               {msg.text}
             </span>
           ) : (
-            <span className="font-mono text-[10px] uppercase tracking-[0.08em] text-steel">
-              — Setting Primary demotes any other primary on this airport.
-            </span>
+            <span className="text-[13px] text-steel">Setting a primary FBO demotes any other primary here.</span>
           )}
           <button
             type="submit"

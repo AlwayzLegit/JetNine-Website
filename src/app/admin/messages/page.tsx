@@ -530,7 +530,7 @@ export default async function MessagesPage({ searchParams }: Props) {
           <h1 className="title-app text-bone">Messages</h1>
           <p className="mt-1.5 text-[14px] text-bone-2">Texts, emails and call notes, one thread per client.</p>
           <div className="mt-4 [&_form]:w-full [&_label]:!w-full">
-            <DeskSearch placeholder="Search a name" defaultValue={q} hidden={{ tab: tab === "all" ? undefined : tab, show: keep.show }} />
+            <DeskSearch width="100%" placeholder="Search a name" defaultValue={q} hidden={{ tab: tab === "all" ? undefined : tab, show: keep.show }} />
           </div>
           <DeskTabs items={tabs} current={tab} base={BASE} keep={keep} className="mt-3" />
         </div>
@@ -649,7 +649,7 @@ function CallPane({ call, now }: { call: VoiceCallRow; now: Date }) {
           Call summary{duration ? ` (${duration})` : ""}: {summary}
         </Bubble>
         {call.message_reason ? (
-          <Bubble kind="note" meta={`Phone answering · ${messageWhen(startedAt, now)}`}>
+          <Bubble kind="note" noteLabel="Only the team sees this" meta={`Phone answering · ${messageWhen(startedAt, now)}`}>
             Left a message: {call.message_reason}
             {call.message_callback ? ` · call back ${call.message_callback}` : ""}
           </Bubble>

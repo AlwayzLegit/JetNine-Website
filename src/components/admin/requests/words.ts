@@ -38,7 +38,7 @@ export function shortAirportName(name: string | null | undefined): string | null
   if (!name) return null;
   return (
     name
-      .replace(/\s+(international|intl\.?|regional|municipal|county|executive)?\s*airport$/i, "")
+      .replace(/\s+(international|intl\.?|executive)?\s*airport$/i, "")
       .replace(/\s+(international|intl\.?)$/i, "")
       .trim() || name
   );

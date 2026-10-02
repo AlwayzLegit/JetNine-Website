@@ -1,94 +1,81 @@
+import Link from "next/link";
 import { sql } from "drizzle-orm";
 import { db } from "@/db";
+import { requireAdmin } from "@/lib/auth";
 import { formatUSD } from "@/lib/quote-pricing";
+import { DeskHeader, NumberCard } from "@/components/admin/desk-ui";
+import { NOT_SMOKE, PERIODS, parsePeriod, periodBounds, type PeriodKey } from "./period";
 
 export const dynamic = "force-dynamic";
 
 type Row<T extends object> = T;
 
-// Smoke/QA quotes are flagged at write time by a "[SMOKE]" first-name prefix
-// and a "smoke+…" email (see src/app/quote/actions.ts); they auto-cancel and
-// otherwise pollute totals. This excludes them from quote counts so post-deploy
-// smoke tests don't skew KPIs. (Postgres LIKE treats "[" literally — only
-// % and _ are wildcards — so "[SMOKE]%" matches the literal prefix.)
-const NOT_SMOKE = sql`not (
-  contact_snapshot->>'firstName' ilike '[SMOKE]%'
-  or contact_snapshot->>'email' ilike 'smoke+%'
-)`;
+// ─── Queries ────────────────────────────────────────────────────────────
 
-async function getCounts() {
-  const [counts] = await db.execute<
+async function getRequests(period: PeriodKey) {
+  const { start, prevStart } = periodBounds(period);
+  const [row] = await db.execute<
     Row<{
-      quotes_total: number;
-      quotes_open: number;
-      quotes_converted: number;
-      quotes_past_sla: number;
-      trips_total: number;
-      trips_active: number;
-      trips_completed: number;
-      members_total: number;
-      operators_active: number;
-      operators_suspended: number;
-      aircraft_available: number;
-      aircraft_aog: number;
+      received: number;
+      received_prev: number;
+      booked: number;
+      waiting: number;
+      lost: number;
+      open: number;
     }>
   >(sql`
     select
-      (select count(*)::int from public.quotes where ${NOT_SMOKE})                         as quotes_total,
-      (select count(*)::int from public.quotes
-        where status in ('submitted','triaged','sourcing','options_sent','held'))          as quotes_open,
-      (select count(*)::int from public.quotes where status = 'converted')                 as quotes_converted,
-      (select count(*)::int from public.quotes
-        where status in ('submitted','triaged','sourcing','options_sent','held')
-          and sla_deadline_at < now())                                                     as quotes_past_sla,
-      (select count(*)::int from public.trips)                                             as trips_total,
-      (select count(*)::int from public.trips
-        where status in ('confirmed','crew_briefed','boarding','airborne'))                as trips_active,
-      (select count(*)::int from public.trips where status = 'completed')                  as trips_completed,
-      (select count(*)::int from public.members where status = 'active')                   as members_total,
-      (select count(*)::int from public.operators where status = 'active')                 as operators_active,
-      (select count(*)::int from public.operators where status in ('hold','suspended'))    as operators_suspended,
-      (select count(*)::int from public.aircraft where status = 'available')               as aircraft_available,
-      (select count(*)::int from public.aircraft where status = 'aog')                     as aircraft_aog
+      count(*) filter (where received_at >= ${start})::int                                              as received,
+      count(*) filter (where received_at >= ${prevStart} and received_at < ${start})::int               as received_prev,
+      count(*) filter (where received_at >= ${start} and status in ('accepted','converted'))::int       as booked,
+      count(*) filter (where received_at >= ${start} and status in ('options_sent','held'))::int        as waiting,
+      count(*) filter (where received_at >= ${start}
+                        and status in ('declined','expired','cancelled'))::int                           as lost,
+      count(*) filter (where received_at >= ${start}
+                        and status in ('submitted','triaged','sourcing'))::int                           as open
+    from public.quotes
+    where ${NOT_SMOKE}
   `);
-  return counts;
+  return row;
 }
 
-async function getRevenue() {
+async function getMoney(period: PeriodKey) {
+  const { start, prevStart } = periodBounds(period);
   // True margin subtracts operator cost (from the trip) on top of the FET +
   // segment pass-throughs. Operator cost only lands on trips converted with a
   // chosen sourced option, so it's summed over the cost-known cohort only, and
   // margin_covered/margin_total report coverage for an honest caveat.
   const [row] = await db.execute<
     Row<{
-      revenue_30: number;
-      revenue_ytd: number;
+      invoiced: number;
+      invoiced_prev: number;
       outstanding: number;
-      margin_30: number;
-      true_margin_30: number;
+      outstanding_count: number;
+      true_margin: number;
+      covered_invoiced: number;
       margin_covered: number;
       margin_total: number;
     }>
   >(sql`
     select
-      coalesce(sum(case when i.issued_on >= current_date - interval '30 days'
+      coalesce(sum(case when i.issued_on >= ${start}
                         and i.status in ('paid','due','overdue')
-                  then i.total_usd else 0 end), 0)::int as revenue_30,
-      coalesce(sum(case when extract(year from i.issued_on) = extract(year from current_date)
+                  then i.total_usd else 0 end), 0)::int as invoiced,
+      coalesce(sum(case when i.issued_on >= ${prevStart} and i.issued_on < ${start}
                         and i.status in ('paid','due','overdue')
-                  then i.total_usd else 0 end), 0)::int as revenue_ytd,
+                  then i.total_usd else 0 end), 0)::int as invoiced_prev,
       coalesce(sum(case when i.status in ('due','overdue') then i.total_usd else 0 end), 0)::int as outstanding,
-      coalesce(sum(case when i.issued_on >= current_date - interval '30 days'
-                        and i.status = 'paid'
-                  then i.total_usd - coalesce(i.fet_usd,0) - coalesce(i.segment_fee_usd,0)
-                  else 0 end), 0)::int as margin_30,
-      coalesce(sum(case when i.issued_on >= current_date - interval '30 days'
+      count(*) filter (where i.status in ('due','overdue'))::int as outstanding_count,
+      coalesce(sum(case when i.issued_on >= ${start}
                         and i.status = 'paid' and t.operator_cost_usd is not null
                   then i.total_usd - coalesce(i.fet_usd,0) - coalesce(i.segment_fee_usd,0) - t.operator_cost_usd
-                  else 0 end), 0)::int as true_margin_30,
-      count(*) filter (where i.issued_on >= current_date - interval '30 days'
+                  else 0 end), 0)::int as true_margin,
+      coalesce(sum(case when i.issued_on >= ${start}
+                        and i.status = 'paid' and t.operator_cost_usd is not null
+                  then i.total_usd else 0 end), 0)::int as covered_invoiced,
+      count(*) filter (where i.issued_on >= ${start}
                         and i.status = 'paid' and t.operator_cost_usd is not null)::int as margin_covered,
-      count(*) filter (where i.issued_on >= current_date - interval '30 days'
+      count(*) filter (where i.issued_on >= ${start}
                         and i.status = 'paid')::int as margin_total
     from public.invoices i
     left join public.trips t on t.id = i.trip_id
@@ -96,169 +83,161 @@ async function getRevenue() {
   return row;
 }
 
-async function getQuoteFunnel() {
-  const rows = await db.execute<Row<{ status: string; n: number }>>(sql`
-    select status, count(*)::int as n
-    from public.quotes
-    where ${NOT_SMOKE}
-    group by status
-    order by case status
-      when 'submitted' then 1
-      when 'triaged' then 2
-      when 'sourcing' then 3
-      when 'options_sent' then 4
-      when 'held' then 5
-      when 'accepted' then 6
-      when 'converted' then 7
-      when 'declined' then 8
-      when 'expired' then 9
-      when 'cancelled' then 10
-      else 11
-    end
+async function getMostOverdue() {
+  const [row] = await db.execute<Row<{ name: string | null; preferred_name: string | null; days_late: number }>>(sql`
+    select
+      nullif(trim(coalesce(u.first_name, '') || ' ' || coalesce(u.last_name, '')), '') as name,
+      m.preferred_name,
+      (current_date - i.due_on)::int as days_late
+    from public.invoices i
+    join public.members m on m.id = i.member_id
+    join public.users u on u.id = m.user_id
+    where i.status in ('due','overdue') and i.due_on is not null and i.due_on < current_date
+    order by i.due_on asc
+    limit 1
   `);
-  return rows;
+  return row ?? null;
 }
 
-export default async function ReportsPage() {
-  const [counts, revenue, funnel] = await Promise.all([
-    getCounts(),
-    getRevenue(),
-    getQuoteFunnel(),
-  ]);
+// ─── Page ───────────────────────────────────────────────────────────────
 
-  const funnelMax = funnel.reduce((max, r) => (r.n > max ? r.n : max), 0) || 1;
+type Props = { searchParams: Promise<{ period?: string }> };
+
+function signed(n: number): string {
+  return n > 0 ? `+${n}` : `${n}`;
+}
+
+function signedUsd(n: number): string {
+  return n < 0 ? `−${formatUSD(-n)}` : `+${formatUSD(n)}`;
+}
+
+export default async function ReportsPage({ searchParams }: Props) {
+  await requireAdmin();
+  const sp = await searchParams;
+  const period = parsePeriod(sp.period);
+  const meta = PERIODS.find((p) => p.key === period)!;
+
+  const [req, money, overdue] = await Promise.all([getRequests(period), getMoney(period), getMostOverdue()]);
+
+  const receivedDelta = req.received - req.received_prev;
+  const bookedPct = req.received > 0 ? Math.round((req.booked / req.received) * 100) : null;
+  const revenueDelta = money.invoiced - money.invoiced_prev;
+  const marginPct = money.covered_invoiced > 0 ? Math.round((money.true_margin / money.covered_invoiced) * 100) : null;
+
+  const funnel = [
+    { label: "Booked", value: req.booked, bar: "bg-success" },
+    { label: "Options sent, no answer yet", value: req.waiting, bar: "bg-gold" },
+    { label: "Client went elsewhere or cancelled", value: req.lost, bar: "bg-steel-dim" },
+    { label: "Still open", value: req.open, bar: "bg-clearance" },
+  ];
+  const funnelMax = Math.max(1, ...funnel.map((f) => f.value));
+
+  const overdueName = overdue ? overdue.preferred_name?.trim() || overdue.name || "A client" : null;
+  const owedNote =
+    money.outstanding_count === 0
+      ? "Nothing outstanding"
+      : overdue
+        ? `${money.outstanding_count} invoice${money.outstanding_count === 1 ? "" : "s"} · ${overdueName}'s invoice is ${overdue.days_late} day${overdue.days_late === 1 ? "" : "s"} late`
+        : `${money.outstanding_count} invoice${money.outstanding_count === 1 ? "" : "s"} outstanding, none late yet`;
+
+  const marginNote =
+    money.margin_total === 0
+      ? `No paid invoices ${meta.words}`
+      : money.margin_covered === 0
+        ? `Operator cost is not recorded on any of the ${money.margin_total} paid trip${money.margin_total === 1 ? "" : "s"} yet`
+        : `about ${marginPct}% of invoiced · counts the ${money.margin_covered} of ${money.margin_total} paid trip${money.margin_total === 1 ? "" : "s"} with operator cost recorded`;
 
   return (
-    <div className="container-jn py-10">
-      <header className="mb-10">
-        <p className="caption mb-3">— Admin · reports</p>
-        <h1 className="font-serif text-[36px] font-light leading-tight tracking-tight text-bone">
-          The desk at a glance.
-        </h1>
-        <p className="mt-3 max-w-[60ch] text-[14px] leading-[1.55] text-bone-2">
-          Snapshot pulled live from the database — quote funnel, trip activity, revenue, supply
-          health. Refreshes on every load. Detailed cohort + retention reports land later.
-        </p>
-      </header>
-
-      {/* KPI grid */}
-      <section className="mb-12 grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-6">
-        {[
-          { lbl: "QUOTES (TOTAL)", val: counts.quotes_total },
-          { lbl: "QUOTES OPEN", val: counts.quotes_open, accent: counts.quotes_open > 0 },
-          {
-            lbl: "PAST SLA",
-            val: counts.quotes_past_sla,
-            danger: counts.quotes_past_sla > 0,
-          },
-          { lbl: "CONVERTED", val: counts.quotes_converted, success: counts.quotes_converted > 0 },
-          { lbl: "TRIPS (TOTAL)", val: counts.trips_total },
-          { lbl: "TRIPS ACTIVE", val: counts.trips_active },
-          { lbl: "TRIPS COMPLETED", val: counts.trips_completed },
-          { lbl: "MEMBERS ACTIVE", val: counts.members_total },
-          { lbl: "OPERATORS ACTIVE", val: counts.operators_active },
-          {
-            lbl: "OPS SUSPENDED",
-            val: counts.operators_suspended,
-            danger: counts.operators_suspended > 0,
-          },
-          { lbl: "FLEET AVAILABLE", val: counts.aircraft_available },
-          { lbl: "FLEET AOG", val: counts.aircraft_aog, danger: counts.aircraft_aog > 0 },
-        ].map((k) => (
-          <div
-            key={k.lbl}
-            className="rounded-[4px] border border-ink-3 bg-ink-2 p-5"
-          >
-            <div className="font-mono text-[9px] uppercase tracking-[0.14em] text-steel">{k.lbl}</div>
-            <div
-              className={[
-                "mt-3 font-serif text-[36px] font-light leading-none tracking-tight",
-                k.danger
-                  ? "text-[var(--error)]"
-                  : k.success
-                    ? "text-[var(--success)]"
-                    : k.accent
-                      ? "text-clearance"
-                      : "text-bone",
-              ].join(" ")}
-              style={{ letterSpacing: "-0.02em" }}
-            >
-              {k.val}
-            </div>
-          </div>
-        ))}
-      </section>
-
-      {/* Revenue */}
-      <section className="mb-12 rounded-[4px] border border-ink-3 bg-ink-2 p-8">
-        <h2 className="caption mb-6">— Revenue</h2>
-        <dl className="grid grid-cols-2 gap-x-6 gap-y-6 md:grid-cols-3 lg:grid-cols-5">
-          {[
-            ["30-day issued", revenue.revenue_30],
-            ["YTD issued", revenue.revenue_ytd],
-            ["Outstanding", revenue.outstanding],
-            ["30-day margin", revenue.margin_30],
-            ["30-day true margin", revenue.true_margin_30],
-          ].map(([lbl, val]) => (
-            <div key={String(lbl)}>
-              <dt className="font-mono text-[10px] uppercase tracking-[0.14em] text-steel">
-                — {lbl}
-              </dt>
-              <dd
-                className={[
-                  "mt-3 font-serif text-[36px] font-light leading-none tracking-tight",
-                  lbl === "Outstanding" && Number(val) > 0
-                    ? "text-[var(--warn)]"
-                    : "text-bone",
-                ].join(" ")}
-                style={{ letterSpacing: "-0.02em" }}
+    <div>
+      <DeskHeader
+        title="Reports"
+        lead="How the desk did. Updated live."
+        actions={
+          <div className="segmented" role="group" aria-label="Period">
+            {PERIODS.map((p) => (
+              <Link
+                key={p.key}
+                href={`/admin/settings/reports?period=${p.key}`}
+                aria-current={p.key === period ? "page" : undefined}
+                className="inline-flex items-center"
               >
-                {Number(val) ? formatUSD(Number(val)) : "$0"}
-              </dd>
-            </div>
-          ))}
-        </dl>
-        <p className="mt-6 font-mono text-[10px] uppercase tracking-[0.08em] text-steel">
-          — Revenue counts invoices in paid/due/overdue status. Margin excludes FET + segment fees
-          (those pass through to the IRS). True margin also subtracts operator cost, over the{" "}
-          {revenue.margin_total > 0
-            ? `${revenue.margin_covered} of ${revenue.margin_total} paid`
-            : "0"}{" "}
-          trip{revenue.margin_covered === 1 ? "" : "s"} with operator cost recorded.
+                {p.label}
+              </Link>
+            ))}
+          </div>
+        }
+      />
+
+      <div className="mt-7 grid gap-4 md:grid-cols-3">
+        <NumberCard
+          label="Requests received"
+          value={req.received}
+          note={meta.prevWords ? `${signed(receivedDelta)} ${meta.prevWords}` : "since Jan 1"}
+          noteTone={meta.prevWords && receivedDelta > 0 ? "success" : "steel"}
+        />
+        <NumberCard
+          label="Flights booked"
+          value={req.booked}
+          note={bookedPct === null ? `No requests ${meta.words}` : `${bookedPct}% of requests`}
+          noteTone="bone"
+        />
+        <NumberCard
+          label="Revenue"
+          value={formatUSD(money.invoiced)}
+          note={meta.prevWords ? `${signedUsd(revenueDelta)} ${meta.prevWords}` : "since Jan 1"}
+          noteTone={meta.prevWords && revenueDelta > 0 ? "success" : "steel"}
+        />
+      </div>
+
+      <section className="card mt-6 p-6 md:px-7">
+        <h2 className="text-[17px] font-medium text-bone">Where requests ended up</h2>
+        <p className="mt-1 text-[14px] text-steel">
+          {req.received} request{req.received === 1 ? "" : "s"} {meta.words}
         </p>
+        <ul className="mt-5 flex flex-col gap-3.5">
+          {funnel.map((f) => (
+            <li key={f.label} className="grid grid-cols-[minmax(0,1fr)_48px] items-center gap-3 text-[15px] md:grid-cols-[200px_minmax(0,1fr)_60px] md:gap-4">
+              <span className="text-bone">{f.label}</span>
+              <div className="col-span-2 h-2.5 overflow-hidden rounded-pill bg-surface-2 md:col-span-1">
+                <div
+                  className={`h-full rounded-pill ${f.bar}`}
+                  style={{ width: `${Math.max(2, Math.round((f.value / funnelMax) * 100))}%` }}
+                  aria-hidden="true"
+                />
+              </div>
+              <span className="row-start-1 text-right text-bone md:row-auto">{f.value}</span>
+            </li>
+          ))}
+        </ul>
       </section>
 
-      {/* Quote funnel */}
-      <section className="rounded-[4px] border border-ink-3 bg-ink-2 p-8">
-        <h2 className="caption mb-6">— Quote funnel</h2>
-        {funnel.length === 0 ? (
-          <p className="text-[14px] text-bone-2">No quotes recorded yet.</p>
-        ) : (
-          <ul className="flex flex-col gap-4">
-            {funnel.map((row) => {
-              const widthPct = Math.max(2, (row.n / funnelMax) * 100);
-              return (
-                <li
-                  key={row.status}
-                  className="grid grid-cols-[160px_1fr_auto] items-center gap-4"
-                >
-                  <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-bone-2">
-                    — {row.status.replace(/_/g, " ")}
-                  </span>
-                  <div className="h-2 overflow-hidden rounded-full bg-ink-3">
-                    <div
-                      className="h-full rounded-full bg-clearance"
-                      style={{ width: `${widthPct}%` }}
-                      aria-hidden
-                    />
-                  </div>
-                  <span className="font-mono text-[12px] tracking-[0.04em] text-bone">{row.n}</span>
-                </li>
-              );
-            })}
-          </ul>
-        )}
+      <section className="card mt-6 p-6 md:px-7">
+        <h2 className="text-[17px] font-medium text-bone">Money</h2>
+        <dl className="mt-4 grid gap-x-6 gap-y-4 text-[15px] md:grid-cols-3">
+          <div>
+            <dt className="text-[14px] text-steel">Invoiced</dt>
+            <dd className="mt-1 text-[22px] text-bone">{formatUSD(money.invoiced)}</dd>
+          </div>
+          <div>
+            <dt className="text-[14px] text-steel">Still owed to us</dt>
+            <dd className="mt-1 text-[22px] text-gold">{formatUSD(money.outstanding)}</dd>
+            <dd className="mt-0.5 text-[14px] text-steel">{owedNote}</dd>
+          </div>
+          <div>
+            <dt className="text-[14px] text-steel">Kept after operator &amp; taxes</dt>
+            <dd className="mt-1 text-[22px] text-bone">{formatUSD(money.true_margin)}</dd>
+            <dd className="mt-0.5 text-[14px] text-steel">{marginNote}</dd>
+          </div>
+        </dl>
       </section>
+
+      <p className="mt-4 text-[14px] text-steel">
+        Need the full breakdown?{" "}
+        <a href={`/admin/settings/reports/export?period=${period}`} className="text-link">
+          Download this period as a spreadsheet
+        </a>
+        .
+      </p>
     </div>
   );
 }

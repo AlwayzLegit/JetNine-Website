@@ -17,8 +17,11 @@ export function Bubble({
   meta,
   footer,
   compact = false,
+  noteLabel = "Not sent — shows in the client’s account",
 }: {
   kind: BubbleKind;
+  /** Caption above a note bubble; system lines pass "Only the team sees this". */
+  noteLabel?: ReactNode;
   children: ReactNode;
   /** "Dana · text · 10 min ago" */
   meta?: ReactNode;
@@ -36,7 +39,7 @@ export function Bubble({
         : `rounded-control border border-dashed border-[rgba(201,162,74,0.4)] bg-[rgba(201,162,74,0.08)] text-bone-2 ${pad}`;
   return (
     <div className={`flex flex-col ${align}`}>
-      {kind === "note" ? <div className="mb-1 text-[13px] text-steel">Only the team sees this</div> : null}
+      {kind === "note" && noteLabel ? <div className="mb-1 text-[13px] text-steel">{noteLabel}</div> : null}
       <div className={`${box} ${compact ? "text-[14px]" : "text-[15px]"} whitespace-pre-line leading-[1.5]`}>{children}</div>
       {meta ? <div className="mt-1 text-[13px] text-steel">{meta}</div> : null}
       {footer}

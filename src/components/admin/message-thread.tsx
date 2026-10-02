@@ -26,7 +26,7 @@ const CHANNELS: {
     needs: "phone",
   },
   { id: "call", label: "Call note", hint: "Logs a call you made or took", placeholder: () => "What was said on the call…", needs: null },
-  { id: "inapp", label: "Internal note", hint: "Only the team can see notes", placeholder: () => "Add a note for the team…", needs: null },
+  { id: "inapp", label: "Account note", hint: "Not sent — shows in the client’s account and here", placeholder: () => "Add a note…", needs: null },
 ];
 
 const QUICK_REPLIES: { label: string; text: string }[] = [
@@ -192,7 +192,14 @@ export function MessageThread({
               <div className="mt-1 text-[13px] text-steel">Logged only — the channel isn&rsquo;t connected yet.</div>
             ) : null;
             return (
-              <Bubble key={m.id} kind={kind} meta={meta} footer={footer} compact={compact}>
+              <Bubble
+                key={m.id}
+                kind={kind}
+                noteLabel={m.channel === "system" ? "Only the team sees this" : undefined}
+                meta={meta}
+                footer={footer}
+                compact={compact}
+              >
                 {m.body ?? m.preview ?? ""}
               </Bubble>
             );

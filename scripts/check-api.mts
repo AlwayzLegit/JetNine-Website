@@ -172,6 +172,23 @@ function check(name: string, cond: boolean, detail?: unknown) {
   }
 }
 
+// ─── Key management is session-only ──────────────────────────────────────
+{
+  // A key must never be able to mint or revoke keys: nothing under
+  // src/app/api may import the key-management commands or actions.
+  const walkAll = (dir: string): string[] =>
+    readdirSync(dir, { withFileTypes: true }).flatMap((e) =>
+      e.isDirectory() ? walkAll(join(dir, e.name)) : /\.tsx?$/.test(e.name) ? [join(dir, e.name)] : [],
+    );
+  for (const file of walkAll("src/app/api")) {
+    const src = readFileSync(file, "utf8");
+    check(
+      `${file}: does not reach key management`,
+      !/domain\/api-keys|settings\/api-keys\/actions/.test(src),
+    );
+  }
+}
+
 // ─── OpenAPI ─────────────────────────────────────────────────────────────
 {
   const doc = buildOpenApi(ROUTES, "https://jetnine.com");

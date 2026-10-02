@@ -53,6 +53,7 @@ const SUBJECT_HREF: Partial<Record<string, (id: string | null) => string | null>
   user_role: () => "/admin/settings/team",
   contact_inquiry: () => "/admin/messages",
   system: () => "/admin/settings/notifications",
+  api_key: () => "/admin/settings/api-keys",
 };
 
 const SUBJECT_WORDS: Record<string, string> = {
@@ -246,6 +247,9 @@ const VERBS: Record<string, Entry> = {
   "blog_post.unpublish": (c) => [`${c.actor} took down the blog post `, postTitle(c)],
   "blog_post.delete": (c) => [`${c.actor} deleted the blog post `, postTitle(c)],
   "blog_post.hero": (c) => [`${c.actor} added a hero image for `, c.code ?? "a blog post"],
+  // API keys
+  "api_key.create": (c) => [`${c.actor} created the API key `, keyName(c)],
+  "api_key.revoke": (c) => [`${c.actor} revoked the API key `, keyName(c)],
   // AI
   "ai_provider.key.create": (c) => [`${c.actor} stored a key for `, "the phone answering AI"],
   "ai_provider.key.replace": (c) => [`${c.actor} replaced a key for `, "the phone answering AI"],
@@ -262,6 +266,11 @@ function actorWithKey(row: AuditSentenceRow): string {
   if (!keyName) return actorName(row);
   if (row.metadata?.legacyKey) return "The blog posting key";
   return person ? `${person} (via ${keyName})` : keyName;
+}
+
+function keyName(c: Ctx): string {
+  const name = str(c.meta?.name);
+  return name ? `“${name}”` : "a key";
 }
 
 function postTitle(c: Ctx): string {

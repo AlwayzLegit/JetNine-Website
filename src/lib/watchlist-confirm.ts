@@ -1,5 +1,6 @@
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import { SITE } from "@/lib/constants";
+import { findAirport } from "@/lib/airports";
 
 /**
  * Confirmed opt-in for empty-leg watchlists.
@@ -105,8 +106,27 @@ export function unsubscribeHeaders(postUrl: string): Record<string, string> {
 
 // ─── Message copy ────────────────────────────────────────────────────────
 
+/**
+ * "Los Angeles (VNY)" when the typed text is an airport code we know,
+ * otherwise the text as the person typed it ("Los Angeles", "Aspen").
+ */
+function placeLabel(text: string): string {
+  const t = text.trim();
+  const a = findAirport(t);
+  return a ? `${a.city} (${a.iata.replace(/_.*/, "")})` : t;
+}
+
 function routeLabel(fromText: string, toText: string): string {
-  return `${fromText.toUpperCase()} → ${toText.toUpperCase()}`;
+  return `${placeLabel(fromText)} → ${placeLabel(toText)}`;
+}
+
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
 }
 
 /**
@@ -117,7 +137,7 @@ function routeLabel(fromText: string, toText: string): string {
 export function confirmSms(fromText: string, toText: string, url: string): string {
   return (
     `JetNine: confirm empty-leg alerts for ${routeLabel(fromText, toText)} — ${url}. ` +
-    `Expires in ${CONFIRM_WINDOW_HOURS}h. Didn't request this? Ignore it and nothing is sent. ` +
+    `The link expires in ${CONFIRM_WINDOW_HOURS} hours. Didn't ask for this? Ignore it and nothing is sent. ` +
     `Reply STOP to block all texts.`
   );
 }
@@ -134,16 +154,16 @@ export function confirmEmailBody(
   const route = routeLabel(fromText, toText);
   const text =
     `Confirm your empty-leg alerts\n\n` +
-    `Someone asked us to email you when a repositioning leg matching ${route} ` +
-    `hits the board. Confirm here and we will start:\n\n${url}\n\n` +
+    `Someone asked us to email you when an empty leg (a repositioning flight) matching ${route} ` +
+    `is listed. Confirm here and we will start:\n\n${url}\n\n` +
     `The link expires in ${CONFIRM_WINDOW_HOURS} hours. If this was not you, ignore this ` +
     `email — nothing is sent unless the link is used, and the request is deleted ` +
     `after it expires.\n\nJetNine dispatch · ${SITE.dispatchPhone}`;
 
   const html =
     `<p><strong>Confirm your empty-leg alerts</strong></p>` +
-    `<p>Someone asked us to email you when a repositioning leg matching ` +
-    `<strong>${route}</strong> hits the board. Confirm and we will start:</p>` +
+    `<p>Someone asked us to email you when an empty leg (a repositioning flight) matching ` +
+    `<strong>${escapeHtml(route)}</strong> is listed. Confirm and we will start:</p>` +
     `<p><a href="${url}">Confirm these alerts</a></p>` +
     `<p style="color:#666;font-size:13px">The link expires in ${CONFIRM_WINDOW_HOURS} hours. ` +
     `If this was not you, ignore this email — nothing is sent unless the link is used, and ` +

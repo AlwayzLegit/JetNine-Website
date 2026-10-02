@@ -121,7 +121,7 @@ export default async function CityPage({ params }: RouteParams) {
     ...city.opsFaq,
     {
       q: `How fast can a ${city.name} charter be arranged?`,
-      a: `The quote comes back within 30 minutes during operating hours — three to five real airframes with all-in pricing. Same-day departures are routine when an airframe is in position; the dispatch line answers in under twenty seconds, around the clock, at ${SITE.dispatchPhone}.`,
+      a: `The quote comes back within 30 minutes during operating hours — three to five real aircraft with all-in pricing. Same-day departures are routine when an aircraft is in position; the dispatch line answers in under twenty seconds, around the clock, at ${SITE.dispatchPhone}.`,
     },
   ];
 
@@ -200,7 +200,7 @@ export default async function CityPage({ params }: RouteParams) {
         <div className="container-jn grid items-end gap-10 lg:grid-cols-[1.4fr_1fr]">
           <div>
             <p className="eyebrow">
-              <Link href="/private-jet-charter" className="transition-colors hover:text-bone">
+              <Link href="/private-jet-charter" className="tap-pad transition-colors hover:text-bone">
                 Charter by city
               </Link>
               <span aria-hidden> · </span>
@@ -280,7 +280,7 @@ export default async function CityPage({ params }: RouteParams) {
             One-way, whole-aircraft indicative ranges from {city.primary.name}, in the category the
             wizard itself recommends per distance — computed by the same engine behind every quote.
           </p>
-          <div className="card mt-8 overflow-x-auto">
+          <div className="card relative mt-8 overflow-x-auto">
             <table className="table-jn min-w-[760px]">
               <thead>
                 <tr>

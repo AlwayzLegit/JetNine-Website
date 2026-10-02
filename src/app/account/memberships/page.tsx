@@ -162,7 +162,7 @@ export default async function AccountMembershipsPage({ searchParams }: Props) {
               {spec.name} · rates locked for {spec.rateLockMonths} months · aircraft guaranteed with{" "}
               {spec.calloutHours} hours&rsquo; notice
             </p>
-            <Link href="/account/members" className="text-link mt-3 inline-block text-[15px]">
+            <Link href="/account/members" className="text-link mt-1 inline-flex min-h-11 items-center text-[15px]">
               See what&rsquo;s included
             </Link>
           </section>
@@ -231,7 +231,7 @@ export default async function AccountMembershipsPage({ searchParams }: Props) {
               A dedicated dispatcher, aircraft guaranteed with 8 to 12 hours&rsquo; notice and
               larger allowances. By application — a limited number of seats.
             </p>
-            <Link href="/contact?subject=reserve" className="text-link mt-4 inline-block text-[15px]">
+            <Link href="/contact?subject=reserve" className="text-link mt-1.5 inline-flex min-h-11 items-center text-[15px]">
               Apply for Reserve →
             </Link>
           </div>
@@ -241,7 +241,7 @@ export default async function AccountMembershipsPage({ searchParams }: Props) {
               No deposit, no commitment. Request a quote and pay per flight — the all-in price is
               locked when you accept.
             </p>
-            <Link href="/quote" className="text-link mt-4 inline-block text-[15px]">
+            <Link href="/quote" className="text-link mt-1.5 inline-flex min-h-11 items-center text-[15px]">
               Request a quote →
             </Link>
           </div>

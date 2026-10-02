@@ -149,11 +149,11 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     // losing it to a log line ("ops can grep" was the old story).
     try {
       await sendDispatchAlert({
-        subject: "[UNROUTED] Inbound SMS — no [CODE] in body",
-        headline: "An inbound text couldn't be threaded.",
+        subject: "[UNROUTED] A text came in that we couldn't match to a request",
+        headline: "A text came in that we couldn't match to a request or trip.",
         lines: [
           `From: ${fromE164}`,
-          "— Body (untrusted, first 800 chars) —",
+          "It has no reference in it, so it isn't on any thread. Their message (unverified, first 800 characters):",
           body.slice(0, 800) || "(empty)",
         ],
       });
@@ -229,9 +229,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   // nothing pointing at it.
   try {
     await sendDispatchAlert({
-      subject: `[${route.subjectCode}] ${isWhatsApp ? "WhatsApp" : "SMS"} reply from ${fromE164}`,
-      headline: `New ${isWhatsApp ? "WhatsApp" : "SMS"} reply on ${route.subjectCode}.`,
-      lines: [preview || "(empty body)"],
+      subject: `[${route.subjectCode}] ${isWhatsApp ? "WhatsApp" : "Text"} reply from ${fromE164}`,
+      headline: `A client replied by ${isWhatsApp ? "WhatsApp" : "text"}.`,
+      lines: [preview || "(empty message)", `Reference ${route.subjectCode}`],
       link: {
         label: "Open the thread",
         url: `https://jetnine.com/admin/${route.subjectType === "quote" ? "requests" : "trips"}/${route.subjectId}`,

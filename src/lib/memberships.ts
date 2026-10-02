@@ -20,7 +20,7 @@ export type MembershipSpec = {
   name: string;
   // Deposit (whole USD).
   depositUsd: number;
-  // Hours of advance notice we guarantee an airframe.
+  // Hours of advance notice we guarantee an aircraft.
   calloutHours: number;
   // Months the hourly rate stays locked.
   rateLockMonths: number;

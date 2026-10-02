@@ -1,6 +1,7 @@
 import "server-only";
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { SITE } from "@/lib/constants";
+import { plainTripText } from "@/lib/email";
 
 /**
  * Twilio outbound + inbound helpers. Ships dark when
@@ -234,13 +235,13 @@ export async function sendThreadMessageWhatsApp(args: {
 }
 
 const STATUS_SMS_HEADLINES: Record<string, string> = {
-  confirmed: "JetNine: your trip is locked in.",
+  confirmed: "JetNine: your trip is confirmed.",
   boarding: "JetNine: the aircraft is ready when you are.",
-  completed: "JetNine: wheels down. Hope it flew well.",
-  cancelled_wx: "JetNine: weather got in the way — we've stood this down.",
+  completed: "JetNine: you've landed. We hope it was a good flight.",
+  cancelled_wx: "JetNine: weather got in the way, so we've cancelled this flight.",
   cancelled_other: "JetNine: this trip has been cancelled.",
-  diverted: "JetNine: we're diverting; dispatch will call you in minutes.",
-  irregular_ops: "JetNine: operational issue — a dispatcher is calling you now.",
+  diverted: "JetNine: you're landing at a different airport; dispatch will call you in minutes.",
+  irregular_ops: "JetNine: something has changed on your trip; a dispatcher is calling you now.",
 };
 
 export async function sendTripStatusSms(args: {
@@ -249,10 +250,12 @@ export async function sendTripStatusSms(args: {
   status: string;
   firstLeg?: string | null;
 }): Promise<TwilioSendResult> {
-  const headline = STATUS_SMS_HEADLINES[args.status] ?? `JetNine: trip update.`;
-  const itinerary = args.firstLeg ? ` (${args.firstLeg})` : "";
+  const headline = STATUS_SMS_HEADLINES[args.status] ?? `JetNine: an update on your trip.`;
+  // firstLeg arrives as "KVNY → KASE · 2026-06-12"; read it as
+  // "Los Angeles (VNY) → Aspen (ASE) · Fri, Jun 12".
+  const itinerary = args.firstLeg ? ` ${plainTripText(args.firstLeg)}.` : "";
   const body =
     `[${args.tripCode}] ${headline}${itinerary} ` +
-    `Dispatch: ${SITE.dispatchPhone} · 24/7. Reply here to reach us.`;
+    `Dispatch: ${SITE.dispatchPhone}, 24/7. Reply here to reach us.`;
   return sendSms({ to: args.to, body });
 }

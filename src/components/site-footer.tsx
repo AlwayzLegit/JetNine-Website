@@ -71,12 +71,12 @@ export function SiteFooter() {
           {FOOTER_COLS.map((col) => (
             <div key={col.heading}>
               <h4 className="mb-[14px] text-[14px] font-semibold text-steel">{col.heading}</h4>
-              <ul className="flex flex-col gap-[10px]">
+              <ul className="flex flex-col md:gap-[10px]">
                 {col.links.map((link) => (
                   <li key={link.label}>
                     <Link
                       href={link.href}
-                      className="text-[15px] text-bone transition-colors hover:text-bone-2"
+                      className="inline-flex min-h-[44px] items-center text-[15px] text-bone transition-colors hover:text-bone-2 md:min-h-0"
                     >
                       {link.label}
                     </Link>

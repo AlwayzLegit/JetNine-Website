@@ -293,6 +293,8 @@ export async function submitQuote(draft: QuoteDraft): Promise<SubmitResult> {
         fromIata: l.fromIata ?? null,
         toIata: l.toIata ?? null,
         date: l.date ?? null,
+        fromCity: l.fromCity ?? null,
+        toCity: l.toCity ?? null,
       }));
 
       // Staff who turned on "A new request comes in" (Settings ›
@@ -309,6 +311,7 @@ export async function submitQuote(draft: QuoteDraft): Promise<SubmitResult> {
           legs: legSummaries,
           paxCount: draft.pax,
           statusUrl,
+          replyMinutes: replyPromiseMinutes,
         }),
         sendDispatchNewQuoteNotification({
           quoteCode: inserted.quoteCode,
@@ -320,6 +323,7 @@ export async function submitQuote(draft: QuoteDraft): Promise<SubmitResult> {
           paxCount: draft.pax,
           workbenchUrl,
           to: deskRecipients,
+          replyMinutes: replyPromiseMinutes,
         }),
       ]);
 

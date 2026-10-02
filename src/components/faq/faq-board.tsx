@@ -113,7 +113,7 @@ export function FaqBoard() {
                 <span
                   className={[
                     "pill h-[22px] px-2 text-[13px]",
-                    selected ? "bg-transparent text-ink lg:text-steel-dim" : "bg-transparent text-steel-dim",
+                    selected ? "bg-transparent text-ink lg:text-steel" : "bg-transparent text-steel",
                   ].join(" ")}
                 >
                   {t.count}

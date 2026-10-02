@@ -19,6 +19,8 @@ import { StepFooter } from "@/components/quote/step-footer";
 import { ReviewSection } from "@/components/quote/review-section";
 import { ReviewSubmitCard, type SubmitError } from "@/components/quote/review-submit-card";
 import { bestTimeLabel, methodSummary } from "@/components/quote/contact-options";
+import { useReplyPromiseMinutes } from "@/components/quote/reply-promise";
+import { replyPromiseWords } from "@/lib/desk-status";
 
 const CABIN_LABELS: Record<string, string> = {
   wifi: "Wi-Fi",
@@ -42,11 +44,20 @@ const GROUND_DESC: Record<string, { label: string; sub: string }> = {
   suv: { label: "SUV / Sprinter", sub: "Both legs · ~$280/leg" },
 };
 
-const REASSURANCE = [
-  "Quote returned in under 30 min",
-  "ARG/US Platinum operators only",
-  "No commitment until accepted",
-];
+// The reply time follows the desk setting (Settings › Notifications),
+// handed down from the quote layout.
+function reassurance(minutes: number): string[] {
+  return [
+    `Quote back ${replyPromiseWords(minutes)}`,
+    "ARG/US Platinum operators only",
+    "No commitment until accepted",
+  ];
+}
+
+function nextSteps(minutes: number) {
+  const w = minutes === 60 ? "Within an hour" : `Within ${minutes} min`;
+  return NEXT_STEPS.map((n, i) => (i === 1 ? { ...n, w } : n));
+}
 
 const NEXT_STEPS = [
   {
@@ -57,7 +68,7 @@ const NEXT_STEPS = [
   {
     t: "Quote returned with 3–5 specific aircraft",
     b: "Each option has a tail number, operator, year, photos, all-in price, and availability window.",
-    w: "Under 30 min",
+    w: "Within 30 min",
   },
   {
     t: "You pick & we hold the aircraft",
@@ -85,6 +96,7 @@ function plural(n: number, one: string, many: string): string {
 export function ReviewStep() {
   const router = useRouter();
   const s = useQuoteStore();
+  const replyMinutes = useReplyPromiseMinutes();
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<SubmitError | null>(null);
   // Set the moment the server says ok. We reset the draft right after,
@@ -186,7 +198,7 @@ export function ReviewStep() {
         <p className="mt-4 max-w-[64ch] text-[17px] text-bone-2">
           Everything you&rsquo;ve given us. Edit any section if something needs changing — the
           rest of your work is preserved. When you submit, dispatch picks it up immediately and
-          returns specific aircraft &amp; pricing within 30 minutes.
+          returns specific aircraft &amp; pricing {replyPromiseWords(replyMinutes)}.
         </p>
 
         {/* Indicative range */}
@@ -202,7 +214,7 @@ export function ReviewStep() {
             </p>
           </div>
           <ul className="flex flex-col gap-2 text-[15px] text-bone-2 lg:text-right">
-            {REASSURANCE.map((t) => (
+            {reassurance(replyMinutes).map((t) => (
               <li key={t}>{t}</li>
             ))}
           </ul>
@@ -325,7 +337,7 @@ export function ReviewStep() {
           <h2 className="title-card-sm">What happens next</h2>
           <p className="mt-1.5 text-[15px] text-bone-2">Four steps. Most clients fly within a week.</p>
           <ol className="mt-6 flex flex-col gap-5">
-            {NEXT_STEPS.map((n, i) => (
+            {nextSteps(replyMinutes).map((n, i) => (
               <li
                 key={n.t}
                 className="grid grid-cols-[28px_1fr] items-start gap-4 md:grid-cols-[28px_1fr_auto]"

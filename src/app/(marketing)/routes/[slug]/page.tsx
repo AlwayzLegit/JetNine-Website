@@ -110,7 +110,7 @@ export default async function RoutePage({ params }: RouteParams) {
     },
     {
       q: `How long is the flight?`,
-      a: `The leg is ${formatNm(nm)} great-circle. Block time runs about ${fastest?.hours} in the fastest suitable category (${fastest?.name.toLowerCase()}), a little longer in a turboprop or light jet — the quote lists the estimate per airframe.`,
+      a: `The leg is ${formatNm(nm)} as the crow flies. Block time runs about ${fastest?.hours} in the fastest suitable category (${fastest?.name.toLowerCase()}), a little longer in a turboprop or light jet — the quote lists the estimate per aircraft.`,
     },
     {
       q: `Which airports does the flight use?`,
@@ -202,7 +202,7 @@ export default async function RoutePage({ params }: RouteParams) {
         <div className="container-jn grid items-end gap-10 lg:grid-cols-[1.4fr_1fr]">
           <div>
             <p className="eyebrow">
-              <Link href="/routes" className="transition-colors hover:text-bone">
+              <Link href="/routes" className="tap-pad transition-colors hover:text-bone">
                 Routes
               </Link>
               <span aria-hidden> · </span>
@@ -306,7 +306,7 @@ export default async function RoutePage({ params }: RouteParams) {
                       label="Quote it"
                       className="btn btn-secondary btn-sm"
                     />
-                    <Link href={o.href} className="text-link text-[15px]">
+                    <Link href={o.href} className="text-link inline-flex min-h-11 items-center text-[15px]">
                       Category <span className="arrow">→</span>
                     </Link>
                   </div>
@@ -325,7 +325,7 @@ export default async function RoutePage({ params }: RouteParams) {
               {cityGuides.map((c, i) => (
                 <span key={c.slug}>
                   {i > 0 ? " · " : ""}
-                  <Link href={`/private-jet-charter/${c.slug}`} className="text-link">
+                  <Link href={`/private-jet-charter/${c.slug}`} className="text-link tap-pad">
                     {c.name} airports &amp; lanes
                   </Link>
                 </span>

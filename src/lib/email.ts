@@ -16,6 +16,9 @@
  */
 
 import { SITE } from "@/lib/constants";
+import { findAirport } from "@/lib/airports";
+import { minutesWords, passengersWords, replyPromiseWords, tierWords } from "@/lib/desk-status";
+import { formatDay } from "@/lib/request-format";
 
 type EmailPayload = {
   to: string | string[];
@@ -147,6 +150,13 @@ export async function sendEmail(payload: EmailPayload): Promise<SendResult> {
 // HTML inline (with text fallback) is intentional — when an email fails to
 // render right in a customer's mail client, you read the page and you read
 // the function side-by-side, not the page and a templating layer.
+//
+// Plain words (Phase 6 of the simplification): no "pax", "airframe",
+// "FBO", "SLA", enum keys or bare airport codes in anything a person
+// reads. Airports read "Los Angeles (VNY)", dates "Fri, Jun 12", labels are
+// sentence case (no uppercase, no wide letter-spacing). The bracketed
+// reference in a subject (`[JN-2026-0012]`) stays exactly as it was —
+// inbound threading matches it.
 
 /**
  * Desk alerts always reach the shared dispatch inbox; per-user notification
@@ -164,66 +174,135 @@ const DISPATCH_NOTIFY =
   process.env.NEXT_PUBLIC_DISPATCH_EMAIL ||
   "dispatch@jetnine.com";
 
+// ─── Plain-words helpers ──────────────────────────────────────────────
+
+const FONT = "-apple-system,BlinkMacSystemFont,'Segoe UI',Inter,sans-serif";
+const WRAP_STYLE = `font-family:${FONT};color:#0F1115;line-height:1.55;max-width:560px;margin:0 auto;padding:24px;`;
+const KICKER_STYLE = "margin:0 0 16px;font-size:13px;color:#6B7280;";
+const LABEL_CELL_STYLE = "padding:4px 16px 4px 0;color:#6B7280;font-size:13px;vertical-align:top;";
+const BUTTON_STYLE =
+  "display:inline-block;padding:12px 20px;border-radius:8px;background:#0F1115;color:#FFFFFF;font-weight:600;font-size:14px;text-decoration:none;";
+const LEGAL_LINE =
+  "JetNine LLC · 14 CFR Part 295 indirect air carrier. All flights operated by an FAA Part 135 direct air carrier.";
+
+function iataOf(code: string): string {
+  // The catalog keys one duplicate as "HND_JP"; people read "HND".
+  return code.replace(/_.*/, "");
+}
+
+/** "Los Angeles (VNY)" from a code (IATA or ICAO) and an optional city. */
+function placeWords(code: string | null | undefined, city?: string | null): string {
+  const c = code?.trim() || null;
+  const a = c ? findAirport(c) : undefined;
+  const name = city?.trim() || a?.city || null;
+  const shown = a ? iataOf(a.iata) : c;
+  if (name && shown) return `${name} (${shown})`;
+  return name ?? shown ?? "—";
+}
+
+/**
+ * Rewrites a pre-built itinerary or route line into plain words:
+ * airport codes the catalog knows become "Los Angeles (VNY)", ISO dates
+ * become "Fri, Jun 12", "4 pax" becomes "4 passengers". Codes already in
+ * parentheses and unknown codes are left alone. Callers outside this file
+ * still build lines like "KVNY → KASE · 2026-06-12"; this keeps what the
+ * client reads plain without changing those callers.
+ */
+export function plainTripText(line: string): string {
+  return line
+    .replace(/\b(\d{4}-\d{2}-\d{2})\b/g, (m) => formatDay(m) ?? m)
+    .replace(/\b(\d+)\s*pax\b/gi, (_m, n: string) => passengersWords(Number(n)))
+    .replace(/(^|[^(A-Za-z])([A-Z]{3,4}(?:_[A-Z]{2})?)(?![A-Za-z_)])/g, (m, pre: string, code: string) => {
+      const a = findAirport(code);
+      return a ? `${pre}${a.city} (${iataOf(a.iata)})` : m;
+    });
+}
+
+/** "Fri, Jun 12" from YYYY-MM-DD; anything else passes through. */
+function dayWords(date: string | null | undefined): string | null {
+  if (!date) return null;
+  return formatDay(date) ?? date;
+}
+
+function plural(n: number, one: string, many: string): string {
+  return `${n} ${n === 1 ? one : many}`;
+}
+
+function button(url: string, label: string): string {
+  return `<a href="${escapeHtml(url)}" style="${BUTTON_STYLE}">${escapeHtml(label)}</a>`;
+}
+
 type QuoteSubmittedContext = {
   quoteCode: string;
   firstName: string;
   lastName: string;
   email: string;
   phone?: string | null;
-  legs: { fromIata: string | null; toIata: string | null; date: string | null }[];
+  legs: {
+    fromIata: string | null;
+    toIata: string | null;
+    date: string | null;
+    /** City words for the route line; looked up from the code when absent. */
+    fromCity?: string | null;
+    toCity?: string | null;
+  }[];
   paxCount: number;
   /** Guest status page (/request/<token>) — included when the quote has one. */
   statusUrl?: string;
+  /** Reply-time promise from the desk setting (`getReplyPromiseMinutes`). Default 30. */
+  replyMinutes?: number;
 };
+
+function legRoute(l: QuoteSubmittedContext["legs"][number]): string {
+  return `${placeWords(l.fromIata, l.fromCity)} → ${placeWords(l.toIata, l.toCity)}`;
+}
 
 export async function sendQuoteAcknowledgmentEmail(
   ctx: QuoteSubmittedContext,
 ): Promise<SendResult> {
   const fullName = `${ctx.firstName} ${ctx.lastName}`.trim();
-  const route = ctx.legs
-    .map((l) => `${l.fromIata ?? "—"} → ${l.toIata ?? "—"}`)
-    .join(", ");
+  const route = ctx.legs.map(legRoute).join(", ");
+  const when = replyPromiseWords(ctx.replyMinutes);
 
-  const subject = `${ctx.quoteCode} — your JetNine quote request`;
+  // Bracketed so a client's reply threads onto the request (inbound route).
+  const subject = `[${ctx.quoteCode}] We've got your trip request`;
   const text = [
     `${fullName},`,
     ``,
-    `We've received your charter request. A dispatcher is on it — you'll have options back within 30 minutes during operational hours, sooner if you marked it urgent.`,
+    `We've got your trip request. A dispatcher is on it — you'll have options ${when} during operating hours, sooner if it's urgent.`,
     ``,
-    `Reference:  ${ctx.quoteCode}`,
-    `Route:      ${route}`,
+    `Reference: ${ctx.quoteCode}`,
+    `Route: ${route}`,
     `Passengers: ${ctx.paxCount}`,
     ``,
     ...(ctx.statusUrl ? [`Follow your request here: ${ctx.statusUrl}`, ``] : []),
-    `If you need to reach us sooner: dispatch is on ${SITE.dispatchPhone}, 24/7.`,
+    `Need us sooner? Call dispatch on ${SITE.dispatchPhone}, any time, 24/7.`,
     ``,
-    `JetNine LLC · 14 CFR Part 295 indirect air carrier · all flights operated by an FAA Part 135 direct air carrier.`,
+    LEGAL_LINE,
   ].join("\n");
 
   const html = `
-    <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Inter,sans-serif;color:#0F1115;line-height:1.55;max-width:560px;margin:0 auto;padding:24px;">
-      <p style="margin:0 0 16px;font-size:14px;letter-spacing:0.12em;text-transform:uppercase;color:#6B7280;">— ${ctx.quoteCode}</p>
+    <div style="${WRAP_STYLE}">
+      <p style="${KICKER_STYLE}">Reference ${escapeHtml(ctx.quoteCode)}</p>
       <h1 style="margin:0 0 24px;font-family:'Fraunces',Georgia,serif;font-weight:300;font-size:32px;letter-spacing:-0.01em;">
-        ${escapeHtml(fullName)} — we&rsquo;ve got it.
+        ${escapeHtml(fullName)}, we&rsquo;ve got it.
       </h1>
       <p style="margin:0 0 16px;font-size:15px;">
-        A dispatcher is sourcing options now. You&rsquo;ll have a reply within
-        <strong>30 minutes</strong> during operational hours, sooner if it&rsquo;s urgent.
+        A dispatcher is finding aircraft for you now. You&rsquo;ll have options
+        <strong>${escapeHtml(when)}</strong> during operating hours, sooner if it&rsquo;s urgent.
       </p>
-      <table style="margin:24px 0;border-collapse:collapse;font-size:13px;">
-        <tr><td style="padding:4px 16px 4px 0;color:#6B7280;text-transform:uppercase;letter-spacing:0.08em;font-size:11px;">Route</td><td style="padding:4px 0;">${escapeHtml(route)}</td></tr>
-        <tr><td style="padding:4px 16px 4px 0;color:#6B7280;text-transform:uppercase;letter-spacing:0.08em;font-size:11px;">Passengers</td><td style="padding:4px 0;">${ctx.paxCount}</td></tr>
+      <table style="margin:24px 0;border-collapse:collapse;font-size:14px;">
+        <tr><td style="${LABEL_CELL_STYLE}">Route</td><td style="padding:4px 0;">${escapeHtml(route)}</td></tr>
+        <tr><td style="${LABEL_CELL_STYLE}">Passengers</td><td style="padding:4px 0;">${ctx.paxCount}</td></tr>
       </table>
       ${
         ctx.statusUrl
-          ? `<p style="margin:0 0 24px;font-size:14px;"><a href="${ctx.statusUrl}" style="color:#0F1115;font-weight:600;">Follow your request →</a><br/><span style="color:#6B7280;font-size:12px;">Your options will appear on that page as soon as dispatch sends them.</span></p>`
+          ? `<p style="margin:0 0 8px;">${button(ctx.statusUrl, "Follow your request →")}</p><p style="margin:0 0 24px;color:#6B7280;font-size:13px;">Your options appear on that page as soon as dispatch sends them.</p>`
           : ""
       }
       <p style="margin:24px 0 8px;font-size:13px;color:#6B7280;">Need us sooner?</p>
       <p style="margin:0;font-size:14px;"><a href="tel:${SITE.dispatchPhoneE164}" style="color:#0F1115;">${SITE.dispatchPhone}</a> · 24/7</p>
-      <p style="margin:40px 0 0;font-size:11px;color:#9CA3AF;line-height:1.6;">
-        JetNine LLC · 14 CFR Part 295 indirect air carrier. All flights operated by an FAA Part 135 direct air carrier.
-      </p>
+      <p style="margin:40px 0 0;font-size:11px;color:#9CA3AF;line-height:1.6;">${LEGAL_LINE}</p>
     </div>
   `.trim();
 
@@ -244,36 +323,40 @@ export async function sendDispatchNewQuoteNotification(
   },
 ): Promise<SendResult> {
   const fullName = `${ctx.firstName} ${ctx.lastName}`.trim();
-  const route = ctx.legs
-    .map((l) => `${l.fromIata ?? "—"} → ${l.toIata ?? "—"} (${l.date ?? "—"})`)
-    .join("\n           ");
+  const legCount = plural(ctx.legs.length, "leg", "legs");
+  const routeLines = ctx.legs.map((l) => `${legRoute(l)}${l.date ? `, ${dayWords(l.date)}` : ""}`);
+  const replyIn = minutesWords(ctx.replyMinutes && ctx.replyMinutes > 0 ? ctx.replyMinutes : 30);
 
-  const subject = `[NEW] ${ctx.quoteCode} · ${fullName} · ${ctx.legs.length} leg${ctx.legs.length === 1 ? "" : "s"}`;
+  const subject = `[NEW] ${ctx.quoteCode} · New request from ${fullName} · ${legCount}`;
+  const lines = [
+    `Name: ${fullName}`,
+    `Email: ${ctx.email}`,
+    `Phone: ${ctx.phone ?? "—"}`,
+    `Passengers: ${ctx.paxCount}`,
+    ...routeLines.map((r, i) => (ctx.legs.length === 1 ? `Trip: ${r}` : `Leg ${i + 1}: ${r}`)),
+    `Reference: ${ctx.quoteCode}`,
+  ];
   const text = [
-    `New quote on the desk:`,
+    `New request from ${fullName}.`,
     ``,
-    `Ref:       ${ctx.quoteCode}`,
-    `Contact:   ${fullName}`,
-    `Email:     ${ctx.email}`,
-    `Phone:     ${ctx.phone ?? "—"}`,
-    `Pax:       ${ctx.paxCount}`,
-    `Route(s):  ${route}`,
+    ...lines,
     ``,
-    `Workbench: ${ctx.workbenchUrl}`,
+    `Open the request: ${ctx.workbenchUrl}`,
     ``,
-    `SLA clock starts now — 30 minutes to first reply.`,
+    `Reply due in ${replyIn} — the reply promise starts now.`,
   ].join("\n");
 
   const html = `
-    <div style="font-family:'JetBrains Mono',ui-monospace,SF Mono,Menlo,Consolas,monospace;color:#0F1115;line-height:1.55;max-width:600px;margin:0 auto;padding:24px;">
-      <p style="margin:0 0 16px;font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:#0F1115;">— NEW QUOTE · ${ctx.quoteCode}</p>
-      <h2 style="margin:0 0 16px;font-family:'Fraunces',Georgia,serif;font-weight:300;font-size:24px;letter-spacing:-0.01em;font-family-feature-settings:'ss01';">
-        ${escapeHtml(fullName)} · ${ctx.paxCount} pax · ${ctx.legs.length} leg${ctx.legs.length === 1 ? "" : "s"}
+    <div style="${WRAP_STYLE}">
+      <p style="${KICKER_STYLE}">New request · Reference ${escapeHtml(ctx.quoteCode)}</p>
+      <h2 style="margin:0 0 16px;font-family:'Fraunces',Georgia,serif;font-weight:300;font-size:24px;letter-spacing:-0.01em;">
+        ${escapeHtml(fullName)} · ${escapeHtml(passengersWords(ctx.paxCount))} · ${escapeHtml(legCount)}
       </h2>
-      <pre style="margin:0 0 16px;padding:12px;background:#F5F4F0;border-left:2px solid #C5CDD9;font-size:12px;line-height:1.6;white-space:pre-wrap;">${escapeHtml(text)}</pre>
-      <p style="margin:24px 0 0;font-size:14px;">
-        <a href="${escapeHtml(ctx.workbenchUrl)}" style="display:inline-block;padding:10px 16px;background:#0F1115;color:#F5F4F0;text-decoration:none;font-size:12px;letter-spacing:0.08em;text-transform:uppercase;">Open workbench →</a>
-      </p>
+      <div style="margin:0 0 16px;padding:12px 16px;background:#F5F4F0;border-left:2px solid #C5CDD9;font-size:14px;">
+        ${lines.map((l) => `<p style="margin:0 0 4px;">${escapeHtml(l)}</p>`).join("")}
+      </div>
+      <p style="margin:0 0 16px;font-size:14px;"><strong>Reply due in ${escapeHtml(replyIn)}</strong> — the reply promise starts now.</p>
+      <p style="margin:24px 0 0;">${button(ctx.workbenchUrl, "Open the request →")}</p>
     </div>
   `.trim();
 
@@ -299,7 +382,20 @@ type ContactInquiryContext = {
   paxText?: string | null;
   notes?: string | null;
   inquiriesUrl: string;
+  /** Reply-time promise the form made (`getReplyPromiseMinutes`). Default 30. */
+  replyMinutes?: number;
 };
+
+const CONTACT_REASON_WORDS: Record<string, string> = {
+  quote: "Quote request",
+  card: "JetNine Card question",
+  trip: "About a trip",
+  other: "Something else",
+};
+
+function contactReasonWords(reason: string): string {
+  return CONTACT_REASON_WORDS[reason] ?? reason.replace(/_/g, " ");
+}
 
 /**
  * Desk ping for a public contact-form submission. Single recipient
@@ -310,37 +406,47 @@ export async function sendDispatchContactNotification(
   ctx: ContactInquiryContext,
 ): Promise<SendResult> {
   const fullName = `${ctx.firstName} ${ctx.lastName}`.trim();
+  const reason = contactReasonWords(ctx.reason);
   const route =
     ctx.fromText || ctx.toText ? `${ctx.fromText ?? "—"} → ${ctx.toText ?? "—"}` : "—";
 
-  const subject = `[CONTACT] ${fullName} · ${ctx.reason.toUpperCase()}`;
+  const subject = `[CONTACT] ${fullName} · ${reason}`;
+  const lines = [
+    `About: ${reason}`,
+    `Name: ${fullName}`,
+    `Email: ${ctx.email}`,
+    `Phone: ${ctx.phone ?? "—"}`,
+    `Route: ${route}`,
+    `Date: ${ctx.dateText ?? "—"}`,
+    `Passengers: ${ctx.paxText ?? "—"}`,
+  ];
   const text = [
-    `New contact-form inquiry:`,
+    `New message from the contact form.`,
     ``,
-    `Reason:    ${ctx.reason}`,
-    `Contact:   ${fullName}`,
-    `Email:     ${ctx.email}`,
-    `Phone:     ${ctx.phone ?? "—"}`,
-    `Route:     ${route}`,
-    `Date:      ${ctx.dateText ?? "—"}`,
-    `Pax:       ${ctx.paxText ?? "—"}`,
-    ctx.notes ? `\nNotes:\n${ctx.notes}` : ``,
+    ...lines,
+    ctx.notes ? `\nTheir note:\n${ctx.notes}` : ``,
     ``,
-    `Inquiries board: ${ctx.inquiriesUrl}`,
+    `Open messages: ${ctx.inquiriesUrl}`,
     ``,
-    `Form promises a reply within 30 minutes during business hours.`,
+    `The form told them they'd hear back ${replyPromiseWords(ctx.replyMinutes)} during operating hours.`,
   ].join("\n");
 
+  const notesHtml = ctx.notes
+    ? `<p style="margin:12px 0 4px;color:#6B7280;font-size:13px;">Their note</p><p style="margin:0;white-space:pre-wrap;">${escapeHtml(ctx.notes)}</p>`
+    : "";
+
   const html = `
-    <div style="font-family:'JetBrains Mono',ui-monospace,SF Mono,Menlo,Consolas,monospace;color:#0F1115;line-height:1.55;max-width:600px;margin:0 auto;padding:24px;">
-      <p style="margin:0 0 16px;font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:#0F1115;">— CONTACT FORM · ${escapeHtml(ctx.reason.toUpperCase())}</p>
+    <div style="${WRAP_STYLE}">
+      <p style="${KICKER_STYLE}">Contact form · ${escapeHtml(reason)}</p>
       <h2 style="margin:0 0 16px;font-family:'Fraunces',Georgia,serif;font-weight:300;font-size:24px;letter-spacing:-0.01em;">
         ${escapeHtml(fullName)}
       </h2>
-      <pre style="margin:0 0 16px;padding:12px;background:#F5F4F0;border-left:2px solid #C5CDD9;font-size:12px;line-height:1.6;white-space:pre-wrap;">${escapeHtml(text)}</pre>
-      <p style="margin:24px 0 0;font-size:14px;">
-        <a href="${escapeHtml(ctx.inquiriesUrl)}" style="display:inline-block;padding:10px 16px;background:#0F1115;color:#F5F4F0;text-decoration:none;font-size:12px;letter-spacing:0.08em;text-transform:uppercase;">Open inquiries →</a>
-      </p>
+      <div style="margin:0 0 16px;padding:12px 16px;background:#F5F4F0;border-left:2px solid #C5CDD9;font-size:14px;">
+        ${lines.map((l) => `<p style="margin:0 0 4px;">${escapeHtml(l)}</p>`).join("")}
+        ${notesHtml}
+      </div>
+      <p style="margin:0 0 16px;font-size:14px;color:#374151;">The form told them they&rsquo;d hear back ${escapeHtml(replyPromiseWords(ctx.replyMinutes))} during operating hours.</p>
+      <p style="margin:24px 0 0;">${button(ctx.inquiriesUrl, "Open messages →")}</p>
     </div>
   `.trim();
 
@@ -374,7 +480,7 @@ export type ThreadEmailContext = {
 export async function sendThreadMessageEmail(ctx: ThreadEmailContext): Promise<SendResult> {
   const subject = ctx.subjectSummary
     ? `[${ctx.subjectCode}] ${ctx.subjectSummary}`
-    : `[${ctx.subjectCode}] JetNine dispatch`;
+    : `[${ctx.subjectCode}] A note from JetNine dispatch`;
 
   const signature = ctx.fromName ? `${ctx.fromName} · JetNine dispatch` : "JetNine dispatch";
   const text = [ctx.body, "", "—", signature, `${SITE.dispatchPhone} · 24/7`].join("\n");
@@ -391,15 +497,15 @@ export async function sendThreadMessageEmail(ctx: ThreadEmailContext): Promise<S
     .join("");
 
   const html = `
-    <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Inter,sans-serif;color:#0F1115;line-height:1.55;max-width:560px;margin:0 auto;padding:24px;">
-      <p style="margin:0 0 16px;font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:#6B7280;">— ${escapeHtml(ctx.subjectCode)}</p>
+    <div style="${WRAP_STYLE}">
+      <p style="${KICKER_STYLE}">Reference ${escapeHtml(ctx.subjectCode)}</p>
       <div style="font-size:15px;">${bodyHtml}</div>
       <hr style="margin:32px 0 16px;border:none;border-top:1px solid #E5E7EB;"/>
-      <p style="margin:0;font-size:12px;color:#6B7280;">
+      <p style="margin:0;font-size:13px;color:#6B7280;">
         ${escapeHtml(signature)}<br/>
         <a href="tel:${SITE.dispatchPhoneE164}" style="color:#0F1115;">${SITE.dispatchPhone}</a> · 24/7
       </p>
-      <p style="margin:24px 0 0;font-size:10px;color:#9CA3AF;line-height:1.6;">
+      <p style="margin:24px 0 0;font-size:11px;color:#9CA3AF;line-height:1.6;">
         JetNine LLC · 14 CFR Part 295 indirect air carrier.
       </p>
     </div>
@@ -418,7 +524,7 @@ export async function sendThreadMessageEmail(ctx: ThreadEmailContext): Promise<S
 // Fired automatically by updateTripStatus when the dispatcher flips a
 // trip to a customer-visible state. Each state owns its own subject +
 // body so the customer's mail client doesn't show "Trip update" 4 times
-// in a row — they see "Confirmed", "Boarding now", "Cancelled (wx)",
+// in a row — they see "Confirmed", "Boarding now", "Cancelled — weather",
 // "Trip complete". The thread bracket [JN-2026-NNNN] still threads
 // them together.
 
@@ -444,7 +550,9 @@ type TripStatusContext = {
   tripCode: string;
   status: TripNotifyStatus;
   firstName?: string | null;
-  // Itinerary summary lines, e.g. ["KLAX → KSFO · 2026-06-12 · 4 pax"].
+  // Itinerary summary lines, e.g. ["KLAX → KSFO · 2026-06-12", "4 pax"].
+  // Rendered through plainTripText, so the client reads
+  // "Los Angeles (LAX) → San Francisco (SFO) · Fri, Jun 12".
   itineraryLines?: string[];
   // Optional free-form note from dispatcher (cancellation reason,
   // divert destination, etc). Already plain-text from the action.
@@ -460,45 +568,45 @@ type StatusTemplate = {
 const STATUS_TEMPLATES: Record<TripNotifyStatus, StatusTemplate> = {
   confirmed: {
     subjectSuffix: "Trip confirmed",
-    headline: "You're on the manifest.",
+    headline: "Your trip is confirmed.",
     intro:
-      "Your trip is locked in. We'll send another note when the aircraft is ready to board — usually about 30 minutes before departure.",
+      "Everything is booked. We'll send another note when the aircraft is ready to board — usually about 30 minutes before departure.",
   },
   boarding: {
     subjectSuffix: "Boarding now",
     headline: "The aircraft is ready when you are.",
     intro:
-      "Captain and crew are on board. Head to the FBO whenever you're ready; if you're already there, we'll see you on the ramp.",
+      "The crew is on board. Head to the private terminal whenever you're ready; if you're already there, we'll walk you out to the aircraft.",
   },
   completed: {
     subjectSuffix: "Trip complete",
-    headline: "Wheels down. Hope it flew well.",
+    headline: "You've landed. We hope it was a good flight.",
     intro:
-      "That's a wrap on this one. A receipt + post-flight summary will land in your inbox shortly. If anything was off — or off-the-charts — we want to hear about it.",
+      "That's this trip done. Your receipt and a short trip summary will follow by email. If anything was off — or especially good — we'd like to hear about it.",
   },
   cancelled_wx: {
     subjectSuffix: "Cancelled — weather",
     headline: "Weather got in the way.",
     intro:
-      "We're standing down on this flight because of conditions we can't safely operate through. A dispatcher will follow up about reschedule options; if you want to talk through it now, dispatch is on the line below.",
+      "We've cancelled this flight because the weather isn't safe to fly through. A dispatcher will follow up with options to rebook; if you'd like to talk it through now, call the number below.",
   },
   cancelled_other: {
     subjectSuffix: "Cancelled",
-    headline: "We've stood this one down.",
+    headline: "This trip has been cancelled.",
     intro:
-      "This trip has been cancelled. A dispatcher will reach out about rebooking. The number below is the fastest path if you'd like to talk now.",
+      "A dispatcher will be in touch about rebooking. The number below is the fastest way to talk now.",
   },
   diverted: {
     subjectSuffix: "Diverted",
-    headline: "We're putting down somewhere else.",
+    headline: "We're landing at a different airport.",
     intro:
-      "Conditions ahead made the original destination a no-go, so we're diverting. A dispatcher is arranging ground from the new airport; expect a call within minutes.",
+      "Conditions ahead ruled out the original destination, so the aircraft is landing somewhere else. A dispatcher is arranging a car from the new airport — expect a call within minutes.",
   },
   irregular_ops: {
-    subjectSuffix: "Irregular ops",
-    headline: "We've hit a snag — and we're on it.",
+    subjectSuffix: "A change to your trip",
+    headline: "Something has changed — and we're on it.",
     intro:
-      "Something operational has shifted on this trip. Don't act on it from your end yet; a dispatcher is calling you now with the live picture.",
+      "Something has changed on this trip. Please don't change your own plans yet; a dispatcher is calling you now with the details.",
   },
 };
 
@@ -511,10 +619,9 @@ export async function sendTripStatusEmail(ctx: TripStatusContext): Promise<SendR
   const tpl = STATUS_TEMPLATES[ctx.status];
   const subject = `[${ctx.tripCode}] ${tpl.subjectSuffix}`;
   const greetingName = ctx.firstName?.trim() || "there";
+  const itinerary = (ctx.itineraryLines ?? []).map(plainTripText);
 
-  const itineraryText = ctx.itineraryLines?.length
-    ? `\n\nItinerary:\n  ${ctx.itineraryLines.join("\n  ")}\n`
-    : "";
+  const itineraryText = itinerary.length ? `\n\nYour trip:\n  ${itinerary.join("\n  ")}\n` : "";
   const noteText = ctx.note ? `\n\n${ctx.note}\n` : "";
 
   const text = [
@@ -530,12 +637,9 @@ export async function sendTripStatusEmail(ctx: TripStatusContext): Promise<SendR
     `JetNine LLC · 14 CFR Part 295 indirect air carrier.`,
   ].join("\n");
 
-  const itineraryHtml = ctx.itineraryLines?.length
-    ? `<ul style="margin:16px 0;padding:0;list-style:none;">${ctx.itineraryLines
-        .map(
-          (l) =>
-            `<li style="margin:0 0 6px;font-family:ui-monospace,SF Mono,Menlo,monospace;font-size:12px;color:#0F1115;">${escapeHtml(l)}</li>`,
-        )
+  const itineraryHtml = itinerary.length
+    ? `<ul style="margin:16px 0;padding:0;list-style:none;">${itinerary
+        .map((l) => `<li style="margin:0 0 6px;font-size:14px;color:#0F1115;">${escapeHtml(l)}</li>`)
         .join("")}</ul>`
     : "";
   const noteHtml = ctx.note
@@ -543,8 +647,8 @@ export async function sendTripStatusEmail(ctx: TripStatusContext): Promise<SendR
     : "";
 
   const html = `
-    <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Inter,sans-serif;color:#0F1115;line-height:1.55;max-width:560px;margin:0 auto;padding:24px;">
-      <p style="margin:0 0 16px;font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:#6B7280;">— ${escapeHtml(ctx.tripCode)} · ${escapeHtml(tpl.subjectSuffix)}</p>
+    <div style="${WRAP_STYLE}">
+      <p style="${KICKER_STYLE}">${escapeHtml(tpl.subjectSuffix)} · Reference ${escapeHtml(ctx.tripCode)}</p>
       <h1 style="margin:0 0 16px;font-family:'Fraunces',Georgia,serif;font-weight:300;font-size:28px;letter-spacing:-0.01em;line-height:1.2;">
         ${escapeHtml(tpl.headline)}
       </h1>
@@ -552,11 +656,11 @@ export async function sendTripStatusEmail(ctx: TripStatusContext): Promise<SendR
       ${itineraryHtml}
       ${noteHtml}
       <hr style="margin:32px 0 16px;border:none;border-top:1px solid #E5E7EB;"/>
-      <p style="margin:0;font-size:12px;color:#6B7280;">
+      <p style="margin:0;font-size:13px;color:#6B7280;">
         JetNine dispatch<br/>
         <a href="tel:${SITE.dispatchPhoneE164}" style="color:#0F1115;">${SITE.dispatchPhone}</a> · 24/7
       </p>
-      <p style="margin:24px 0 0;font-size:10px;color:#9CA3AF;line-height:1.6;">
+      <p style="margin:24px 0 0;font-size:11px;color:#9CA3AF;line-height:1.6;">
         JetNine LLC · 14 CFR Part 295 indirect air carrier.
       </p>
     </div>
@@ -572,7 +676,7 @@ export async function sendTripStatusEmail(ctx: TripStatusContext): Promise<SendR
 }
 
 // ─── Quote options → client ────────────────────────────────────────────
-// The email that delivers on the core promise: 3–5 vetted airframes with
+// The email that delivers on the core promise: 3–5 vetted aircraft with
 // all-in pricing. Deliberately omits tail numbers and operator names —
 // standard broker practice pre-booking (and the operator cost never leaves
 // the building). Vetting credentials are shown without naming the operator.
@@ -606,25 +710,33 @@ const usdFmt = new Intl.NumberFormat("en-US", {
   maximumFractionDigits: 0,
 });
 
+const ALL_IN_WORDS =
+  "fuel, taxes (including federal excise tax), repositioning flights and crew";
+
 export async function sendQuoteOptionsEmail(
   ctx: QuoteOptionsEmailContext,
 ): Promise<SendResult> {
   const n = ctx.options.length;
-  const subject = `[${ctx.quoteCode}] Your aircraft options — ${n} vetted airframe${n === 1 ? "" : "s"}`;
+  const route = plainTripText(ctx.route);
+  const pax = passengersWords(ctx.paxCount);
+  const subject = `[${ctx.quoteCode}] Your aircraft options — ${n} vetted aircraft`;
+
+  const specsOf = (o: QuoteOptionEmailItem) =>
+    [
+      o.yearOfMake ? `Built ${o.yearOfMake}` : null,
+      o.categoryLabel,
+      o.paxCapacity ? `${o.paxCapacity} seats` : null,
+    ]
+      .filter(Boolean)
+      .join(" · ");
 
   const optText = ctx.options
     .map((o) => {
-      const specs = [
-        o.yearOfMake ? String(o.yearOfMake) : null,
-        o.categoryLabel,
-        o.paxCapacity ? `${o.paxCapacity} seats` : null,
-      ]
-        .filter(Boolean)
-        .join(" · ");
+      const specs = specsOf(o);
       return [
-        `Option ${String(o.optionNumber).padStart(2, "0")} — ${o.aircraftType ?? "Aircraft"}`,
+        `Option ${o.optionNumber} — ${o.aircraftType ?? "Aircraft"}`,
         specs ? `  ${specs}` : null,
-        o.vetting ? `  Operator vetting: ${o.vetting}` : null,
+        o.vetting ? `  Operator safety audits: ${o.vetting}` : null,
         `  All-in price: ${usdFmt.format(o.clientPriceUsd)}`,
       ]
         .filter(Boolean)
@@ -635,64 +747,52 @@ export async function sendQuoteOptionsEmail(
   const text = [
     `${ctx.firstName},`,
     ``,
-    `Here are your options for ${ctx.route} (${ctx.paxCount} passengers). Every aircraft below flies with an independently vetted FAA Part 135 operator, and every price is all-in — fuel, taxes, FET, repositioning, crew.`,
+    `Here are your options for ${route} (${pax}). Every aircraft below flies with an independently vetted FAA Part 135 operator, and every price is all-in — ${ALL_IN_WORDS}.`,
     ``,
     optText,
     ``,
     ...(ctx.statusUrl ? [`Choose an option here: ${ctx.statusUrl}`, ``] : []),
-    `To hold an aircraft, reply to this email or call dispatch on ${SITE.dispatchPhone} — we answer 24/7. Availability moves fast; a soft hold costs nothing.`,
+    `To hold an aircraft, reply to this email or call dispatch on ${SITE.dispatchPhone} — we answer 24/7. Availability moves fast, and a hold costs nothing.`,
     ``,
     `Reference: ${ctx.quoteCode}`,
     ``,
-    `JetNine LLC · 14 CFR Part 295 indirect air carrier · all flights operated by an FAA Part 135 direct air carrier.`,
+    LEGAL_LINE,
   ].join("\n");
 
   const optionsHtml = ctx.options
     .map((o) => {
-      const specs = [
-        o.yearOfMake ? String(o.yearOfMake) : null,
-        o.categoryLabel,
-        o.paxCapacity ? `${o.paxCapacity} seats` : null,
-      ]
-        .filter(Boolean)
-        .join(" · ");
+      const specs = specsOf(o);
       return `
-        <div style="border:1px solid #E5E7EB;border-radius:4px;padding:16px 20px;margin:0 0 12px;">
-          <p style="margin:0 0 2px;font-size:10px;letter-spacing:0.14em;text-transform:uppercase;color:#6B7280;">Option ${String(o.optionNumber).padStart(2, "0")}</p>
+        <div style="border:1px solid #E5E7EB;border-radius:8px;padding:16px 20px;margin:0 0 12px;">
+          <p style="margin:0 0 2px;font-size:13px;color:#6B7280;">Option ${o.optionNumber}</p>
           <p style="margin:0 0 4px;font-family:'Fraunces',Georgia,serif;font-size:20px;font-weight:400;">${escapeHtml(o.aircraftType ?? "Aircraft")}</p>
           ${specs ? `<p style="margin:0 0 4px;font-size:13px;color:#374151;">${escapeHtml(specs)}</p>` : ""}
-          ${o.vetting ? `<p style="margin:0 0 8px;font-size:11px;letter-spacing:0.06em;text-transform:uppercase;color:#6B7280;">${escapeHtml(o.vetting)} vetted operator</p>` : ""}
-          <p style="margin:8px 0 0;font-size:22px;font-family:'Fraunces',Georgia,serif;font-weight:300;">${usdFmt.format(o.clientPriceUsd)} <span style="font-size:11px;color:#6B7280;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Inter,sans-serif;">all-in</span></p>
+          ${o.vetting ? `<p style="margin:0 0 8px;font-size:13px;color:#6B7280;">Operator safety audits: ${escapeHtml(o.vetting)}</p>` : ""}
+          <p style="margin:8px 0 0;font-size:22px;font-family:'Fraunces',Georgia,serif;font-weight:300;">${usdFmt.format(o.clientPriceUsd)} <span style="font-size:13px;color:#6B7280;font-family:${FONT};">all-in</span></p>
         </div>`;
     })
     .join("");
 
   const html = `
-    <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Inter,sans-serif;color:#0F1115;line-height:1.55;max-width:560px;margin:0 auto;padding:24px;">
-      <p style="margin:0 0 16px;font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:#6B7280;">— ${escapeHtml(ctx.quoteCode)} · Options</p>
+    <div style="${WRAP_STYLE}">
+      <p style="${KICKER_STYLE}">Your options · Reference ${escapeHtml(ctx.quoteCode)}</p>
       <h1 style="margin:0 0 16px;font-family:'Fraunces',Georgia,serif;font-weight:300;font-size:28px;letter-spacing:-0.01em;line-height:1.2;">
-        ${escapeHtml(ctx.firstName)} — your aircraft are in.
+        ${escapeHtml(ctx.firstName)}, your aircraft options are in.
       </h1>
       <p style="margin:0 0 20px;font-size:15px;">
-        ${escapeHtml(ctx.route)} · ${ctx.paxCount} pax. Every airframe below flies with an
+        ${escapeHtml(route)} · ${escapeHtml(pax)}. Every aircraft below flies with an
         independently vetted FAA Part 135 operator, and every price is
-        <strong>all-in</strong> — fuel, taxes, FET, repositioning, crew.
+        <strong>all-in</strong> — ${ALL_IN_WORDS}.
       </p>
       ${optionsHtml}
-      ${
-        ctx.statusUrl
-          ? `<p style="margin:20px 0 0;font-size:14px;"><a href="${ctx.statusUrl}" style="display:inline-block;padding:12px 20px;border-radius:8px;background:#0F1115;color:#FFFFFF;font-weight:600;text-decoration:none;">Choose an option →</a></p>`
-          : ""
-      }
+      ${ctx.statusUrl ? `<p style="margin:20px 0 0;">${button(ctx.statusUrl, "Choose an option →")}</p>` : ""}
       <p style="margin:20px 0 0;font-size:14px;">
         To hold an aircraft, ${ctx.statusUrl ? "pick one on the page above, " : ""}<strong>reply to this email</strong> or call
         <a href="tel:${SITE.dispatchPhoneE164}" style="color:#0F1115;">${SITE.dispatchPhone}</a> — 24/7.
-        Availability moves fast; a soft hold costs nothing.
+        Availability moves fast, and a hold costs nothing.
       </p>
       <hr style="margin:32px 0 16px;border:none;border-top:1px solid #E5E7EB;"/>
-      <p style="margin:24px 0 0;font-size:10px;color:#9CA3AF;line-height:1.6;">
-        JetNine LLC · 14 CFR Part 295 indirect air carrier. All flights operated by an FAA Part 135 direct air carrier.
-      </p>
+      <p style="margin:24px 0 0;font-size:11px;color:#9CA3AF;line-height:1.6;">${LEGAL_LINE}</p>
     </div>
   `.trim();
 
@@ -709,18 +809,18 @@ export async function sendQuoteOptionsEmail(
 const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL || "https://jetnine.com").replace(/\/$/, "");
 
 function moneyRow(label: string, value: string): string {
-  return `<tr><td style="padding:4px 16px 4px 0;color:#6B7280;text-transform:uppercase;letter-spacing:0.08em;font-size:11px;">${escapeHtml(label)}</td><td style="padding:4px 0;">${escapeHtml(value)}</td></tr>`;
+  return `<tr><td style="${LABEL_CELL_STYLE}">${escapeHtml(label)}</td><td style="padding:4px 0;">${escapeHtml(value)}</td></tr>`;
 }
 
 function brandedShell(kicker: string, headline: string, inner: string): string {
   return `
-    <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Inter,sans-serif;color:#0F1115;line-height:1.55;max-width:560px;margin:0 auto;padding:24px;">
-      <p style="margin:0 0 16px;font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:#6B7280;">— ${escapeHtml(kicker)}</p>
+    <div style="${WRAP_STYLE}">
+      <p style="${KICKER_STYLE}">${escapeHtml(kicker)}</p>
       <h1 style="margin:0 0 16px;font-family:'Fraunces',Georgia,serif;font-weight:300;font-size:28px;letter-spacing:-0.01em;line-height:1.2;">${escapeHtml(headline)}</h1>
       ${inner}
       <hr style="margin:32px 0 16px;border:none;border-top:1px solid #E5E7EB;"/>
-      <p style="margin:0;font-size:12px;color:#6B7280;">JetNine dispatch<br/><a href="tel:${SITE.dispatchPhoneE164}" style="color:#0F1115;">${SITE.dispatchPhone}</a> · 24/7</p>
-      <p style="margin:24px 0 0;font-size:10px;color:#9CA3AF;line-height:1.6;">JetNine LLC · 14 CFR Part 295 indirect air carrier. All flights operated by an FAA Part 135 direct air carrier.</p>
+      <p style="margin:0;font-size:13px;color:#6B7280;">JetNine dispatch<br/><a href="tel:${SITE.dispatchPhoneE164}" style="color:#0F1115;">${SITE.dispatchPhone}</a> · 24/7</p>
+      <p style="margin:24px 0 0;font-size:11px;color:#9CA3AF;line-height:1.6;">${LEGAL_LINE}</p>
     </div>`.trim();
 }
 
@@ -736,12 +836,13 @@ export async function sendBookingConfirmationEmail(ctx: {
   drawdown: { amountUsd: number; remainingBalanceUsd: number } | null;
 }): Promise<SendResult> {
   const subject = `[${ctx.tripCode}] Booked — your trip is confirmed`;
-  const itinerary = ctx.itineraryLines.join("\n");
+  const itineraryLines = ctx.itineraryLines.map(plainTripText);
+  const pax = passengersWords(ctx.paxCount);
   const moneyLines: string[] = [];
   if (ctx.totalUsd != null) moneyLines.push(`All-in total: ${usdFmt.format(ctx.totalUsd)}`);
   if (ctx.drawdown) {
     moneyLines.push(
-      `Charged to your reserve: ${usdFmt.format(ctx.drawdown.amountUsd)} (remaining balance ${usdFmt.format(ctx.drawdown.remainingBalanceUsd)}) — nothing further to pay.`,
+      `Charged to your reserve: ${usdFmt.format(ctx.drawdown.amountUsd)} (remaining balance ${usdFmt.format(ctx.drawdown.remainingBalanceUsd)}) — nothing more to pay.`,
     );
   } else if (ctx.invoiceIsDue) {
     moneyLines.push(`Your invoice is ready in your account: ${SITE_URL}/account/invoices`);
@@ -752,33 +853,35 @@ export async function sendBookingConfirmationEmail(ctx: {
   const text = [
     `${ctx.firstName},`,
     ``,
-    `Your trip is confirmed. Reference ${ctx.tripCode} (from quote ${ctx.quoteCode}).`,
+    `Your trip is confirmed. Reference ${ctx.tripCode} (your request was ${ctx.quoteCode}).`,
     ``,
-    itinerary,
-    `${ctx.paxCount} pax`,
+    ...itineraryLines,
+    ctx.paxCount ? pax : null,
     ``,
     ...moneyLines,
     ``,
-    `Crew, FBO, and timing details follow from dispatch as the trip firms up. Reply to this email or call ${SITE.dispatchPhone} any time.`,
-  ].join("\n");
+    `The crew, where to go (the private terminal) and the timing follow from dispatch as the trip firms up. Reply to this email or call ${SITE.dispatchPhone} any time.`,
+  ]
+    .filter((l): l is string => l !== null)
+    .join("\n");
 
   const html = brandedShell(
-    `${ctx.tripCode} · Confirmed`,
-    `${ctx.firstName} — you're booked.`,
+    `Confirmed · Reference ${ctx.tripCode}`,
+    `${ctx.firstName}, you're booked.`,
     `
-      <p style="margin:0 0 16px;font-size:15px;">Trip <strong>${escapeHtml(ctx.tripCode)}</strong> is confirmed${ctx.paxCount ? ` for ${ctx.paxCount} pax` : ""}.</p>
-      <table style="margin:16px 0;border-collapse:collapse;font-size:13px;">
-        ${ctx.itineraryLines.map((l) => moneyRow("Leg", l)).join("")}
+      <p style="margin:0 0 16px;font-size:15px;">Your trip is confirmed${ctx.paxCount ? ` for ${escapeHtml(pax)}` : ""}.</p>
+      <table style="margin:16px 0;border-collapse:collapse;font-size:14px;">
+        ${itineraryLines.map((l) => moneyRow("Flight", l)).join("")}
         ${ctx.totalUsd != null ? moneyRow("All-in total", usdFmt.format(ctx.totalUsd)) : ""}
       </table>
       ${
         ctx.drawdown
-          ? `<p style="margin:0 0 16px;font-size:14px;">${usdFmt.format(ctx.drawdown.amountUsd)} was charged to your reserve (remaining balance <strong>${usdFmt.format(ctx.drawdown.remainingBalanceUsd)}</strong>) — nothing further to pay.</p>`
+          ? `<p style="margin:0 0 16px;font-size:14px;">${usdFmt.format(ctx.drawdown.amountUsd)} was charged to your reserve (remaining balance <strong>${usdFmt.format(ctx.drawdown.remainingBalanceUsd)}</strong>) — nothing more to pay.</p>`
           : ctx.invoiceIsDue
-            ? `<p style="margin:0 0 16px;font-size:14px;">Your invoice is ready — <a href="${SITE_URL}/account/invoices" style="color:#0F1115;">view &amp; pay it in your account</a>.</p>`
+            ? `<p style="margin:0 0 16px;font-size:14px;">Your invoice is ready — <a href="${SITE_URL}/account/invoices" style="color:#0F1115;">view and pay it in your account</a>.</p>`
             : `<p style="margin:0 0 16px;font-size:14px;">Your invoice follows shortly by email.</p>`
       }
-      <p style="margin:0;font-size:14px;">Crew, FBO, and timing details follow from dispatch as the trip firms up. Reply to this email or call any time.</p>
+      <p style="margin:0;font-size:14px;">The crew, where to go (the private terminal) and the timing follow from dispatch as the trip firms up. Reply to this email or call any time.</p>
     `,
   );
 
@@ -793,32 +896,33 @@ export async function sendInvoiceIssuedEmail(ctx: {
   totalUsd: number;
   dueOn: string | null;
 }): Promise<SendResult> {
-  const subject = `[${ctx.invoiceCode}] Your JetNine invoice — ${usdFmt.format(ctx.totalUsd)}${ctx.dueOn ? ` due ${ctx.dueOn}` : ""}`;
+  const due = dayWords(ctx.dueOn);
+  const subject = `[${ctx.invoiceCode}] Your JetNine invoice — ${usdFmt.format(ctx.totalUsd)}${due ? ` due ${due}` : ""}`;
   const text = [
     `${ctx.firstName},`,
     ``,
-    `Invoice ${ctx.invoiceCode}${ctx.tripCode ? ` for trip ${ctx.tripCode}` : ""} is ready.`,
+    `Your invoice is ready (reference ${ctx.invoiceCode}${ctx.tripCode ? `, for trip ${ctx.tripCode}` : ""}).`,
     ``,
-    `Total (all-in): ${usdFmt.format(ctx.totalUsd)}`,
-    ctx.dueOn ? `Due: ${ctx.dueOn}` : null,
+    `Total, all-in: ${usdFmt.format(ctx.totalUsd)}`,
+    due ? `Due: ${due}` : null,
     ``,
     `View and pay by card: ${SITE_URL}/account/invoices`,
-    `Prefer wire or have a question? Reply here or call ${SITE.dispatchPhone}.`,
+    `Prefer a bank wire, or have a question? Reply here or call ${SITE.dispatchPhone}.`,
   ]
     .filter((l): l is string => l !== null)
     .join("\n");
 
   const html = brandedShell(
-    `${ctx.invoiceCode} · Invoice`,
-    `${ctx.firstName} — your invoice is ready.`,
+    `Invoice · Reference ${ctx.invoiceCode}`,
+    `${ctx.firstName}, your invoice is ready.`,
     `
-      <table style="margin:16px 0;border-collapse:collapse;font-size:13px;">
+      <table style="margin:16px 0;border-collapse:collapse;font-size:14px;">
         ${ctx.tripCode ? moneyRow("Trip", ctx.tripCode) : ""}
-        ${moneyRow("Total (all-in)", usdFmt.format(ctx.totalUsd))}
-        ${ctx.dueOn ? moneyRow("Due", ctx.dueOn) : ""}
+        ${moneyRow("Total, all-in", usdFmt.format(ctx.totalUsd))}
+        ${due ? moneyRow("Due", due) : ""}
       </table>
-      <p style="margin:0 0 8px;font-size:14px;"><a href="${SITE_URL}/account/invoices" style="color:#0F1115;font-weight:600;">View &amp; pay in your account →</a></p>
-      <p style="margin:0;font-size:13px;color:#374151;">Prefer wire or have a question? Reply here or call dispatch.</p>
+      <p style="margin:0 0 12px;">${button(`${SITE_URL}/account/invoices`, "View and pay in your account →")}</p>
+      <p style="margin:0;font-size:13px;color:#374151;">Prefer a bank wire, or have a question? Reply here or call dispatch.</p>
     `,
   );
 
@@ -837,16 +941,16 @@ export async function sendPaymentReceiptEmail(ctx: {
   const text = [
     `${ctx.firstName},`,
     ``,
-    `We've received ${amount} against invoice ${ctx.invoiceCode}${ctx.tripCode ? ` (trip ${ctx.tripCode})` : ""}. You're all set.`,
+    `We've received ${amount} for invoice ${ctx.invoiceCode}${ctx.tripCode ? ` (trip ${ctx.tripCode})` : ""}. You're all set.`,
     ``,
-    `Your records: ${SITE_URL}/account/invoices`,
+    `Your invoices: ${SITE_URL}/account/invoices`,
   ].join("\n");
   const html = brandedShell(
-    `${ctx.invoiceCode} · Paid`,
-    `${ctx.firstName} — payment received.`,
+    `Paid · Reference ${ctx.invoiceCode}`,
+    `${ctx.firstName}, payment received.`,
     `
-      <p style="margin:0 0 16px;font-size:15px;">We've received <strong>${escapeHtml(amount)}</strong> against invoice ${escapeHtml(ctx.invoiceCode)}${ctx.tripCode ? ` (trip ${escapeHtml(ctx.tripCode)})` : ""}. You're all set.</p>
-      <p style="margin:0;font-size:13px;color:#374151;"><a href="${SITE_URL}/account/invoices" style="color:#0F1115;">Your records →</a></p>
+      <p style="margin:0 0 16px;font-size:15px;">We&rsquo;ve received <strong>${escapeHtml(amount)}</strong> for invoice ${escapeHtml(ctx.invoiceCode)}${ctx.tripCode ? ` (trip ${escapeHtml(ctx.tripCode)})` : ""}. You&rsquo;re all set.</p>
+      <p style="margin:0;font-size:14px;color:#374151;"><a href="${SITE_URL}/account/invoices" style="color:#0F1115;">See your invoices →</a></p>
     `,
   );
   return sendEmail({ to: ctx.to, subject, html, text, replyTo: DISPATCH_NOTIFY });
@@ -865,15 +969,15 @@ export async function sendPaymentFailedEmail(ctx: {
     `The card payment for invoice ${ctx.invoiceCode} didn't go through${ctx.reason ? ` (${ctx.reason})` : ""}. Nothing was charged.`,
     ``,
     `Try again: ${SITE_URL}/account/invoices`,
-    `Or reply here / call ${SITE.dispatchPhone} and we'll sort it out — wire is fine too.`,
+    `Or reply to this email or call ${SITE.dispatchPhone} and we'll sort it out — a bank wire works too.`,
   ].join("\n");
   const html = brandedShell(
-    `${ctx.invoiceCode} · Action needed`,
-    `${ctx.firstName} — that payment didn't go through.`,
+    `Payment needs another try · Reference ${ctx.invoiceCode}`,
+    `${ctx.firstName}, that payment didn't go through.`,
     `
-      <p style="margin:0 0 16px;font-size:15px;">The card payment for invoice ${escapeHtml(ctx.invoiceCode)} didn't go through${ctx.reason ? ` (<em>${escapeHtml(ctx.reason)}</em>)` : ""}. Nothing was charged.</p>
-      <p style="margin:0 0 8px;font-size:14px;"><a href="${SITE_URL}/account/invoices" style="color:#0F1115;font-weight:600;">Try again →</a></p>
-      <p style="margin:0;font-size:13px;color:#374151;">Or reply here / call dispatch — wire works too.</p>
+      <p style="margin:0 0 16px;font-size:15px;">The card payment for invoice ${escapeHtml(ctx.invoiceCode)} didn&rsquo;t go through${ctx.reason ? ` (<em>${escapeHtml(ctx.reason)}</em>)` : ""}. Nothing was charged.</p>
+      <p style="margin:0 0 12px;">${button(`${SITE_URL}/account/invoices`, "Try again →")}</p>
+      <p style="margin:0;font-size:13px;color:#374151;">Or reply to this email or call dispatch — a bank wire works too.</p>
     `,
   );
   return sendEmail({ to: ctx.to, subject, html, text, replyTo: DISPATCH_NOTIFY });
@@ -882,20 +986,23 @@ export async function sendPaymentFailedEmail(ctx: {
 export async function sendContactAckEmail(ctx: {
   to: string;
   firstName: string;
+  /** Reply-time promise from the desk setting (`getReplyPromiseMinutes`). Default 30. */
+  replyMinutes?: number;
 }): Promise<SendResult> {
+  const when = replyPromiseWords(ctx.replyMinutes);
   const subject = "We've got your message — JetNine dispatch";
   const text = [
     `${ctx.firstName},`,
     ``,
-    `Your message reached the dispatch desk. A human replies within 30 minutes during operating hours — usually much faster.`,
+    `Your message reached the dispatch desk. A person replies ${when} during operating hours — usually much sooner.`,
     ``,
     `Need us right now? ${SITE.dispatchPhone}, 24/7.`,
   ].join("\n");
   const html = brandedShell(
-    "Received",
-    `${ctx.firstName} — we've got it.`,
+    "Message received",
+    `${ctx.firstName}, we've got it.`,
     `
-      <p style="margin:0 0 16px;font-size:15px;">Your message reached the dispatch desk. A human replies within <strong>30 minutes</strong> during operating hours — usually much faster.</p>
+      <p style="margin:0 0 16px;font-size:15px;">Your message reached the dispatch desk. A person replies <strong>${escapeHtml(when)}</strong> during operating hours — usually much sooner.</p>
       <p style="margin:0;font-size:14px;">Need us right now? <a href="tel:${SITE.dispatchPhoneE164}" style="color:#0F1115;">${SITE.dispatchPhone}</a>, 24/7.</p>
     `,
   );
@@ -905,8 +1012,8 @@ export async function sendContactAckEmail(ctx: {
 /**
  * Generic operational alert to the dispatch mailbox. One sender for the
  * whole family of desk pings (payment events, inbound replies, unrouted
- * inbound, SLA breaches, new leads) so each callsite stays one line.
- * `lines` render as plain paragraphs; `link` becomes the CTA.
+ * inbound, overdue replies, new leads) so each callsite stays one line.
+ * `lines` render as plain paragraphs; `link` becomes the button.
  */
 export async function sendDispatchAlert(ctx: {
   subject: string;
@@ -924,11 +1031,11 @@ export async function sendDispatchAlert(ctx: {
     .filter((l): l is string => l !== null)
     .join("\n");
   const html = brandedShell(
-    "Dispatch alert",
+    "For the desk",
     ctx.headline,
     `
-      ${ctx.lines.map((l) => `<p style="margin:0 0 10px;font-size:14px;">${escapeHtml(l)}</p>`).join("")}
-      ${ctx.link ? `<p style="margin:16px 0 0;font-size:14px;"><a href="${ctx.link.url}" style="color:#0F1115;font-weight:600;">${escapeHtml(ctx.link.label)} →</a></p>` : ""}
+      ${ctx.lines.map((l) => (l ? `<p style="margin:0 0 10px;font-size:14px;">${escapeHtml(l)}</p>` : `<p style="margin:0 0 10px;height:4px;"></p>`)).join("")}
+      ${ctx.link ? `<p style="margin:16px 0 0;">${button(ctx.link.url, `${ctx.link.label} →`)}</p>` : ""}
     `,
   );
   return sendEmail({ to: withDispatchInbox(ctx.to), subject: ctx.subject, html, text });
@@ -947,26 +1054,27 @@ export async function sendInvoiceReminderEmail(ctx: {
 }): Promise<SendResult> {
   const amount = ctx.totalUsd != null ? usdFmt.format(ctx.totalUsd) : "your invoice";
   const overdue = ctx.kind === "overdue";
+  const due = dayWords(ctx.dueOn);
   const subject = overdue
     ? `[${ctx.invoiceCode}] Invoice overdue — ${amount}`
-    : `[${ctx.invoiceCode}] Reminder — ${amount} due ${ctx.dueOn ?? "soon"}`;
+    : `[${ctx.invoiceCode}] Reminder — ${amount} due ${due ?? "soon"}`;
   const text = [
     `${ctx.firstName},`,
     ``,
     overdue
-      ? `Invoice ${ctx.invoiceCode} (${amount}) is past its ${ctx.dueOn ?? ""} due date.`
-      : `A reminder that invoice ${ctx.invoiceCode} (${amount}) is due ${ctx.dueOn ?? "soon"}.`,
+      ? `Invoice ${ctx.invoiceCode} (${amount}) is past its due date${due ? ` of ${due}` : ""}.`
+      : `A reminder that invoice ${ctx.invoiceCode} (${amount}) is due ${due ?? "soon"}.`,
     ``,
     `Pay by card: ${SITE_URL}/account/invoices`,
-    `Prefer wire, or does something look off? Reply here or call ${SITE.dispatchPhone} — 24/7.`,
+    `Prefer a bank wire, or does something look off? Reply here or call ${SITE.dispatchPhone} — 24/7.`,
   ].join("\n");
   const html = brandedShell(
-    `${ctx.invoiceCode} · ${overdue ? "Overdue" : "Due soon"}`,
-    overdue ? `${ctx.firstName} — this one's past due.` : `${ctx.firstName} — a quick reminder.`,
+    `${overdue ? "Overdue" : "Due soon"} · Reference ${ctx.invoiceCode}`,
+    overdue ? `${ctx.firstName}, this invoice is past due.` : `${ctx.firstName}, a quick reminder.`,
     `
-      <p style="margin:0 0 16px;font-size:15px;">Invoice <strong>${escapeHtml(ctx.invoiceCode)}</strong> (${escapeHtml(amount)}) ${overdue ? `is past its due date${ctx.dueOn ? ` of ${escapeHtml(ctx.dueOn)}` : ""}` : `is due ${escapeHtml(ctx.dueOn ?? "soon")}`}.</p>
-      <p style="margin:0 0 8px;font-size:14px;"><a href="${SITE_URL}/account/invoices" style="color:#0F1115;font-weight:600;">Pay in your account →</a></p>
-      <p style="margin:0;font-size:13px;color:#374151;">Prefer wire, or does something look off? Reply here or call dispatch — 24/7.</p>
+      <p style="margin:0 0 16px;font-size:15px;">Invoice <strong>${escapeHtml(ctx.invoiceCode)}</strong> (${escapeHtml(amount)}) ${overdue ? `is past its due date${due ? ` of ${escapeHtml(due)}` : ""}` : `is due ${escapeHtml(due ?? "soon")}`}.</p>
+      <p style="margin:0 0 12px;">${button(`${SITE_URL}/account/invoices`, "Pay in your account →")}</p>
+      <p style="margin:0;font-size:13px;color:#374151;">Prefer a bank wire, or does something look off? Reply here or call dispatch — 24/7.</p>
     `,
   );
   return sendEmail({ to: ctx.to, subject, html, text, replyTo: DISPATCH_NOTIFY });
@@ -978,22 +1086,25 @@ export async function sendMembershipActivatedEmail(ctx: {
   program: string;
   depositUsd: number;
 }): Promise<SendResult> {
-  const subject = `Your JetNine ${ctx.program} is active`;
+  // `program` is the membership enum key (card_100, reserve_250, …);
+  // people read "JetNine Card · 100 hours".
+  const program = tierWords(ctx.program);
+  const subject = `Your JetNine membership is active — ${program}`;
   const text = [
     `${ctx.firstName},`,
     ``,
-    `Your ${ctx.program} membership is active, and your ${usdFmt.format(ctx.depositUsd)} deposit is credited to your reserve.`,
+    `Your membership (${program}) is active, and your ${usdFmt.format(ctx.depositUsd)} deposit is credited to your reserve.`,
     ``,
-    `Balance & activity: ${SITE_URL}/account/members`,
+    `Balance and activity: ${SITE_URL}/account/members`,
     `Book any time: ${SITE_URL}/quote/mission — or just call ${SITE.dispatchPhone}.`,
   ].join("\n");
   const html = brandedShell(
-    "Membership · Active",
-    `${ctx.firstName} — welcome aboard.`,
+    "Membership active",
+    `${ctx.firstName}, welcome aboard.`,
     `
-      <p style="margin:0 0 16px;font-size:15px;">Your <strong>${escapeHtml(ctx.program)}</strong> membership is active, and your <strong>${usdFmt.format(ctx.depositUsd)}</strong> deposit is credited to your reserve.</p>
-      <p style="margin:0 0 8px;font-size:14px;"><a href="${SITE_URL}/account/members" style="color:#0F1115;font-weight:600;">Balance &amp; activity →</a></p>
-      <p style="margin:0;font-size:13px;color:#374151;">Book any time from your account or one phone call — the desk answers 24/7.</p>
+      <p style="margin:0 0 16px;font-size:15px;">Your membership (<strong>${escapeHtml(program)}</strong>) is active, and your <strong>${usdFmt.format(ctx.depositUsd)}</strong> deposit is credited to your reserve.</p>
+      <p style="margin:0 0 12px;">${button(`${SITE_URL}/account/members`, "See your balance →")}</p>
+      <p style="margin:0;font-size:13px;color:#374151;">Book any time from your account or with one phone call — the desk answers 24/7.</p>
     `,
   );
   return sendEmail({ to: ctx.to, subject, html, text, replyTo: DISPATCH_NOTIFY });
@@ -1008,16 +1119,16 @@ export async function sendTopUpReceiptEmail(ctx: {
   const text = [
     `${ctx.firstName},`,
     ``,
-    `We've credited ${usdFmt.format(ctx.amountUsd)} to your reserve.`,
+    `We've added ${usdFmt.format(ctx.amountUsd)} to your reserve.`,
     ``,
-    `Balance & ledger: ${SITE_URL}/account/members`,
+    `Balance and history: ${SITE_URL}/account/members`,
   ].join("\n");
   const html = brandedShell(
-    "Reserve · Top-up",
-    `${ctx.firstName} — credited.`,
+    "Reserve top-up",
+    `${ctx.firstName}, it's in your reserve.`,
     `
-      <p style="margin:0 0 16px;font-size:15px;"><strong>${usdFmt.format(ctx.amountUsd)}</strong> has been credited to your reserve.</p>
-      <p style="margin:0;font-size:14px;"><a href="${SITE_URL}/account/members" style="color:#0F1115;font-weight:600;">Balance &amp; ledger →</a></p>
+      <p style="margin:0 0 16px;font-size:15px;">We&rsquo;ve added <strong>${usdFmt.format(ctx.amountUsd)}</strong> to your reserve.</p>
+      <p style="margin:0;font-size:14px;"><a href="${SITE_URL}/account/members" style="color:#0F1115;font-weight:600;">Balance and history →</a></p>
     `,
   );
   return sendEmail({ to: ctx.to, subject, html, text, replyTo: DISPATCH_NOTIFY });
@@ -1031,23 +1142,23 @@ export async function sendQuoteLifecycleEmail(ctx: {
 }): Promise<SendResult> {
   const held = ctx.kind === "held";
   const subject = held
-    ? `[${ctx.quoteCode}] Aircraft on hold for you`
-    : `[${ctx.quoteCode}] Your quote has expired — want fresh numbers?`;
+    ? `[${ctx.quoteCode}] We're holding an aircraft for you`
+    : `[${ctx.quoteCode}] Your quote has expired — want fresh prices?`;
   const text = [
     `${ctx.firstName},`,
     ``,
     held
-      ? `Dispatch has an aircraft on soft hold against your request. Holds don't last long — reply to this email or call ${SITE.dispatchPhone} to confirm, and we'll paper it.`
-      : `Your quote ${ctx.quoteCode} has expired — charter availability and pricing move daily. Reply to this email or call ${SITE.dispatchPhone} and we'll refresh the numbers in minutes.`,
+      ? `Dispatch is holding an aircraft for your request. Holds don't last long — reply to this email or call ${SITE.dispatchPhone} to confirm, and we'll send the contract.`
+      : `Your quote ${ctx.quoteCode} has expired — charter availability and prices change daily. Reply to this email or call ${SITE.dispatchPhone} and we'll send fresh prices in minutes.`,
   ].join("\n");
   const html = brandedShell(
-    `${ctx.quoteCode} · ${held ? "On hold" : "Expired"}`,
-    held ? `${ctx.firstName} — we're holding an aircraft.` : `${ctx.firstName} — those numbers went stale.`,
+    `${held ? "On hold" : "Expired"} · Reference ${ctx.quoteCode}`,
+    held ? `${ctx.firstName}, we're holding an aircraft.` : `${ctx.firstName}, those prices have expired.`,
     `
       <p style="margin:0 0 16px;font-size:15px;">${
         held
-          ? "Dispatch has an aircraft on soft hold against your request. Holds don't last long — <strong>reply to this email</strong> or call to confirm, and we'll paper it."
-          : `Quote ${escapeHtml(ctx.quoteCode)} has expired — availability and pricing move daily. <strong>Reply to this email</strong> or call, and we'll refresh the numbers in minutes.`
+          ? "Dispatch is holding an aircraft for your request. Holds don&rsquo;t last long — <strong>reply to this email</strong> or call to confirm, and we&rsquo;ll send the contract."
+          : `Quote ${escapeHtml(ctx.quoteCode)} has expired — availability and prices change daily. <strong>Reply to this email</strong> or call, and we&rsquo;ll send fresh prices in minutes.`
       }</p>
     `,
   );
@@ -1068,16 +1179,16 @@ export async function sendRefundIssuedEmail(ctx: {
     `${ctx.firstName},`,
     ``,
     `With your trip${ctx.tripCode ? ` ${ctx.tripCode}` : ""} cancelled, we've refunded ${amount} to your card (invoice ${ctx.invoiceCode}).`,
-    `Refunds typically land in 5–10 business days depending on your bank.`,
+    `Refunds usually reach your account in 5–10 business days, depending on your bank.`,
     ``,
     `Questions? Reply here or call ${SITE.dispatchPhone} — 24/7.`,
   ].join("\n");
   const html = brandedShell(
-    `${ctx.invoiceCode} · Refunded`,
-    `${ctx.firstName} — your refund is on its way.`,
+    `Refunded · Reference ${ctx.invoiceCode}`,
+    `${ctx.firstName}, your refund is on its way.`,
     `
-      <p style="margin:0 0 16px;font-size:15px;">With your trip${ctx.tripCode ? ` <strong>${escapeHtml(ctx.tripCode)}</strong>` : ""} cancelled, we've refunded <strong>${escapeHtml(amount)}</strong> to your card (invoice ${escapeHtml(ctx.invoiceCode)}).</p>
-      <p style="margin:0;font-size:13px;color:#374151;">Refunds typically land in 5–10 business days depending on your bank. Questions? Reply here or call dispatch — 24/7.</p>
+      <p style="margin:0 0 16px;font-size:15px;">With your trip${ctx.tripCode ? ` <strong>${escapeHtml(ctx.tripCode)}</strong>` : ""} cancelled, we&rsquo;ve refunded <strong>${escapeHtml(amount)}</strong> to your card (invoice ${escapeHtml(ctx.invoiceCode)}).</p>
+      <p style="margin:0;font-size:13px;color:#374151;">Refunds usually reach your account in 5–10 business days, depending on your bank. Questions? Reply here or call dispatch — 24/7.</p>
     `,
   );
   return sendEmail({ to: ctx.to, subject, html, text, replyTo: DISPATCH_NOTIFY });

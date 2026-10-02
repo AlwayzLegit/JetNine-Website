@@ -90,8 +90,8 @@ export function Placeholder({
         />
       ) : null}
 
-      {/* Caption — 13px label, top-left. When an image is shown we add a
-          subtle dark gradient under the caption for legibility. */}
+      {/* Label — 13px sans steel, sentence case, top-left. When an image is
+          shown we add a subtle dark gradient under it for legibility. */}
       {caption ? (
         <>
           {imageUrl ? (
@@ -100,7 +100,7 @@ export function Placeholder({
               className="pointer-events-none absolute inset-x-0 top-0 z-10 h-16 bg-gradient-to-b from-ink/60 to-transparent"
             />
           ) : null}
-          <span className="absolute left-4 top-4 z-10 text-[13px] font-semibold text-bone-2">
+          <span className="absolute left-4 top-4 z-10 font-sans text-[13px] font-medium leading-[1.4] text-steel">
             {captionText}
           </span>
         </>

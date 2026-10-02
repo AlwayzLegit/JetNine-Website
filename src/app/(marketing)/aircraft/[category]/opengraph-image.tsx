@@ -6,8 +6,8 @@ import { notFound } from "next/navigation";
 // /aircraft/ultra on Twitter, LinkedIn, Slack, etc., the link preview
 // renders this composition instead of the raw 4:5 fleet photo. The
 // dynamic card lays the photo behind a dark gradient + the category
-// name in display serif + the headline spec triple (pax / range /
-// speed) + the JetNine brand mark, all sized to social's expected
+// name in display serif + the headline spec triple (passengers /
+// range / speed) + the JetNine brand mark, all sized to social's expected
 // 1200×630.
 //
 // generateImageMetadata declares one image per slug so each category
@@ -28,7 +28,7 @@ export async function generateImageMetadata() {
   const { FLEET } = await import("@/lib/fleet");
   return FLEET.map((f) => ({
     id: f.slug,
-    alt: `JetNine ${f.name} — ${f.shortName}`,
+    alt: f.shortName && f.shortName !== f.name ? `JetNine ${f.name} — ${f.shortName}` : `JetNine ${f.name} private jets`,
     size,
     contentType,
   }));
@@ -49,7 +49,7 @@ export default async function CategoryOgImage({ params }: RouteParams) {
   ).replace(/\/$/, "");
   const bgUrl = `${base}${entry.imageUrl}`;
 
-  const spec = `${entry.pax} pax · ${entry.rangeNm.toLocaleString()} NM · ${entry.speedKt} KT`;
+  const spec = `${entry.pax} passengers · ${entry.rangeNm.toLocaleString()} nm · ${entry.speedKt} kt`;
 
   return new ImageResponse(
     (
@@ -108,14 +108,12 @@ export default async function CategoryOgImage({ params }: RouteParams) {
               display: "flex",
               alignItems: "center",
               gap: 16,
-              fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
+              fontFamily: '"Instrument Sans", ui-sans-serif, system-ui, -apple-system, sans-serif',
               fontSize: 16,
-              letterSpacing: "0.16em",
-              textTransform: "uppercase",
+              fontWeight: 600,
               color: "#E8E2D2",
             }}
           >
-            <span>—</span>
             <span>JetNine · {entry.kicker.replace(/^.+? · /, "")}</span>
           </div>
 
@@ -140,7 +138,7 @@ export default async function CategoryOgImage({ params }: RouteParams) {
                 lineHeight: 1.5,
                 color: "#C9C4B8",
                 maxWidth: 780,
-                fontFamily: "ui-sans-serif, system-ui, -apple-system, sans-serif",
+                fontFamily: '"Instrument Sans", ui-sans-serif, system-ui, -apple-system, sans-serif',
                 fontWeight: 400,
               }}
             >
@@ -154,15 +152,14 @@ export default async function CategoryOgImage({ params }: RouteParams) {
               display: "flex",
               justifyContent: "space-between",
               alignItems: "flex-end",
-              fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
+              fontFamily: '"Instrument Sans", ui-sans-serif, system-ui, -apple-system, sans-serif',
               fontSize: 14,
-              letterSpacing: "0.12em",
-              textTransform: "uppercase",
+              fontWeight: 500,
               color: "#E8E2D2",
             }}
           >
             <span>{spec}</span>
-            <span style={{ color: "#8A8678" }}>jetnine.com</span>
+            <span style={{ color: "#8A9099" }}>jetnine.com</span>
           </div>
         </div>
       </div>

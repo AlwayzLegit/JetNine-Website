@@ -245,7 +245,7 @@ export function SearchCard() {
             {msg.text}
           </p>
         ) : (
-          <Link href="/contact" className="text-link text-[14px]">
+          <Link href="/contact" className="text-link tap-pad text-[14px]">
             Need help choosing? Talk to a flight advisor →
           </Link>
         )}

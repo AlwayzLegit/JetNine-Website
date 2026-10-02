@@ -23,22 +23,24 @@ export default function RouteError({
   return (
     <main className="container-jn flex min-h-[70vh] items-center py-16">
       <div className="mx-auto max-w-[640px] text-center">
-        <p className="caption mb-6">— Status · 500</p>
-        <h1 className="display-l">Something went sideways.</h1>
-        <p className="mx-auto mt-6 max-w-[52ch] text-[15px] leading-[1.65] text-bone-2">
-          The page hit an unexpected error. Dispatch has been notified. You can retry,
-          head back to the homepage, or call us at <a className="text-clearance underline underline-offset-2" href="tel:+14244872707">+1 (424) 487-2707</a>.
+        <p className="eyebrow">Something went wrong</p>
+        <h1 className="title-app text-bone">Something went sideways.</h1>
+        <p className="lead mx-auto mt-5 max-w-[52ch]">
+          The page hit an unexpected error. Dispatch has been notified. You can retry, head back
+          to the homepage, or call us at{" "}
+          <a className="text-link" href="tel:+14244872707">
+            +1 (424) 487-2707
+          </a>
+          .
         </p>
         {error.digest ? (
-          <p className="mx-auto mt-4 inline-block rounded-[3px] border border-ink-3 bg-ink-2 px-4 py-2 font-mono text-[11px] tracking-[0.06em] text-steel">
-            ref · {error.digest}
-          </p>
+          <p className="mt-4 text-[13px] leading-[1.5] text-steel">Reference {error.digest}</p>
         ) : null}
         <div className="mt-10 flex flex-wrap items-center justify-center gap-4">
-          <button type="button" onClick={reset} className="btn btn-primary">
+          <button type="button" onClick={reset} className="btn btn-primary btn-lg">
             Try again <span className="arrow">→</span>
           </button>
-          <Link href="/" className="btn btn-secondary">
+          <Link href="/" className="btn btn-secondary btn-lg">
             Back to home
           </Link>
         </div>

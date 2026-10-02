@@ -14,7 +14,7 @@ import { plainDesc, plainLabel } from "@/components/how-it-works/price-copy";
 export const metadata: Metadata = pageMetadata({
   title: "How Private Jet Charter Works",
   description:
-    "A senior dispatcher, not a chatbot. One number to call. Specific airframes & pricing back within thirty minutes.",
+    "A senior dispatcher, not a chatbot. One number to call. Specific aircraft & pricing back within thirty minutes.",
   path: "/how-it-works",
 });
 
@@ -97,7 +97,7 @@ const howToJsonLd = {
   "@type": "HowTo",
   name: "How to charter a private flight with JetNine",
   description:
-    "From quote request to wheels-up in five steps. Senior dispatcher, real airframes, all-in pricing, under thirty minutes to first quote.",
+    "From quote request to wheels-up in five steps. Senior dispatcher, real aircraft, all-in pricing, under thirty minutes to first quote.",
   totalTime: "PT30M",
   step: STEPS.map((s, i) => ({
     "@type": "HowToStep",

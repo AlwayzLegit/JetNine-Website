@@ -14,7 +14,7 @@ function formatTrust(item: TrustBarItem): string {
 export function TrustBar() {
   return (
     <section aria-label="Trust indicators" className="border-y border-line-faint bg-ink-2">
-      <div className="container-jn flex gap-4 overflow-x-auto py-7 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden lg:grid lg:grid-cols-7 lg:overflow-visible">
+      <div tabIndex={0} role="region" aria-label="Why JetNine" className="container-jn relative flex gap-4 overflow-x-auto py-7 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden lg:grid lg:grid-cols-7 lg:overflow-visible">
         {TRUST_BAR.map((item) => (
           <div key={item.label} className="min-w-[150px] flex-none lg:min-w-0">
             <div className="font-serif text-[30px] font-light leading-none text-bone">

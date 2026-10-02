@@ -244,7 +244,7 @@ export default async function AccountTripDetailPage({ params }: Props) {
               <p className="mt-2 text-[14px] text-steel">
                 Everything included — federal excise tax and segment fees.
               </p>
-              <Link href="/account/invoices" className="text-link mt-3 inline-block text-[15px]">
+              <Link href="/account/invoices" className="text-link mt-1 inline-flex min-h-11 items-center text-[15px]">
                 {tripInvoice.status === "due" || tripInvoice.status === "overdue" ? "Pay this invoice" : "All invoices"}
               </Link>
             </div>

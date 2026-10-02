@@ -17,12 +17,6 @@
     --line-2: #2C323B;
     --line-faint: #161A20;
 
-    /* Transition aliases: ink-3 was #161A20 (= line-faint) and ink-4
-       #1E232B (≈ line). Existing pages keep rendering on these until
-       each is rebuilt on the surface / line tokens, then they go. */
-    --ink-3: var(--line-faint);
-    --ink-4: var(--line);
-
     /* Bone — text */
     --bone: #F4F1EA;
     --bone-2: #C9C4B8;
@@ -38,12 +32,10 @@
 
     /* Status — gold for "Recommended" / discounts / in-progress dots,
        success for open + confirmed, danger for overdue + disabled
-       reasons + required asterisks. warn / error stay as aliases. */
+       reasons + required asterisks. */
     --gold: #C9A24A;
     --success: #8FB58A;
     --danger: #E07A6B;
-    --warn: var(--gold);
-    --error: var(--danger);
 
     /* Layout */
     --container: 1200px;
@@ -99,65 +91,6 @@
     max-width: var(--container);
     margin-inline: auto;
     padding-inline: var(--pad-x);
-  }
-
-  /* Type scale */
-  .display-xl {
-    font-family: theme("fontFamily.serif");
-    font-weight: 300;
-    font-size: clamp(56px, 9vw, 96px);
-    line-height: 1.0;
-    letter-spacing: -0.02em;
-    font-variation-settings: "opsz" 144;
-  }
-  .display-l {
-    font-family: theme("fontFamily.serif");
-    font-weight: 300;
-    font-size: clamp(44px, 6vw, 72px);
-    line-height: 1.05;
-    letter-spacing: -0.015em;
-    font-variation-settings: "opsz" 144;
-  }
-  .display-m {
-    font-family: theme("fontFamily.serif");
-    font-weight: 300;
-    font-size: clamp(36px, 4.5vw, 56px);
-    line-height: 1.1;
-    letter-spacing: -0.01em;
-    font-variation-settings: "opsz" 144;
-  }
-  .h1 {
-    font-family: theme("fontFamily.serif");
-    font-weight: 400;
-    font-size: clamp(32px, 4vw, 44px);
-    line-height: 1.15;
-    letter-spacing: -0.005em;
-  }
-  .h2 {
-    font-family: theme("fontFamily.serif");
-    font-weight: 400;
-    font-size: clamp(26px, 3vw, 32px);
-    line-height: 1.2;
-  }
-  .h3 {
-    font-family: theme("fontFamily.serif");
-    font-weight: 400;
-    font-size: 24px;
-    line-height: 1.3;
-  }
-  .body-l { font-size: 18px; line-height: 1.55; color: var(--bone-2); }
-  .body-m { font-size: 16px; line-height: 1.6;  color: var(--bone-2); }
-  /* Legacy kicker. Restyled to the simplification's label so the pages
-     still using it read as sentence-case 13px steel; new work uses
-     .eyebrow / .label-jn instead. */
-  .caption {
-    font-family: theme("fontFamily.sans");
-    font-size: 13px;
-    font-weight: 500;
-    line-height: 1.4;
-    letter-spacing: 0;
-    text-transform: none;
-    color: var(--steel);
   }
 
   /* --- Simplification page grammar ------------------------------------
@@ -244,6 +177,13 @@
   }
   .text-link:hover { color: var(--bone); }
   .text-link-strong { color: var(--bone); font-weight: 500; text-decoration: underline; text-underline-offset: 3px; }
+  /* Phones: opt-in tap area for INLINE links (breadcrumbs, links in a
+     line of text). Vertical padding on an inline box grows the hit area
+     without changing line height. Do not use on block / inline-block /
+     flex links — give those `inline-flex min-h-11 items-center` instead. */
+  @media (max-width: 767px) {
+    .tap-pad { padding-block: 13px; }
+  }
 
   /* Segmented control */
   .segmented {
@@ -446,7 +386,7 @@
   .blog-prose blockquote p:last-child { margin-bottom: 0; }
   .blog-prose hr { border: none; border-top: 1px solid var(--line); margin: 48px 0; }
   .blog-prose code {
-    font-family: theme("fontFamily.mono");
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
     font-size: 0.88em;
     background: var(--surface-2);
     border-radius: 4px;
@@ -516,27 +456,6 @@
   .btn-primary:hover { background: var(--clearance-hover); }
   .btn-secondary { background: transparent; color: var(--bone); border-color: var(--line-2); }
   .btn-secondary:hover { border-color: var(--steel); }
-  .btn-ghost {
-    background: transparent;
-    color: var(--bone-2);
-    height: auto;
-    padding: 0;
-    border: none;
-    border-radius: 0;
-    position: relative;
-  }
-  .btn-ghost::after {
-    content: "";
-    position: absolute;
-    left: 0;
-    bottom: -4px;
-    height: 1px;
-    width: 0;
-    background: var(--clearance);
-    transition: width 300ms var(--ease-out);
-  }
-  .btn-ghost:hover { color: var(--bone); }
-  .btn-ghost:hover::after { width: 100%; }
   .btn-sm { height: 40px; font-size: 14px; padding: 0 16px; }
   .btn-lg { height: 52px; font-size: 16px; padding: 0 28px; }
   .btn-xl { height: 56px; font-size: 16px; padding: 0 28px; }
@@ -593,13 +512,6 @@
   .field-jn.error select,
   .field-jn.error textarea { box-shadow: 0 0 0 1px var(--danger); }
   .field-jn.error label { color: var(--danger); }
-
-  /* Animations */
-  @keyframes scrollPulse {
-    0%   { transform: scaleY(0.4); transform-origin: top; opacity: 0.4; }
-    50%  { transform: scaleY(1); opacity: 1; }
-    100% { transform: scaleY(0.4); transform-origin: bottom; opacity: 0.4; }
-  }
 
   /* Reveal-on-scroll */
   .reveal {

@@ -79,27 +79,25 @@ export function SignInForm({ next, initialError }: { next?: string; initialError
       <button
         type="submit"
         disabled={submitting || cooldown > 0}
-        className="btn btn-primary disabled:cursor-wait disabled:opacity-60"
+        className="btn btn-primary btn-lg w-full disabled:cursor-wait"
       >
         {buttonLabel}{" "}
         {!success && !submitting && cooldown === 0 ? <span className="arrow">→</span> : null}
       </button>
 
       {success ? (
-        <div className="rounded-[3px] border border-[var(--success)] bg-[rgba(91,140,90,0.08)] p-4">
-          <p className="font-mono text-[11px] uppercase tracking-[0.08em] text-[var(--success)]">
-            {success}
-          </p>
-          <p className="mt-2 font-mono text-[10px] leading-[1.6] tracking-[0.04em] text-bone-2">
-            — Arrives within a minute or two. Open it in <strong>this</strong> device&rsquo;s
-            browser. Not there? Check spam/promotions. Links are rate-limited, so wait for the
+        <div role="status" className="rounded-control border border-line-2 bg-surface-2 p-4">
+          <p className="text-[15px] font-medium leading-[1.5] text-success">{success}</p>
+          <p className="mt-2 text-[14px] leading-[1.6] text-bone-2">
+            It arrives within a minute or two. Open it in <strong>this</strong> device&rsquo;s
+            browser. Not there? Check spam or promotions. Links are rate-limited, so wait for the
             timer before resending — still nothing after a few minutes, call dispatch.
           </p>
         </div>
       ) : null}
       {error ? (
-        <p className="font-mono text-[11px] uppercase tracking-[0.12em] text-[var(--error)]">
-          — {error}
+        <p role="alert" className="text-[14px] leading-[1.5] text-danger">
+          {error}
         </p>
       ) : null}
     </form>

@@ -11,7 +11,7 @@ export default function OgImage() {
     ogCardJsx({
       kicker: "How it works",
       title: "Quote to wheels-up in under thirty minutes.",
-      lead: "Senior dispatcher, not a chatbot. One number to call. Specific airframes and pricing back, fast.",
+      lead: "Senior dispatcher, not a chatbot. One number to call. Specific aircraft and pricing back, fast.",
       bgImageUrl: `${siteBase()}/images/programs/tarmac-dusk.webp`,
     }),
     { ...size },

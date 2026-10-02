@@ -13,6 +13,8 @@ import { getMemberByUserId } from "@/lib/member";
 import { logAudit } from "@/lib/audit";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { sendContactAckEmail, sendDispatchContactNotification } from "@/lib/email";
+import { getReplyPromiseMinutes } from "@/lib/desk-settings";
+import { replyPromiseWords } from "@/lib/desk-status";
 
 export type ContactResult =
   | { ok: true; message: string }
@@ -49,7 +51,7 @@ export async function submitContactInquiry(formData: FormData): Promise<ContactR
   // is an autofill bot. Pretend success so the bot moves on; insert nothing.
   if (field("company")) {
     console.warn("submitContactInquiry honeypot tripped — dropping submission");
-    return { ok: true, message: "DISPATCH WILL REPLY WITHIN 30 MIN" };
+    return { ok: true, message: `Sent. A dispatcher will reply ${replyPromiseWords(await getReplyPromiseMinutes())}.` };
   }
 
   // Server-side validation — the client repeats this for fast feedback,
@@ -154,7 +156,7 @@ export async function submitContactInquiry(formData: FormData): Promise<ContactR
   revalidatePath("/admin/messages");
 
   if (isSmoke) {
-    return { ok: true, message: "DISPATCH WILL REPLY WITHIN 30 MIN" };
+    return { ok: true, message: `Sent. A dispatcher will reply ${replyPromiseWords(await getReplyPromiseMinutes())}.` };
   }
 
   // Fire-and-forget — never block the visitor's submit on SMTP. The email
@@ -179,6 +181,7 @@ export async function submitContactInquiry(formData: FormData): Promise<ContactR
       paxText: paxText || null,
       notes: notes || null,
       inquiriesUrl: `${baseUrl}/admin/messages?tab=form`,
+      replyMinutes: await getReplyPromiseMinutes(),
     });
 
     await logAudit({
@@ -200,11 +203,11 @@ export async function submitContactInquiry(formData: FormData): Promise<ContactR
   // (smoke+*@jetnine.com doesn't exist; acking it would just farm bounces).
   if (!isSmoke) {
     try {
-      await sendContactAckEmail({ to: email, firstName });
+      await sendContactAckEmail({ to: email, firstName, replyMinutes: await getReplyPromiseMinutes() });
     } catch (err) {
       console.error("submitContactInquiry ack email failed (non-fatal)", err);
     }
   }
 
-  return { ok: true, message: "DISPATCH WILL REPLY WITHIN 30 MIN" };
+  return { ok: true, message: `Sent. A dispatcher will reply ${replyPromiseWords(await getReplyPromiseMinutes())}.` };
 }

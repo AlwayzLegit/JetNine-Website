@@ -12,7 +12,7 @@ import { SITE } from "@/lib/constants";
 export const metadata: Metadata = pageMetadata({
   title: "Private Jet Charter Routes — Cost by City Pair",
   description:
-    "Charter costs and flight times for the lanes we fly most — LA to Vegas, New York to Miami, transcons, and international — each priced by the live engine, whole aircraft, all-in.",
+    "Charter costs and flight times for the lanes we fly most — LA to Vegas, New York to Miami, coast to coast, international — priced live, whole aircraft, all-in.",
   path: "/routes",
 });
 

@@ -27,12 +27,12 @@ export function ogCardJsx(opts: {
   title: string;
   /** Sans secondary line under the headline. ≤140 chars renders well. */
   lead: string;
-  /** Mono uppercase context line at the top. e.g. "About JetNine". */
+  /** Sentence-case sans context line at the top. e.g. "About JetNine". */
   kicker: string;
   /** Optional absolute URL of a background photo. Renders behind a
    *  diagonal dark gradient so the text stays legible. */
   bgImageUrl?: string;
-  /** Optional mono uppercase line at the bottom-left. Used by aircraft
+  /** Optional sentence-case sans line at the bottom-left. Used by aircraft
    *  category cards to show the spec triple. */
   bottomLeft?: string;
 }): React.ReactElement {
@@ -96,14 +96,12 @@ export function ogCardJsx(opts: {
             display: "flex",
             alignItems: "center",
             gap: 16,
-            fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
+            fontFamily: '"Instrument Sans", ui-sans-serif, system-ui, -apple-system, sans-serif',
             fontSize: 16,
-            letterSpacing: "0.16em",
-            textTransform: "uppercase",
+            fontWeight: 600,
             color: "#E8E2D2",
           }}
         >
-          <span>—</span>
           <span>{opts.kicker}</span>
         </div>
 
@@ -128,7 +126,7 @@ export function ogCardJsx(opts: {
               lineHeight: 1.5,
               color: "#C9C4B8",
               maxWidth: 800,
-              fontFamily: "ui-sans-serif, system-ui, -apple-system, sans-serif",
+              fontFamily: '"Instrument Sans", ui-sans-serif, system-ui, -apple-system, sans-serif',
               fontWeight: 400,
             }}
           >
@@ -142,15 +140,14 @@ export function ogCardJsx(opts: {
             display: "flex",
             justifyContent: "space-between",
             alignItems: "flex-end",
-            fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
+            fontFamily: '"Instrument Sans", ui-sans-serif, system-ui, -apple-system, sans-serif',
             fontSize: 14,
-            letterSpacing: "0.12em",
-            textTransform: "uppercase",
+            fontWeight: 500,
             color: "#E8E2D2",
           }}
         >
           <span>{opts.bottomLeft ?? ""}</span>
-          <span style={{ color: "#8A8678" }}>jetnine.com</span>
+          <span style={{ color: "#8A9099" }}>jetnine.com</span>
         </div>
       </div>
     </div>

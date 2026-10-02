@@ -23,7 +23,7 @@ export function AircraftGrid() {
             Six categories. Hundreds of aircraft. The right one for the mission, every time.
           </p>
         </div>
-        <Link href="/aircraft" className="text-link whitespace-nowrap text-[15px]">
+        <Link href="/aircraft" className="text-link tap-pad whitespace-nowrap text-[15px]">
           All aircraft →
         </Link>
       </div>

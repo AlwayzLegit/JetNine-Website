@@ -21,7 +21,9 @@
     "smoke": "tsx scripts/smoke-prod.mts",
     "smoke:e2e": "playwright test --config playwright.prod.config.ts",
     "guide:pdf": "tsx scripts/build-pricing-guide.mts",
-    "check:watchlist": "tsx scripts/check-watchlist-matching.mts"
+    "check:watchlist": "tsx scripts/check-watchlist-matching.mts",
+    "audit:launch": "tsx scripts/audit-launch.mts",
+    "audit:seo": "tsx scripts/audit-seo-snapshot.mts"
   },
   "dependencies": {
     "@sentry/nextjs": "^10.53.1",

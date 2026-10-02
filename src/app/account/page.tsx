@@ -8,6 +8,8 @@ import { quotes, quoteLegs } from "@/db/schema/quotes";
 import { staff } from "@/db/schema/staff";
 import { trips, tripLegs } from "@/db/schema/trips";
 import { getCurrentUser } from "@/lib/auth";
+import { getReplyPromiseMinutes } from "@/lib/desk-settings";
+import { replyPromiseWords } from "@/lib/desk-status";
 import { getMemberByUserId } from "@/lib/member";
 import { statusPath } from "@/lib/request-status";
 import { USD, formatDay } from "@/lib/request-page";
@@ -52,6 +54,8 @@ export default async function AccountPage({ searchParams }: Props) {
 
   const firstName = user.firstName || user.email.split("@")[0];
   const today = todayISO();
+  // Reply-time promise from the desk setting (Settings › Notifications).
+  const replyMinutes = await getReplyPromiseMinutes();
   const member = await safe("member", () => getMemberByUserId(user.id), null);
 
   // ── Quotes in progress ──────────────────────────────────────────────
@@ -299,7 +303,7 @@ export default async function AccountPage({ searchParams }: Props) {
           <SectionHead label="Quotes · submitted & in progress" href="/account/quotes" linkText="All quotes →" className="mt-7" />
           {openQuotes.length === 0 ? (
             <div className="card mt-2.5 flex flex-wrap items-center justify-between gap-4 px-6 py-[18px] max-md:px-4">
-              <p className="text-[15px] text-bone-2">No open requests. Dispatch answers a new one within 30 minutes.</p>
+              <p className="text-[15px] text-bone-2">No open requests. Dispatch answers a new one {replyPromiseWords(replyMinutes)}.</p>
               <Link href="/quote/mission" className="btn btn-secondary btn-sm">
                 Request a quote <span aria-hidden="true">→</span>
               </Link>
@@ -316,7 +320,7 @@ export default async function AccountPage({ searchParams }: Props) {
                     key={q.id}
                     href={q.statusToken ? statusPath(q.statusToken) : null}
                     title={title}
-                    status={quoteStatusWords(q.status, q.slaDeadlineAt)}
+                    status={quoteStatusWords(q.status, q.slaDeadlineAt, undefined, replyMinutes)}
                   />
                 );
               })}

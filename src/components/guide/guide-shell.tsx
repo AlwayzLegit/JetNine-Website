@@ -79,7 +79,7 @@ export function GuideShell({
       <header className="bg-ink pt-[96px] max-md:pt-14">
         <div className="container-jn">
           <p className="eyebrow">
-            <Link href="/guides" className="transition-colors hover:text-bone">
+            <Link href="/guides" className="tap-pad transition-colors hover:text-bone">
               The charter pricing guide
             </Link>
             <span aria-hidden> · </span>

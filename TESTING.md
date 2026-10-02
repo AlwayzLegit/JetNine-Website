@@ -207,7 +207,7 @@ dispatcher alert.
 | 4.5 | Review step: confirm summary visible, click Submit | Redirect to a success page (probably `/quote/submitted` or back to `/` with a flash) |
 | 4.6 | Supabase MCP: `select id, quote_code, status, contact_snapshot from public.quotes order by received_at desc limit 1` | Row inserted with `status='submitted'` and `contact_snapshot.email` matching what you entered. `phoneE164` field should be in canonical E.164 (PR #12 fix). |
 | 4.7 | Vercel `get_runtime_logs` last 5 min | Zero errors related to email send. Optionally a `[email]` log line. |
-| 4.8 | Check destination inbox for customer ack | Arrives ≤30 s. Sender `JetNine <dispatch@jetnine.com>`. Subject `<QUOTE_CODE> — your JetNine quote request`. HTML renders cleanly (no broken images, no raw `{{ }}` placeholders). Reply-to is `anna@jetnine.com`. |
+| 4.8 | Check destination inbox for customer ack | Arrives ≤30 s. Sender `JetNine <dispatch@jetnine.com>`. Subject `[<QUOTE_CODE>] We've got your trip request`. HTML renders cleanly (no broken images, no raw `{{ }}` placeholders). Reply-to is `anna@jetnine.com`. |
 | 4.9 | Check `anna@jetnine.com` inbox (if you have access) for dispatcher alert | Arrives ≤30 s. Subject prefix `[NEW]`. Body has the workbench URL. |
 | 4.10 | Take a screenshot of customer ack email and dispatcher alert email |
 

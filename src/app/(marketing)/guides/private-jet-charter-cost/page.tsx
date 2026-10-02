@@ -16,7 +16,7 @@ import { computeIndicative, formatUSD } from "@/lib/quote-pricing";
 export const metadata: Metadata = pageMetadata({
   title: "How Much Does a Private Jet Cost? (2026)",
   description:
-    "Straight answer with real rates: $3,200–$11,200/hr at market by category, a fully itemized $47,260 transcon quote, per-passenger math, and how to pay 30–60% less.",
+    "Straight answer with real rates: $3,200–$11,200/hr by category, an itemized $47,260 coast-to-coast quote, per-passenger math, and how to pay 30–60% less.",
   path: "/guides/private-jet-charter-cost",
 });
 
@@ -119,7 +119,7 @@ export default function CharterCostPage() {
             about ten hours of flight time. This is the same breakdown a JetNine quote itemizes
             before you accept:
           </p>
-          <div className="card mt-8 overflow-x-auto">
+          <div className="card relative mt-8 overflow-x-auto" tabIndex={0} role="region" aria-label="Price breakdown — scrolls sideways">
             <table className="table-jn min-w-[600px]">
               <tbody>
                 {PRICE_STACK.map((row) => (
@@ -231,7 +231,7 @@ export default function CharterCostPage() {
                 <span className="font-serif text-[48px] font-light leading-none text-clearance">{c.n}</span>
                 <h3 className="title-card-sm mt-5 text-bone">{c.h}</h3>
                 <p className="mt-3 flex-1 text-[16px] leading-[1.6] text-bone-2">{c.p}</p>
-                <Link href={c.href} className="mt-6 text-[15px] font-medium text-bone">
+                <Link href={c.href} className="mt-3 inline-flex min-h-[44px] items-center text-[15px] font-medium text-bone">
                   {c.cta} <span className="arrow">→</span>
                 </Link>
               </div>

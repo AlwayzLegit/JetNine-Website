@@ -20,7 +20,7 @@ const nmFormat = new Intl.NumberFormat("en-US");
 const FAQ = [
   {
     q: "What does the hourly rate include?",
-    a: "On a JetNine quote: the airframe, two-pilot crew, fuel, landing fees, repositioning, 7.5% FET, standard catering, and a sedan transfer. Some brokers quote a bare hourly and add those back later — always compare all-in totals, not headline rates.",
+    a: "On a JetNine quote: the aircraft, two-pilot crew, fuel, landing fees, repositioning, 7.5% FET, standard catering, and a sedan transfer. Some brokers quote a bare hourly and add those back later — always compare all-in totals, not headline rates.",
   },
   {
     q: "Is billed time the same as time in the air?",
@@ -28,7 +28,7 @@ const FAQ = [
   },
   {
     q: "Why is a heavy jet three times the hourly of a light jet?",
-    a: "Fuel burn scales with airframe size, crews are larger, maintenance reserves are higher, and acquisition costs are in a different bracket. You're paying for range and cabin: a light jet does 3-hour legs for 6–7 people; a heavy does transatlantic legs with two cabin zones for 12.",
+    a: "Fuel burn scales with aircraft size, crews are larger, maintenance reserves are higher, and acquisition costs are in a different bracket. You're paying for range and cabin: a light jet does 3-hour legs for 6–7 people; a heavy does transatlantic legs with two cabin zones for 12.",
   },
 ];
 
@@ -80,7 +80,7 @@ export default function CostPerHourPage() {
             1,500 nm the faster aircraft often costs less all-in, and it always costs less of your
             day. The wizard runs this math per route automatically.
           </p>
-          <div className="-mx-5 mt-8 flex gap-4 overflow-x-auto px-5 md:mx-0 md:grid md:grid-cols-3 md:overflow-visible md:px-0 xl:grid-cols-6">
+          <div className="-mx-[var(--pad-x)] mt-8 flex gap-4 overflow-x-auto px-[var(--pad-x)] md:mx-0 md:grid md:grid-cols-3 md:overflow-visible md:px-0 xl:grid-cols-6">
             {FLEET.map((f) => (
               <Link key={f.slug} href={f.href} className="card card-pad group min-w-[200px] md:min-w-0 max-md:p-5">
                 <div className="label-jn">{f.shortName}</div>

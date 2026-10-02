@@ -101,7 +101,7 @@ export default async function ModelPage({ params }: RouteParams) {
     },
     {
       q: `Is the ${m.shortName} the right choice for my trip?`,
-      a: `${m.lead} If your mission runs past its range or seats, the ${entry.teaser.right.title.toLowerCase()} step-up usually answers; the quote wizard recommends a category per route automatically, and a dispatcher will tell you straight if a cheaper airframe does your trip just as well.`,
+      a: `${m.lead} If your mission runs past its range or seats, the ${entry.teaser.right.title.toLowerCase()} step-up usually answers; the quote wizard recommends a category per route automatically, and a dispatcher will tell you straight if a cheaper aircraft does your trip just as well.`,
     },
   ];
 
@@ -207,11 +207,11 @@ export default async function ModelPage({ params }: RouteParams) {
         lead={plainWords(m.lead)}
       >
         <nav aria-label="Breadcrumb" className="mt-6 text-[15px] text-bone-2">
-          <Link href="/aircraft" className="text-link">
+          <Link href="/aircraft" className="text-link tap-pad">
             Aircraft
           </Link>
           <span aria-hidden> · </span>
-          <Link href={entry.href} className="text-link">
+          <Link href={entry.href} className="text-link tap-pad">
             {entry.name}
           </Link>
           <span aria-hidden> · </span>

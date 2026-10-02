@@ -22,7 +22,7 @@ export async function generateMetadata(): Promise<Metadata> {
   const when = replyPromiseWords(await getReplyPromiseMinutes());
   return {
     title: "Request a Private Jet Charter Quote",
-    description: `Route, timing, and aircraft preferences in four short steps — a senior dispatcher returns three to five vetted aircraft with all-in pricing ${when}.`,
+    description: `Route, timing, and aircraft preferences in four short steps — a senior dispatcher returns three to five vetted aircraft with all-in pricing ${when} during operating hours.`,
     alternates: { canonical: "/quote/mission" },
   };
 }

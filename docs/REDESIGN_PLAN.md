@@ -26,8 +26,32 @@ operators, aircraft, airports and live ops are no longer managed here.
 | 5 | Admin: five-section desk | 1, owner decisions below |
 | 6 | Dictionary in emails/SMS, mobile pass, launch checks (a11y audits, URL + JSON-LD diff, Semrush re-run, PostHog comparison) | 2–5 |
 
-Phases 1–5 are done (1–2 merged in #67, 3 in #68, 4 in #69, 5 on the
-branch; see the status notes below). Phase 6 is next.
+All six phases are done (1–2 merged in #67, 3 in #68, 4 in #69, 5 in
+#70, 6 on the branch; see the status notes below). Launch-check results
+and the after-deploy list are in `docs/LAUNCH_CHECKS.md`.
+
+### Phase 6 status
+
+Shipped: the plain-words dictionary in everything the site sends —
+client and desk emails, SMS (STOP / HELP handling and the A2P wording
+kept), cron and webhook alerts — and in the source data behind the
+public pages (`fleet`, `models`, `rates`, `cities`, `routes`,
+`questions`, `faq`), page descriptions and JSON-LD text. Email subjects
+keep their bracketed references for reply threading. The client-facing
+reply time follows the desk's reply promise (Settings › Notifications)
+on the quote flow, the request page, the account and the acknowledgment
+emails; static marketing copy keeps the advertised 30 minutes.
+
+Retired: JetBrains Mono, the old type classes (`display-*`, `h1–h3`,
+`body-*`, `caption`, `btn-ghost`), the transition colour aliases
+(`ink-3`, `ink-4`, `warn`, `error`) and four unused components. Sign-in,
+error pages and social images moved to the new grammar.
+
+Checks: URL / metadata / JSON-LD diff against the pre-redesign build
+(no URL, title, canonical or structured-data type lost), a phone and
+accessibility audit of every page (no sideways scroll, no control under
+24px, no axe violations after the fixes), and a PostHog traffic
+baseline. Scripts: `pnpm audit:seo`, `pnpm audit:launch`.
 
 ### Phase 5 status
 

@@ -231,7 +231,7 @@ export default function CharterCostPage() {
                 <span className="font-serif text-[48px] font-light leading-none text-clearance">{c.n}</span>
                 <h3 className="title-card-sm mt-5 text-bone">{c.h}</h3>
                 <p className="mt-3 flex-1 text-[16px] leading-[1.6] text-bone-2">{c.p}</p>
-                <Link href={c.href} className="mt-6 text-[15px] font-medium text-bone">
+                <Link href={c.href} className="mt-3 inline-flex min-h-[44px] items-center text-[15px] font-medium text-bone">
                   {c.cta} <span className="arrow">→</span>
                 </Link>
               </div>

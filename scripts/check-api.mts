@@ -77,10 +77,22 @@ function check(name: string, cond: boolean, detail?: unknown) {
     "127.0.0.1", "10.1.2.3", "172.16.0.1", "172.31.255.255", "192.168.1.1", "169.254.169.254",
     "100.64.0.1", "0.0.0.0", "224.0.0.1", "255.255.255.255", "::1", "::", "fd00::1", "fe80::1",
     "::ffff:127.0.0.1", "::ffff:10.0.0.1", "64:ff9b::a00:1", "ff02::1", "not-an-ip",
+    // Hex forms Node's URL parser produces for bracketed IPv6 hosts.
+    "::ffff:7f00:1", "::ffff:a9fe:a9fe", "::7f00:1", "0:0:0:0:0:ffff:7f00:1", "::ffff:0:7f00:1",
+    "2002:7f00:1::", "2002:a9fe:a9fe::1", "2001:0:4136:e378::1", "2001:db8::1", "64:ff9b:1::1",
+    "FE80::1", "fe80::1%eth0",
   ];
-  const allowed = ["8.8.8.8", "1.1.1.1", "172.32.0.1", "104.16.0.1", "2606:4700::1111", "::ffff:8.8.8.8"];
+  const allowed = [
+    "8.8.8.8", "1.1.1.1", "172.32.0.1", "104.16.0.1", "2606:4700::1111", "::ffff:8.8.8.8",
+    "::ffff:808:808", "2002:808:808::1", "2a00:1450:4001:80b::200e",
+  ];
   for (const ip of blocked) check(`blocks ${ip}`, isBlockedAddress(ip));
   for (const ip of allowed) check(`allows ${ip}`, !isBlockedAddress(ip));
+  // What the fetcher actually sees: URL-normalised hosts.
+  for (const u of ["https://[::ffff:127.0.0.1]/", "https://2130706433/", "https://0x7f.1/", "https://[::127.0.0.1]/", "https://[0:0:0:0:0:ffff:a9fe:a9fe]/"]) {
+    const host = new URL(u).hostname.replace(/^\[|\]$/g, "");
+    check(`blocks URL host ${u} (${host})`, isBlockedAddress(host));
+  }
 }
 
 // ─── Registry ────────────────────────────────────────────────────────────

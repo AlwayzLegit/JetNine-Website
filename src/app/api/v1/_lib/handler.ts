@@ -46,6 +46,25 @@ export type RouteDef = {
 
 const MAX_BODY = 256 * 1024;
 
+/** Read the body as text, giving up (null) once it passes `max` bytes — chunked bodies included. */
+async function readCapped(req: Request, max: number): Promise<string | null> {
+  if (!req.body) return "";
+  const reader = req.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    total += value.byteLength;
+    if (total > max) {
+      await reader.cancel();
+      return null;
+    }
+    chunks.push(value);
+  }
+  return Buffer.concat(chunks).toString("utf8");
+}
+
 /** Turn a RouteDef into a Next.js route handler. */
 export function apiHandler(def: RouteDef) {
   return async (req: Request, ctx: { params: Promise<Record<string, string>> }): Promise<NextResponse> => {
@@ -130,8 +149,8 @@ export function apiHandler(def: RouteDef) {
         errorCode = "invalid";
         return finish(failure(requestId, err("invalid", "Request body is too large."), 413));
       }
-      const text = await req.text();
-      if (text.length > MAX_BODY) {
+      const text = await readCapped(req, MAX_BODY);
+      if (text === null) {
         errorCode = "invalid";
         return finish(failure(requestId, err("invalid", "Request body is too large."), 413));
       }

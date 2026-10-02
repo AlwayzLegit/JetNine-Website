@@ -40,23 +40,49 @@ const BLOCKED_V4 = [
   "240.0.0.0/4",
 ];
 
+/** Expand an IPv6 address (any notation, incl. a trailing dotted IPv4) to 8 hextets. */
+function expandV6(ip: string): number[] | null {
+  let a = ip.toLowerCase().split("%")[0];
+  const dotted = /(\d+\.\d+\.\d+\.\d+)$/.exec(a);
+  if (dotted) {
+    if (isIP(dotted[1]) !== 4) return null;
+    const n = v4ToInt(dotted[1]);
+    a = a.slice(0, -dotted[1].length) + `${(n >>> 16).toString(16)}:${(n & 0xffff).toString(16)}`;
+  }
+  const halves = a.split("::");
+  if (halves.length > 2) return null;
+  const head = halves[0] ? halves[0].split(":") : [];
+  const tail = halves.length === 2 && halves[1] ? halves[1].split(":") : [];
+  const fill = halves.length === 2 ? 8 - head.length - tail.length : 0;
+  if (fill < 0) return null;
+  const parts = [...head, ...Array(fill).fill("0"), ...tail];
+  if (parts.length !== 8) return null;
+  const out = parts.map((h) => (/^[0-9a-f]{1,4}$/.test(h) ? parseInt(h, 16) : NaN));
+  return out.some(Number.isNaN) ? null : out;
+}
+
+const v4From = (hi: number, lo: number) => `${hi >> 8}.${hi & 0xff}.${lo >> 8}.${lo & 0xff}`;
+
 /** True when the address must never be fetched. Exported for scripts/check-api.mts. */
 export function isBlockedAddress(ip: string): boolean {
   const v = isIP(ip);
   if (v === 4) return BLOCKED_V4.some((c) => inV4(ip, c));
-  if (v === 6) {
-    const a = ip.toLowerCase();
-    if (a === "::" || a === "::1") return true;
-    const mapped = /^::ffff:(\d+\.\d+\.\d+\.\d+)$/.exec(a);
-    if (mapped) return isBlockedAddress(mapped[1]);
-    const first = parseInt(a.split(":")[0] || "0", 16);
-    if ((first & 0xfe00) === 0xfc00) return true; // fc00::/7 unique local
-    if ((first & 0xffc0) === 0xfe80) return true; // fe80::/10 link local
-    if ((first & 0xff00) === 0xff00) return true; // ff00::/8 multicast
-    if (a.startsWith("64:ff9b:")) return true; // NAT64 can reach v4 private space
-    return false;
+  if (v !== 6) return true;
+  const h = expandV6(ip);
+  if (!h) return true;
+  const zeros = (n: number) => h.slice(0, n).every((x) => x === 0);
+  // ::/96 (incl. :: and ::1, IPv4-compatible), ::ffff:0:0/96 (mapped),
+  // ::ffff:0:0:0/96 (translated): judge by the embedded IPv4.
+  if (zeros(6) || (zeros(5) && h[5] === 0xffff) || (zeros(4) && h[4] === 0xffff && h[5] === 0)) {
+    return zeros(8) || (zeros(7) && h[7] === 1) || isBlockedAddress(v4From(h[6], h[7]));
   }
-  return true;
+  if (h[0] === 0x64 && h[1] === 0xff9b) return true; // NAT64 64:ff9b::/96 and 64:ff9b:1::/48
+  if (h[0] === 0x2002) return isBlockedAddress(v4From(h[1], h[2])); // 6to4 embeds an IPv4
+  if (h[0] === 0x2001 && (h[1] === 0 || h[1] === 0xdb8)) return true; // Teredo, documentation
+  if ((h[0] & 0xfe00) === 0xfc00) return true; // fc00::/7 unique local
+  if ((h[0] & 0xffc0) === 0xfe80) return true; // fe80::/10 link local
+  if ((h[0] & 0xff00) === 0xff00) return true; // ff00::/8 multicast
+  return false;
 }
 
 async function hostIsSafe(hostname: string): Promise<boolean> {

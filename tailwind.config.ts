@@ -8,9 +8,6 @@ const config: Config = {
         ink: {
           DEFAULT: "var(--ink)",
           2: "var(--ink-2)",
-          // Transition aliases (see globals.css) — prefer surface / line.
-          3: "var(--ink-3)",
-          4: "var(--ink-4)",
         },
         surface: {
           DEFAULT: "var(--surface)",
@@ -36,9 +33,6 @@ const config: Config = {
         gold: "var(--gold)",
         success: "var(--success)",
         danger: "var(--danger)",
-        // Aliases of gold / danger kept for pages not yet rebuilt.
-        warn: "var(--warn)",
-        error: "var(--error)",
       },
       fontFamily: {
         serif: ["var(--font-fraunces)", "Fraunces", "Times New Roman", "serif"],
@@ -49,9 +43,6 @@ const config: Config = {
           "-apple-system",
           "sans-serif",
         ],
-        // Retired by the simplification (no mono labels); still loaded
-        // while the remaining pages move off `font-mono` / `.caption`.
-        mono: ["var(--font-jetbrains-mono)", "JetBrains Mono", "ui-monospace", "monospace"],
       },
       borderRadius: {
         card: "var(--radius-card)",
@@ -70,10 +61,6 @@ const config: Config = {
       transitionTimingFunction: {
         "out-quint": "cubic-bezier(0.16, 1, 0.3, 1)",
         "in-quint": "cubic-bezier(0.4, 0, 1, 1)",
-      },
-      letterSpacing: {
-        kicker: "0.12em",
-        "kicker-wide": "0.16em",
       },
     },
   },

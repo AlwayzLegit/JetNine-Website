@@ -5,9 +5,10 @@ import { useEffect } from "react";
 // Renders its own <html>, so globals.css may not be loaded: everything is
 // inline in the simplification tokens (ink / bone / bone-2 / steel /
 // clearance, 8px control radius, Instrument Sans with a system fallback).
-const SANS =
-  'var(--font-instrument-sans), "Instrument Sans", system-ui, -apple-system, "Segoe UI", sans-serif';
-const SERIF = 'var(--font-fraunces), Fraunces, Georgia, "Times New Roman", serif';
+// No var(--font-*) here: the root layout (which defines them) is not
+// rendered, and an undefined var() would void the whole declaration.
+const SANS = '"Instrument Sans", system-ui, -apple-system, "Segoe UI", sans-serif';
+const SERIF = 'Fraunces, Georgia, "Times New Roman", serif';
 
 export default function GlobalError({
   error,

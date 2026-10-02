@@ -124,13 +124,13 @@ export const FLEET: FleetEntry[] = [
     kicker: "Turboprop · category 01 of 06",
     title: "Turboprop charter.",
     lead:
-      "Short runways, mountain airports, unpaved strips — the airframes that fly where jets can't. Lower hourly than light jets, longer endurance for slow-cruise missions. The right answer when the destination is the problem, not the distance.",
+      "Short runways, mountain airports, unpaved strips — the aircraft that fly where jets can't. Lower hourly than light jets, longer endurance for slow-cruise missions. The right answer when the destination is the problem, not the distance.",
     heroImageCaption: "— TURBOPROP, RAMP MIDDAY",
     heroSpecs: [
-      { label: "PAX", value: "6–9", sub: "Typical config" },
-      { label: "RANGE", value: "1,200 NM", sub: "Max with reserves" },
+      { label: "Passengers", value: "6–9", sub: "Typical config" },
+      { label: "RANGE", value: "1,200 nm", sub: "Max with reserves" },
       { label: "SPEED", value: "290 KT", sub: "Cruise" },
-      { label: "ENDURANCE", value: "~4 HR", sub: "Single sector" },
+      { label: "ENDURANCE", value: "~4 HR", sub: "One leg" },
       { label: "CRUISE ALT", value: "30", sub: "FL300" },
       { label: "BAGGAGE", value: "50 CU FT", sub: "Externally loaded" },
     ],
@@ -143,7 +143,7 @@ export const FLEET: FleetEntry[] = [
         "/images/aircraft/cabin/turboprop-baggage.webp",
       ],
       caption:
-        "A typical turboprop cabin runs 16 to 18 feet of length, 4'9\" of cabin height, and seats six to nine in club plus aft seating. Refreshment galley, enclosed lavatory on most types, Wi-Fi available on newer airframes. Built for short runways the airline can't touch.",
+        "A typical turboprop cabin runs 16 to 18 feet of length, 4'9\" of cabin height, and seats six to nine in club plus aft seating. Refreshment galley, enclosed lavatory on most types, Wi-Fi available on newer aircraft. Built for short runways the airline can't touch.",
     },
     samples: [
       {
@@ -216,14 +216,14 @@ export const FLEET: FleetEntry[] = [
       right: {
         label: "STEP UP",
         title: "Light jet",
-        body: "Adds 460 NM of range and 120 knots of cruise speed. Same passenger count, jet-quiet cabin, paved runways only.",
+        body: "Adds 460 nm of range and 120 knots of cruise speed. Same passenger count, jet-quiet cabin, paved runways only.",
         href: "/aircraft/light",
         cta: "Explore light",
       },
     },
     finalCta: {
       heading: "Turboprop, ready to go.",
-      body: "Tell us the route. We'll surface the right airframe within minutes — all-in pricing, no surprises.",
+      body: "Tell us the route. We'll surface the right aircraft within minutes — all-in pricing, no surprises.",
     },
   },
 
@@ -234,7 +234,7 @@ export const FLEET: FleetEntry[] = [
     shortName: "Light jet",
     cap: "— LIGHT JET, DAWN TARMAC",
     blurb:
-      "The quick-turn workhorse. East-coast hops, regional sectors, fast crew swaps.",
+      "The quick-turn workhorse. East-coast hops, regional legs, fast crew swaps.",
     pax: 7,
     rangeNm: 1660,
     speedKt: 410,
@@ -250,10 +250,10 @@ export const FLEET: FleetEntry[] = [
       "The fastest way to skip the airline. Six to seven seats, three-hour legs, smaller airports the big iron can't touch. Lower hourly than midsize, quicker to dispatch, ideal for one-hop business trips and short-range family flights.",
     heroImageCaption: "— LIGHT, RAMP DAWN",
     heroSpecs: [
-      { label: "PAX", value: "6–7", sub: "Typical config" },
-      { label: "RANGE", value: "1,660 NM", sub: "Max with reserves" },
+      { label: "Passengers", value: "6–7", sub: "Typical config" },
+      { label: "RANGE", value: "1,660 nm", sub: "Max with reserves" },
       { label: "SPEED", value: "405 KT", sub: "Cruise" },
-      { label: "ENDURANCE", value: "~3.5 HR", sub: "Single sector" },
+      { label: "ENDURANCE", value: "~3.5 HR", sub: "One leg" },
       { label: "CRUISE ALT", value: "45", sub: "FL450" },
       { label: "BAGGAGE", value: "55 CU FT", sub: "External + internal" },
     ],
@@ -266,7 +266,7 @@ export const FLEET: FleetEntry[] = [
         "/images/aircraft/cabin/light-galley.webp",
       ],
       caption:
-        "A typical light cabin runs 13 to 16 feet of length, 4'9\" of cabin height, and seats six to seven in a four-seat club plus side-facing or aft seats. Refreshment galley with snacks & bar; enclosed lavatory on most airframes. Wi-Fi available on newer types.",
+        "A typical light cabin runs 13 to 16 feet of length, 4'9\" of cabin height, and seats six to seven in a four-seat club plus side-facing or aft seats. Refreshment galley with snacks & bar; enclosed lavatory on most aircraft. Wi-Fi available on newer types.",
     },
     samples: [
       {
@@ -339,14 +339,14 @@ export const FLEET: FleetEntry[] = [
       right: {
         label: "STEP UP",
         title: "Midsize",
-        body: "Adds 700 NM of range, two extra seats, and a stand-up cabin. The everyday workhorse for coast-to-coast.",
+        body: "Adds 700 nm of range, two extra seats, and a stand-up cabin. The everyday workhorse for coast-to-coast.",
         href: "/aircraft/midsize",
         cta: "Explore midsize",
       },
     },
     finalCta: {
       heading: "Light jet, ready to go.",
-      body: "Tell us the route. We'll surface three to five light airframes within minutes — all-in pricing, no surprises.",
+      body: "Tell us the route. We'll surface three to five light jets within minutes — all-in pricing, no surprises.",
     },
   },
 
@@ -373,10 +373,10 @@ export const FLEET: FleetEntry[] = [
       "The everyday choice. Stand-up cabin, real galley, a flight attendant when you want one. Coast-to-coast across the US, transcontinental Europe, transatlantic with a single fuel stop. The category most missions land on — for good reason.",
     heroImageCaption: "— MIDSIZE, OVERWING DUSK",
     heroSpecs: [
-      { label: "PAX", value: "8–9", sub: "Typical config" },
-      { label: "RANGE", value: "2,400 NM", sub: "Max with reserves" },
+      { label: "Passengers", value: "8–9", sub: "Typical config" },
+      { label: "RANGE", value: "2,400 nm", sub: "Max with reserves" },
       { label: "SPEED", value: "430 KT", sub: "Cruise" },
-      { label: "ENDURANCE", value: "~5 HR", sub: "Single sector" },
+      { label: "ENDURANCE", value: "~5 HR", sub: "One leg" },
       { label: "CRUISE ALT", value: "45", sub: "FL450" },
       { label: "BAGGAGE", value: "90 CU FT", sub: "Internal + external" },
     ],
@@ -389,7 +389,7 @@ export const FLEET: FleetEntry[] = [
         "/images/aircraft/cabin/midsize-galley.webp",
       ],
       caption:
-        "A typical midsize cabin runs 18 to 22 feet of length, six feet of stand-up height, and seats eight to nine in a four-seat club plus three- or four-place divan. Full galley with hot & cold options. Enclosed lavatory. Wi-Fi standard on most airframes in the network.",
+        "A typical midsize cabin runs 18 to 22 feet of length, six feet of stand-up height, and seats eight to nine in a four-seat club plus three- or four-place divan. Full galley with hot & cold options. Enclosed lavatory. Wi-Fi standard on most aircraft in the network.",
     },
     samples: [
       {
@@ -433,7 +433,7 @@ export const FLEET: FleetEntry[] = [
       {
         iconKey: "globe",
         title: "Coast-to-coast US",
-        body: "LAX to JFK in a single sector with reserves. New York to LA into the wind, plan a tech stop.",
+        body: "LAX to JFK in a single leg with reserves. New York to LA into the wind, plan a tech stop.",
       },
       {
         iconKey: "compass",
@@ -448,28 +448,28 @@ export const FLEET: FleetEntry[] = [
       {
         iconKey: "calendar",
         title: "Multi-day mission",
-        body: "Crew rest within day, real lavatory, full galley. Built for back-to-back sectors over a week.",
+        body: "Crew rest within day, real lavatory, full galley. Built for back-to-back legs over a week.",
       },
     ],
     teaser: {
       left: {
         label: "STEP DOWN",
         title: "Light jet",
-        body: "Quicker turn, lower hourly. Trades the stand-up cabin for a 7-seat layout and 1,660 NM range.",
+        body: "Quicker turn, lower hourly. Trades the stand-up cabin for a 7-seat layout and 1,660 nm range.",
         href: "/aircraft/light",
         cta: "Explore light",
       },
       right: {
         label: "STEP UP",
         title: "Super-midsize",
-        body: "Adds 1,100 NM of range and a flat-floor cabin. Transatlantic non-stop on most sectors.",
+        body: "Adds 1,100 nm of range and a flat-floor cabin. Transatlantic non-stop on most legs.",
         href: "/aircraft/supermid",
         cta: "Explore super-mid",
       },
     },
     finalCta: {
       heading: "Midsize, ready to go.",
-      body: "Tell us the route. We'll surface three to five midsize airframes within minutes — all-in pricing, no surprises.",
+      body: "Tell us the route. We'll surface three to five midsize jets within minutes — all-in pricing, no surprises.",
     },
   },
 
@@ -480,7 +480,7 @@ export const FLEET: FleetEntry[] = [
     shortName: "Super-mid",
     cap: "— SUPER-MID, CABIN DETAIL",
     blurb:
-      "True transcontinental range with a flat-floor cabin. Transatlantic with a single fuel stop.",
+      "True coast-to-coast range with a flat-floor cabin. Transatlantic with a single fuel stop.",
     pax: 9,
     rangeNm: 3500,
     speedKt: 490,
@@ -493,13 +493,13 @@ export const FLEET: FleetEntry[] = [
     kicker: "Super-mid · category 04 of 06",
     title: "Super-mid charter.",
     lead:
-      "Faster, longer, and a flat-floor cabin. Transatlantic non-stop on most sectors. The category that disappears the difference between coast-to-coast and Europe — and feels heavy-jet inside without the heavy-jet hourly.",
+      "Faster, longer, and a flat-floor cabin. Transatlantic non-stop on most legs. The category that disappears the difference between coast-to-coast and Europe — and feels heavy-jet inside without the heavy-jet hourly.",
     heroImageCaption: "— SUPER-MID, IN CRUISE",
     heroSpecs: [
-      { label: "PAX", value: "8–10", sub: "Typical config" },
-      { label: "RANGE", value: "3,500 NM", sub: "Max with reserves" },
+      { label: "Passengers", value: "8–10", sub: "Typical config" },
+      { label: "RANGE", value: "3,500 nm", sub: "Max with reserves" },
       { label: "SPEED", value: "488 KT", sub: "Cruise" },
-      { label: "ENDURANCE", value: "~7 HR", sub: "Single sector" },
+      { label: "ENDURANCE", value: "~7 HR", sub: "One leg" },
       { label: "CRUISE ALT", value: "45", sub: "FL450" },
       { label: "BAGGAGE", value: "110 CU FT", sub: "Internal + external" },
     ],
@@ -512,7 +512,7 @@ export const FLEET: FleetEntry[] = [
         "/images/aircraft/cabin/supermid-galley.webp",
       ],
       caption:
-        "A typical super-midsize cabin runs 25 to 28 feet, six feet of stand-up height, and a flat floor — no center step. Double-club seating with eight to ten passengers, full hot-meal galley, enclosed lavatory, divan that converts to a berth. Wi-Fi standard, Ka-band on newer airframes.",
+        "A typical super-midsize cabin runs 25 to 28 feet, six feet of stand-up height, and a flat floor — no center step. Double-club seating with eight to ten passengers, full hot-meal galley, enclosed lavatory, divan that converts to a berth. Wi-Fi standard, Ka-band on newer aircraft.",
     },
     samples: [
       {
@@ -556,7 +556,7 @@ export const FLEET: FleetEntry[] = [
       {
         iconKey: "globe",
         title: "Transatlantic non-stop",
-        body: "NYC to London or Paris with reserves. East-coast to most of Europe in a single sector.",
+        body: "NYC to London or Paris with reserves. East-coast to most of Europe in a single leg.",
       },
       {
         iconKey: "compass",
@@ -578,21 +578,21 @@ export const FLEET: FleetEntry[] = [
       left: {
         label: "STEP DOWN",
         title: "Midsize",
-        body: "Lower hourly, similar passenger count. Trades 1,100 NM of range and the flat floor for a smaller airframe footprint.",
+        body: "Lower hourly, similar passenger count. Trades 1,100 nm of range and the flat floor for a smaller aircraft footprint.",
         href: "/aircraft/midsize",
         cta: "Explore midsize",
       },
       right: {
         label: "STEP UP",
         title: "Heavy",
-        body: "Adds 2,500 NM, a forward-and-aft cabin, and stand-up galley. The category for full-night transoceanic.",
+        body: "Adds 2,500 nm, a forward-and-aft cabin, and stand-up galley. The category for full-night transoceanic.",
         href: "/aircraft/heavy",
         cta: "Explore heavy",
       },
     },
     finalCta: {
       heading: "Super-mid, ready to go.",
-      body: "Tell us the route. We'll surface three to five super-midsize airframes within minutes — all-in pricing, no surprises.",
+      body: "Tell us the route. We'll surface three to five super-midsize jets within minutes — all-in pricing, no surprises.",
     },
   },
 
@@ -616,13 +616,13 @@ export const FLEET: FleetEntry[] = [
     kicker: "Heavy · category 05 of 06",
     title: "Heavy jet charter.",
     lead:
-      "Two cabins, a galley a chef can work in, beds that are actually beds. Twelve to fourteen passengers transoceanic with crew rest. The category for full-night sectors and groups that need to arrive ready, not recovering.",
+      "Two cabins, a galley a chef can work in, beds that are actually beds. Twelve to fourteen passengers transoceanic with crew rest. The category for full-night legs and groups that need to arrive ready, not recovering.",
     heroImageCaption: "— HEAVY, NIGHT TURN",
     heroSpecs: [
-      { label: "PAX", value: "12–14", sub: "Typical config" },
-      { label: "RANGE", value: "6,000 NM", sub: "Max with reserves" },
+      { label: "Passengers", value: "12–14", sub: "Typical config" },
+      { label: "RANGE", value: "6,000 nm", sub: "Max with reserves" },
       { label: "SPEED", value: "488 KT", sub: "Cruise" },
-      { label: "ENDURANCE", value: "~13 HR", sub: "Single sector" },
+      { label: "ENDURANCE", value: "~13 HR", sub: "One leg" },
       { label: "CRUISE ALT", value: "51", sub: "FL510" },
       { label: "BAGGAGE", value: "195 CU FT", sub: "Internal + external" },
     ],
@@ -683,7 +683,7 @@ export const FLEET: FleetEntry[] = [
       },
       {
         iconKey: "moon",
-        title: "Full crew rest sectors",
+        title: "Full crew rest legs",
         body: "Augmented crew, real beds, divided cabin. The plane that lets the dispatcher fly the longest legs legally.",
       },
       {
@@ -701,21 +701,21 @@ export const FLEET: FleetEntry[] = [
       left: {
         label: "STEP DOWN",
         title: "Super-midsize",
-        body: "Lower hourly, similar transatlantic range. Trades a second cabin and stand-up galley for the smaller airframe.",
+        body: "Lower hourly, similar transatlantic range. Trades a second cabin and stand-up galley for the smaller aircraft.",
         href: "/aircraft/supermid",
         cta: "Explore super-mid",
       },
       right: {
         label: "STEP UP",
         title: "Ultra long range",
-        body: "Adds 1,500 NM and a third zone. Non-stop city-pairs that no other category can fly without a stop.",
+        body: "Adds 1,500 nm and a third zone. Non-stop city-pairs that no other category can fly without a stop.",
         href: "/aircraft/ultra",
         cta: "Explore ultra",
       },
     },
     finalCta: {
       heading: "Heavy, ready to go.",
-      body: "Tell us the route. We'll surface three to five heavy airframes within minutes — all-in pricing, no surprises.",
+      body: "Tell us the route. We'll surface three to five heavy jets within minutes — all-in pricing, no surprises.",
     },
   },
 
@@ -723,10 +723,10 @@ export const FLEET: FleetEntry[] = [
     slug: "ultra",
     href: "/aircraft/ultra",
     name: "Ultra long range",
-    shortName: "ULR",
-    cap: "— ULR, NIGHT TARMAC",
+    shortName: "Ultra long range",
+    cap: "— ULTRA, NIGHT TARMAC",
     blurb:
-      "Transpacific in a single sector. LA to Tokyo, NY to Singapore. The longest legs the industry flies.",
+      "Transpacific in a single leg. LA to Tokyo, NY to Singapore. The longest legs the industry flies.",
     pax: 16,
     rangeNm: 7500,
     speedKt: 516,
@@ -742,10 +742,10 @@ export const FLEET: FleetEntry[] = [
       "The longest reach in civil aviation. Sixteen-passenger cabin, three zones, Mach 0.90 cruise. Non-stop city pairs no other category can fly without a stop. The category for when \"non-stop\" is the brief.",
     heroImageCaption: "— ULTRA, OCEAN CRUISE",
     heroSpecs: [
-      { label: "PAX", value: "14–19", sub: "Typical config" },
-      { label: "RANGE", value: "7,500 NM", sub: "Max with reserves" },
+      { label: "Passengers", value: "14–19", sub: "Typical config" },
+      { label: "RANGE", value: "7,500 nm", sub: "Max with reserves" },
       { label: "SPEED", value: "516 KT", sub: "Cruise (M0.90)" },
-      { label: "ENDURANCE", value: "~16 HR", sub: "Single sector" },
+      { label: "ENDURANCE", value: "~16 HR", sub: "One leg" },
       { label: "CRUISE ALT", value: "51", sub: "FL510" },
       { label: "BAGGAGE", value: "220 CU FT", sub: "Internal + external" },
     ],
@@ -763,13 +763,13 @@ export const FLEET: FleetEntry[] = [
     reach: {
       headline: ["City pairs ultra", "flies non-stop."],
       lead:
-        'Sectors that any other category would tech-stop. With ultra, the briefing is "wheels up, wheels down." Times below assume zero wind, payload of 8 PAX.',
+        'Legs that any other category would tech-stop. With ultra, the briefing is "wheels up, wheels down." Times below assume zero wind, payload of 8 passengers.',
       pairs: [
-        { pair: "NEW YORK · TOKYO", nm: "5,860 NM", time: "~13H 50M" },
-        { pair: "LONDON · SINGAPORE", nm: "5,870 NM", time: "~13H 55M" },
-        { pair: "LOS ANGELES · SYDNEY", nm: "6,510 NM", time: "~15H 25M" },
-        { pair: "DUBAI · NEW YORK", nm: "6,025 NM", time: "~14H 15M" },
-        { pair: "HONG KONG · LONDON", nm: "5,260 NM", time: "~12H 30M" },
+        { pair: "NEW YORK · TOKYO", nm: "5,860 nm", time: "~13H 50M" },
+        { pair: "LONDON · SINGAPORE", nm: "5,870 nm", time: "~13H 55M" },
+        { pair: "LOS ANGELES · SYDNEY", nm: "6,510 nm", time: "~15H 25M" },
+        { pair: "DUBAI · NEW YORK", nm: "6,025 nm", time: "~14H 15M" },
+        { pair: "HONG KONG · LONDON", nm: "5,260 nm", time: "~12H 30M" },
       ],
     },
     samples: [
@@ -818,7 +818,7 @@ export const FLEET: FleetEntry[] = [
       },
       {
         iconKey: "compass",
-        title: "Ultra-long single sector",
+        title: "Ultra-long single leg",
         body: "NYC–Tokyo, LA–Sydney, Dubai–LA. The handful of city pairs only ultra can fly non-stop.",
       },
       {
@@ -836,7 +836,7 @@ export const FLEET: FleetEntry[] = [
       left: {
         label: "STEP DOWN",
         title: "Heavy",
-        body: "Lower hourly, similar two-cabin layout. Trades 1,500 NM and the third zone — fine for most transoceanic missions.",
+        body: "Lower hourly, similar two-cabin layout. Trades 1,500 nm and the third zone — fine for most transoceanic missions.",
         href: "/aircraft/heavy",
         cta: "Explore heavy",
       },
@@ -850,17 +850,17 @@ export const FLEET: FleetEntry[] = [
     },
     finalCta: {
       heading: "Ultra, ready to go.",
-      body: "Tell us the route. We'll surface three to five ultra airframes within minutes — all-in pricing, no surprises.",
+      body: "Tell us the route. We'll surface three to five ultra-long-range jets within minutes — all-in pricing, no surprises.",
     },
   },
 ];
 
 export function formatNm(n: number): string {
-  return `${fmt.format(n)} NM`;
+  return `${fmt.format(n)} nm`;
 }
 
 export function formatPax(n: number): string {
-  return `${n} PAX`;
+  return `${n} passengers`;
 }
 
 export function formatKt(n: number): string {

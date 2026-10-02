@@ -44,7 +44,7 @@ const SEEDS: RouteSeed[] = [
     slug: "los-angeles-to-new-york",
     from: "VNY",
     to: "TEB",
-    note: "The transcon: Van Nuys to Teterboro, ramp to ramp, no terminal on either end. Westbound headwinds make the return longer — super-mid and up fly it nonstop both directions; light jets take a fuel stop westbound.",
+    note: "The coast-to-coast run: Van Nuys to Teterboro, ramp to ramp, no terminal on either end. Westbound headwinds make the return longer — super-mid and up fly it nonstop both directions; light jets take a fuel stop westbound.",
   },
   {
     slug: "los-angeles-to-san-francisco",
@@ -62,7 +62,7 @@ const SEEDS: RouteSeed[] = [
     slug: "los-angeles-to-seattle",
     from: "LAX",
     to: "SEA",
-    note: "Just under a thousand miles up the coast — light-jet territory on paper, midsize in comfort. Boeing Field (KBFI) is the closer-in alternative when Sea-Tac slots are tight; ask dispatch which fits your day.",
+    note: "Just under a thousand miles up the coast — light-jet territory on paper, midsize in comfort. Boeing Field (BFI) is the closer-in alternative when Sea-Tac slots are tight; ask dispatch which fits your day.",
   },
   {
     slug: "los-angeles-to-scottsdale",
@@ -74,7 +74,7 @@ const SEEDS: RouteSeed[] = [
     slug: "los-angeles-to-jackson-hole",
     from: "VNY",
     to: "JAC",
-    note: "High elevation, box canyon, weather that changes its mind — Jackson Hole rewards airframes and crews that know it. Our trip-level review runs the mountain-field check before every booking on this lane.",
+    note: "High elevation, box canyon, weather that changes its mind — Jackson Hole rewards aircraft and crews that know it. Our trip-level review runs the mountain-field check before every booking on this lane.",
   },
   {
     slug: "los-angeles-to-dallas",
@@ -99,7 +99,7 @@ const SEEDS: RouteSeed[] = [
     slug: "new-york-to-palm-beach",
     from: "TEB",
     to: "PBI",
-    note: "The season commute. Light jets do it nonstop with four aboard; midsize adds the full-cabin margin. Palm Beach ramp space gets tight around holidays — book the slot with the airframe.",
+    note: "The season commute. Light jets do it nonstop with four aboard; midsize adds the full-cabin margin. Palm Beach ramp space gets tight around holidays — book the slot with the aircraft.",
   },
   {
     slug: "new-york-to-aspen",
@@ -123,7 +123,7 @@ const SEEDS: RouteSeed[] = [
     slug: "boston-to-miami",
     from: "BOS",
     to: "MIA",
-    note: "Three hours down the seaboard. Hanscom Field (KBED) is Boston's executive alternative when Logan's commercial banks slow the ramp; on the Miami end, Opa-Locka usually beats MIA to the car.",
+    note: "Three hours down the seaboard. Hanscom Field (BED) is Boston's executive alternative when Logan's commercial banks slow the ramp; on the Miami end, Opa-Locka usually beats MIA to the car.",
   },
   // ── From Miami ──
   {

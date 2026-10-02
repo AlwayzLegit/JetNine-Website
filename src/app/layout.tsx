@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Fraunces, Instrument_Sans, JetBrains_Mono } from "next/font/google";
+import { Fraunces, Instrument_Sans } from "next/font/google";
 import "./globals.css";
 
 const fraunces = Fraunces({
@@ -15,15 +15,6 @@ const instrumentSans = Instrument_Sans({
   subsets: ["latin"],
   variable: "--font-instrument-sans",
   weight: ["400", "500", "600"],
-  display: "swap",
-});
-
-// Retired by the simplification (no mono labels). Stays loaded until the
-// last `font-mono` / `.caption` usages are rebuilt, then this goes.
-const jetbrainsMono = JetBrains_Mono({
-  subsets: ["latin"],
-  variable: "--font-jetbrains-mono",
-  weight: ["400", "500"],
   display: "swap",
 });
 
@@ -148,10 +139,7 @@ const supabaseOrigin = supabaseUrl ? new URL(supabaseUrl).origin : null;
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html
-      lang="en"
-      className={`${fraunces.variable} ${instrumentSans.variable} ${jetbrainsMono.variable}`}
-    >
+    <html lang="en" className={`${fraunces.variable} ${instrumentSans.variable}`}>
       <head>
         {/* Connection hints — start TLS handshakes for third-party
             origins early so the first request to each doesn't pay the

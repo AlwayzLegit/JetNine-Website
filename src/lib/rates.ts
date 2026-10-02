@@ -27,23 +27,23 @@ export const RATES_UPDATED = "August 2026";
 
 // The itemized sample quote shown on /how-it-works and reused as the
 // pricing guide's worked example — one source so the two never drift.
-// KVNY ⇄ KJFK round trip, midsize, ~10h block-time.
+// Los Angeles (VNY) ⇄ New York (JFK) round trip, midsize, ~10h block-time.
 export type PriceStackRow = { n: string; label: string; desc: string; val: string };
 export const PRICE_STACK: PriceStackRow[] = [
-  { n: "01", label: "AIRFRAME", desc: "Midsize · ~10h block-time · KVNY ⇄ KJFK round-trip", val: "$36,400" },
+  { n: "01", label: "Aircraft", desc: "Midsize · ~10h block-time · Los Angeles (VNY) ⇄ New York (JFK) round-trip", val: "$36,400" },
   { n: "02", label: "FUEL SURCHARGE", desc: "Variable component · indexed to weekly Jet-A spot", val: "$5,800" },
   { n: "03", label: "REPOSITIONING", desc: "Ferry leg if applicable · zero on this mission", val: "$0" },
   { n: "04", label: "CREW & CATERING", desc: "Two-pilot crew · standard cold catering · standard bar", val: "$1,400" },
   { n: "05", label: "FET (7.5%)", desc: "Federal Excise Tax on domestic charter", val: "$3,300" },
-  { n: "06", label: "GROUND TRANSPORT", desc: "Black sedan · both legs · curb-to-FBO", val: "$360" },
+  { n: "06", label: "GROUND TRANSPORT", desc: "Black sedan · both legs · curb to private terminal", val: "$360" },
 ];
 export const PRICE_STACK_TOTAL = "$47,260";
 
 export const RATES: RateRow[] = [
   {
     category: "Light",
-    mission: "3–4 pax · 1,500 NM · regional hops",
-    sample: "KVNY → KASE",
+    mission: "3–4 passengers · 1,500 nm · regional hops",
+    sample: "Los Angeles (VNY) → Aspen (ASE)",
     market: "$3,200–3,600/hr",
     locked: "$2,950/HR",
     marketLowUsd: 3200,
@@ -52,8 +52,8 @@ export const RATES: RateRow[] = [
   },
   {
     category: "Midsize",
-    mission: "5–6 pax · 2,500 NM · transcon",
-    sample: "KVNY → KTEB",
+    mission: "5–6 passengers · 2,500 nm · coast to coast",
+    sample: "Los Angeles (VNY) → New York (TEB)",
     market: "$4,200–4,600/hr",
     locked: "$3,950/HR",
     marketLowUsd: 4200,
@@ -62,8 +62,8 @@ export const RATES: RateRow[] = [
   },
   {
     category: "Super-mid",
-    mission: "6–8 pax · 3,500 NM · transcon nonstop",
-    sample: "KSFO → KMIA",
+    mission: "6–8 passengers · 3,500 nm · coast to coast nonstop",
+    sample: "San Francisco (SFO) → Miami (MIA)",
     market: "$5,400–5,900/hr",
     locked: "$5,100/HR",
     marketLowUsd: 5400,
@@ -72,8 +72,8 @@ export const RATES: RateRow[] = [
   },
   {
     category: "Heavy",
-    mission: "8–12 pax · 4,500 NM · transatlantic",
-    sample: "KJFK → EGLL",
+    mission: "8–12 passengers · 4,500 nm · transatlantic",
+    sample: "New York (JFK) → London (LHR)",
     market: "$7,800–8,400/hr",
     locked: "$7,400/HR",
     marketLowUsd: 7800,
@@ -82,8 +82,8 @@ export const RATES: RateRow[] = [
   },
   {
     category: "Ultra long range",
-    mission: "12–16 pax · 6,500+ NM · transpacific",
-    sample: "KLAX → RJTT",
+    mission: "12–16 passengers · 6,500+ nm · transpacific",
+    sample: "Los Angeles (LAX) → Tokyo (HND)",
     market: "$10,400–11,200/hr",
     locked: "$9,850/HR",
     marketLowUsd: 10400,

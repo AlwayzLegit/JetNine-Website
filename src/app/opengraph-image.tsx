@@ -34,14 +34,12 @@ export default function OpengraphImage() {
             display: "flex",
             alignItems: "center",
             gap: 16,
-            fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
+            fontFamily: '"Instrument Sans", ui-sans-serif, system-ui, -apple-system, sans-serif',
             fontSize: 16,
-            letterSpacing: "0.16em",
-            textTransform: "uppercase",
+            fontWeight: 600,
             color: "#E8E2D2",
           }}
         >
-          <span>—</span>
           <span>JetNine</span>
         </div>
 
@@ -67,11 +65,11 @@ export default function OpengraphImage() {
               lineHeight: 1.5,
               color: "#C9C4B8",
               maxWidth: 880,
-              fontFamily: "ui-sans-serif, system-ui, -apple-system, sans-serif",
+              fontFamily: '"Instrument Sans", ui-sans-serif, system-ui, -apple-system, sans-serif',
               fontWeight: 400,
             }}
           >
-            Part 295 indirect air carrier · senior dispatch desk · ARG/US PLATINUM
+            Part 295 indirect air carrier · senior dispatch desk · ARG/US Platinum
             operators only · quote returned in under 30 minutes.
           </div>
         </div>
@@ -81,11 +79,10 @@ export default function OpengraphImage() {
             display: "flex",
             justifyContent: "space-between",
             alignItems: "flex-end",
-            fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
+            fontFamily: '"Instrument Sans", ui-sans-serif, system-ui, -apple-system, sans-serif',
             fontSize: 14,
-            letterSpacing: "0.12em",
-            textTransform: "uppercase",
-            color: "#8A8678",
+            fontWeight: 500,
+            color: "#8A9099",
           }}
         >
           <span>jetnine.com</span>

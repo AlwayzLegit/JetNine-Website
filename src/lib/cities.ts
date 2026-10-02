@@ -82,11 +82,11 @@ const SEEDS: Seed[] = [
     opsFaq: [
       {
         q: "Why Teterboro instead of JFK or LaGuardia?",
-        a: "Teterboro exists for exactly this: no airline banks, dedicated FBO ramps, and the shortest reliable drive to Midtown. JFK earns its place on international missions and the largest cabins; LaGuardia's slots make it the situational pick, not the default.",
+        a: "Teterboro exists for exactly this: no airline banks, dedicated private terminals, and the shortest reliable drive to Midtown. JFK earns its place on international missions and the largest cabins; LaGuardia's slots make it the situational pick, not the default.",
       },
       {
         q: "How early should I book a holiday-week departure?",
-        a: "Thanksgiving, Christmas week, and summer Fridays are the tightest ramp windows in the country at Teterboro. A week ahead keeps full choice of airframe; dispatch will tell you straight when a date calls for more.",
+        a: "Thanksgiving, Christmas week, and summer Fridays are the tightest ramp windows in the country at Teterboro. A week ahead keeps full choice of aircraft; dispatch will tell you straight when a date calls for more.",
       },
     ],
   },
@@ -103,11 +103,11 @@ const SEEDS: Seed[] = [
     opsFaq: [
       {
         q: "Opa-Locka or MIA for a Miami charter?",
-        a: "Opa-Locka for nearly everything — it's the executive field, with FBO ramps built for quick turns. MIA earns its place on international itineraries that need customs infrastructure or an airline connection on one end.",
+        a: "Opa-Locka for nearly everything — it's the executive field, with private terminals built for quick turns. MIA earns its place on international itineraries that need customs infrastructure or an airline connection on one end.",
       },
       {
         q: "When is Miami's charter season busiest?",
-        a: "Thanksgiving through Easter, with hard peaks around Art Basel week, New Year's, and Presidents' Day. Airframes sell out days ahead in those windows; the rest of the year the market runs loose and southbound empty legs get cheap.",
+        a: "Thanksgiving through Easter, with hard peaks around Art Basel week, New Year's, and Presidents' Day. Aircraft sell out days ahead in those windows; the rest of the year the market runs loose and southbound empty legs get cheap.",
       },
     ],
   },
@@ -115,7 +115,7 @@ const SEEDS: Seed[] = [
     slug: "las-vegas",
     name: "Las Vegas",
     state: "Nevada",
-    lead: "The highest-frequency leisure lane network in the West terminates here. Harry Reid's dedicated FBO ramps sit minutes from the Strip, Henderson Executive skips the commercial field entirely, and fight nights or big conventions can sell out the local fleet — book the event, not the week.",
+    lead: "The highest-frequency leisure lane network in the West terminates here. Harry Reid's dedicated private terminals sit minutes from the Strip, Henderson Executive skips the commercial field entirely, and fight nights or big conventions can sell out the local fleet — book the event, not the week.",
     airports: [
       { code: "LAS", role: "Primary · closest to the Strip", drive: "~10 min to the Strip" },
       { code: "HND", role: "Executive alternative", drive: "~20 min to the Strip · quieter ramp" },
@@ -136,7 +136,7 @@ const SEEDS: Seed[] = [
     slug: "san-francisco",
     name: "San Francisco",
     state: "California",
-    lead: "Tech's shuttle market: high-frequency hops to LA and Vegas, transcons to New York, and a fog line that makes airport choice a real decision. Oakland's field regularly stays open when SFO's marine layer slows arrivals — a swap that saves mornings, not minutes.",
+    lead: "Tech's shuttle market: high-frequency hops to LA and Vegas, coast-to-coast flights to New York, and a fog line that makes airport choice a real decision. Oakland's field regularly stays open when SFO's marine layer slows arrivals — a swap that saves mornings, not minutes.",
     airports: [
       { code: "SFO", role: "Primary · south bay access", drive: "~14 mi to downtown SF" },
       { code: "OAK", role: "Fog-season alternative", drive: "~19 mi to downtown SF · east bay direct" },
@@ -162,7 +162,7 @@ const SEEDS: Seed[] = [
     opsFaq: [
       {
         q: "Love Field or DFW for a charter?",
-        a: "Love Field, almost always — it's closer to everything that matters and built for quick FBO turns. DFW earns its place when you're meeting an international airline connection or positioning a very large cabin.",
+        a: "Love Field, almost always — it's closer to everything that matters and built for quick turns. DFW earns its place when you're meeting an international airline connection or positioning a very large cabin.",
       },
     ],
   },
@@ -204,7 +204,7 @@ const SEEDS: Seed[] = [
     slug: "atlanta",
     name: "Atlanta",
     state: "Georgia",
-    lead: "The world's busiest airline hub is precisely why Atlanta charters don't use it. DeKalb-Peachtree sits inside the Perimeter with Buckhead fifteen minutes away, and the Southeast's corporate traffic runs through it daily — deep airframe availability without Hartsfield's sequencing.",
+    lead: "The world's busiest airline hub is precisely why Atlanta charters don't use it. DeKalb-Peachtree sits inside the Perimeter with Buckhead fifteen minutes away, and the Southeast's corporate traffic runs through it daily — deep aircraft availability without Hartsfield's sequencing.",
     airports: [
       { code: "PDK", role: "Primary charter field", drive: "~15 min to Buckhead · inside the Perimeter" },
       { code: "FTY", role: "West-side alternative", drive: "~10 mi to downtown · film & industry traffic" },
@@ -213,7 +213,7 @@ const SEEDS: Seed[] = [
     opsFaq: [
       {
         q: "Why not fly private from Hartsfield-Jackson?",
-        a: "Because you'd inherit the world's busiest sequencing for no benefit. DeKalb-Peachtree is the executive field — inside the Perimeter, FBO ramps, quick turns. Hartsfield only enters the plan when an airline connection forces it.",
+        a: "Because you'd inherit the world's busiest sequencing for no benefit. DeKalb-Peachtree is the executive field — inside the Perimeter, private terminals, quick turns. Hartsfield only enters the plan when an airline connection forces it.",
       },
     ],
   },
@@ -229,7 +229,7 @@ const SEEDS: Seed[] = [
     opsFaq: [
       {
         q: "Midway or O'Hare for a charter?",
-        a: "Midway — closer to the Loop and built for quick executive turns. O'Hare's scale only helps when an airline connection or a very large airframe demands it.",
+        a: "Midway — closer to the Loop and built for quick executive turns. O'Hare's scale only helps when an airline connection or a very large aircraft demands it.",
       },
     ],
   },
@@ -271,7 +271,7 @@ const SEEDS: Seed[] = [
     slug: "aspen",
     name: "Aspen",
     state: "Colorado",
-    lead: "The marquee mountain field: one runway at 7,800 feet elevation, a one-way box approach, a night curfew, and winter Saturdays that book out the ramp. This is the airport the vetting floor exists for — mountain-current crews and airframes with hot-and-high margin, or we don't quote it.",
+    lead: "The marquee mountain field: one runway at 7,800 feet elevation, a one-way box approach, a night curfew, and winter Saturdays that book out the ramp. This is the airport the vetting floor exists for — mountain-current crews and aircraft with hot-and-high margin, or we don't quote it.",
     airports: [
       { code: "ASE", role: "The only field that counts", drive: "~5 min to downtown Aspen" },
     ],
@@ -291,7 +291,7 @@ const SEEDS: Seed[] = [
     slug: "palm-beach",
     name: "Palm Beach",
     state: "Florida",
-    lead: "The season's other pole: PBI's FBO ramps sit ten minutes from the island, the Teterboro shuttle runs all winter, and ramp space around the holidays goes to whoever booked first. Light jets do the New York run nonstop; midsize buys the full-cabin margin.",
+    lead: "The season's other pole: PBI's private terminals sit ten minutes from the island, the Teterboro shuttle runs all winter, and ramp space around the holidays goes to whoever booked first. Light jets do the New York run nonstop; midsize buys the full-cabin margin.",
     airports: [
       { code: "PBI", role: "Primary charter field", drive: "~4 mi to the island" },
     ],
@@ -299,7 +299,7 @@ const SEEDS: Seed[] = [
     opsFaq: [
       {
         q: "When does Palm Beach ramp space get tight?",
-        a: "Thanksgiving, Christmas through New Year's, and Presidents' week — the island's whole season compresses into those ramps. Booking the airframe early also books its parking; late bookings sometimes overnight the aircraft elsewhere, which shows up as repositioning.",
+        a: "Thanksgiving, Christmas through New Year's, and Presidents' week — the island's whole season compresses into those ramps. Booking the aircraft early also books its parking; late bookings sometimes overnight the aircraft elsewhere, which shows up as repositioning.",
       },
     ],
   },
@@ -348,7 +348,7 @@ const SEEDS: Seed[] = [
     opsFaq: [
       {
         q: "Which Orlando airport should my charter use?",
-        a: "Orlando Executive for downtown and the convention corridor — it's the close-in field built for quick FBO turns. MCO earns its place on airline connections and when the trip ends on the parks side of the metro; tell dispatch the actual address and the field picks itself.",
+        a: "Orlando Executive for downtown and the convention corridor — it's the close-in field built for quick turns. MCO earns its place on airline connections and when the trip ends on the parks side of the metro; tell dispatch the actual address and the field picks itself.",
       },
     ],
   },
@@ -373,7 +373,7 @@ const SEEDS: Seed[] = [
     slug: "tampa",
     name: "Tampa",
     state: "Florida",
-    lead: "Tampa International's FBO ramps sit minutes from downtown and the Westshore business district, and Peter O. Knight — on Davis Islands, practically downtown — is one of Florida's great close-in fields for the aircraft that fit it. The Gulf Coast season mirrors Miami's, a notch quieter on the ramp.",
+    lead: "Tampa International's private terminals sit minutes from downtown and the Westshore business district, and Peter O. Knight — on Davis Islands, practically downtown — is one of Florida's great close-in fields for the aircraft that fit it. The Gulf Coast season mirrors Miami's, a notch quieter on the ramp.",
     airports: [
       { code: "TPA", role: "Primary charter field", drive: "~6 mi to downtown Tampa" },
       { code: "TPF", role: "Close-in · light aircraft", drive: "Davis Islands · ~3 mi to downtown" },
@@ -382,7 +382,7 @@ const SEEDS: Seed[] = [
     opsFaq: [
       {
         q: "Can my charter use Peter O. Knight?",
-        a: "If the airframe fits — the Davis Islands field's short runway keeps it turboprop and light-jet territory, and for those missions it's a five-minute drive to downtown. Anything midsize and up uses Tampa International's FBO ramps instead; dispatch matches the field to the aircraft.",
+        a: "If the aircraft fits — the Davis Islands field's short runway keeps it turboprop and light-jet territory, and for those missions it's a five-minute drive to downtown. Anything midsize and up uses Tampa International's private terminals instead; dispatch matches the field to the aircraft.",
       },
     ],
   },
@@ -399,7 +399,7 @@ const SEEDS: Seed[] = [
     opsFaq: [
       {
         q: "Fort Lauderdale Executive or FLL?",
-        a: "Executive, almost always — it exists for exactly this traffic, with FBO ramps and none of FLL's sequencing. FLL earns its place when the itinerary connects to an airline flight or needs its international infrastructure.",
+        a: "Executive, almost always — it exists for exactly this traffic, with private terminals and none of FLL's sequencing. FLL earns its place when the itinerary connects to an airline flight or needs its international infrastructure.",
       },
     ],
   },
@@ -416,7 +416,7 @@ const SEEDS: Seed[] = [
     opsFaq: [
       {
         q: "Why fly private from Centennial instead of DEN?",
-        a: "Centennial is built for it — FBO ramps on the Tech Center side of the metro, quick turns, and no airline sequencing. DEN's distance from town only pays off when you're connecting to a commercial flight.",
+        a: "Centennial is built for it — private terminals on the Tech Center side of the metro, quick turns, and no airline sequencing. DEN's distance from town only pays off when you're connecting to a commercial flight.",
       },
       {
         q: "Does Denver's altitude affect charter flights?",
@@ -428,7 +428,7 @@ const SEEDS: Seed[] = [
     slug: "austin",
     name: "Austin",
     state: "Texas",
-    lead: "The fastest-grown charter market in Texas. Austin-Bergstrom's FBO ramps handle most missions minutes from downtown, with Austin Executive as the quieter northeast alternative. Event weeks — SXSW, F1, the football calendar — sell the local fleet through; book the event, not the week.",
+    lead: "The fastest-grown charter market in Texas. Austin-Bergstrom's private terminals handle most missions minutes from downtown, with Austin Executive as the quieter northeast alternative. Event weeks — SXSW, F1, the football calendar — sell the local fleet through; book the event, not the week.",
     airports: [
       { code: "AUS", role: "Primary charter field", drive: "~8 mi to downtown Austin" },
       { code: "EDC", role: "Executive alternative", drive: "~15 mi northeast · quieter ramp" },
@@ -445,7 +445,7 @@ const SEEDS: Seed[] = [
     slug: "nashville",
     name: "Nashville",
     state: "Tennessee",
-    lead: "Music City's charter traffic runs through BNA's dedicated FBO ramps minutes from downtown, with John C. Tune across the river as the executive-field alternative. The market skews entertainment: tour schedules, weekend events, and a bachelorette economy that keeps the light-jet category busy.",
+    lead: "Music City's charter traffic runs through BNA's dedicated private terminals minutes from downtown, with John C. Tune across the river as the executive-field alternative. The market skews entertainment: tour schedules, weekend events, and a bachelorette economy that keeps the light-jet category busy.",
     airports: [
       { code: "BNA", role: "Primary charter field", drive: "~8 mi to downtown Nashville" },
       { code: "JWN", role: "Executive alternative", drive: "~8 mi west of downtown · quieter ramp" },
@@ -454,7 +454,7 @@ const SEEDS: Seed[] = [
     opsFaq: [
       {
         q: "BNA or John C. Tune for a Nashville charter?",
-        a: "BNA's FBOs handle everything and sit closest to downtown and the Gulch. John C. Tune is the quieter executive field across the river — a good swap for turboprops and light jets when BNA's ramps run busy. Dispatch prices the day both ways when it's close.",
+        a: "BNA's private terminals handle everything and sit closest to downtown and the Gulch. John C. Tune is the quieter executive field across the river — a good swap for turboprops and light jets when BNA's ramps run busy. Dispatch prices the day both ways when it's close.",
       },
     ],
   },
@@ -462,7 +462,7 @@ const SEEDS: Seed[] = [
     slug: "san-antonio",
     name: "San Antonio",
     state: "Texas",
-    lead: "San Antonio International's FBO ramps sit fifteen minutes from downtown and the River Walk, with historic Stinson Municipal on the south side for light aircraft. Missions here skew regional — Dallas, Houston, the border economy — where the turboprop's math is honest and the light jet buys the afternoon back.",
+    lead: "San Antonio International's private terminals sit fifteen minutes from downtown and the River Walk, with historic Stinson Municipal on the south side for light aircraft. Missions here skew regional — Dallas, Houston, the border economy — where the turboprop's math is honest and the light jet buys the afternoon back.",
     airports: [
       { code: "SAT", role: "Primary charter field", drive: "~8 mi to downtown San Antonio" },
       { code: "SSF", role: "South-side · light aircraft", drive: "~6 mi south of downtown" },
@@ -487,11 +487,11 @@ const SEEDS: Seed[] = [
     opsFaq: [
       {
         q: "Are there restrictions flying into Naples?",
-        a: "Naples runs one of the stricter airport noise programs in Florida — stage-based restrictions and strong nighttime expectations. Modern charter airframes comply comfortably, but late-evening arrivals get planned deliberately; dispatch confirms the window with your quote.",
+        a: "Naples runs one of the stricter airport noise programs in Florida — stage-based restrictions and strong nighttime expectations. Modern charter aircraft comply comfortably, but late-evening arrivals get planned deliberately; dispatch confirms the window with your quote.",
       },
       {
         q: "When does the Naples season peak?",
-        a: "Thanksgiving through Easter, same rhythm as Palm Beach — with the tightest ramps around the winter holidays and Presidents' week. Booking the airframe early books its parking too; the off-season runs loose and quiet.",
+        a: "Thanksgiving through Easter, same rhythm as Palm Beach — with the tightest ramps around the winter holidays and Presidents' week. Booking the aircraft early books its parking too; the off-season runs loose and quiet.",
       },
     ],
   },

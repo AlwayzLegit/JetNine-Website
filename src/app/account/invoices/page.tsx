@@ -1,22 +1,96 @@
 import Link from "next/link";
-import { desc, eq } from "drizzle-orm";
+import { asc, desc, eq, inArray } from "drizzle-orm";
 import { db } from "@/db";
 import { invoices } from "@/db/schema/invoices";
-import { trips } from "@/db/schema/trips";
+import { trips, tripLegs } from "@/db/schema/trips";
 import { getCurrentUser, requireUser } from "@/lib/auth";
 import { getMemberByUserId } from "@/lib/member";
-import { formatUSD } from "@/lib/quote-pricing";
-import { PayInvoiceButton } from "@/components/invoice/pay-button";
+import { USD } from "@/lib/request-page";
+import { InvoicesPayButton } from "@/components/account/invoices-pay-button";
 
 export const dynamic = "force-dynamic";
 
-const STATUS_CLASS: Record<string, string> = {
-  draft: "border-bone-2 text-bone-2",
-  due: "border-[var(--warn)] text-[var(--warn)]",
-  overdue: "border-[var(--error)] text-[var(--error)]",
-  paid: "border-[var(--success)] text-[var(--success)]",
-  credit: "border-clearance text-clearance",
-  void: "border-steel text-steel",
+// ─── Plain-words helpers ─────────────────────────────────────────────────
+
+const MONTH_DAY = new Intl.DateTimeFormat("en-US", {
+  month: "short",
+  day: "numeric",
+  timeZone: "UTC",
+});
+
+/** "Aug 16" from a YYYY-MM-DD date (no timezone shift). */
+function monthDay(date: string | null | undefined): string | null {
+  if (!date) return null;
+  const d = new Date(`${date}T12:00:00Z`);
+  return Number.isNaN(d.getTime()) ? null : MONTH_DAY.format(d);
+}
+
+/** Whole days from today (Los Angeles calendar) to a YYYY-MM-DD date. */
+function daysUntil(date: string): number {
+  const today = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Los_Angeles",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
+  const a = Date.parse(`${today}T00:00:00Z`);
+  const b = Date.parse(`${date}T00:00:00Z`);
+  return Math.round((b - a) / 86_400_000);
+}
+
+type Tone = "bone" | "success" | "gold" | "danger" | "steel";
+const TONE_CLASS: Record<Tone, string> = {
+  bone: "text-bone",
+  success: "text-success",
+  gold: "text-gold",
+  danger: "text-danger",
+  steel: "text-steel",
+};
+
+/** Status as a sentence — never the enum word. */
+function statusSentence(i: {
+  status: string;
+  kind: string;
+  dueOn: string | null;
+  paidOn: string | null;
+}): { text: string; tone: Tone } {
+  switch (i.status) {
+    case "paid": {
+      const day = monthDay(i.paidOn);
+      return { text: day ? `Paid ${day}` : "Paid", tone: "success" };
+    }
+    case "due":
+    case "overdue": {
+      if (!i.dueOn) {
+        return i.status === "overdue"
+          ? { text: "Overdue", tone: "danger" }
+          : { text: "Due now", tone: "bone" };
+      }
+      const n = daysUntil(i.dueOn);
+      if (n < 0) {
+        return { text: `Overdue by ${-n} ${-n === 1 ? "day" : "days"}`, tone: "danger" };
+      }
+      if (i.status === "overdue") return { text: "Overdue", tone: "danger" };
+      if (n === 0) return { text: "Due today", tone: "gold" };
+      if (n === 1) return { text: "Due tomorrow", tone: "gold" };
+      return { text: `Due in ${n} days`, tone: "bone" };
+    }
+    case "credit":
+      return { text: i.kind === "refund" ? "Refunded" : "Credited to your account", tone: "steel" };
+    case "void":
+      return { text: "Cancelled", tone: "steel" };
+    case "draft":
+    default:
+      return { text: "Draft — nothing to pay yet", tone: "steel" };
+  }
+}
+
+const KIND_LABEL: Record<string, string> = {
+  charter: "Charter flight",
+  credit: "Credit",
+  refund: "Refund",
+  top_up: "Top-up",
+  renewal: "Membership renewal",
 };
 
 export default async function AccountInvoicesPage({
@@ -39,16 +113,15 @@ export default async function AccountInvoicesPage({
 
   if (!member) {
     return (
-      <section className="container-jn py-12">
-        <p className="caption mb-4">— Account · invoices</p>
-        <h1 className="font-serif text-[40px] font-light leading-tight tracking-tight text-bone">
-          Nothing to bill yet.
-        </h1>
-        <p className="mt-4 max-w-[60ch] text-[16px] leading-[1.55] text-bone-2">
-          Invoices appear here once you have a flight on the books. Submit a quote at{" "}
-          <Link href="/quote" className="text-clearance">/quote</Link> to get the loop started.
+      <>
+        <h1 className="title-app text-bone">Invoices</h1>
+        <p className="mt-2.5 max-w-[60ch] text-[17px] text-bone-2">
+          Nothing to bill yet. Invoices appear here once you have a flight on the books.
         </p>
-      </section>
+        <Link href="/quote" className="btn btn-primary mt-8">
+          Request a quote <span aria-hidden="true">→</span>
+        </Link>
+      </>
     );
   }
 
@@ -74,6 +147,32 @@ export default async function AccountInvoicesPage({
     .orderBy(desc(invoices.issuedOn))
     .limit(50);
 
+  // Route words for the invoices tied to a trip ("Los Angeles → Aspen"),
+  // so the row never has to fall back to the trip code. Read-only, scoped
+  // to the trips the member's own invoices already reference.
+  const tripIds = Array.from(new Set(rows.map((r) => r.tripId).filter((id): id is string => !!id)));
+  const routeByTrip = new Map<string, string>();
+  if (tripIds.length > 0) {
+    const legs = await db
+      .select({
+        tripId: tripLegs.tripId,
+        legNumber: tripLegs.legNumber,
+        fromCity: tripLegs.fromCity,
+        fromIata: tripLegs.fromIata,
+        toCity: tripLegs.toCity,
+        toIata: tripLegs.toIata,
+      })
+      .from(tripLegs)
+      .where(inArray(tripLegs.tripId, tripIds))
+      .orderBy(asc(tripLegs.tripId), asc(tripLegs.legNumber));
+    for (const leg of legs) {
+      if (routeByTrip.has(leg.tripId)) continue;
+      const from = leg.fromCity ?? leg.fromIata;
+      const to = leg.toCity ?? leg.toIata;
+      if (from && to) routeByTrip.set(leg.tripId, `${from} → ${to}`);
+    }
+  }
+
   const totals = {
     outstanding: rows
       .filter((r) => r.status === "due" || r.status === "overdue")
@@ -81,122 +180,152 @@ export default async function AccountInvoicesPage({
     paid: rows.filter((r) => r.status === "paid").reduce((sum, r) => sum + (r.totalUsd ?? 0), 0),
   };
 
+  const outstanding = rows.filter((r) => r.status === "due" || r.status === "overdue");
+  const paid = rows.filter((r) => r.status === "paid");
+  const other = rows.filter((r) => !["due", "overdue", "paid"].includes(r.status));
+
+  const summary =
+    outstanding.length === 0
+      ? "Nothing outstanding."
+      : outstanding.length === 1
+        ? `${USD.format(totals.outstanding)} due on one invoice.`
+        : `${USD.format(totals.outstanding)} due across ${outstanding.length} invoices.`;
+
   return (
-    <section className="container-jn py-12">
+    <>
+      <h1 className="title-app text-bone">Invoices</h1>
+      <p className="mt-2.5 max-w-[60ch] text-[17px] text-bone-2">
+        {summary}
+        {totals.paid > 0 ? ` ${USD.format(totals.paid)} paid to date.` : ""}
+      </p>
+
       {flash ? (
         <div
+          role="status"
           className={[
-            "mb-8 rounded-[3px] border px-5 py-4 font-mono text-[12px] tracking-[0.04em]",
-            flash.kind === "paid"
-              ? "border-[var(--success)] bg-[rgba(78,159,107,0.08)] text-[var(--success)]"
-              : "border-[var(--warn)] bg-[rgba(192,148,73,0.08)] text-[var(--warn)]",
+            "card mt-8 px-6 py-5 text-[15px] leading-[1.5] text-bone",
+            flash.kind === "paid" ? "card-highlight" : "",
           ].join(" ")}
         >
           {flash.kind === "paid"
-            ? "— Payment received. Stripe confirmation lands in your inbox; this list updates once the webhook clears (usually a few seconds)."
-            : "— Checkout cancelled. Your invoice is still open — try again whenever you're ready."}
+            ? "Payment received — thank you. Stripe's confirmation is on its way to your inbox, and this list updates once the payment clears, usually within a few seconds."
+            : "Checkout cancelled. Your invoice is still open — pay whenever you're ready."}
         </div>
       ) : null}
-      <header className="mb-10 flex flex-wrap items-end justify-between gap-6">
-        <div>
-          <p className="caption mb-3">— Account · invoices</p>
-          <h1 className="font-serif text-[40px] font-light leading-tight tracking-tight text-bone">
-            Invoices · {rows.length}
-          </h1>
-          <p className="mt-3 max-w-[60ch] text-[14px] leading-[1.55] text-bone-2">
-            All invoices tied to your account. FET (7.5%) + IRS segment fee ($5.20 × pax × legs)
-            already itemized.
-          </p>
-        </div>
-        <dl className="flex flex-wrap gap-x-10 gap-y-3 text-right">
-          <div className="flex flex-col items-end">
-            <dt className="font-mono text-[10px] uppercase tracking-[0.14em] text-steel">
-              OUTSTANDING
-            </dt>
-            <dd
-              className={[
-                "mt-1 font-serif text-[26px] font-light leading-none",
-                totals.outstanding > 0 ? "text-[var(--warn)]" : "text-bone",
-              ].join(" ")}
-            >
-              {totals.outstanding ? formatUSD(totals.outstanding) : "$0"}
-            </dd>
-          </div>
-          <div className="flex flex-col items-end">
-            <dt className="font-mono text-[10px] uppercase tracking-[0.14em] text-steel">PAID</dt>
-            <dd className="mt-1 font-serif text-[26px] font-light leading-none text-bone">
-              {totals.paid ? formatUSD(totals.paid) : "$0"}
-            </dd>
-          </div>
-        </dl>
-      </header>
 
       {rows.length === 0 ? (
-        <div className="rounded-[4px] border border-ink-3 bg-ink-2 p-12 text-center">
-          <p className="caption mb-3">— Empty</p>
-          <h2 className="font-serif text-[24px] font-normal text-bone">No invoices yet.</h2>
-          <p className="mx-auto mt-3 max-w-[48ch] text-[14px] leading-[1.55] text-bone-2">
-            Invoices land here automatically once a quote you accept is converted to a trip.
+        <div className="card card-pad mt-8">
+          <h2 className="title-card-sm text-bone">No invoices yet.</h2>
+          <p className="mt-2 max-w-[52ch] text-[15px] leading-[1.55] text-bone-2">
+            Invoices land here automatically once a quote you accept becomes a trip.
           </p>
         </div>
       ) : (
-        <ul className="flex flex-col gap-3">
-          {rows.map((i) => (
-            <li
-              key={i.id}
-              className="flex flex-col gap-3 rounded-[4px] border border-ink-3 bg-ink-2 px-6 py-5 md:grid md:grid-cols-[auto_1fr_auto_auto_auto] md:items-center md:gap-6"
-            >
-              <span className="font-mono text-[12px] tracking-[0.04em] text-clearance">
-                {i.invoiceCode}
-              </span>
-              <div>
-                <div className="font-serif text-[17px] font-normal leading-tight text-bone">
-                  {i.tripCode ? (
-                    <Link
-                      href={`/account/trips/${i.tripId}`}
-                      className="transition-colors hover:text-clearance"
-                    >
-                      Trip {i.tripCode}
-                    </Link>
-                  ) : (
-                    i.kind[0].toUpperCase() + i.kind.slice(1)
-                  )}
-                </div>
-                <div className="mt-1 font-mono text-[10px] tracking-[0.04em] text-bone-2">
-                  Issued {String(i.issuedOn)}
-                  {i.dueOn ? ` · due ${String(i.dueOn)}` : ""}
-                  {i.paidOn ? ` · paid ${String(i.paidOn)}` : ""}
-                </div>
-              </div>
-              <span
-                className={[
-                  "inline-block rounded-full border px-2.5 py-0.5 font-mono text-[9px] uppercase tracking-[0.14em]",
-                  STATUS_CLASS[i.status] ?? "border-ink-3 text-bone-2",
-                ].join(" ")}
+        <>
+          <InvoiceGroup
+            label="Outstanding"
+            empty="Nothing outstanding."
+            rows={outstanding}
+            routeByTrip={routeByTrip}
+            payable
+          />
+          <InvoiceGroup label="Paid" empty="Nothing paid yet." rows={paid} routeByTrip={routeByTrip} />
+          {other.length > 0 ? (
+            <InvoiceGroup label="Credits and drafts" empty="" rows={other} routeByTrip={routeByTrip} />
+          ) : null}
+        </>
+      )}
+
+      <p className="mt-6 max-w-[60ch] text-[14px] leading-[1.55] text-steel">
+        Every total already includes the 7.5% federal excise tax and the $5.20 per-passenger segment
+        fee.
+      </p>
+    </>
+  );
+}
+
+type Row = {
+  id: string;
+  invoiceCode: string;
+  kind: string;
+  status: string;
+  issuedOn: string;
+  dueOn: string | null;
+  paidOn: string | null;
+  fetUsd: number | null;
+  segmentFeeUsd: number | null;
+  totalUsd: number | null;
+  tripId: string | null;
+};
+
+function InvoiceGroup({
+  label,
+  empty,
+  rows,
+  routeByTrip,
+  payable = false,
+}: {
+  label: string;
+  empty: string;
+  rows: Row[];
+  routeByTrip: Map<string, string>;
+  payable?: boolean;
+}) {
+  return (
+    <section className="mt-8">
+      <h2 className="label-jn text-[13px]">
+        {label}
+        {rows.length > 0 ? <span className="text-steel-dim"> · {rows.length}</span> : null}
+      </h2>
+      {rows.length === 0 ? (
+        <div className="card mt-2.5 px-6 py-5 text-[15px] text-bone-2">{empty}</div>
+      ) : (
+        <ul className="card mt-2.5 divide-y divide-line-faint">
+          {rows.map((i) => {
+            const status = statusSentence(i);
+            const route = i.tripId ? routeByTrip.get(i.tripId) : undefined;
+            const title = route ?? KIND_LABEL[i.kind] ?? "Invoice";
+            const fees: string[] = [];
+            if (i.fetUsd) fees.push(`${USD.format(i.fetUsd)} federal excise tax`);
+            if (i.segmentFeeUsd) fees.push(`${USD.format(i.segmentFeeUsd)} segment fee`);
+            const issued = monthDay(i.issuedOn);
+            return (
+              <li
+                key={i.id}
+                className="grid gap-4 px-6 py-5 md:grid-cols-[minmax(0,1fr)_auto] md:items-center md:gap-6"
               >
-                {i.status}
-              </span>
-              <div className="text-right">
-                <div className="font-mono text-[10px] tracking-[0.04em] text-steel">
-                  + FET {i.fetUsd ? formatUSD(i.fetUsd) : "—"}
+                <div className="min-w-0">
+                  <div className="text-[14px] text-steel">{i.invoiceCode}</div>
+                  <div className="mt-1 text-[17px] font-medium text-bone">
+                    {i.tripId ? (
+                      <Link href={`/account/trips/${i.tripId}`} className="transition-colors hover:text-bone-2">
+                        {title}
+                      </Link>
+                    ) : (
+                      title
+                    )}
+                  </div>
+                  <div className="mt-1 text-[14px] leading-[1.5] text-bone-2">
+                    {issued ? `Issued ${issued}` : "Issued"}
+                    {fees.length ? ` · includes ${fees.join(" and ")}` : ""}
+                  </div>
                 </div>
-                <div className="font-mono text-[10px] tracking-[0.04em] text-steel">
-                  + Seg {i.segmentFeeUsd ? formatUSD(i.segmentFeeUsd) : "—"}
+                <div className="flex flex-wrap items-center justify-between gap-4 md:flex-col md:items-end md:gap-3">
+                  <div className="md:text-right">
+                    <div className="font-serif text-[22px] font-light leading-none text-bone">
+                      {i.totalUsd != null ? USD.format(i.totalUsd) : "—"}
+                    </div>
+                    <div className={["mt-1.5 text-[14px]", TONE_CLASS[status.tone]].join(" ")}>
+                      {status.text}
+                    </div>
+                  </div>
+                  {payable && (i.status === "due" || i.status === "overdue") ? (
+                    <InvoicesPayButton invoiceId={i.id} />
+                  ) : null}
                 </div>
-              </div>
-              <div className="flex flex-col items-end gap-3">
-                <div
-                  className="font-serif text-[22px] font-light leading-none tracking-tight text-bone"
-                  style={{ letterSpacing: "-0.01em" }}
-                >
-                  {i.totalUsd ? formatUSD(i.totalUsd) : "—"}
-                </div>
-                {i.status === "due" || i.status === "overdue" ? (
-                  <PayInvoiceButton invoiceId={i.id} />
-                ) : null}
-              </div>
-            </li>
-          ))}
+              </li>
+            );
+          })}
         </ul>
       )}
     </section>

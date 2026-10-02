@@ -4,29 +4,42 @@ import { useMemo, useState, useTransition, type FormEvent } from "react";
 import { addLane, deleteLane } from "./actions";
 import { AIRPORTS } from "@/lib/airports";
 import type { MemberLane } from "@/db/schema/member-prefs";
+import { PreferencesToggle } from "@/components/account/preferences-toggle";
+import { PreferencesFeedback, errorSentence, type Feedback } from "@/components/account/preferences-feedback";
 
 type Props = { initial: MemberLane[] };
 
-// Lookup table for pretty display ("KTEB" → "New York · TEB").
-const AIRPORT_BY_ICAO = new Map(AIRPORTS.map((a) => [a.icao, a]));
+// Lookup table for plain-words display ("KTEB" → "New York (TEB)").
+const AIRPORT_BY_CODE = new Map(AIRPORTS.map((a) => [a.icao, a]));
 
 function prettyAirport(icao: string): string {
-  const a = AIRPORT_BY_ICAO.get(icao);
+  const a = AIRPORT_BY_CODE.get(icao);
   if (!a) return icao;
-  return `${a.city} · ${a.iata}`;
+  return `${a.city} (${a.iata})`;
 }
 
+const LAST_FLOWN = new Intl.DateTimeFormat("en-US", {
+  month: "short",
+  day: "numeric",
+  year: "numeric",
+  timeZone: "UTC",
+});
+
+/**
+ * "Routes you fly often" card. Same `addLane` / `deleteLane` actions and
+ * validation (airport codes) as before.
+ */
 export function LanesSection({ initial }: Props) {
   const [list, setList] = useState<MemberLane[]>(initial);
   const [pending, startTransition] = useTransition();
-  const [msg, setMsg] = useState<{ tone: "ok" | "error"; text: string } | null>(null);
+  const [msg, setMsg] = useState<Feedback>(null);
 
   // Datalist option set — let the browser do the autocomplete heavy lifting.
   const datalistOptions = useMemo(
     () =>
       AIRPORTS.map((a) => ({
         value: a.icao,
-        label: `${a.icao} — ${a.city} (${a.iata}) · ${a.name}`,
+        label: `${a.city} (${a.iata}) · ${a.name}`,
       })),
     [],
   );
@@ -54,10 +67,10 @@ export function LanesSection({ initial }: Props) {
           createdAt: new Date(),
         };
         setList((prev) => [...prev, optimistic]);
-        setMsg({ tone: "ok", text: `ADDED — ${fromIcao}→${toIcao} on watchlist.` });
+        setMsg({ tone: "ok", text: `Added ${prettyAirport(fromIcao)} → ${prettyAirport(toIcao)}.` });
         form.reset();
       } else {
-        setMsg({ tone: "error", text: `BLOCKED — ${result.error.toUpperCase()}` });
+        setMsg({ tone: "error", text: errorSentence(result.error) });
       }
     });
   }
@@ -68,56 +81,62 @@ export function LanesSection({ initial }: Props) {
       const result = await deleteLane(id);
       if (result.ok) {
         setList((prev) => prev.filter((l) => l.id !== id));
-        setMsg({ tone: "ok", text: "REMOVED." });
+        setMsg({ tone: "ok", text: "Removed." });
       } else {
-        setMsg({ tone: "error", text: `BLOCKED — ${result.error.toUpperCase()}` });
+        setMsg({ tone: "error", text: errorSentence(result.error) });
       }
     });
   }
 
   return (
-    <div className="flex flex-col gap-6">
+    <section className="card card-pad">
+      <h2 className="title-card-sm text-bone">Routes you fly often</h2>
+      <p className="mt-1 max-w-[60ch] text-[15px] leading-[1.5] text-bone-2">
+        Tell dispatch where you fly most. It powers empty-leg matching, aircraft positioning and
+        the &ldquo;fly this again&rdquo; shortcut on a new quote.
+      </p>
+
       {list.length === 0 ? (
-        <p className="rounded-[2px] border border-dashed border-ink-3 bg-ink-2 p-6 font-mono text-[11px] uppercase tracking-[0.1em] text-bone-2">
-          — No lanes on file. Add the routes you fly most so dispatch can route empty-leg matches
-          and pre-position fleet before you ask.
+        <p className="mt-6 text-[15px] leading-[1.55] text-bone-2">
+          No routes yet. Add the ones you fly most so dispatch can match empty legs and position
+          aircraft before you ask.
         </p>
       ) : (
-        <ul className="flex flex-col gap-2">
-          {list.map((l) => (
-            <li
-              key={l.id}
-              className="grid grid-cols-[1fr_auto] items-center gap-4 rounded-[2px] border border-ink-3 bg-ink-2 px-5 py-4"
-            >
-              <div className="min-w-0">
-                <div className="font-serif text-[17px] text-bone">
-                  {prettyAirport(l.fromIcao)}{" "}
-                  <span className="text-clearance">→</span> {prettyAirport(l.toIcao)}
+        <ul className="mt-6 divide-y divide-line-faint border-y border-line-faint">
+          {list.map((l) => {
+            const facts: string[] = [];
+            if (l.frequencyPerYear) {
+              facts.push(`about ${l.frequencyPerYear} ${l.frequencyPerYear === 1 ? "time" : "times"} a year`);
+            }
+            if (l.seasonal) facts.push("seasonal");
+            if (l.lastFlownAt) {
+              const d = new Date(`${l.lastFlownAt}T12:00:00Z`);
+              if (!Number.isNaN(d.getTime())) facts.push(`last flown ${LAST_FLOWN.format(d)}`);
+            }
+            return (
+              <li key={l.id} className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2 py-4">
+                <div className="min-w-0">
+                  <div className="text-[17px] font-medium text-bone">
+                    {prettyAirport(l.fromIcao)} → {prettyAirport(l.toIcao)}
+                  </div>
+                  {facts.length ? <div className="mt-0.5 text-[14px] text-bone-2">{facts.join(" · ")}</div> : null}
                 </div>
-                <div className="mt-1 font-mono text-[10px] uppercase tracking-[0.1em] text-bone-2">
-                  {l.fromIcao} → {l.toIcao}
-                  {l.frequencyPerYear ? ` · ~${l.frequencyPerYear}×/yr` : ""}
-                  {l.seasonal ? " · seasonal" : ""}
-                  {l.lastFlownAt
-                    ? ` · last flown ${new Date(l.lastFlownAt).toISOString().slice(0, 10)}`
-                    : ""}
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => onDelete(l.id)}
-                disabled={pending}
-                className="font-mono text-[10px] uppercase tracking-[0.14em] text-bone-2 transition-colors hover:text-[var(--error)] disabled:cursor-wait disabled:opacity-50"
-              >
-                Remove →
-              </button>
-            </li>
-          ))}
+                <button
+                  type="button"
+                  onClick={() => onDelete(l.id)}
+                  disabled={pending}
+                  className="text-link min-h-[44px] text-[15px] disabled:cursor-wait disabled:opacity-50"
+                >
+                  Remove
+                </button>
+              </li>
+            );
+          })}
         </ul>
       )}
 
-      <form onSubmit={onAdd} className="rounded-[2px] border border-ink-3 bg-ink-2 p-5">
-        <p className="caption mb-4">— Add lane</p>
+      <form onSubmit={onAdd} className="mt-6">
+        <h3 className="label-jn text-[13px]">Add a route</h3>
         <datalist id="lane-icao-list">
           {datalistOptions.map((o) => (
             <option key={o.value} value={o.value}>
@@ -125,9 +144,9 @@ export function LanesSection({ initial }: Props) {
             </option>
           ))}
         </datalist>
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        <div className="mt-3 grid grid-cols-1 gap-2.5 md:grid-cols-3">
           <div className="field-jn">
-            <label htmlFor="ln-fromIcao">From (ICAO)</label>
+            <label htmlFor="ln-fromIcao">From (airport code)</label>
             <input
               id="ln-fromIcao"
               name="fromIcao"
@@ -137,11 +156,11 @@ export function LanesSection({ initial }: Props) {
               required
               maxLength={4}
               minLength={3}
-              style={{ textTransform: "uppercase" }}
+              autoCapitalize="characters"
             />
           </div>
           <div className="field-jn">
-            <label htmlFor="ln-toIcao">To (ICAO)</label>
+            <label htmlFor="ln-toIcao">To (airport code)</label>
             <input
               id="ln-toIcao"
               name="toIcao"
@@ -151,54 +170,33 @@ export function LanesSection({ initial }: Props) {
               required
               maxLength={4}
               minLength={3}
-              style={{ textTransform: "uppercase" }}
+              autoCapitalize="characters"
             />
           </div>
           <div className="field-jn">
-            <label htmlFor="ln-frequency">Frequency (per year)</label>
-            <input
-              id="ln-frequency"
-              name="frequencyPerYear"
-              type="number"
-              min={1}
-              max={365}
-              placeholder="12"
-            />
+            <label htmlFor="ln-frequency">Times a year</label>
+            <input id="ln-frequency" name="frequencyPerYear" type="number" min={1} max={365} placeholder="12" />
           </div>
-          <label className="flex h-full cursor-pointer items-center gap-3 rounded-[2px] border border-ink-3 bg-ink p-5">
-            <input type="checkbox" name="seasonal" className="h-4 w-4 accent-clearance" />
-            <div>
-              <div className="font-serif text-[15px] text-bone">Seasonal</div>
-              <div className="mt-1 text-[12px] leading-[1.5] text-bone-2">
-                Only certain months — dispatch will skip out-of-season alerts.
-              </div>
-            </div>
-          </label>
         </div>
-        <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
-          {msg ? (
-            <span
-              className={[
-                "font-mono text-[11px] uppercase tracking-[0.12em]",
-                msg.tone === "error" ? "text-[var(--error)]" : "text-[var(--success)]",
-              ].join(" ")}
-            >
-              {msg.text}
-            </span>
-          ) : (
-            <span className="font-mono text-[10px] uppercase tracking-[0.08em] text-steel">
-              — Lanes feed empty-leg matching + pre-positioning. Direction matters.
-            </span>
-          )}
-          <button
-            type="submit"
-            disabled={pending}
-            className="btn btn-primary btn-sm disabled:cursor-wait disabled:opacity-60"
-          >
-            {pending ? "Adding…" : "Add lane"} <span className="arrow">→</span>
+        <div className="mt-2.5">
+          <PreferencesToggle
+            name="seasonal"
+            label="Seasonal"
+            desc="Only certain months — dispatch skips out-of-season alerts."
+            defaultChecked={false}
+          />
+        </div>
+        <div className="mt-5 flex flex-wrap items-center gap-4 border-t border-line-faint pt-5">
+          <button type="submit" disabled={pending} className="btn btn-primary disabled:cursor-wait">
+            {pending ? "Saving…" : "Add route"} <span className="arrow">→</span>
           </button>
+          {msg ? (
+            <PreferencesFeedback msg={msg} />
+          ) : (
+            <p className="text-[14px] text-steel">Direction matters — add the return separately if you fly it.</p>
+          )}
         </div>
       </form>
-    </div>
+    </section>
   );
 }

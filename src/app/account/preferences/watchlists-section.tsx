@@ -4,13 +4,30 @@ import Link from "next/link";
 import { useState, useTransition } from "react";
 import { deleteWatchlist, toggleWatchlistActive } from "./actions";
 import type { EmptyLegWatchlist } from "@/db/schema/empty-legs";
+import { PreferencesFeedback, errorSentence, type Feedback } from "@/components/account/preferences-feedback";
 
 type Props = { initial: EmptyLegWatchlist[] };
 
+const DAY = new Intl.DateTimeFormat("en-US", {
+  month: "short",
+  day: "numeric",
+  timeZone: "UTC",
+});
+
+function day(date: string | null): string | null {
+  if (!date) return null;
+  const d = new Date(`${date}T12:00:00Z`);
+  return Number.isNaN(d.getTime()) ? null : DAY.format(d);
+}
+
+/**
+ * "Empty-leg watchlists" card. Same pause / resume / remove actions as
+ * before; new watchlists are still created from the public board.
+ */
 export function WatchlistsSection({ initial }: Props) {
   const [list, setList] = useState<EmptyLegWatchlist[]>(initial);
   const [pending, startTransition] = useTransition();
-  const [msg, setMsg] = useState<{ tone: "ok" | "error"; text: string } | null>(null);
+  const [msg, setMsg] = useState<Feedback>(null);
 
   function onDelete(id: string) {
     setMsg(null);
@@ -18,9 +35,9 @@ export function WatchlistsSection({ initial }: Props) {
       const result = await deleteWatchlist(id);
       if (result.ok) {
         setList((prev) => prev.filter((w) => w.id !== id));
-        setMsg({ tone: "ok", text: "REMOVED." });
+        setMsg({ tone: "ok", text: "Removed." });
       } else {
-        setMsg({ tone: "error", text: `BLOCKED — ${result.error.toUpperCase()}` });
+        setMsg({ tone: "error", text: errorSentence(result.error) });
       }
     });
   }
@@ -35,10 +52,10 @@ export function WatchlistsSection({ initial }: Props) {
         );
         setMsg({
           tone: "ok",
-          text: result.active ? "RESUMED — alerts on." : "PAUSED — alerts off.",
+          text: result.active ? "Resumed — alerts are on." : "Paused — alerts are off.",
         });
       } else {
-        setMsg({ tone: "error", text: `BLOCKED — ${result.error.toUpperCase()}` });
+        setMsg({ tone: "error", text: errorSentence(result.error) });
       }
     });
   }
@@ -50,97 +67,84 @@ export function WatchlistsSection({ initial }: Props) {
   });
 
   return (
-    <div className="flex flex-col gap-4">
+    <section className="card card-pad">
+      <h2 className="title-card-sm text-bone">Empty-leg watchlists</h2>
+      <p className="mt-1 max-w-[60ch] text-[15px] leading-[1.5] text-bone-2">
+        Routes and date windows you want to hear about when a repositioning flight lists. Pause to
+        mute, remove to drop.
+      </p>
+
       {sorted.length === 0 ? (
-        <p className="rounded-[2px] border border-dashed border-ink-3 bg-ink-2 p-6 font-mono text-[11px] uppercase tracking-[0.1em] text-bone-2">
-          — No watchlists yet. Set one up from{" "}
-          <Link href="/empty-legs" className="text-clearance hover:underline">
-            /empty-legs
+        <p className="mt-6 text-[15px] leading-[1.55] text-bone-2">
+          No watchlists yet. Set one up from the{" "}
+          <Link href="/empty-legs" className="text-link">
+            empty legs board
           </Link>{" "}
-          and we&rsquo;ll text when a matching repositioning leg lists.
+          and we&rsquo;ll text you when a matching flight lists.
         </p>
       ) : (
-        <ul className="flex flex-col gap-2">
-          {sorted.map((w) => (
-            <li
-              key={w.id}
-              className={[
-                "rounded-[2px] border bg-ink-2 px-5 py-4",
-                w.active ? "border-ink-3" : "border-ink-3 opacity-60",
-              ].join(" ")}
-            >
-              <div className="grid grid-cols-[1fr_auto] items-start gap-4">
+        <ul className="mt-6 divide-y divide-line-faint border-y border-line-faint">
+          {sorted.map((w) => {
+            const from = day(w.earliestOn);
+            const to = day(w.latestOn);
+            const facts: string[] = [from && to ? `${from} to ${to}` : "Any date", `at least ${w.minDiscountPct}% off`];
+            const channels: string[] = [];
+            if (w.notifyChannels?.sms) channels.push("text");
+            if (w.notifyChannels?.email) channels.push("email");
+            if (channels.length) facts.push(`by ${channels.join(" and ")}`);
+            return (
+              <li
+                key={w.id}
+                className={[
+                  "flex flex-wrap items-center justify-between gap-x-6 gap-y-3 py-4",
+                  w.active ? "" : "opacity-60",
+                ].join(" ")}
+              >
                 <div className="min-w-0">
-                  <div className="flex flex-wrap items-baseline gap-3">
-                    <span className="font-serif text-[17px] text-bone">
-                      {w.fromText ?? w.fromIcao ?? "—"}{" "}
-                      <span className="text-clearance">→</span>{" "}
-                      {w.toText ?? w.toIcao ?? "—"}
-                    </span>
-                    {!w.active ? (
-                      <span className="rounded-[2px] border border-bone-2 px-1.5 py-0.5 font-mono text-[8px] uppercase tracking-[0.14em] text-bone-2">
-                        Paused
-                      </span>
-                    ) : null}
+                  <div className="text-[17px] font-medium text-bone">
+                    {w.fromText ?? w.fromIcao ?? "Anywhere"} → {w.toText ?? w.toIcao ?? "Anywhere"}
                   </div>
-                  <div className="mt-1 font-mono text-[10px] uppercase tracking-[0.1em] text-bone-2">
-                    {w.earliestOn && w.latestOn ? (
-                      <>
-                        {w.earliestOn} → {w.latestOn}
-                      </>
-                    ) : (
-                      "any date"
-                    )}
-                    {" · "}
-                    ≥ {w.minDiscountPct}% off
-                    {w.notifyChannels?.sms ? " · sms" : ""}
-                    {w.notifyChannels?.email ? " · email" : ""}
+                  <div className="mt-0.5 text-[14px] text-bone-2">
+                    {w.active ? "" : "Paused · "}
+                    {facts.join(" · ")}
                   </div>
                 </div>
-                <div className="flex flex-col items-end gap-2">
+                <div className="flex items-center gap-2.5">
                   <button
                     type="button"
                     onClick={() => onToggle(w.id, !w.active)}
                     disabled={pending}
-                    className="font-mono text-[10px] uppercase tracking-[0.14em] text-bone-2 transition-colors hover:text-clearance disabled:cursor-wait disabled:opacity-50"
+                    className="btn btn-secondary btn-sm disabled:cursor-wait"
                   >
-                    {w.active ? "Pause →" : "Resume →"}
+                    {w.active ? "Pause" : "Resume"}
                   </button>
                   <button
                     type="button"
                     onClick={() => onDelete(w.id)}
                     disabled={pending}
-                    className="font-mono text-[10px] uppercase tracking-[0.14em] text-bone-2 transition-colors hover:text-[var(--error)] disabled:cursor-wait disabled:opacity-50"
+                    className="text-link min-h-[44px] text-[15px] disabled:cursor-wait disabled:opacity-50"
                   >
-                    Remove →
+                    Remove
                   </button>
                 </div>
-              </div>
-            </li>
-          ))}
+              </li>
+            );
+          })}
         </ul>
       )}
 
-      <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
-        {msg ? (
-          <span
-            className={[
-              "font-mono text-[11px] uppercase tracking-[0.12em]",
-              msg.tone === "error" ? "text-[var(--error)]" : "text-[var(--success)]",
-            ].join(" ")}
-          >
-            {msg.text}
-          </span>
-        ) : (
-          <span className="font-mono text-[10px] uppercase tracking-[0.08em] text-steel">
-            — New watchlists are created from the public board so the route + dates form
-            stays in one place.
-          </span>
-        )}
-        <Link href="/empty-legs" className="btn btn-secondary btn-sm">
-          + Add from board <span className="arrow">→</span>
+      <div className="mt-6 flex flex-wrap items-center gap-4 border-t border-line-faint pt-5">
+        <Link href="/empty-legs" className="btn btn-primary">
+          Add from the board <span aria-hidden="true">→</span>
         </Link>
+        {msg ? (
+          <PreferencesFeedback msg={msg} />
+        ) : (
+          <p className="text-[14px] text-steel">
+            New watchlists start from the public board, where the route and dates live.
+          </p>
+        )}
       </div>
-    </div>
+    </section>
   );
 }

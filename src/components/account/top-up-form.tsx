@@ -8,13 +8,18 @@ const MIN_USD = 5_000;
 const MAX_USD = 1_000_000;
 
 const ERROR_COPY: Record<string, string> = {
-  STRIPE_NOT_CONFIGURED: "Payments not enabled — call dispatch.",
-  INVALID_AMOUNT: `Amount must be between $${MIN_USD.toLocaleString()} and $${MAX_USD.toLocaleString()}.`,
-  MEMBER_NOT_FOUND: "Account not provisioned — call dispatch.",
-  NO_ACTIVE_MEMBERSHIP: "No active card to top up.",
-  STRIPE_ERROR: "Stripe couldn't open checkout — try again or call dispatch.",
+  STRIPE_NOT_CONFIGURED: "Card payments aren't switched on yet — call dispatch.",
+  INVALID_AMOUNT: `Choose an amount between $${MIN_USD.toLocaleString()} and $${MAX_USD.toLocaleString()}.`,
+  MEMBER_NOT_FOUND: "Your account isn't set up for memberships yet — call dispatch.",
+  NO_ACTIVE_MEMBERSHIP: "There's no active card to top up.",
+  STRIPE_ERROR: "Checkout wouldn't open — try again or call dispatch.",
 };
 
+/**
+ * Top up the reserve balance. Same validation and Stripe Checkout flow
+ * as before; presets are chips, the amount is a `.field-jn`, the submit
+ * is the 52px primary.
+ */
 export function TopUpForm() {
   const [pending, startPending] = useTransition();
   const [redirecting, setRedirecting] = useState(false);
@@ -35,73 +40,59 @@ export function TopUpForm() {
         setRedirecting(true);
         window.location.assign(result.url);
       } else {
-        setError(ERROR_COPY[result.error] ?? result.error);
+        setError(ERROR_COPY[result.error] ?? "Something went wrong — try again or call dispatch.");
       }
     });
   }
 
   return (
-    <section className="mt-14">
-      <p className="caption mb-3">— Top up balance</p>
-      <p className="mb-5 max-w-[60ch] text-[13px] leading-[1.55] text-bone-2">
-        Add funds to your existing card. Same hourly rates, same callout window — the balance just
-        keeps the lights on longer. Refundable like the original deposit.
+    <section className="card card-pad">
+      <h2 className="title-card-sm text-bone">Top up your balance</h2>
+      <p className="mt-2 max-w-[56ch] text-[15px] leading-[1.55] text-bone-2">
+        Add funds to your existing card. Same locked rates, same call-out window — the balance
+        just lasts longer. Refundable, like the original deposit.
       </p>
-      <form
-        onSubmit={onSubmit}
-        className="rounded-[4px] border border-ink-3 bg-ink-2 p-5"
-      >
-        <div className="flex flex-wrap items-center gap-2">
+      <form onSubmit={onSubmit} className="mt-6 flex flex-col gap-2.5">
+        <div className="flex flex-wrap gap-2" role="group" aria-label="Preset amounts">
           {PRESETS.map((v) => (
             <button
               key={v}
               type="button"
               onClick={() => setAmount(v)}
-              className={[
-                "rounded-[3px] border px-3 py-2 font-mono text-[11px] uppercase tracking-[0.12em] transition-colors",
-                amount === v
-                  ? "border-clearance bg-ink text-clearance"
-                  : "border-ink-3 bg-ink text-bone-2 hover:border-bone-2 hover:text-bone",
-              ].join(" ")}
+              aria-pressed={amount === v}
+              className="chip"
             >
-              ${(v / 1000).toLocaleString()}k
+              ${v.toLocaleString()}
             </button>
           ))}
-          <div className="field-jn !mb-0 ml-2 flex-1 min-w-[200px]">
-            <label htmlFor="topup-amount" className="sr-only">
-              Custom amount (USD)
-            </label>
-            <input
-              id="topup-amount"
-              type="number"
-              inputMode="numeric"
-              min={MIN_USD}
-              max={MAX_USD}
-              step={1000}
-              value={amount}
-              onChange={(e) => setAmount(Number.parseInt(e.target.value, 10) || 0)}
-              className="w-full"
-            />
-          </div>
         </div>
-        <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
-          {error ? (
-            <span className="font-mono text-[10px] uppercase tracking-[0.08em] text-[var(--error)]">
-              {error}
-            </span>
-          ) : (
-            <span className="font-mono text-[10px] uppercase tracking-[0.08em] text-steel">
-              — Stripe Checkout opens in this window. Receipt lands in your inbox.
-            </span>
-          )}
-          <button
-            type="submit"
-            disabled={busy}
-            className="btn btn-primary btn-sm disabled:cursor-wait disabled:opacity-60"
-          >
-            {busy ? "Opening checkout…" : `Top up $${amount.toLocaleString()}`}{" "}
+        <div className="field-jn max-w-[320px]">
+          <label htmlFor="topup-amount">Amount (USD)</label>
+          <input
+            id="topup-amount"
+            type="number"
+            inputMode="numeric"
+            min={MIN_USD}
+            max={MAX_USD}
+            step={1000}
+            value={amount}
+            onChange={(e) => setAmount(Number.parseInt(e.target.value, 10) || 0)}
+          />
+        </div>
+        <div className="mt-3 flex flex-wrap items-center gap-4">
+          <button type="submit" disabled={busy} className="btn btn-primary btn-lg disabled:cursor-wait">
+            {busy ? "Opening checkout…" : `Top up ${Number.isFinite(amount) && amount > 0 ? `$${amount.toLocaleString()}` : ""}`}{" "}
             <span className="arrow">→</span>
           </button>
+          {error ? (
+            <p role="alert" className="text-[14px] leading-[1.45] text-danger">
+              {error}
+            </p>
+          ) : (
+            <p className="text-[14px] leading-[1.45] text-steel">
+              Checkout opens in this window. The receipt lands in your inbox.
+            </p>
+          )}
         </div>
       </form>
     </section>

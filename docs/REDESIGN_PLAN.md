@@ -26,9 +26,25 @@ operators, aircraft, airports and live ops are no longer managed here.
 | 5 | Admin: five-section desk | 1, owner decisions below |
 | 6 | Dictionary in emails/SMS, mobile pass, launch checks (a11y audits, URL + JSON-LD diff, Semrush re-run, PostHog comparison) | 2–5 |
 
-Phases 1–3 are done (1–2 merged in #67; 3 on the branch, see the status
-notes below). Phase 4 has no open questions. Phase 5 waits on the
-decisions below.
+Phases 1–4 are done (1–2 merged in #67, 3 in #68, 4 on the branch; see
+the status notes below). Phase 5 waits on the decisions below.
+
+### Phase 4 status
+
+Shipped: the member account rebuilt from `Account.dc.html` — 200px sticky
+left rail (seven sections with descriptions, primary "Request a quote",
+sign out), a pinned four-tab bar on phones (Overview · Trips · Quote ·
+More), and all seven sections on the card grammar: Overview (next trip as
+a sentence, in-progress quotes linking to their status pages, past trips,
+membership, invoices and dispatcher cards), Quotes (rows link to
+`/request/<token>`), Trips and trip detail, Invoices, Membership, Buy /
+top up, Preferences. Every query, ownership check, Stripe flow and server
+action is unchanged; statuses read as sentences, no ids or enum words.
+
+Not in the data, so not shown: membership hours (the schema holds reserve
+dollars — the card shows dollars left of the deposit), terminal addresses
+(the departure airport name plus "dispatch sends the exact address"), a
+live dispatcher-availability signal, add-to-calendar.
 
 ### Phase 3 status
 

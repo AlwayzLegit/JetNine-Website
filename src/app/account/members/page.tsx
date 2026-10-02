@@ -7,43 +7,39 @@ import { trips } from "@/db/schema/trips";
 import { invoices } from "@/db/schema/invoices";
 import { getCurrentUser, requireUser } from "@/lib/auth";
 import { getMemberByUserId } from "@/lib/member";
-import { formatUSD } from "@/lib/quote-pricing";
+import { MEMBERSHIP_SPECS, type MembershipProgram } from "@/lib/memberships";
+import { formatDay, USD } from "@/lib/request-page";
+import { MembershipActivity, type ActivityRow } from "@/components/account/membership-activity";
 
 export const dynamic = "force-dynamic";
 
-const PROGRAM_LABEL: Record<string, string> = {
-  on_demand: "On-demand",
-  card_100: "JetNine Card · 100",
-  card_250: "JetNine Card · 250",
-  card_500: "JetNine Card · 500",
-  reserve_50: "Reserve · 50",
-  reserve_100: "Reserve · 100",
-  reserve_250: "Reserve · 250",
-  reserve_500_apply: "Reserve · 500 (by application)",
+/** "JetNine Card" / "Reserve" / "On-demand" — the family, for the title. */
+function programFamily(program: MembershipProgram): string {
+  if (program.startsWith("card_")) return "JetNine Card";
+  if (program.startsWith("reserve_")) return "Reserve";
+  return "On-demand";
+}
+
+const STATUS_SENTENCE: Record<string, string> = {
+  active: "Active",
+  paused: "Paused",
+  expired: "Expired",
+  cancelled: "Cancelled",
 };
 
-const TX_KIND_LABEL: Record<string, string> = {
-  top_up: "Top-up",
-  charter_draw: "Charter draw",
-  credit_accrual: "Cashback",
-  refund: "Refund",
-  adjustment: "Adjustment",
-};
+const LONG_DATE = new Intl.DateTimeFormat("en-US", {
+  month: "short",
+  day: "numeric",
+  year: "numeric",
+  timeZone: "UTC",
+});
 
-const TX_KIND_TONE: Record<string, string> = {
-  top_up: "text-[var(--success)]",
-  credit_accrual: "text-clearance",
-  refund: "text-[var(--success)]",
-  charter_draw: "text-bone-2",
-  adjustment: "text-[var(--warn)]",
-};
-
-const STATUS_CLASS: Record<string, string> = {
-  active: "border-[var(--success)] text-[var(--success)]",
-  paused: "border-[var(--warn)] text-[var(--warn)]",
-  expired: "border-steel text-steel",
-  cancelled: "border-[var(--error)] text-[var(--error)]",
-};
+/** "Aug 2, 2025" from a YYYY-MM-DD date. */
+function longDate(date: string | null | undefined): string | null {
+  if (!date) return null;
+  const d = new Date(`${date}T12:00:00Z`);
+  return Number.isNaN(d.getTime()) ? null : LONG_DATE.format(d);
+}
 
 export default async function AccountMembersPage() {
   await requireUser("/account/members");
@@ -54,18 +50,13 @@ export default async function AccountMembersPage() {
 
   if (!member) {
     return (
-      <section className="container-jn py-12">
-        <p className="caption mb-4">— Account · membership</p>
-        <h1 className="font-serif text-[40px] font-light leading-tight tracking-tight text-bone">
-          On-demand by default.
-        </h1>
-        <p className="mt-4 max-w-[64ch] text-[16px] leading-[1.55] text-bone-2">
-          You don&rsquo;t need a membership to fly with JetNine. The card and reserve programs
-          are optional — pay-as-you-fly works for most clients. Start a quote at{" "}
-          <Link href="/quote" className="text-clearance">/quote</Link> or read the{" "}
-          <Link href="/memberships" className="text-clearance">membership comparison</Link>.
+      <>
+        <h1 className="title-app text-bone">On-demand</h1>
+        <p className="mt-2.5 max-w-[60ch] text-[17px] text-bone-2">
+          You don&rsquo;t need a membership to fly with JetNine. Pay per flight, no commitment.
         </p>
-      </section>
+        <OnDemandCard />
+      </>
     );
   }
 
@@ -117,235 +108,224 @@ export default async function AccountMembersPage() {
     .orderBy(desc(reserveTransactions.occurredAt))
     .limit(25);
 
+  const spec = active ? MEMBERSHIP_SPECS[active.program] : null;
+  const title = active ? programFamily(active.program) : "On-demand";
+
+  const cashback =
+    active && active.cashbackPct && active.cashbackPct !== "0" && active.cashbackPct !== "0.00"
+      ? ` ${Number(active.cashbackPct)}% cashback on every flight.`
+      : "";
+  const sentence = active
+    ? `${spec?.name ?? title}, active since ${formatDay(active.activatedOn) ?? active.activatedOn}. Aircraft guaranteed with ${active.calloutHours} hours' notice; your hourly rates are locked for ${active.rateLockMonths} months.${cashback}`
+    : "Pay per flight, no commitment. Add a card or reserve program whenever it starts to make sense.";
+
+  const pct =
+    active && active.depositUsd > 0
+      ? Math.max(0, Math.min(100, Math.round((balance / active.depositUsd) * 100)))
+      : 0;
+
+  const renewal = active
+    ? active.nextRenewalDate
+      ? `Renews ${longDate(active.nextRenewalDate)}`
+      : active.expiresOn
+        ? `Rate lock ends ${longDate(active.expiresOn)}`
+        : "No renewal date set"
+    : null;
+
+  const activity: ActivityRow[] = ledger.map((tx) => ({
+    id: tx.id,
+    kind: tx.kind,
+    amountUsd: tx.amountUsd,
+    description: tx.description,
+    occurredAt: tx.occurredAt.toISOString(),
+    tripId: tx.tripId,
+  }));
+
   return (
-    <section className="container-jn py-12">
-      <header className="mb-10 border-b border-ink-3 pb-6">
-        <p className="caption mb-3">— Account · membership</p>
-        <h1 className="font-serif text-[40px] font-light leading-tight tracking-tight text-bone">
-          {active ? PROGRAM_LABEL[active.program] : "On-demand"}
-        </h1>
-        <p className="mt-3 max-w-[64ch] text-[14px] leading-[1.55] text-bone-2">
-          {active
-            ? `Activated ${active.activatedOn}. ${active.calloutHours}-hour guaranteed callout. ${active.rateLockMonths}-month rate lock${active.cashbackPct && active.cashbackPct !== "0" ? ` · ${active.cashbackPct}% cashback` : ""}.`
-            : "Pay-as-you-fly. No commitments. Upgrade to a card or reserve program anytime."}
-        </p>
-      </header>
+    <>
+      <h1 className="title-app text-bone">{title}</h1>
+      <p className="mt-2.5 max-w-[64ch] text-[17px] text-bone-2">{sentence}</p>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1.2fr_1fr]">
-        <div className="flex flex-col gap-6">
-          {/* Balance card */}
-          {active ? (
-            <section className="rounded-[4px] border border-clearance bg-[rgba(232,226,210,0.04)] p-8">
-              <p className="caption mb-3">— Deposit balance</p>
+      {active && spec ? (
+        <div className="mt-8 grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start">
+          <div className="flex flex-col gap-4">
+            {/* Balance */}
+            <section className="card card-pad">
+              <h2 className="label-jn text-[13px]">Balance</h2>
+              <div className="mt-2 font-serif text-[40px] font-light leading-none text-bone">
+                {USD.format(balance)}
+              </div>
+              <div className="mt-3 flex flex-wrap items-baseline justify-between gap-2 text-[15px]">
+                <span className="text-bone">Reserve dollars left</span>
+                <span className="text-steel">of {USD.format(active.depositUsd)} deposited</span>
+              </div>
               <div
-                className="font-serif text-[64px] font-light leading-none tracking-tight text-bone"
-                style={{ letterSpacing: "-0.02em" }}
+                className="mt-2 h-1.5 overflow-hidden rounded-pill bg-surface-2"
+                role="progressbar"
+                aria-label="Reserve balance"
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-valuenow={pct}
               >
-                {formatUSD(balance)}
+                <div className="h-full bg-clearance" style={{ width: `${pct}%` }} />
               </div>
-              <p className="mt-3 max-w-[58ch] text-[13px] leading-[1.6] text-bone-2">
-                Available to draw against future charters at your locked rate. Refundable within
-                the 24-month rate window — no use-it-or-lose-it.
+              <p className="mt-2 text-[14px] text-steel">{renewal}</p>
+              <p className="mt-4 max-w-[58ch] text-[15px] leading-[1.55] text-bone-2">
+                Drawn against future flights at your locked rate. Refundable within the rate window
+                — nothing expires if you fly less than planned.
               </p>
-              <div className="mt-6 grid grid-cols-2 gap-x-6 gap-y-3 border-t border-ink-3 pt-5 text-[11px]">
-                <div>
-                  <div className="font-mono uppercase tracking-[0.14em] text-steel">— DEPOSIT</div>
-                  <div className="mt-1 font-mono tracking-[0.04em] text-bone">
-                    {formatUSD(active.depositUsd)}
-                  </div>
-                </div>
-                <div>
-                  <div className="font-mono uppercase tracking-[0.14em] text-steel">
-                    — LIFETIME CASHBACK
-                  </div>
-                  <div className="mt-1 font-mono tracking-[0.04em] text-clearance">
-                    {formatUSD(lifetimeCashback)}
-                  </div>
-                </div>
-                <div>
-                  <div className="font-mono uppercase tracking-[0.14em] text-steel">— CALLOUT</div>
-                  <div className="mt-1 font-mono tracking-[0.04em] text-bone">
-                    {active.calloutHours}h
-                  </div>
-                </div>
-                <div>
-                  <div className="font-mono uppercase tracking-[0.14em] text-steel">
-                    — RATE LOCK
-                  </div>
-                  <div className="mt-1 font-mono tracking-[0.04em] text-bone">
-                    {active.rateLockMonths} mo · expires{" "}
-                    {active.expiresOn ?? "—"}
-                  </div>
-                </div>
-              </div>
-            </section>
-          ) : (
-            <section className="rounded-[4px] border border-ink-3 bg-ink-2 p-8">
-              <p className="caption mb-3">— No program enrolled</p>
-              <p className="text-[15px] leading-[1.55] text-bone-2">
-                You&rsquo;re flying on-demand. If you fly 25+ hours a year, the JetNine Card pays
-                for itself in locked rates and avoided peak pricing. Talk to dispatch about the
-                math.
-              </p>
-              <div className="mt-6 flex flex-wrap gap-3">
-                <Link href="/account/memberships" className="btn btn-primary btn-sm">
-                  Buy the card <span className="arrow">→</span>
+              <div className="mt-5 flex flex-wrap gap-2.5">
+                <Link href="/account/memberships" className="btn btn-secondary">
+                  Buy / top up
                 </Link>
-                <Link href="/memberships" className="btn btn-ghost btn-sm">
-                  Compare programs
+                <Link href="/quote/mission" className="btn btn-secondary">
+                  Request a quote
                 </Link>
               </div>
             </section>
-          )}
 
-          {/* Recent ledger */}
-          <section className="rounded-[4px] border border-ink-3 bg-ink-2 p-6">
-            <div className="mb-5 flex items-baseline justify-between">
-              <h2 className="caption">— Recent activity</h2>
-              <span className="font-mono text-[10px] uppercase tracking-[0.08em] text-steel">
-                {ledger.length} of last 25
-              </span>
-            </div>
-            {ledger.length === 0 ? (
-              <p className="text-[13px] leading-[1.55] text-bone-2">
-                No ledger activity yet. Top-ups, charter draws, and cashback accruals all show up
-                here.
-              </p>
-            ) : (
-              <ul className="divide-y divide-ink-3">
-                {ledger.map((tx) => (
-                  <li
-                    key={tx.id}
-                    className="grid grid-cols-[80px_1fr_auto] items-baseline gap-4 py-4"
-                  >
-                    <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-steel">
-                      {tx.occurredAt.toISOString().slice(0, 10)}
-                    </span>
-                    <div>
-                      <div
-                        className={[
-                          "font-mono text-[11px] uppercase tracking-[0.14em]",
-                          TX_KIND_TONE[tx.kind] ?? "text-bone-2",
-                        ].join(" ")}
-                      >
-                        — {TX_KIND_LABEL[tx.kind] ?? tx.kind}
-                      </div>
-                      <div className="mt-1 text-[13px] leading-[1.45] text-bone">
-                        {tx.description ??
-                          (tx.tripCode
-                            ? `Trip ${tx.tripCode}`
-                            : tx.invoiceCode
-                              ? `Invoice ${tx.invoiceCode}`
-                              : "—")}
-                      </div>
-                    </div>
-                    <span
-                      className={[
-                        "font-mono text-[14px] tracking-[0.04em]",
-                        tx.amountUsd >= 0 ? "text-[var(--success)]" : "text-bone",
-                      ].join(" ")}
-                    >
-                      {tx.amountUsd >= 0 ? "+" : ""}
-                      {formatUSD(tx.amountUsd)}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </section>
-        </div>
+            {/* Activity */}
+            <section>
+              <h2 className="label-jn text-[13px]">Activity</h2>
+              <MembershipActivity rows={activity} />
+            </section>
+          </div>
 
-        {/* Right column — program detail + history */}
-        <div className="flex flex-col gap-6">
-          {active ? (
-            <section className="rounded-[4px] border border-ink-3 bg-ink-2 p-6">
-              <h2 className="caption mb-4">— Program details</h2>
-              <dl className="grid grid-cols-[150px_1fr] gap-x-4 gap-y-3 text-[12px]">
-                <Row k="— Cashback">
-                  <span className="font-mono tracking-[0.04em] text-clearance">
-                    {active.cashbackPct}%
-                  </span>
-                </Row>
-                <Row k="— Catering allowance">
-                  <span className="font-mono tracking-[0.04em] text-bone">
-                    {active.cateringAllowanceUsd
-                      ? `${formatUSD(active.cateringAllowanceUsd)} / yr`
-                      : "—"}
-                  </span>
-                </Row>
-                <Row k="— Ground allowance">
-                  <span className="font-mono tracking-[0.04em] text-bone">
-                    {active.groundAllowanceUsd
-                      ? `${formatUSD(active.groundAllowanceUsd)} / yr`
-                      : "—"}
-                  </span>
-                </Row>
-                <Row k="— Named cardholders">
-                  <span className="font-mono tracking-[0.04em] text-bone">
-                    {active.namedCardholdersLimit === 99
-                      ? "Unlimited"
-                      : active.namedCardholdersLimit}
-                  </span>
-                </Row>
-                <Row k="— Empty-leg early access">
-                  <span className="font-mono tracking-[0.04em] text-bone">
-                    {active.emptyLegAdvanceMinutes} min before public board
-                  </span>
-                </Row>
-                <Row k="— Auto-renew">
-                  <span className="font-mono tracking-[0.04em] text-bone">
-                    {active.autoRenew ? "On" : "Off"}
-                  </span>
-                </Row>
+          <div className="flex flex-col gap-4">
+            <section className="card card-pad">
+              <h2 className="label-jn text-[13px]">What&rsquo;s included</h2>
+              <dl className="dl-jn mt-4">
+                <dt>Program</dt>
+                <dd>{spec.name}</dd>
+                <dt>Call-out</dt>
+                <dd>Aircraft guaranteed with {active.calloutHours} hours&rsquo; notice</dd>
+                <dt>Rate lock</dt>
+                <dd>
+                  {active.rateLockMonths} months
+                  {active.expiresOn ? ` · ends ${longDate(active.expiresOn)}` : ""}
+                </dd>
+                <dt>Cashback</dt>
+                <dd>
+                  {active.cashbackPct && Number(active.cashbackPct) > 0
+                    ? `${Number(active.cashbackPct)}% · ${USD.format(lifetimeCashback)} earned so far`
+                    : "None on this program"}
+                </dd>
+                <dt>Catering</dt>
+                <dd>
+                  {active.cateringAllowanceUsd
+                    ? `${USD.format(active.cateringAllowanceUsd)} allowance a year`
+                    : "No allowance"}
+                </dd>
+                <dt>Ground</dt>
+                <dd>
+                  {active.groundAllowanceUsd
+                    ? `${USD.format(active.groundAllowanceUsd)} allowance a year`
+                    : "Booked at cost"}
+                </dd>
+                <dt>Cardholders</dt>
+                <dd>
+                  {active.namedCardholdersLimit >= 99
+                    ? "Unlimited named cardholders"
+                    : `${active.namedCardholdersLimit} named ${active.namedCardholdersLimit === 1 ? "cardholder" : "cardholders"}`}
+                </dd>
+                <dt>Empty legs</dt>
+                <dd>{active.emptyLegAdvanceMinutes} minutes before the public board</dd>
+                <dt>Auto-renew</dt>
+                <dd>{active.autoRenew ? "On" : "Off"}</dd>
               </dl>
             </section>
-          ) : null}
 
-          <section className="rounded-[4px] border border-ink-3 bg-ink-2 p-6">
-            <h2 className="caption mb-4">— Program history</h2>
-            {programs.length === 0 ? (
-              <p className="text-[13px] leading-[1.55] text-bone-2">
-                No program history. Dispatch enrolls you on the membership of your choice.
-              </p>
-            ) : (
-              <ul className="flex flex-col gap-3">
-                {programs.map((p) => (
-                  <li
-                    key={p.id}
-                    className="rounded-[3px] border border-ink-3 bg-ink p-4"
-                  >
-                    <div className="flex items-baseline justify-between">
-                      <span className="font-serif text-[16px] text-bone">
-                        {PROGRAM_LABEL[p.program] ?? p.program}
-                      </span>
-                      <span
-                        className={[
-                          "rounded-full border px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.14em]",
-                          STATUS_CLASS[p.status] ?? "border-ink-3 text-bone-2",
-                        ].join(" ")}
-                      >
-                        {p.status}
-                      </span>
-                    </div>
-                    <div className="mt-1 font-mono text-[10px] tracking-[0.04em] text-bone-2">
-                      {p.activatedOn} → {p.expiresOn ?? "open"} · {formatUSD(p.depositUsd)} deposit
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </section>
+            <HistoryCard programs={programs} />
+          </div>
         </div>
+      ) : (
+        <>
+          <OnDemandCard memberWithoutProgram />
+          {ledger.length > 0 ? (
+            <section className="mt-8">
+              <h2 className="label-jn text-[13px]">Activity</h2>
+              <MembershipActivity rows={activity} />
+            </section>
+          ) : null}
+          {programs.length > 0 ? (
+            <div className="mt-8">
+              <HistoryCard programs={programs} />
+            </div>
+          ) : null}
+        </>
+      )}
+    </>
+  );
+}
+
+/**
+ * The on-demand explanation. Shown to signed-in users without a member
+ * profile and to members without an active program.
+ */
+function OnDemandCard({ memberWithoutProgram = false }: { memberWithoutProgram?: boolean }) {
+  return (
+    <section className="card card-pad mt-8 max-w-[720px]">
+      <h2 className="title-card-sm text-bone">You&rsquo;re flying on-demand.</h2>
+      <p className="mt-2 max-w-[56ch] text-[15px] leading-[1.55] text-bone-2">
+        Every quote is all-in and locked at acceptance, with no deposit and no annual fee. If you
+        fly 25 hours a year or more, the JetNine Card usually pays for itself in locked rates and
+        avoided peak pricing — dispatch can run the numbers for you.
+      </p>
+      <div className="mt-5 flex flex-wrap gap-2.5">
+        <Link href="/memberships" className="btn btn-primary">
+          See programs <span aria-hidden="true">→</span>
+        </Link>
+        {memberWithoutProgram ? (
+          <Link href="/account/memberships" className="btn btn-secondary">
+            Buy the card
+          </Link>
+        ) : null}
+        <Link href="/quote/mission" className="btn btn-secondary">
+          Request a quote
+        </Link>
       </div>
     </section>
   );
 }
 
-function Row({ k, children }: { k: string; children: React.ReactNode }) {
+function HistoryCard({
+  programs,
+}: {
+  programs: Array<{
+    id: string;
+    program: MembershipProgram;
+    status: string;
+    activatedOn: string;
+    expiresOn: string | null;
+    depositUsd: number;
+  }>;
+}) {
   return (
-    <>
-      <dt className="font-mono text-[10px] uppercase tracking-[0.14em] text-steel">{k}</dt>
-      <dd>{children}</dd>
-    </>
+    <section className="card">
+      <h2 className="label-jn px-7 pt-6 text-[13px]">History</h2>
+      {programs.length === 0 ? (
+        <p className="px-7 pb-6 pt-2 text-[15px] text-bone-2">
+          No programs yet. Dispatch enrols you on the one you choose.
+        </p>
+      ) : (
+        <ul className="mt-3 divide-y divide-line-faint">
+          {programs.map((p) => (
+            <li key={p.id} className="px-7 py-4 text-[15px]">
+              <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+                <span className="font-medium text-bone">{MEMBERSHIP_SPECS[p.program]?.name ?? "Program"}</span>
+                <span className={p.status === "active" ? "text-success" : "text-steel"}>
+                  {STATUS_SENTENCE[p.status] ?? p.status}
+                </span>
+              </div>
+              <div className="mt-0.5 text-[14px] text-bone-2">
+                {longDate(p.activatedOn)}
+                {p.expiresOn ? ` to ${longDate(p.expiresOn)}` : " onwards"} · {USD.format(p.depositUsd)}{" "}
+                deposit
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
   );
 }

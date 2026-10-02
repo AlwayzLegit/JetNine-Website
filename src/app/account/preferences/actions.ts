@@ -57,7 +57,7 @@ export type SaveResult = { ok: true } | { ok: false; error: string };
 
 export async function savePreferences(formData: FormData): Promise<SaveResult> {
   const user = await getCurrentUser();
-  if (!user) return { ok: false, error: "Not signed in" };
+  if (!user) return { ok: false, error: "You're not signed in." };
 
   const member = await getMemberByUserId(user.id);
   if (!member) return { ok: false, error: "No member profile yet — dispatch will create one." };
@@ -145,21 +145,21 @@ export type CompanionResult =
 
 export async function addCompanion(formData: FormData): Promise<CompanionResult> {
   const user = await getCurrentUser();
-  if (!user) return { ok: false, error: "Not signed in" };
+  if (!user) return { ok: false, error: "You're not signed in." };
   const member = await getMemberByUserId(user.id);
-  if (!member) return { ok: false, error: "No member profile yet." };
+  if (!member) return { ok: false, error: "No member profile yet — dispatch creates one on your first booking." };
 
   const relation = pickEnum(formData, "relation", RELATION);
-  if (!relation) return { ok: false, error: "Relation required" };
+  if (!relation) return { ok: false, error: "Choose a relationship." };
 
   const legalName = ((formData.get("legalName") as string | null) ?? "").trim();
-  if (legalName.length < 2) return { ok: false, error: "Legal name required" };
-  if (legalName.length > 120) return { ok: false, error: "Legal name too long" };
+  if (legalName.length < 2) return { ok: false, error: "Enter a legal name (at least two characters)." };
+  if (legalName.length > 120) return { ok: false, error: "That name is too long (120 characters at most)." };
 
   const birthRaw = ((formData.get("birthDate") as string | null) ?? "").trim();
   let birthDate: string | null = null;
   if (birthRaw) {
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(birthRaw)) return { ok: false, error: "Birth date YYYY-MM-DD" };
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(birthRaw)) return { ok: false, error: "Enter the birth date as YYYY-MM-DD." };
     birthDate = birthRaw;
   }
 
@@ -219,17 +219,17 @@ export async function addCompanion(formData: FormData): Promise<CompanionResult>
 
 export async function deleteCompanion(companionId: string): Promise<{ ok: true } | { ok: false; error: string }> {
   const user = await getCurrentUser();
-  if (!user) return { ok: false, error: "Not signed in" };
+  if (!user) return { ok: false, error: "You're not signed in." };
   const member = await getMemberByUserId(user.id);
-  if (!member) return { ok: false, error: "No member profile yet." };
+  if (!member) return { ok: false, error: "No member profile yet — dispatch creates one on your first booking." };
 
-  if (!/^[0-9a-f-]{36}$/i.test(companionId)) return { ok: false, error: "Bad id" };
+  if (!/^[0-9a-f-]{36}$/i.test(companionId)) return { ok: false, error: "That record isn't valid." };
 
   const [target] = await db
     .select({ id: companions.id, legalName: companions.legalName, relation: companions.relation })
     .from(companions)
     .where(and(eq(companions.id, companionId), eq(companions.memberId, member.id)));
-  if (!target) return { ok: false, error: "Not found" };
+  if (!target) return { ok: false, error: "We couldn't find that record." };
 
   await db.delete(companions).where(eq(companions.id, target.id));
 
@@ -259,15 +259,15 @@ export type LaneResult =
 
 export async function addLane(formData: FormData): Promise<LaneResult> {
   const user = await getCurrentUser();
-  if (!user) return { ok: false, error: "Not signed in" };
+  if (!user) return { ok: false, error: "You're not signed in." };
   const member = await getMemberByUserId(user.id);
-  if (!member) return { ok: false, error: "No member profile yet." };
+  if (!member) return { ok: false, error: "No member profile yet — dispatch creates one on your first booking." };
 
   const fromIcao = ((formData.get("fromIcao") as string | null) ?? "").trim().toUpperCase();
   const toIcao = ((formData.get("toIcao") as string | null) ?? "").trim().toUpperCase();
-  if (!/^[A-Z0-9]{3,4}$/.test(fromIcao)) return { ok: false, error: "From ICAO invalid" };
-  if (!/^[A-Z0-9]{3,4}$/.test(toIcao)) return { ok: false, error: "To ICAO invalid" };
-  if (fromIcao === toIcao) return { ok: false, error: "From and To must differ" };
+  if (!/^[A-Z0-9]{3,4}$/.test(fromIcao)) return { ok: false, error: "Enter a valid airport code for From (e.g. KVNY)." };
+  if (!/^[A-Z0-9]{3,4}$/.test(toIcao)) return { ok: false, error: "Enter a valid airport code for To (e.g. KTEB)." };
+  if (fromIcao === toIcao) return { ok: false, error: "From and To need to be different airports." };
 
   const freqRaw = ((formData.get("frequencyPerYear") as string | null) ?? "").trim();
   let frequencyPerYear: number | null = null;
@@ -288,7 +288,7 @@ export async function addLane(formData: FormData): Promise<LaneResult> {
         eq(memberLanes.toIcao, toIcao),
       ),
     );
-  if (conflict) return { ok: false, error: "Lane already on file" };
+  if (conflict) return { ok: false, error: "That route is already on file." };
 
   const values: NewMemberLane = {
     memberId: member.id,
@@ -333,11 +333,11 @@ export async function deleteWatchlist(
   watchlistId: string,
 ): Promise<{ ok: true } | { ok: false; error: string }> {
   const user = await getCurrentUser();
-  if (!user) return { ok: false, error: "Not signed in" };
+  if (!user) return { ok: false, error: "You're not signed in." };
   const member = await getMemberByUserId(user.id);
-  if (!member) return { ok: false, error: "No member profile yet." };
+  if (!member) return { ok: false, error: "No member profile yet — dispatch creates one on your first booking." };
 
-  if (!/^[0-9a-f-]{36}$/i.test(watchlistId)) return { ok: false, error: "Bad id" };
+  if (!/^[0-9a-f-]{36}$/i.test(watchlistId)) return { ok: false, error: "That record isn't valid." };
 
   const [target] = await db
     .select({
@@ -352,7 +352,7 @@ export async function deleteWatchlist(
         eq(emptyLegWatchlists.memberId, member.id),
       ),
     );
-  if (!target) return { ok: false, error: "Not found" };
+  if (!target) return { ok: false, error: "We couldn't find that record." };
 
   await db.delete(emptyLegWatchlists).where(eq(emptyLegWatchlists.id, target.id));
 
@@ -378,11 +378,11 @@ export async function toggleWatchlistActive(
   next: boolean,
 ): Promise<{ ok: true; active: boolean } | { ok: false; error: string }> {
   const user = await getCurrentUser();
-  if (!user) return { ok: false, error: "Not signed in" };
+  if (!user) return { ok: false, error: "You're not signed in." };
   const member = await getMemberByUserId(user.id);
-  if (!member) return { ok: false, error: "No member profile yet." };
+  if (!member) return { ok: false, error: "No member profile yet — dispatch creates one on your first booking." };
 
-  if (!/^[0-9a-f-]{36}$/i.test(watchlistId)) return { ok: false, error: "Bad id" };
+  if (!/^[0-9a-f-]{36}$/i.test(watchlistId)) return { ok: false, error: "That record isn't valid." };
 
   const [target] = await db
     .select({
@@ -398,7 +398,7 @@ export async function toggleWatchlistActive(
         eq(emptyLegWatchlists.memberId, member.id),
       ),
     );
-  if (!target) return { ok: false, error: "Not found" };
+  if (!target) return { ok: false, error: "We couldn't find that record." };
 
   // Owning the row is not the same as controlling the number on it. A
   // signed-in member can create a watchlist against anyone's phone, so
@@ -431,17 +431,17 @@ export async function toggleWatchlistActive(
 
 export async function deleteLane(laneId: string): Promise<{ ok: true } | { ok: false; error: string }> {
   const user = await getCurrentUser();
-  if (!user) return { ok: false, error: "Not signed in" };
+  if (!user) return { ok: false, error: "You're not signed in." };
   const member = await getMemberByUserId(user.id);
-  if (!member) return { ok: false, error: "No member profile yet." };
+  if (!member) return { ok: false, error: "No member profile yet — dispatch creates one on your first booking." };
 
-  if (!/^[0-9a-f-]{36}$/i.test(laneId)) return { ok: false, error: "Bad id" };
+  if (!/^[0-9a-f-]{36}$/i.test(laneId)) return { ok: false, error: "That record isn't valid." };
 
   const [target] = await db
     .select({ id: memberLanes.id, fromIcao: memberLanes.fromIcao, toIcao: memberLanes.toIcao })
     .from(memberLanes)
     .where(and(eq(memberLanes.id, laneId), eq(memberLanes.memberId, member.id)));
-  if (!target) return { ok: false, error: "Not found" };
+  if (!target) return { ok: false, error: "We couldn't find that record." };
 
   await db.delete(memberLanes).where(eq(memberLanes.id, target.id));
 

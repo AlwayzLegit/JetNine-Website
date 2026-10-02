@@ -1,26 +1,16 @@
 import Link from "next/link";
 import { asc, desc, eq, inArray } from "drizzle-orm";
 import { db } from "@/db";
+import { aircraft } from "@/db/schema/aircraft";
 import { trips, tripLegs } from "@/db/schema/trips";
 import { getCurrentUser, requireUser } from "@/lib/auth";
 import { getMemberByUserId } from "@/lib/member";
-import { formatUSD } from "@/lib/quote-pricing";
+import { USD, formatDay } from "@/lib/request-page";
+import { SectionHead } from "@/components/account/overview-section";
+import { dotClass, todayISO } from "@/components/account/quotes-status";
+import { isUpcoming, nextLeg, routeWords, tripStatusWords } from "@/components/account/trips-status";
 
 export const dynamic = "force-dynamic";
-
-const STATUS_CLASS: Record<string, string> = {
-  draft: "border-ink-3 text-bone-2",
-  confirmed: "border-clearance text-clearance",
-  crew_briefed: "border-bone text-bone",
-  boarding: "border-bone text-bone",
-  airborne: "border-[var(--warn)] text-[var(--warn)]",
-  wheels_down: "border-bone-2 text-bone-2",
-  completed: "border-[var(--success)] text-[var(--success)]",
-  cancelled_wx: "border-[var(--error)] text-[var(--error)]",
-  cancelled_other: "border-[var(--error)] text-[var(--error)]",
-  diverted: "border-[var(--warn)] text-[var(--warn)]",
-  irregular_ops: "border-[var(--error)] text-[var(--error)]",
-};
 
 export default async function AccountTripsPage() {
   await requireUser("/account/trips");
@@ -31,17 +21,20 @@ export default async function AccountTripsPage() {
 
   if (!member) {
     return (
-      <section className="container-jn py-12">
-        <p className="caption mb-4">— Account · trips</p>
-        <h1 className="font-serif text-[40px] font-light leading-tight tracking-tight text-bone">
-          No trips on file yet.
-        </h1>
-        <p className="mt-4 max-w-[60ch] text-[16px] leading-[1.55] text-bone-2">
-          Your account is signed in but doesn&rsquo;t have a member profile yet. Dispatch creates
-          one when you book your first flight. Until then, kick off a quote at{" "}
-          <Link href="/quote" className="text-clearance">/quote</Link>.
-        </p>
-      </section>
+      <>
+        <h1 className="title-app">Your trips</h1>
+        <p className="mt-2.5 text-[17px] text-bone-2">Past, upcoming and in the air — all in one place.</p>
+        <div className="card mt-8 p-7 max-md:p-5">
+          <h2 className="title-card-sm text-bone">No trips on file yet.</h2>
+          <p className="mt-2 max-w-[56ch] text-bone-2">
+            You&rsquo;re signed in, but dispatch hasn&rsquo;t set up your member profile yet. That happens
+            when you book your first flight — until then, start with a quote.
+          </p>
+          <Link href="/quote/mission" className="btn btn-primary mt-5">
+            Request a quote <span aria-hidden="true">→</span>
+          </Link>
+        </div>
+      </>
     );
   }
 
@@ -54,9 +47,10 @@ export default async function AccountTripsPage() {
       missionType: trips.missionType,
       revenueUsd: trips.revenueUsd,
       createdAt: trips.createdAt,
-      wheelsUpAt: trips.wheelsUpAt,
+      aircraft: aircraft.makeModel,
     })
     .from(trips)
+    .leftJoin(aircraft, eq(aircraft.id, trips.aircraftId))
     .where(eq(trips.memberId, member.id))
     .orderBy(desc(trips.createdAt))
     .limit(50);
@@ -71,6 +65,7 @@ export default async function AccountTripsPage() {
           toIata: tripLegs.toIata,
           fromCity: tripLegs.fromCity,
           toCity: tripLegs.toCity,
+          departDate: tripLegs.departDate,
         })
         .from(tripLegs)
         .where(inArray(tripLegs.tripId, ids))
@@ -82,80 +77,113 @@ export default async function AccountTripsPage() {
     arr.push(l);
     legsByTrip.set(l.tripId, arr);
   }
+  const legsOf = (id: string) => legsByTrip.get(id) ?? [];
+
+  const today = todayISO();
+  const upcoming = rows
+    .filter((t) => isUpcoming(t.status, legsOf(t.id), today))
+    .sort((a, b) =>
+      (nextLeg(legsOf(a.id), today)?.departDate ?? "9999").localeCompare(
+        nextLeg(legsOf(b.id), today)?.departDate ?? "9999",
+      ),
+    );
+  const upcomingIds = new Set(upcoming.map((t) => t.id));
+  const past = rows
+    .filter((t) => !upcomingIds.has(t.id))
+    .sort((a, b) => (legsOf(b.id)[0]?.departDate ?? "").localeCompare(legsOf(a.id)[0]?.departDate ?? ""));
+
+  const summary =
+    rows.length === 0
+      ? "Nothing booked yet."
+      : upcoming.length === 0
+        ? "Nothing coming up — your past flights are below."
+        : `${upcoming.length === 1 ? "One trip" : `${upcoming.length} trips`} coming up.`;
 
   return (
-    <section className="container-jn py-12">
-      <header className="mb-10 flex flex-wrap items-end justify-between gap-6">
-        <div>
-          <p className="caption mb-3">— Account · trips</p>
-          <h1 className="font-serif text-[40px] font-light leading-tight tracking-tight text-bone">
-            Your trips · {rows.length}
-          </h1>
-          <p className="mt-3 max-w-[60ch] text-[14px] leading-[1.55] text-bone-2">
-            Every flight tied to your member account, newest first. Trip sheet detail with
-            manifest, crew, ground, and FBO instructions opens by clicking the row.
-          </p>
-        </div>
-        <Link href="/quote" className="btn btn-secondary btn-sm">
-          Start a new quote <span className="arrow">→</span>
-        </Link>
-      </header>
+    <>
+      <h1 className="title-app">Your trips</h1>
+      <p className="mt-2.5 text-[17px] text-bone-2">{summary}</p>
 
       {rows.length === 0 ? (
-        <div className="rounded-[4px] border border-ink-3 bg-ink-2 p-12 text-center">
-          <p className="caption mb-3">— Empty</p>
-          <h2 className="font-serif text-[24px] font-normal text-bone">No trips yet.</h2>
-          <p className="mx-auto mt-3 max-w-[44ch] text-[14px] leading-[1.55] text-bone-2">
-            Submit a quote and dispatch will be in touch. Once you accept an option, the trip
-            shows up here with its JN-YYYY-NNNN ref.
+        <div className="card mt-8 p-7 max-md:p-5">
+          <h2 className="title-card-sm text-bone">No trips yet.</h2>
+          <p className="mt-2 max-w-[56ch] text-bone-2">
+            Send a quote request and pick one of the options dispatch sends back — the trip shows up
+            here the moment it&rsquo;s booked.
           </p>
+          <Link href="/quote/mission" className="btn btn-primary mt-5">
+            Request a quote <span aria-hidden="true">→</span>
+          </Link>
         </div>
       ) : (
-        <ul className="grid grid-cols-1 gap-3">
-          {rows.map((t) => {
-            const route =
-              (legsByTrip.get(t.id) ?? [])
-                .map((l) => `${l.fromIata ?? "—"} → ${l.toIata ?? "—"}`)
-                .join("  ·  ") || "—";
-            return (
-              <li key={t.id}>
-                <Link
-                  href={`/account/trips/${t.id}`}
-                  className="flex flex-col gap-3 rounded-[4px] border border-ink-3 bg-ink-2 px-6 py-5 transition-colors hover:border-clearance md:grid md:grid-cols-[auto_1fr_auto_auto] md:items-center md:gap-6"
-                >
-                  <span className="font-mono text-[12px] tracking-[0.04em] text-clearance">
-                    {t.tripCode}
-                  </span>
-                  <div>
-                    <div className="font-serif text-[18px] font-normal leading-tight text-bone">
-                      {route}
-                    </div>
-                    <div className="mt-1 font-mono text-[10px] tracking-[0.04em] text-bone-2">
-                      {t.missionType.replace(/_/g, " ")} · {t.paxCount} pax
-                    </div>
-                  </div>
-                  <span
-                    className={[
-                      "inline-block rounded-full border px-2.5 py-0.5 font-mono text-[9px] uppercase tracking-[0.14em]",
-                      STATUS_CLASS[t.status] ?? "border-ink-3 text-bone-2",
-                    ].join(" ")}
-                  >
-                    {t.status.replace(/_/g, " ")}
-                  </span>
-                  <div className="text-right">
-                    <div className="font-mono text-[12px] tracking-[0.04em] text-bone">
-                      {t.revenueUsd ? formatUSD(t.revenueUsd) : "—"}
-                    </div>
-                    <div className="mt-1 font-mono text-[10px] tracking-[0.04em] text-bone-2">
-                      {t.createdAt.toISOString().slice(0, 10)}
-                    </div>
-                  </div>
-                </Link>
-              </li>
-            );
-          })}
-        </ul>
+        <>
+          <SectionHead label="Upcoming" className="mt-8" />
+          {upcoming.length === 0 ? (
+            <div className="card mt-2.5 flex flex-wrap items-center justify-between gap-4 px-6 py-[18px] max-md:px-4">
+              <p className="text-[15px] text-bone-2">Nothing coming up.</p>
+              <Link href="/quote/mission" className="btn btn-secondary btn-sm">
+                Request a quote <span aria-hidden="true">→</span>
+              </Link>
+            </div>
+          ) : (
+            <TripList rows={upcoming} legsOf={legsOf} today={today} />
+          )}
+
+          <SectionHead label="Past" className="mt-7" />
+          {past.length === 0 ? (
+            <div className="card mt-2.5 px-6 py-[18px] max-md:px-4">
+              <p className="text-[15px] text-bone-2">No past trips yet.</p>
+            </div>
+          ) : (
+            <TripList rows={past} legsOf={legsOf} today={today} />
+          )}
+        </>
       )}
-    </section>
+    </>
+  );
+}
+
+type Row = {
+  id: string;
+  status: string;
+  paxCount: number;
+  revenueUsd: number | null;
+  aircraft: string | null;
+};
+type Leg = { fromIata: string | null; toIata: string | null; fromCity: string | null; toCity: string | null; departDate: string | null };
+
+function TripList({ rows, legsOf, today }: { rows: Row[]; legsOf: (id: string) => Leg[]; today: string }) {
+  return (
+    <ul className="card mt-2.5 overflow-hidden">
+      {rows.map((t) => {
+        const legs = legsOf(t.id);
+        const date = formatDay(nextLeg(legs, today)?.departDate ?? legs[0]?.departDate);
+        const status = tripStatusWords(t.status);
+        const meta = [date, t.aircraft, `${t.paxCount} passenger${t.paxCount === 1 ? "" : "s"}`].filter(Boolean).join(" · ");
+        return (
+          <li key={t.id} className="border-b border-line-faint last:border-b-0">
+            <Link
+              href={`/account/trips/${t.id}`}
+              className="grid items-center gap-x-6 gap-y-2 px-6 py-4 transition-colors hover:bg-surface-2 max-md:px-4 md:grid-cols-[minmax(0,1fr)_auto]"
+            >
+              <div className="min-w-0">
+                <div className="text-[17px] font-medium text-bone">
+                  {routeWords(legs)}
+                  {meta ? <span className="font-normal text-steel"> · {meta}</span> : null}
+                </div>
+                <div className="mt-1 flex items-center gap-2 text-[15px] text-bone-2">
+                  <span className={dotClass(status.tone)} aria-hidden="true" />
+                  <span>{status.text}</span>
+                </div>
+              </div>
+              <div className="flex items-center gap-4 text-[15px] max-md:justify-between">
+                {t.revenueUsd != null ? <span className="text-bone">{USD.format(t.revenueUsd)}</span> : null}
+                <span className="text-bone-2">Details →</span>
+              </div>
+            </Link>
+          </li>
+        );
+      })}
+    </ul>
   );
 }

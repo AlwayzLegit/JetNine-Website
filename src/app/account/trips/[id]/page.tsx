@@ -6,37 +6,46 @@ import { trips, tripLegs } from "@/db/schema/trips";
 import { invoices } from "@/db/schema/invoices";
 import { aircraft } from "@/db/schema/aircraft";
 import { operators } from "@/db/schema/operators";
+import { staff } from "@/db/schema/staff";
 import { messages } from "@/db/schema/audit";
 import { getCurrentUser, requireUser } from "@/lib/auth";
+import { SITE } from "@/lib/constants";
 import { getMemberByUserId } from "@/lib/member";
-import { formatUSD } from "@/lib/quote-pricing";
+import { USD, formatDay } from "@/lib/request-page";
+import { DispatcherCard } from "@/components/account/overview-aside";
+import { dotClass } from "@/components/account/quotes-status";
+import { TripLegCard } from "@/components/account/trips-leg-card";
+import { MISSION_WORDS, aircraftWords, routeWords, tripStatusWords } from "@/components/account/trips-status";
 
-const CHANNEL_LABEL: Record<string, string> = {
-  inapp: "Portal",
+const CHANNEL_WORDS: Record<string, string> = {
+  inapp: "Portal note",
   email: "Email",
-  sms: "SMS",
-  call: "Call",
+  sms: "Text message",
+  call: "Phone call",
   voicemail: "Voicemail",
-  system: "System",
+  system: "Update",
 };
+
+const INVOICE_WORDS: Record<string, string> = {
+  draft: "Being prepared",
+  due: "Due",
+  paid: "Paid",
+  overdue: "Overdue",
+  credit: "Credit",
+  void: "Cancelled",
+};
+
+const WHEN_FMT = new Intl.DateTimeFormat("en-US", {
+  month: "short",
+  day: "numeric",
+  hour: "numeric",
+  minute: "2-digit",
+  timeZone: "America/Los_Angeles",
+});
 
 export const dynamic = "force-dynamic";
 
 type Props = { params: Promise<{ id: string }> };
-
-const STATUS_CLASS: Record<string, string> = {
-  draft: "border-ink-3 text-bone-2",
-  confirmed: "border-clearance text-clearance",
-  crew_briefed: "border-bone text-bone",
-  boarding: "border-bone text-bone",
-  airborne: "border-[var(--warn)] text-[var(--warn)]",
-  wheels_down: "border-bone-2 text-bone-2",
-  completed: "border-[var(--success)] text-[var(--success)]",
-  cancelled_wx: "border-[var(--error)] text-[var(--error)]",
-  cancelled_other: "border-[var(--error)] text-[var(--error)]",
-  diverted: "border-[var(--warn)] text-[var(--warn)]",
-  irregular_ops: "border-[var(--error)] text-[var(--error)]",
-};
 
 export default async function AccountTripDetailPage({ params }: Props) {
   const { id } = await params;
@@ -69,8 +78,9 @@ export default async function AccountTripDetailPage({ params }: Props) {
   const [acRow] = trip.aircraftId
     ? await db
         .select({
-          tailNumber: aircraft.tailNumber,
           makeModel: aircraft.makeModel,
+          category: aircraft.category,
+          seats: aircraft.seats,
           yearManufactured: aircraft.yearManufactured,
         })
         .from(aircraft)
@@ -82,6 +92,15 @@ export default async function AccountTripDetailPage({ params }: Props) {
         .select({ name: operators.name })
         .from(operators)
         .where(eq(operators.id, trip.operatorId))
+    : [];
+
+  const dispatcherId = trip.assignedDispatcherId ?? member.primaryDispatcherId;
+  const [dispatcher] = dispatcherId
+    ? await db
+        .select({ displayName: staff.displayName, directLineE164: staff.directLineE164 })
+        .from(staff)
+        .where(eq(staff.id, dispatcherId))
+        .limit(1)
     : [];
 
   // Dispatcher-authored thread, visible to the member as a read-only timeline.
@@ -105,182 +124,135 @@ export default async function AccountTripDetailPage({ params }: Props) {
     )
     .orderBy(asc(messages.occurredAt));
 
-  const totalDistance = legs.reduce((sum, l) => sum + (l.distanceNm ?? 0), 0);
+  const status = tripStatusWords(trip.status);
+  const route = routeWords(legs);
+  const firstDay = formatDay(legs[0]?.departDate);
+  const sentence = [
+    firstDay,
+    MISSION_WORDS[trip.missionType] ?? null,
+    `${trip.paxCount} passenger${trip.paxCount === 1 ? "" : "s"}`,
+    legs.length > 1 ? `${legs.length} legs` : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+  const aircraftLine = aircraftWords(acRow ?? null);
+  const subject = `${trip.tripCode} — passenger names`;
 
   return (
-    <section className="container-jn py-12">
-      <header className="mb-10 border-b border-ink-3 pb-6">
-        <Link
-          href="/account/trips"
-          className="font-mono text-[10px] uppercase tracking-[0.14em] text-bone-2 transition-colors hover:text-clearance"
-        >
-          ← All trips
-        </Link>
-        <div className="mt-4 flex flex-wrap items-baseline gap-4">
-          <span
-            className="font-serif text-[44px] font-light leading-none tracking-tight text-bone"
-            style={{ letterSpacing: "-0.02em" }}
-          >
-            {trip.tripCode}
-          </span>
-          <span
-            className={[
-              "rounded-full border px-2.5 py-0.5 font-mono text-[10px] uppercase tracking-[0.14em]",
-              STATUS_CLASS[trip.status] ?? "border-ink-3 text-bone-2",
-            ].join(" ")}
-          >
-            {trip.status.replace(/_/g, " ")}
-          </span>
-        </div>
-        <p className="mt-3 font-mono text-[10px] uppercase tracking-[0.08em] text-bone-2">
-          {trip.missionType.replace(/_/g, " ")} · {trip.paxCount} pax · {legs.length} leg
-          {legs.length === 1 ? "" : "s"} · {totalDistance.toLocaleString()} NM
-        </p>
-      </header>
+    <>
+      <Link href="/account/trips" className="text-[15px] text-bone-2 transition-colors hover:text-bone">
+        ← All trips
+      </Link>
+      <h1 className="title-app mt-3">{route}</h1>
+      <p className="mt-2.5 text-[17px] text-bone-2">
+        {sentence}
+        <span className="text-steel"> · trip {trip.tripCode}</span>
+      </p>
+      <p className="mt-2 flex items-center gap-2 text-[17px] text-bone">
+        <span className={dotClass(status.tone)} aria-hidden="true" />
+        {status.text}
+      </p>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1.4fr_1fr]">
-        <div className="flex flex-col gap-6">
-          <section>
-            <h2 className="caption mb-4">— Itinerary</h2>
-            <ul className="flex flex-col gap-3">
-              {legs.map((l) => (
-                <li key={l.id} className="rounded-[4px] border border-ink-3 bg-ink-2 p-6">
-                  <div className="mb-3 flex items-center justify-between">
-                    <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-clearance">
-                      — Leg {String(l.legNumber).padStart(2, "0")}
-                    </span>
-                    <span className="font-mono text-[10px] uppercase tracking-[0.08em] text-bone-2">
-                      {l.departDate} · {l.departTime}
-                    </span>
-                  </div>
-                  <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-4">
-                    <div>
-                      <div className="font-serif text-[28px] font-light leading-none text-bone">
-                        {l.fromIata ?? "—"}
-                      </div>
-                      <div className="mt-1 font-mono text-[11px] uppercase tracking-[0.08em] text-bone-2">
-                        {l.fromCity ?? "—"}
-                      </div>
-                    </div>
-                    <div className="text-center">
-                      <div className="font-mono text-[11px] uppercase tracking-[0.12em] text-clearance">
-                        — ✈ —
-                      </div>
-                      <div className="mt-1 font-mono text-[10px] tracking-[0.04em] text-bone-2">
-                        {l.distanceNm ? `${l.distanceNm.toLocaleString()} NM` : "—"}
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <div className="font-serif text-[28px] font-light leading-none text-bone">
-                        {l.toIata ?? "—"}
-                      </div>
-                      <div className="mt-1 font-mono text-[11px] uppercase tracking-[0.08em] text-bone-2">
-                        {l.toCity ?? "—"}
-                      </div>
-                    </div>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          </section>
+      <div className="mt-8 grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
+        <div className="flex min-w-0 flex-col gap-4">
+          {legs.length === 0 ? (
+            <div className="card p-6 max-md:p-5">
+              <p className="text-bone-2">Dispatch is still writing up the legs for this trip. The itinerary lands here first.</p>
+            </div>
+          ) : (
+            legs.map((l) => <TripLegCard key={l.id} leg={l} showNumber={legs.length > 1} />)
+          )}
 
           {trip.notesMember ? (
-            <section className="rounded-[4px] border-l-2 border-clearance bg-ink-2 p-6">
-              <h2 className="caption mb-3">— Notes from dispatch</h2>
-              <p className="whitespace-pre-line italic text-[14px] leading-[1.65] text-bone">
-                {trip.notesMember}
-              </p>
+            <section className="card p-6 max-md:p-5">
+              <h2 className="label-jn text-[13px]">Notes from dispatch</h2>
+              <p className="mt-2 whitespace-pre-line leading-[1.6] text-bone">{trip.notesMember}</p>
             </section>
           ) : null}
 
           {memberThread.length > 0 ? (
-            <section className="rounded-[4px] border border-ink-3 bg-ink-2 p-6">
-              <h2 className="caption mb-4">— Updates from dispatch</h2>
-              <ul className="flex flex-col gap-4">
+            <section className="card p-6 max-md:p-5">
+              <h2 className="label-jn text-[13px]">Updates from dispatch</h2>
+              <ul className="mt-3 flex flex-col gap-4">
                 {memberThread.map((m) => (
-                  <li
-                    key={m.id}
-                    className="border-l-2 border-clearance pl-4"
-                  >
-                    <div className="flex items-baseline gap-3">
-                      <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-clearance">
-                        {CHANNEL_LABEL[m.channel] ?? m.channel}
-                      </span>
-                      <span className="font-mono text-[10px] uppercase tracking-[0.08em] text-steel">
-                        {m.occurredAt
-                          ? m.occurredAt
-                              .toISOString()
-                              .slice(0, 16)
-                              .replace("T", " ") + " UTC"
-                          : "—"}
-                      </span>
+                  <li key={m.id} className="border-l-2 border-line-2 pl-4">
+                    <div className="text-[14px] text-steel">
+                      {CHANNEL_WORDS[m.channel] ?? "Update"}
+                      {m.occurredAt ? ` · ${WHEN_FMT.format(m.occurredAt)}` : ""}
                     </div>
-                    <p className="mt-1 whitespace-pre-wrap text-[14px] leading-[1.6] text-bone">
-                      {m.body ?? m.preview ?? ""}
-                    </p>
+                    <p className="mt-1 whitespace-pre-wrap leading-[1.6] text-bone">{m.body ?? m.preview ?? ""}</p>
                   </li>
                 ))}
               </ul>
-              <p className="mt-5 font-mono text-[10px] uppercase tracking-[0.08em] text-steel">
-                — Read-only · reply by hitting the dispatcher on the phone, email, or SMS thread you
-                were originally contacted on.
+              <p className="mt-5 text-[14px] text-steel">
+                To reply, call or text your dispatcher — this page is read-only.
               </p>
             </section>
           ) : null}
+
+          <div className="flex flex-wrap gap-2.5 max-md:grid max-md:grid-cols-2">
+            <a href={`mailto:${SITE.email}?subject=${encodeURIComponent(subject)}`} className="btn btn-secondary">
+              Add passenger names
+            </a>
+            <a href={`mailto:${SITE.email}?subject=${encodeURIComponent(`${trip.tripCode} — request a car`)}`} className="btn btn-secondary">
+              Request a car
+            </a>
+          </div>
         </div>
 
-        <div className="flex flex-col gap-6">
-          <section className="rounded-[4px] border border-ink-3 bg-ink-2 p-6">
-            <h2 className="caption mb-4">— Aircraft</h2>
-            {acRow ? (
-              <>
-                <div className="font-serif text-[22px] font-normal leading-tight text-bone">
-                  {acRow.makeModel}
-                </div>
-                <div className="mt-1 font-mono text-[12px] tracking-[0.04em] text-clearance">
-                  {acRow.tailNumber}
-                  {acRow.yearManufactured ? ` · ${acRow.yearManufactured}` : ""}
-                </div>
-              </>
-            ) : (
-              <p className="text-[13px] leading-[1.55] text-bone-2">
-                Specific aircraft being finalized. Trip sheet emails the moment it&rsquo;s locked.
-              </p>
-            )}
-            {opRow ? (
-              <p className="mt-4 border-t border-ink-3 pt-4 font-mono text-[10px] uppercase tracking-[0.08em] text-bone-2">
-                Operated by <span className="text-bone">{opRow.name}</span> · FAA Part 135
-              </p>
-            ) : null}
-          </section>
+        <aside className="flex flex-col gap-4">
+          <div className="card p-6">
+            <h2 className="label-jn text-[13px]">The trip</h2>
+            <dl className="dl-jn mt-2.5">
+              <dt>Aircraft</dt>
+              <dd>
+                {aircraftLine ?? "Being finalised — dispatch confirms it before you fly"}
+                {acRow?.yearManufactured ? <span className="text-steel"> · {acRow.yearManufactured}</span> : null}
+              </dd>
+              {opRow ? (
+                <>
+                  <dt>Operated by</dt>
+                  <dd>
+                    {opRow.name}
+                    <span className="text-steel"> · FAA Part 135</span>
+                  </dd>
+                </>
+              ) : null}
+              <dt>Passengers</dt>
+              <dd>{trip.paxCount}</dd>
+              <dt>Status</dt>
+              <dd className="flex items-center gap-2">
+                <span className={dotClass(status.tone)} aria-hidden="true" />
+                {status.text}
+              </dd>
+            </dl>
+          </div>
 
           {tripInvoice ? (
-            <section className="rounded-[4px] border border-ink-3 bg-ink-2 p-6">
-              <h2 className="caption mb-4">— Invoice</h2>
-              <div className="flex items-baseline justify-between">
-                <Link
-                  href={`/account/invoices`}
-                  className="font-mono text-[12px] tracking-[0.04em] text-clearance transition-colors hover:underline"
-                >
-                  {tripInvoice.invoiceCode}
-                </Link>
-                <span className="font-mono text-[10px] uppercase tracking-[0.08em] text-bone-2">
-                  {tripInvoice.status}
-                </span>
+            <div className="card p-6">
+              <h2 className="label-jn text-[13px]">Invoice</h2>
+              <div className="mt-2 text-[26px] font-medium leading-tight text-bone">
+                {tripInvoice.totalUsd != null ? USD.format(tripInvoice.totalUsd) : "Amount to follow"}
               </div>
-              <div
-                className="mt-4 font-serif text-[36px] font-light leading-none tracking-tight text-bone"
-                style={{ letterSpacing: "-0.02em" }}
-              >
-                {tripInvoice.totalUsd ? formatUSD(tripInvoice.totalUsd) : "Pending"}
+              <div className="mt-1 text-[15px] text-bone-2">
+                {INVOICE_WORDS[tripInvoice.status] ?? "With dispatch"}
+                {tripInvoice.status === "paid" && tripInvoice.paidOn ? ` · ${formatDay(tripInvoice.paidOn)}` : ""}
+                {(tripInvoice.status === "due" || tripInvoice.status === "overdue") && tripInvoice.dueOn
+                  ? ` · by ${formatDay(tripInvoice.dueOn)}`
+                  : ""}
               </div>
-              <p className="mt-4 font-mono text-[10px] uppercase tracking-[0.08em] text-bone-2">
-                All-in · FET (7.5%) + segment fee included
+              <p className="mt-2 text-[14px] text-steel">
+                Everything included — federal excise tax and segment fees.
               </p>
-            </section>
+              <Link href="/account/invoices" className="text-link mt-3 inline-block text-[15px]">
+                {tripInvoice.status === "due" || tripInvoice.status === "overdue" ? "Pay this invoice" : "All invoices"}
+              </Link>
+            </div>
           ) : null}
-        </div>
+
+          <DispatcherCard dispatcher={dispatcher ?? null} subject={`${trip.tripCode} — question`} />
+        </aside>
       </div>
-    </section>
+    </>
   );
 }

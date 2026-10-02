@@ -3,6 +3,8 @@
 import { useState, useTransition, type FormEvent } from "react";
 import { addCompanion, deleteCompanion } from "./actions";
 import type { Companion } from "@/db/schema/member-prefs";
+import { PreferencesToggle } from "@/components/account/preferences-toggle";
+import { PreferencesFeedback, errorSentence, type Feedback } from "@/components/account/preferences-feedback";
 
 const RELATIONS = [
   { id: "spouse", label: "Spouse" },
@@ -13,13 +15,32 @@ const RELATIONS = [
   { id: "other", label: "Other" },
 ] as const;
 
+const RELATION_WORDS: Record<string, string> = Object.fromEntries(RELATIONS.map((r) => [r.id, r.label]));
+
+const BORN = new Intl.DateTimeFormat("en-US", {
+  month: "short",
+  day: "numeric",
+  year: "numeric",
+  timeZone: "UTC",
+});
+
+function born(date: string | null): string | null {
+  if (!date) return null;
+  const d = new Date(`${date}T12:00:00Z`);
+  return Number.isNaN(d.getTime()) ? null : BORN.format(d);
+}
+
 type Props = { initial: Companion[] };
 
+/**
+ * "Companions" card: the people and pets who fly with you, plus the add
+ * form. Same `addCompanion` / `deleteCompanion` actions as before.
+ */
 export function CompanionsSection({ initial }: Props) {
   const [list, setList] = useState<Companion[]>(initial);
   const [relation, setRelation] = useState<string>("spouse");
   const [pending, startTransition] = useTransition();
-  const [msg, setMsg] = useState<{ tone: "ok" | "error"; text: string } | null>(null);
+  const [msg, setMsg] = useState<Feedback>(null);
 
   const isPet = relation === "pet";
 
@@ -49,11 +70,11 @@ export function CompanionsSection({ initial }: Props) {
           createdAt: new Date(),
         };
         setList((prev) => [...prev, optimistic]);
-        setMsg({ tone: "ok", text: "ADDED — saved to your manifest defaults." });
+        setMsg({ tone: "ok", text: "Added." });
         form.reset();
         setRelation("spouse");
       } else {
-        setMsg({ tone: "error", text: `BLOCKED — ${result.error.toUpperCase()}` });
+        setMsg({ tone: "error", text: errorSentence(result.error) });
       }
     });
   }
@@ -64,66 +85,62 @@ export function CompanionsSection({ initial }: Props) {
       const result = await deleteCompanion(id);
       if (result.ok) {
         setList((prev) => prev.filter((c) => c.id !== id));
-        setMsg({ tone: "ok", text: "REMOVED." });
+        setMsg({ tone: "ok", text: "Removed." });
       } else {
-        setMsg({ tone: "error", text: `BLOCKED — ${result.error.toUpperCase()}` });
+        setMsg({ tone: "error", text: errorSentence(result.error) });
       }
     });
   }
 
   return (
-    <div className="flex flex-col gap-6">
+    <section className="card card-pad">
+      <h2 className="title-card-sm text-bone">Companions</h2>
+      <p className="mt-1 max-w-[60ch] text-[15px] leading-[1.5] text-bone-2">
+        Spouses, family, assistants, pets — the people who fly with you. Stored encrypted and used
+        to pre-fill passenger lists and itinerary copies.
+      </p>
+
       {list.length === 0 ? (
-        <p className="rounded-[2px] border border-dashed border-ink-3 bg-ink-2 p-6 font-mono text-[11px] uppercase tracking-[0.1em] text-bone-2">
-          — No companions on file. Add spouse, kids, assistants, or pets so manifests pre-populate
-          and APIS doesn&rsquo;t need a fresh start every leg.
+        <p className="mt-6 text-[15px] leading-[1.55] text-bone-2">
+          No companions yet. Add the people and pets who fly with you so the passenger list is
+          ready before each trip.
         </p>
       ) : (
-        <ul className="flex flex-col gap-2">
-          {list.map((c) => (
-            <li
-              key={c.id}
-              className="grid grid-cols-[1fr_auto] items-center gap-4 rounded-[2px] border border-ink-3 bg-ink-2 px-5 py-4"
-            >
-              <div className="min-w-0">
-                <div className="flex items-baseline gap-3">
-                  <span className="font-serif text-[17px] text-bone">{c.legalName}</span>
-                  <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-clearance">
-                    — {c.relation}
-                  </span>
+        <ul className="mt-6 divide-y divide-line-faint border-y border-line-faint">
+          {list.map((c) => {
+            const facts: string[] = [RELATION_WORDS[c.relation] ?? "Companion"];
+            const b = born(c.birthDate);
+            if (b) facts.push(`born ${b}`);
+            if (c.relation === "pet" && c.speciesBreed) {
+              facts.push(c.weightLb ? `${c.speciesBreed}, ${c.weightLb} lb` : c.speciesBreed);
+            }
+            if (c.ccOnItinerary) facts.push("copied on itineraries");
+            return (
+              <li key={c.id} className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2 py-4">
+                <div className="min-w-0">
+                  <div className="text-[17px] font-medium text-bone">{c.legalName}</div>
+                  <div className="mt-0.5 text-[14px] text-bone-2">{facts.join(" · ")}</div>
+                  {c.notes ? <div className="mt-1 text-[14px] leading-[1.5] text-steel">{c.notes}</div> : null}
                 </div>
-                <div className="mt-1 font-mono text-[10px] uppercase tracking-[0.08em] text-bone-2">
-                  {c.birthDate ? `DOB ${c.birthDate}` : "— DOB pending"}
-                  {c.ccOnItinerary ? " · CC on itinerary" : ""}
-                  {c.relation === "pet" && c.speciesBreed
-                    ? ` · ${c.speciesBreed}${c.weightLb ? ` · ${c.weightLb} lb` : ""}`
-                    : ""}
-                </div>
-                {c.notes ? (
-                  <div className="mt-2 text-[12px] leading-[1.5] text-bone-2">{c.notes}</div>
-                ) : null}
-              </div>
-              <button
-                type="button"
-                onClick={() => onDelete(c.id)}
-                disabled={pending}
-                className="font-mono text-[10px] uppercase tracking-[0.14em] text-bone-2 transition-colors hover:text-[var(--error)] disabled:cursor-wait disabled:opacity-50"
-              >
-                Remove →
-              </button>
-            </li>
-          ))}
+                <button
+                  type="button"
+                  onClick={() => onDelete(c.id)}
+                  disabled={pending}
+                  className="text-link min-h-[44px] text-[15px] disabled:cursor-wait disabled:opacity-50"
+                >
+                  Remove
+                </button>
+              </li>
+            );
+          })}
         </ul>
       )}
 
-      <form
-        onSubmit={onAdd}
-        className="rounded-[2px] border border-ink-3 bg-ink-2 p-5"
-      >
-        <p className="caption mb-4">— Add companion</p>
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+      <form onSubmit={onAdd} className="mt-6">
+        <h3 className="label-jn text-[13px]">Add a companion</h3>
+        <div className="mt-3 grid grid-cols-1 gap-2.5 md:grid-cols-2">
           <div className="field-jn">
-            <label htmlFor="cp-relation">Relation</label>
+            <label htmlFor="cp-relation">Relationship</label>
             <select
               id="cp-relation"
               name="relation"
@@ -139,15 +156,8 @@ export function CompanionsSection({ initial }: Props) {
             </select>
           </div>
           <div className="field-jn">
-            <label htmlFor="cp-legalName">Legal name (as on passport)</label>
-            <input
-              id="cp-legalName"
-              name="legalName"
-              type="text"
-              placeholder="Alex Q. Member"
-              required
-              maxLength={120}
-            />
+            <label htmlFor="cp-legalName">{isPet ? "Name" : "Legal name (as on passport)"}</label>
+            <input id="cp-legalName" name="legalName" type="text" placeholder="Alex Q. Member" required maxLength={120} />
           </div>
           {!isPet ? (
             <div className="field-jn">
@@ -157,14 +167,8 @@ export function CompanionsSection({ initial }: Props) {
           ) : (
             <>
               <div className="field-jn">
-                <label htmlFor="cp-speciesBreed">Species / breed</label>
-                <input
-                  id="cp-speciesBreed"
-                  name="speciesBreed"
-                  type="text"
-                  placeholder="Labrador retriever"
-                  maxLength={80}
-                />
+                <label htmlFor="cp-speciesBreed">Species or breed</label>
+                <input id="cp-speciesBreed" name="speciesBreed" type="text" placeholder="Labrador retriever" maxLength={80} />
               </div>
               <div className="field-jn">
                 <label htmlFor="cp-weightLb">Weight (lb)</label>
@@ -172,47 +176,37 @@ export function CompanionsSection({ initial }: Props) {
               </div>
             </>
           )}
+          <div className="field-jn md:col-span-2">
+            <label htmlFor="cp-notes">Notes (optional)</label>
+            <textarea
+              id="cp-notes"
+              name="notes"
+              rows={2}
+              placeholder="Anxious flier — a hello from the crew before boarding helps."
+              maxLength={400}
+            />
+          </div>
         </div>
-        <div className="field-jn mt-4">
-          <label htmlFor="cp-notes">Notes (optional)</label>
-          <textarea
-            id="cp-notes"
-            name="notes"
-            rows={2}
-            placeholder="Anxious flier — pre-flight greeting helps."
-            maxLength={400}
+        <div className="mt-2.5">
+          <PreferencesToggle
+            name="ccOnItinerary"
+            label="Copy on every itinerary email"
+            defaultChecked={false}
           />
         </div>
-        <label className="mt-4 flex cursor-pointer items-center gap-3">
-          <input type="checkbox" name="ccOnItinerary" className="h-4 w-4 accent-clearance" />
-          <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-bone-2">
-            CC on every itinerary email
-          </span>
-        </label>
-        <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
-          {msg ? (
-            <span
-              className={[
-                "font-mono text-[11px] uppercase tracking-[0.12em]",
-                msg.tone === "error" ? "text-[var(--error)]" : "text-[var(--success)]",
-              ].join(" ")}
-            >
-              {msg.text}
-            </span>
-          ) : (
-            <span className="font-mono text-[10px] uppercase tracking-[0.08em] text-steel">
-              — Encrypted at rest; dispatcher sees these only on confirmed bookings.
-            </span>
-          )}
-          <button
-            type="submit"
-            disabled={pending}
-            className="btn btn-primary btn-sm disabled:cursor-wait disabled:opacity-60"
-          >
-            {pending ? "Adding…" : "Add companion"} <span className="arrow">→</span>
+        <div className="mt-5 flex flex-wrap items-center gap-4 border-t border-line-faint pt-5">
+          <button type="submit" disabled={pending} className="btn btn-primary disabled:cursor-wait">
+            {pending ? "Saving…" : "Add companion"} <span className="arrow">→</span>
           </button>
+          {msg ? (
+            <PreferencesFeedback msg={msg} />
+          ) : (
+            <p className="text-[14px] text-steel">
+              Encrypted at rest. Dispatch sees these only on confirmed bookings.
+            </p>
+          )}
         </div>
       </form>
-    </div>
+    </section>
   );
 }

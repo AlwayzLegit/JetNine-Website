@@ -25,17 +25,16 @@ export default async function AccountPreferencesPage() {
 
   if (!member) {
     return (
-      <section className="container-jn py-12">
-        <p className="caption mb-4">— Account · preferences</p>
-        <h1 className="font-serif text-[40px] font-light leading-tight tracking-tight text-bone">
-          No member profile yet.
-        </h1>
-        <p className="mt-4 max-w-[60ch] text-[16px] leading-[1.55] text-bone-2">
-          Dispatch creates one when you book your first flight. Until then there&rsquo;s nothing to
-          customize. Start a quote at{" "}
-          <Link href="/quote" className="text-clearance">/quote</Link>.
+      <>
+        <h1 className="title-app text-bone">Preferences</h1>
+        <p className="mt-2.5 max-w-[60ch] text-[17px] text-bone-2">
+          Dispatch sets up your profile when you book your first flight. Until then there&rsquo;s
+          nothing to customise.
         </p>
-      </section>
+        <Link href="/quote" className="btn btn-primary mt-8">
+          Request a quote <span aria-hidden="true">→</span>
+        </Link>
+      </>
     );
   }
 
@@ -63,67 +62,20 @@ export default async function AccountPreferencesPage() {
   ]);
 
   return (
-    <section className="container-jn py-12">
-      <header className="mb-10 border-b border-ink-3 pb-6">
-        <p className="caption mb-3">— Account · preferences</p>
-        <h1 className="font-serif text-[44px] font-light leading-tight tracking-tight text-bone">
-          What carries forward, every flight.
-        </h1>
-        <p className="mt-4 max-w-[64ch] text-[15px] leading-[1.55] text-bone-2">
-          Cabin defaults, catering, ground, comms, privacy — plus the people and the routes that
-          carry forward with you. Pre-fills every new quote; override on the wizard when a trip
-          needs something different.
-        </p>
-      </header>
-      <PreferencesForm initial={existing ?? null} />
+    <>
+      <h1 className="title-app text-bone">Preferences</h1>
+      <p className="mt-2.5 max-w-[64ch] text-[17px] text-bone-2">
+        What carries forward to every flight — cabin, catering, ground, and the people and routes
+        that travel with you. Each new quote starts from these; change anything on the quote when
+        a trip needs something different.
+      </p>
 
-      <div className="mt-16 grid gap-6 lg:grid-cols-[200px_1fr] lg:gap-10">
-        <div>
-          <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-clearance">
-            — 07
-          </span>
-          <h2 className="mt-3 font-serif text-[22px] font-normal leading-[1.2] tracking-tight text-bone">
-            Companions
-          </h2>
-          <p className="mt-3 text-[13px] leading-[1.55] text-bone-2">
-            Spouses, family, assistants, pets — the people who fly with you. Stored encrypted, used
-            to pre-fill APIS manifests and itinerary CCs.
-          </p>
-        </div>
+      <div className="mt-8 flex flex-col gap-4">
+        <PreferencesForm initial={existing ?? null} />
         <CompanionsSection initial={companionRows} />
-      </div>
-
-      <div className="mt-16 grid gap-6 lg:grid-cols-[200px_1fr] lg:gap-10">
-        <div>
-          <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-clearance">
-            — 08
-          </span>
-          <h2 className="mt-3 font-serif text-[22px] font-normal leading-[1.2] tracking-tight text-bone">
-            Frequent lanes
-          </h2>
-          <p className="mt-3 text-[13px] leading-[1.55] text-bone-2">
-            Tell dispatch the routes you fly most. Powers empty-leg matching, pre-positioning, and
-            the quote wizard&rsquo;s {`"`}fly this again{`"`} shortcut.
-          </p>
-        </div>
         <LanesSection initial={laneRows} />
-      </div>
-
-      <div className="mt-16 grid gap-6 lg:grid-cols-[200px_1fr] lg:gap-10">
-        <div>
-          <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-clearance">
-            — 09
-          </span>
-          <h2 className="mt-3 font-serif text-[22px] font-normal leading-[1.2] tracking-tight text-bone">
-            Empty-leg watchlists
-          </h2>
-          <p className="mt-3 text-[13px] leading-[1.55] text-bone-2">
-            Routes + date windows you want to be notified about when a repositioning leg lists.
-            Pause to mute, remove to drop. New entries added from the public board.
-          </p>
-        </div>
         <WatchlistsSection initial={watchlistRows} />
       </div>
-    </section>
+    </>
   );
 }

@@ -7,13 +7,14 @@ import {
 } from "@/db/schema/memberships";
 import { getCurrentUser, requireUser } from "@/lib/auth";
 import { getMemberByUserId } from "@/lib/member";
-import { formatUSD } from "@/lib/quote-pricing";
+import { formatDay, USD } from "@/lib/request-page";
 import {
   MEMBERSHIP_SPECS,
   type MembershipProgram,
 } from "@/lib/memberships";
 import { BuyMembershipButton } from "@/components/account/buy-membership-button";
 import { TopUpForm } from "@/components/account/top-up-form";
+import { MembershipActivity, type ActivityRow } from "@/components/account/membership-activity";
 
 export const dynamic = "force-dynamic";
 
@@ -23,11 +24,11 @@ type Props = {
 
 const CARD_TIERS: MembershipProgram[] = ["card_100", "card_250", "card_500"];
 
-const STATUS_CLASS: Record<string, string> = {
-  active: "border-[var(--success)] text-[var(--success)]",
-  paused: "border-[var(--warn)] text-[var(--warn)]",
-  expired: "border-bone-2 text-bone-2",
-  cancelled: "border-steel text-steel",
+const STATUS_SENTENCE: Record<string, string> = {
+  active: "Active",
+  paused: "Paused — waiting on payment",
+  expired: "Expired",
+  cancelled: "Cancelled",
 };
 
 export default async function AccountMembershipsPage({ searchParams }: Props) {
@@ -48,16 +49,21 @@ export default async function AccountMembershipsPage({ searchParams }: Props) {
 
   if (!member) {
     return (
-      <section className="container-jn py-12">
-        <p className="caption mb-4">— Account · memberships</p>
-        <h1 className="font-serif text-[40px] font-light leading-tight tracking-tight text-bone">
-          Nothing on file yet.
-        </h1>
-        <p className="mt-4 max-w-[60ch] text-[16px] leading-[1.55] text-bone-2">
-          Memberships unlock once your account is provisioned. Submit a quote at{" "}
-          <Link href="/quote" className="text-clearance">/quote</Link> or talk to dispatch.
+      <>
+        <h1 className="title-app text-bone">Buy / top up</h1>
+        <p className="mt-2.5 max-w-[60ch] text-[17px] text-bone-2">
+          Memberships unlock once your account is set up. Request a quote or talk to dispatch to
+          get started.
         </p>
-      </section>
+        <div className="mt-8 flex flex-wrap gap-2.5">
+          <Link href="/quote" className="btn btn-primary">
+            Request a quote <span aria-hidden="true">→</span>
+          </Link>
+          <Link href="/memberships" className="btn btn-secondary">
+            See programs
+          </Link>
+        </div>
+      </>
     );
   }
 
@@ -104,202 +110,143 @@ export default async function AccountMembershipsPage({ searchParams }: Props) {
     ledger = ledgerRows;
   }
 
+  const spec = active ? MEMBERSHIP_SPECS[active.program] : null;
+  const activity: ActivityRow[] = ledger.map((row) => ({
+    id: row.id,
+    kind: row.kind,
+    amountUsd: row.amountUsd,
+    description: row.description,
+    occurredAt: row.occurredAt.toISOString(),
+  }));
+
   return (
-    <section className="container-jn py-12">
+    <>
+      <h1 className="title-app text-bone">Buy / top up</h1>
+      <p className="mt-2.5 max-w-[60ch] text-[17px] text-bone-2">
+        {active && spec
+          ? `You hold the ${spec.name}, active since ${formatDay(active.activatedOn) ?? active.activatedOn}. Add to your balance below.`
+          : "Three card tiers, one locked hourly rate. Pick a deposit level and we'll open checkout — or keep flying on-demand with no commitment."}
+      </p>
+
       {flash ? (
         <div
+          role="status"
           className={[
-            "mb-8 rounded-[3px] border px-5 py-4 font-mono text-[12px] tracking-[0.04em]",
-            flash.kind === "activated" || flash.kind === "topup"
-              ? "border-[var(--success)] bg-[rgba(78,159,107,0.08)] text-[var(--success)]"
-              : "border-[var(--warn)] bg-[rgba(192,148,73,0.08)] text-[var(--warn)]",
+            "card mt-8 px-6 py-5 text-[15px] leading-[1.5] text-bone",
+            flash.kind === "cancelled" ? "" : "card-highlight",
           ].join(" ")}
         >
           {flash.kind === "activated"
-            ? "— Membership activated. The deposit is sitting in your reserve balance below; we'll draw from it on each invoice."
+            ? "Your membership is active. The deposit now sits in your reserve balance below, and we draw from it on each invoice."
             : flash.kind === "topup"
-              ? "— Top-up received. Stripe confirmation hits your inbox; the new balance lands here once the webhook clears (usually a few seconds)."
-              : "— Purchase cancelled. Nothing was charged."}
+              ? "Top-up received. Stripe's confirmation is on its way to your inbox; the new balance shows here once the payment clears, usually within a few seconds."
+              : "Purchase cancelled. Nothing was charged."}
         </div>
       ) : null}
 
-      <header className="mb-10 flex flex-wrap items-end justify-between gap-6">
-        <div>
-          <p className="caption mb-3">— Account · memberships</p>
-          <h1 className="font-serif text-[40px] font-light leading-tight tracking-tight text-bone">
-            {active ? MEMBERSHIP_SPECS[active.program].name : "On-demand."}
-          </h1>
-          <p className="mt-3 max-w-[60ch] text-[14px] leading-[1.55] text-bone-2">
-            {active
-              ? `Activated ${active.activatedOn}. Locked hourly rates for ${MEMBERSHIP_SPECS[active.program].rateLockMonths} months. ${MEMBERSHIP_SPECS[active.program].calloutHours}-hour guaranteed call-out.`
-              : "No card or reserve on file. You can fly on-demand with no commitment, or activate a Card below."}
-          </p>
-        </div>
-        {active ? (
-          <dl className="flex flex-wrap gap-x-10 gap-y-3 text-right">
-            <div className="flex flex-col items-end">
-              <dt className="font-mono text-[10px] uppercase tracking-[0.14em] text-steel">
-                RESERVE BALANCE
-              </dt>
-              <dd
-                className={[
-                  "mt-1 font-serif text-[26px] font-light leading-none",
-                  balanceUsd < 0 ? "text-[var(--error)]" : "text-bone",
-                ].join(" ")}
-              >
-                {formatUSD(balanceUsd)}
-              </dd>
+      {active && spec ? (
+        <>
+          <section className="card card-pad mt-8">
+            <h2 className="label-jn text-[13px]">Reserve balance</h2>
+            <div
+              className={[
+                "mt-2 font-serif text-[40px] font-light leading-none",
+                balanceUsd < 0 ? "text-danger" : "text-bone",
+              ].join(" ")}
+            >
+              {USD.format(balanceUsd)}
             </div>
-            <div className="flex flex-col items-end">
-              <dt className="font-mono text-[10px] uppercase tracking-[0.14em] text-steel">
-                STATUS
-              </dt>
-              <dd>
-                <span
-                  className={[
-                    "inline-block rounded-full border px-2.5 py-0.5 font-mono text-[9px] uppercase tracking-[0.14em] mt-2",
-                    STATUS_CLASS[active.status] ?? "border-ink-3 text-bone-2",
-                  ].join(" ")}
-                >
-                  {active.status}
-                </span>
-              </dd>
-            </div>
-          </dl>
-        ) : null}
-      </header>
+            <p className="mt-3 text-[15px] text-bone-2">
+              <span className="text-success">{STATUS_SENTENCE[active.status] ?? "Active"}</span>
+              {" · "}
+              {spec.name} · rates locked for {spec.rateLockMonths} months · aircraft guaranteed with{" "}
+              {spec.calloutHours} hours&rsquo; notice
+            </p>
+            <Link href="/account/members" className="text-link mt-3 inline-block text-[15px]">
+              See what&rsquo;s included
+            </Link>
+          </section>
 
-      {active && ledger.length > 0 ? (
-        <section className="mb-14">
-          <p className="caption mb-3">— Reserve ledger</p>
-          <ul className="overflow-hidden rounded-[4px] border border-ink-3 bg-ink-2 divide-y divide-ink-3">
-            {ledger.map((row) => {
-              const positive = row.amountUsd >= 0;
-              const KIND_LABEL: Record<string, string> = {
-                top_up: "Activation deposit",
-                charter_draw: "Charter draw",
-                credit_accrual: "Credit accrual",
-                refund: "Refund",
-                adjustment: "Adjustment",
-              };
+          <div className="mt-4">
+            <TopUpForm />
+          </div>
+
+          {ledger.length > 0 ? (
+            <section className="mt-8">
+              <h2 className="label-jn text-[13px]">Activity</h2>
+              <MembershipActivity rows={activity} />
+            </section>
+          ) : null}
+        </>
+      ) : (
+        <section className="mt-8">
+          <h2 className="label-jn text-[13px]">JetNine Card</h2>
+          <div className="mt-2.5 grid grid-cols-1 gap-4 md:grid-cols-3">
+            {CARD_TIERS.map((p) => {
+              const s = MEMBERSHIP_SPECS[p];
+              const features = [
+                `Aircraft guaranteed with ${s.calloutHours} hours' notice`,
+                `Hourly rates locked for ${s.rateLockMonths} months`,
+                `${USD.format(s.cateringAllowanceUsd)} catering${s.groundAllowanceUsd ? ` and ${USD.format(s.groundAllowanceUsd)} ground` : ""} allowance a year`,
+                s.namedCardholdersLimit >= 999
+                  ? "Unlimited named cardholders"
+                  : `${s.namedCardholdersLimit} named ${s.namedCardholdersLimit === 1 ? "cardholder" : "cardholders"}`,
+                `Empty legs ${s.emptyLegAdvanceMinutes} minutes before the public board`,
+              ];
               return (
-                <li
-                  key={row.id}
-                  className="grid grid-cols-[1fr_auto] items-center gap-4 px-5 py-3.5"
-                >
+                <div key={p} className="card card-pad flex flex-col gap-5">
                   <div>
-                    <p className="font-mono text-[11px] uppercase tracking-[0.08em] text-bone">
-                      {KIND_LABEL[row.kind] ?? row.kind}
-                    </p>
-                    <p className="mt-0.5 font-mono text-[10px] tracking-[0.04em] text-steel">
-                      {row.description ?? "—"}
-                    </p>
+                    <h3 className="title-card-sm text-bone">{s.name}</h3>
+                    <div className="mt-4 border-t border-line pt-4">
+                      <div className="font-serif text-[40px] font-light leading-none text-bone">
+                        {USD.format(s.depositUsd)}
+                      </div>
+                      <p className="mt-2 text-[14px] text-bone-2">Refundable deposit</p>
+                    </div>
                   </div>
-                  <div className="text-right">
-                    <p
-                      className={[
-                        "font-mono text-[14px] tracking-[0.02em]",
-                        positive ? "text-[var(--success)]" : "text-bone",
-                      ].join(" ")}
-                    >
-                      {positive ? "+" : "−"}
-                      {formatUSD(Math.abs(row.amountUsd))}
-                    </p>
-                    <p className="font-mono text-[10px] tracking-[0.04em] text-steel">
-                      {row.occurredAt.toISOString().slice(0, 10)}
-                    </p>
-                  </div>
-                </li>
+                  <ul className="flex flex-col gap-2.5 border-t border-line pt-4 text-[15px] leading-[1.45] text-bone">
+                    {features.map((f) => (
+                      <li key={f} className="grid grid-cols-[auto_1fr] gap-2.5">
+                        <span className="text-clearance" aria-hidden="true">
+                          ✓
+                        </span>
+                        <span>{f}</span>
+                      </li>
+                    ))}
+                  </ul>
+                  <BuyMembershipButton program={p} />
+                </div>
               );
             })}
-          </ul>
+          </div>
         </section>
-      ) : null}
+      )}
 
-      {!active ? (
-        <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
-          {CARD_TIERS.map((p) => {
-            const s = MEMBERSHIP_SPECS[p];
-            return (
-              <div
-                key={p}
-                className="flex flex-col gap-5 rounded-[4px] border border-ink-3 bg-ink-2 p-6"
-              >
-                <div>
-                  <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-clearance">
-                    — {s.name}
-                  </p>
-                  <p
-                    className="mt-3 font-serif text-[32px] font-light leading-none tracking-tight text-bone"
-                    style={{ letterSpacing: "-0.01em" }}
-                  >
-                    {formatUSD(s.depositUsd)}
-                  </p>
-                  <p className="mt-1 font-mono text-[10px] uppercase tracking-[0.08em] text-steel">
-                    refundable deposit
-                  </p>
-                </div>
-                <ul className="flex flex-col gap-2 text-[13px] leading-[1.4] text-bone-2">
-                  <li>{s.calloutHours}-hour guaranteed call-out</li>
-                  <li>Locked rates {s.rateLockMonths} months</li>
-                  <li>
-                    {formatUSD(s.cateringAllowanceUsd)} catering
-                    {s.groundAllowanceUsd ? ` + ${formatUSD(s.groundAllowanceUsd)} ground` : ""} / yr
-                  </li>
-                  <li>
-                    {s.namedCardholdersLimit >= 999
-                      ? "Unlimited"
-                      : s.namedCardholdersLimit}{" "}
-                    named cardholder{s.namedCardholdersLimit === 1 ? "" : "s"}
-                  </li>
-                  <li>
-                    Empty-leg advance · {s.emptyLegAdvanceMinutes} min
-                  </li>
-                </ul>
-                <BuyMembershipButton program={p} />
-              </div>
-            );
-          })}
-        </div>
-      ) : null}
-
-      {active ? <TopUpForm /> : null}
-
-      <section className="mt-14">
-        <p className="caption mb-3">— Other ways to fly</p>
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-          <div className="rounded-[3px] border border-ink-3 bg-ink p-5">
-            <p className="font-mono text-[11px] uppercase tracking-[0.14em] text-bone">
-              Reserve · 50 / 100 / 250 / 500
+      <section className="mt-8">
+        <h2 className="label-jn text-[13px]">Other ways to fly</h2>
+        <div className="mt-2.5 grid grid-cols-1 gap-4 md:grid-cols-2">
+          <div className="card card-pad">
+            <h3 className="title-card-sm text-bone">Reserve</h3>
+            <p className="mt-2 text-[15px] leading-[1.55] text-bone-2">
+              A dedicated dispatcher, aircraft guaranteed with 8 to 12 hours&rsquo; notice and
+              larger allowances. By application — a limited number of seats.
             </p>
-            <p className="mt-2 text-[13px] leading-[1.55] text-bone-2">
-              Dedicated dispatcher, 8-to-12-hour call-out, larger allowances. By
-              application — limited seats.
-            </p>
-            <Link
-              href="/contact?subject=reserve"
-              className="mt-3 inline-block font-mono text-[11px] uppercase tracking-[0.12em] text-clearance hover:text-bone"
-            >
+            <Link href="/contact?subject=reserve" className="text-link mt-4 inline-block text-[15px]">
               Apply for Reserve →
             </Link>
           </div>
-          <div className="rounded-[3px] border border-ink-3 bg-ink p-5">
-            <p className="font-mono text-[11px] uppercase tracking-[0.14em] text-bone">
-              On-demand
+          <div className="card card-pad">
+            <h3 className="title-card-sm text-bone">On-demand</h3>
+            <p className="mt-2 text-[15px] leading-[1.55] text-bone-2">
+              No deposit, no commitment. Request a quote and pay per flight — the all-in price is
+              locked when you accept.
             </p>
-            <p className="mt-2 text-[13px] leading-[1.55] text-bone-2">
-              No deposit, no commitment. Submit a quote and pay per flight. All-in
-              pricing locked at acceptance.
-            </p>
-            <Link
-              href="/quote"
-              className="mt-3 inline-block font-mono text-[11px] uppercase tracking-[0.12em] text-clearance hover:text-bone"
-            >
+            <Link href="/quote" className="text-link mt-4 inline-block text-[15px]">
               Request a quote →
             </Link>
           </div>
         </div>
       </section>
-    </section>
+    </>
   );
 }

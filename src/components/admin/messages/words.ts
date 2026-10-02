@@ -1,4 +1,4 @@
-import { relativeTime } from "@/lib/request-page";
+import { relativeTime } from "@/lib/request-format";
 
 /**
  * Plain words for the Messages section. Shared by the thread list (server),

@@ -1,256 +1,146 @@
 import Link from "next/link";
-import { and, desc, eq, ilike, sql, SQL } from "drizzle-orm";
+import { and, desc, eq, ilike, inArray, notInArray, sql, type SQL } from "drizzle-orm";
 import { db } from "@/db";
-import { auditLog, auditSubjectTypeEnum } from "@/db/schema/audit";
+import { auditLog } from "@/db/schema/audit";
 import { users } from "@/db/schema/users";
+import { requireAdmin } from "@/lib/auth";
+import { auditSentence, whenWords } from "@/lib/desk-history";
+import { DeskEmpty, DeskHeader, DeskSearch, DeskTabs } from "@/components/admin/desk-ui";
 
 export const dynamic = "force-dynamic";
 
-// Map subject_type → href builder.
-const SUBJECT_HREF: Partial<Record<string, (id: string) => string>> = {
-  quote: (id) => `/admin/requests/${id}`,
-  trip: (id) => `/admin/trips/${id}`,
-  member: (id) => `/admin/clients/${id}`,
-  operator: (id) => `/admin/operators/${id}`,
-  aircraft: (id) => `/admin/aircraft/${id}`,
-  empty_leg: () => `/admin/empty-leg`,
-};
+type SubjectType = (typeof auditLog.subjectType.enumValues)[number];
 
-const SUBJECT_CLASS: Record<string, string> = {
-  quote: "text-clearance",
-  trip: "text-[var(--success)]",
-  member: "text-bone",
-  empty_leg: "text-bone",
-  preferences: "text-bone-2",
-  system: "text-steel",
-};
+// Plain-word tabs over the audit subject types.
+const TABS: { key: string; label: string; types: SubjectType[] | null }[] = [
+  { key: "all", label: "All", types: null },
+  { key: "requests", label: "Requests", types: ["quote"] },
+  { key: "trips", label: "Trips", types: ["trip"] },
+  { key: "clients", label: "Clients", types: ["member", "membership", "reserve_transaction", "preferences"] },
+  { key: "money", label: "Money", types: ["invoice"] },
+  { key: "team", label: "Team", types: ["user_role"] },
+  { key: "other", label: "Other", types: null },
+];
 
-const SUBJECT_TYPES = auditSubjectTypeEnum.enumValues as readonly string[];
+const NAMED_TYPES = TABS.flatMap((t) => t.types ?? []);
 
-function relativeTime(d: Date): string {
-  const ms = Date.now() - d.getTime();
-  const m = Math.round(ms / 60_000);
-  if (m < 1) return "just now";
-  if (m < 60) return `${m}m ago`;
-  const h = Math.round(m / 60);
-  if (h < 24) return `${h}h ago`;
-  return `${Math.round(h / 24)}d ago`;
-}
-
-type Search = {
-  type?: string;
-  q?: string;
-  actor?: string;
-};
-
+type Search = { type?: string; q?: string };
 type Props = { searchParams: Promise<Search> };
 
-export default async function AuditLogPage({ searchParams }: Props) {
+export default async function HistoryPage({ searchParams }: Props) {
+  await requireAdmin();
   const sp = await searchParams;
-  const typeFilter = sp.type && SUBJECT_TYPES.includes(sp.type) ? sp.type : null;
-  const actionFilter = sp.q?.trim() || null;
-  const actorFilter = sp.actor?.trim() || null;
+  const tab = TABS.find((t) => t.key === sp.type) ?? TABS[0];
+  const q = sp.q?.trim() || "";
 
   const conditions: SQL[] = [];
-  if (typeFilter) {
-    conditions.push(
-      eq(
-        auditLog.subjectType,
-        typeFilter as typeof auditLog.subjectType.enumValues[number],
-      ),
-    );
-  }
-  if (actionFilter) conditions.push(ilike(auditLog.action, `%${actionFilter}%`));
-  if (actorFilter) conditions.push(ilike(users.email, `%${actorFilter}%`));
-
+  if (tab.key === "other") conditions.push(notInArray(auditLog.subjectType, NAMED_TYPES));
+  else if (tab.types) conditions.push(inArray(auditLog.subjectType, tab.types));
+  if (q) conditions.push(ilike(auditLog.action, `%${q}%`));
   const whereExpr = conditions.length > 0 ? and(...conditions) : undefined;
 
-  const rows = await db
-    .select({
-      id: auditLog.id,
-      action: auditLog.action,
-      subjectType: auditLog.subjectType,
-      subjectId: auditLog.subjectId,
-      subjectCode: auditLog.subjectCode,
-      diff: auditLog.diff,
-      metadata: auditLog.metadata,
-      occurredAt: auditLog.occurredAt,
-      ip: auditLog.ip,
-      actorEmail: users.email,
-      actorFirstName: users.firstName,
-      actorLastName: users.lastName,
-      actorRoleSnapshot: auditLog.actorRole,
-    })
-    .from(auditLog)
-    .leftJoin(users, eq(users.id, auditLog.actorUserId))
-    .where(whereExpr)
-    .orderBy(desc(auditLog.occurredAt))
-    .limit(200);
+  // The client's name for the sentence, resolved from the subject row so
+  // "Alex sent 3 options to Tom Okafor" reads like the prototype.
+  const subjectName = sql<string | null>`case ${auditLog.subjectType}
+    when 'quote' then (
+      select nullif(trim(coalesce(q.contact_snapshot->>'firstName', '') || ' ' || coalesce(q.contact_snapshot->>'lastName', '')), '')
+      from public.quotes q where q.id = ${auditLog.subjectId})
+    when 'trip' then (
+      select nullif(trim(coalesce(u.first_name, '') || ' ' || coalesce(u.last_name, '')), '')
+      from public.trips t join public.members m on m.id = t.member_id join public.users u on u.id = m.user_id
+      where t.id = ${auditLog.subjectId})
+    when 'invoice' then (
+      select nullif(trim(coalesce(u.first_name, '') || ' ' || coalesce(u.last_name, '')), '')
+      from public.invoices i join public.members m on m.id = i.member_id join public.users u on u.id = m.user_id
+      where i.id = ${auditLog.subjectId})
+    when 'member' then (
+      select nullif(trim(coalesce(u.first_name, '') || ' ' || coalesce(u.last_name, '')), '')
+      from public.members m join public.users u on u.id = m.user_id where m.id = ${auditLog.subjectId})
+    when 'membership' then (
+      select nullif(trim(coalesce(u.first_name, '') || ' ' || coalesce(u.last_name, '')), '')
+      from public.members m join public.users u on u.id = m.user_id where m.id = ${auditLog.subjectId})
+    else null end`;
 
-  // Total count (without limit) so the "showing N of M" line is honest.
-  const [{ total }] = await db
-    .select({ total: sql<number>`count(*)::int` })
-    .from(auditLog)
-    .leftJoin(users, eq(users.id, auditLog.actorUserId))
-    .where(whereExpr);
+  const [rows, [{ total }]] = await Promise.all([
+    db
+      .select({
+        id: auditLog.id,
+        action: auditLog.action,
+        subjectType: auditLog.subjectType,
+        subjectId: auditLog.subjectId,
+        subjectCode: auditLog.subjectCode,
+        diff: auditLog.diff,
+        metadata: auditLog.metadata,
+        occurredAt: auditLog.occurredAt,
+        actorEmail: users.email,
+        actorFirstName: users.firstName,
+        actorLastName: users.lastName,
+        actorRole: auditLog.actorRole,
+        subjectName,
+      })
+      .from(auditLog)
+      .leftJoin(users, eq(users.id, auditLog.actorUserId))
+      .where(whereExpr)
+      .orderBy(desc(auditLog.occurredAt))
+      .limit(200),
+    db.select({ total: sql<number>`count(*)::int` }).from(auditLog).where(whereExpr),
+  ]);
 
-  const hasFilter = Boolean(typeFilter || actionFilter || actorFilter);
+  const now = new Date();
 
   return (
-    <div className="container-jn py-10">
-      <header className="mb-8">
-        <p className="caption mb-3">— Admin · audit log</p>
-        <h1 className="font-serif text-[36px] font-light leading-tight tracking-tight text-bone">
-          Every state change, in writing.
-        </h1>
-        <p className="mt-3 max-w-[64ch] text-[14px] leading-[1.55] text-bone-2">
-          Append-only log of operational actions across the platform. Useful for Part 295
-          compliance, dispute arbitration, and just figuring out what the heck happened. Filter by
-          subject, action, or actor; newest first; capped at 200 rows per query.
-        </p>
-      </header>
+    <div>
+      <DeskHeader
+        title="History"
+        lead="Who changed what. Here for the rare day you need it."
+        actions={<DeskSearch placeholder="Search actions" defaultValue={q} hidden={{ type: tab.key !== "all" ? tab.key : undefined }} />}
+      />
 
-      {/* Filters */}
-      <form
-        method="get"
-        className="mb-6 grid gap-3 rounded-[4px] border border-ink-3 bg-ink-2 p-5 md:grid-cols-[1fr_1fr_1fr_auto]"
-      >
-        <div className="field-jn">
-          <label htmlFor="al-type">Subject</label>
-          <select id="al-type" name="type" defaultValue={typeFilter ?? ""}>
-            <option value="">— All subjects</option>
-            {SUBJECT_TYPES.map((t) => (
-              <option key={t} value={t}>
-                {t.replace(/_/g, " ")}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div className="field-jn">
-          <label htmlFor="al-q">Action contains</label>
-          <input
-            id="al-q"
-            name="q"
-            type="text"
-            placeholder="e.g. status.update"
-            defaultValue={actionFilter ?? ""}
-          />
-        </div>
-        <div className="field-jn">
-          <label htmlFor="al-actor">Actor email</label>
-          <input
-            id="al-actor"
-            name="actor"
-            type="text"
-            placeholder="riley@"
-            defaultValue={actorFilter ?? ""}
-          />
-        </div>
-        <div className="flex flex-col gap-2">
-          <button type="submit" className="btn btn-primary btn-sm">
-            Filter <span className="arrow">→</span>
-          </button>
-          {hasFilter ? (
-            <Link
-              href="/admin/settings/history"
-              className="text-center font-mono text-[10px] uppercase tracking-[0.14em] text-bone-2 transition-colors hover:text-clearance"
-            >
-              Clear
-            </Link>
-          ) : null}
-        </div>
-      </form>
-
-      <p className="mb-4 font-mono text-[10px] uppercase tracking-[0.12em] text-steel">
-        — Showing {rows.length} of {total}
-        {hasFilter ? " filtered" : ""} event{total === 1 ? "" : "s"}
-      </p>
+      <DeskTabs
+        className="mt-6"
+        items={TABS.map((t) => ({ key: t.key, label: t.label }))}
+        current={tab.key}
+        base="/admin/settings/history"
+        param="type"
+        keep={{ q: q || undefined }}
+      />
 
       {rows.length === 0 ? (
-        <div className="rounded-[4px] border border-ink-3 bg-ink-2 p-12 text-center">
-          <p className="caption mb-3">— {hasFilter ? "No matches" : "No audit events yet"}</p>
-          <p className="text-[14px] leading-[1.55] text-bone-2">
-            {hasFilter
-              ? "Loosen the filters or clear them."
-              : "Take an action — submit a quote, update a status, convert to a trip — and the row lands here."}
-          </p>
-        </div>
+        <DeskEmpty
+          className="mt-6"
+          title={q || tab.key !== "all" ? "Nothing matches." : "Nothing recorded yet."}
+          body={q || tab.key !== "all" ? "Try another tab or clear the search." : "Every change on the desk lands here as it happens."}
+        />
       ) : (
-        <div className="rounded-[4px] border border-ink-3 bg-ink-2">
-          <ul className="divide-y divide-ink-3">
+        <>
+          <div className="card mt-6 overflow-hidden">
             {rows.map((r) => {
-              const hrefBuilder = SUBJECT_HREF[r.subjectType];
-              const href = hrefBuilder && r.subjectId ? hrefBuilder(r.subjectId) : null;
-              const actorName =
-                [r.actorFirstName, r.actorLastName].filter(Boolean).join(" ") ||
-                r.actorEmail ||
-                (r.actorRoleSnapshot ?? "system");
-
+              const s = auditSentence(r);
               return (
-                <li
+                <div
                   key={r.id}
-                  className="grid grid-cols-1 gap-3 px-6 py-5 lg:grid-cols-[150px_140px_1fr_auto] lg:items-baseline lg:gap-6"
+                  className="grid grid-cols-1 gap-1 border-b border-line-faint px-6 py-3.5 text-[15px] last:border-b-0 md:grid-cols-[150px_minmax(0,1fr)] md:gap-6"
                 >
-                  <div className="flex flex-col">
-                    <span className="font-mono text-[10px] uppercase tracking-[0.08em] text-steel">
-                      {r.occurredAt.toISOString().slice(0, 16).replace("T", " ")}
-                    </span>
-                    <span className="font-mono text-[10px] uppercase tracking-[0.08em] text-bone-2">
-                      {relativeTime(r.occurredAt)}
-                    </span>
-                  </div>
-                  <div>
-                    <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-clearance">
-                      {actorName}
-                    </span>
-                    {r.actorRoleSnapshot ? (
-                      <div className="mt-0.5 font-mono text-[9px] uppercase tracking-[0.08em] text-steel">
-                        {r.actorRoleSnapshot}
-                      </div>
+                  <span className="text-steel">{whenWords(r.occurredAt, now)}</span>
+                  <span className="min-w-0 text-bone">
+                    {s.pre}
+                    {s.link ? (
+                      <Link href={s.link.href} className="text-link-strong">
+                        {s.link.label}
+                      </Link>
                     ) : null}
-                  </div>
-                  <div>
-                    <span className="font-mono text-[12px] uppercase tracking-[0.08em] text-bone">
-                      {r.action}
-                    </span>
-                    <div className="mt-1.5 flex flex-wrap items-baseline gap-2">
-                      <span
-                        className={[
-                          "rounded-[2px] border border-ink-3 px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-[0.12em]",
-                          SUBJECT_CLASS[r.subjectType] ?? "text-bone-2",
-                        ].join(" ")}
-                      >
-                        {r.subjectType.replace(/_/g, " ")}
-                      </span>
-                      {r.subjectCode ? (
-                        href ? (
-                          <Link
-                            href={href}
-                            className="font-mono text-[11px] tracking-[0.04em] text-clearance hover:underline"
-                          >
-                            {r.subjectCode}
-                          </Link>
-                        ) : (
-                          <span className="font-mono text-[11px] tracking-[0.04em] text-bone-2">
-                            {r.subjectCode}
-                          </span>
-                        )
-                      ) : null}
-                    </div>
-                    {r.diff || r.metadata ? (
-                      <pre className="mt-2 max-h-32 overflow-y-auto rounded-[2px] border border-ink-3 bg-ink p-2 font-mono text-[10px] leading-[1.5] text-bone-2">
-                        {JSON.stringify(r.diff ?? r.metadata, null, 2)}
-                      </pre>
-                    ) : null}
-                  </div>
-                  <span className="font-mono text-[9px] uppercase tracking-[0.04em] text-steel">
-                    {r.ip ?? "—"}
+                    {s.post}
+                    {s.ref ? <span className="text-[13px] text-steel"> · {s.ref}</span> : null}
                   </span>
-                </li>
+                </div>
               );
             })}
-          </ul>
-        </div>
+          </div>
+          <p className="mt-4 text-[13px] text-steel">
+            Showing {rows.length} of {total} {total === 1 ? "entry" : "entries"}
+            {rows.length < total ? " · newest first" : ""}
+          </p>
+        </>
       )}
     </div>
   );

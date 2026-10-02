@@ -235,7 +235,7 @@ const VERBS: Record<string, Entry> = {
   "empty_leg_watchlist.match.notify": () => "System sent an empty-leg alert",
   "blog_subscriber.confirm": () => "A reader confirmed a blog subscription",
   "contact_inquiry.submit": (c) => [`${c.named ? c.name : "Someone"} sent `, "a message through the contact form"],
-  "contact_inquiry.notify.email": (c) => [`System emailed the desk about `, "a contact message"],
+  "contact_inquiry.notify.email": () => [`System emailed the desk about `, "a contact message"],
 
   // AI
   "ai_provider.key.create": (c) => [`${c.actor} stored a key for `, "the phone answering AI"],

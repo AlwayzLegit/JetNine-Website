@@ -4,7 +4,7 @@
  * strings (postgres `date`) or as timestamps; both read as "Oct 3".
  */
 
-import { CATEGORY_PLAIN, formatClock, formatDay } from "@/lib/request-page";
+import { CATEGORY_PLAIN, formatClock, formatDay } from "@/lib/request-format";
 import type { MemberPreferences } from "@/db/schema/member-prefs";
 
 // ─── Dates ──────────────────────────────────────────────────────────────

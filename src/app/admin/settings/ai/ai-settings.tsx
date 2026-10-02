@@ -3,6 +3,7 @@
 import { useState, useTransition, type FormEvent } from "react";
 import type { ProviderView, RouteView } from "@/lib/ai-providers";
 import type { AiProviderKind } from "@/db/schema/ai";
+import { DotSentence } from "@/components/admin/desk-ui";
 import {
   deleteProviderKey,
   runProviderTest,
@@ -22,6 +23,14 @@ type Kind = {
 
 type Msg = { tone: "ok" | "error"; text: string } | null;
 
+const WHEN = new Intl.DateTimeFormat("en-US", {
+  timeZone: "America/Los_Angeles",
+  month: "short",
+  day: "numeric",
+  hour: "numeric",
+  minute: "2-digit",
+});
+
 export function AiSettings({
   kinds,
   providers,
@@ -34,7 +43,7 @@ export function AiSettings({
   disabled: boolean;
 }) {
   return (
-    <div className="grid gap-8 lg:grid-cols-[1fr_1fr]">
+    <div className="grid gap-4 lg:grid-cols-2">
       {kinds.map((k) => (
         <ProviderCard
           key={k.kind}
@@ -47,6 +56,15 @@ export function AiSettings({
         <RouteCard providers={providers} route={route} disabled={disabled} />
       </div>
     </div>
+  );
+}
+
+function Message({ msg }: { msg: Msg }) {
+  if (!msg) return null;
+  return (
+    <p role="status" className={`mt-4 text-[14px] ${msg.tone === "ok" ? "text-success" : "text-danger"}`}>
+      {msg.text}
+    </p>
   );
 }
 
@@ -64,11 +82,11 @@ function ProviderCard({ kind, row, disabled }: { kind: Kind; row: ProviderView |
       start(async () => {
         const r = await action(data);
         if (r.ok) {
-          setMsg({ tone: "ok", text: `CLEARED — ${r.message}` });
+          setMsg({ tone: "ok", text: r.message });
           const key = form.elements.namedItem("apiKey") as HTMLInputElement | null;
           if (key) key.value = "";
         } else {
-          setMsg({ tone: "error", text: `BLOCKED — ${r.error}` });
+          setMsg({ tone: "error", text: r.error });
         }
       });
     };
@@ -82,62 +100,66 @@ function ProviderCard({ kind, row, disabled }: { kind: Kind; row: ProviderView |
       const r = await runProviderTest(fd);
       if (r.ok) {
         setModels(r.models);
-        setMsg({ tone: r.modelKnown ? "ok" : "error", text: `${r.modelKnown ? "CLEARED" : "CHECK MODEL"} — ${r.note}` });
+        setMsg({ tone: r.modelKnown ? "ok" : "error", text: r.note });
       } else {
-        setMsg({ tone: "error", text: `BLOCKED — ${r.note}` });
+        setMsg({ tone: "error", text: r.note });
       }
     });
   }
 
   function remove() {
-    if (!confirm(`Remove the stored ${kind.label} key? Any route using it falls back.`)) return;
+    if (!confirm(`Remove the stored ${kind.label} key? Anything routed to it falls back.`)) return;
     const fd = new FormData();
     fd.set("provider", kind.kind);
     setMsg(null);
     start(async () => {
       const r = await deleteProviderKey(fd);
-      setMsg(r.ok ? { tone: "ok", text: `CLEARED — ${r.message}` } : { tone: "error", text: `BLOCKED — ${r.error}` });
+      setMsg(r.ok ? { tone: "ok", text: r.message } : { tone: "error", text: r.error });
     });
   }
 
   const listId = `models-${kind.kind}`;
 
   return (
-    <section className="border border-ink-3 p-6">
-      <header className="mb-6 flex items-start justify-between gap-4">
-        <div>
-          <p className="caption mb-2">— {kind.kind}</p>
-          <h2 className="font-serif text-[24px] font-light leading-tight text-bone">{kind.label}</h2>
-        </div>
-        <StatusPill row={row} />
+    <section className="card p-6">
+      <header className="flex items-start justify-between gap-4">
+        <h2 className="title-card-sm text-bone">{kind.label}</h2>
+        <Status row={row} />
       </header>
 
       {row ? (
-        <dl className="mb-6 grid grid-cols-2 gap-x-6 gap-y-3 font-mono text-[11px] uppercase tracking-[0.08em]">
-          <Field label="Key">…{row.last4}</Field>
-          <Field label="Model">{row.defaultModel}</Field>
-          <Field label="Updated">{new Date(row.updatedAt).toLocaleString()}</Field>
-          <Field label="Last test">
+        <dl className="dl-jn mt-5">
+          <dt>Key</dt>
+          <dd>…{row.last4}</dd>
+          <dt>Model</dt>
+          <dd>{row.defaultModel}</dd>
+          <dt>Updated</dt>
+          <dd>{WHEN.format(new Date(row.updatedAt))}</dd>
+          <dt>Last test</dt>
+          <dd>
             {row.lastTestedAt
-              ? `${row.lastTestOk ? "OK" : "FAILED"} · ${new Date(row.lastTestedAt).toLocaleString()}`
-              : "never"}
-          </Field>
+              ? `${row.lastTestOk ? "Passed" : "Failed"} · ${WHEN.format(new Date(row.lastTestedAt))}`
+              : "Not tested yet"}
+          </dd>
           {row.lastTestNote ? (
-            <div className="col-span-2 normal-case tracking-normal text-bone-2">{row.lastTestNote}</div>
+            <>
+              <dt>Note</dt>
+              <dd className="text-bone-2">{row.lastTestNote}</dd>
+            </>
           ) : null}
         </dl>
       ) : (
-        <p className="mb-6 text-[13px] leading-[1.55] text-bone-2">
+        <p className="mt-4 text-[15px] text-bone-2">
           No key stored. Create one at{" "}
-          <a href={kind.console} target="_blank" rel="noreferrer" className="text-clearance underline">
-            {new URL(kind.console).host}
+          <a href={kind.console} target="_blank" rel="noreferrer" className="text-link">
+            {new URL(kind.console).host} ↗
           </a>{" "}
           and paste it below. It is encrypted before it is written.
         </p>
       )}
 
       {/* Key entry (create or replace) */}
-      <form onSubmit={submit(saveProviderKey)} className="flex flex-col gap-4">
+      <form onSubmit={submit(saveProviderKey)} className="mt-5 flex flex-col gap-2.5">
         <input type="hidden" name="provider" value={kind.kind} />
         <div className="field-jn">
           <label htmlFor={`${kind.kind}-key`}>{row ? "Replace key" : "API key"}</label>
@@ -170,7 +192,7 @@ function ProviderCard({ kind, row, disabled }: { kind: Kind; row: ProviderView |
             </div>
           </>
         ) : null}
-        <div className="flex flex-wrap gap-3">
+        <div className="mt-1.5 flex flex-wrap gap-2.5">
           <button type="submit" className="btn btn-primary btn-sm" disabled={pending || disabled}>
             {row ? "Replace key" : "Store key"}
           </button>
@@ -179,7 +201,7 @@ function ProviderCard({ kind, row, disabled }: { kind: Kind; row: ProviderView |
 
       {/* Settings for an existing row */}
       {row ? (
-        <form onSubmit={submit(saveProviderSettings)} className="mt-6 flex flex-col gap-4 border-t border-ink-3 pt-6">
+        <form onSubmit={submit(saveProviderSettings)} className="mt-6 flex flex-col gap-2.5 border-t border-line-faint pt-6">
           <input type="hidden" name="provider" value={kind.kind} />
           <div className="field-jn">
             <label htmlFor={`${kind.kind}-label2`}>Label</label>
@@ -195,23 +217,23 @@ function ProviderCard({ kind, row, disabled }: { kind: Kind; row: ProviderView |
               disabled={disabled}
             />
             {models.length ? (
-              <p className="mt-1.5 font-mono text-[10px] uppercase tracking-[0.08em] text-steel">
-                — {models.length} models loaded from the vendor; start typing to pick one
+              <p className="mt-1.5 text-[13px] text-steel">
+                {models.length} models loaded from the vendor; start typing to pick one.
               </p>
             ) : null}
           </div>
-          <label className="flex items-center gap-3 font-mono text-[11px] uppercase tracking-[0.08em] text-bone-2">
+          <label className="flex items-center gap-3 text-[15px] text-bone-2">
             <input type="checkbox" name="enabled" defaultChecked={row.enabled} disabled={disabled} />
-            Enabled for routing
+            Available to answer the phone
           </label>
-          <div className="flex flex-wrap gap-3">
+          <div className="mt-1.5 flex flex-wrap gap-2.5">
             <button type="submit" className="btn btn-secondary btn-sm" disabled={pending || disabled}>
               Save settings
             </button>
             <button type="button" onClick={test} className="btn btn-secondary btn-sm" disabled={pending || disabled}>
               Test key
             </button>
-            <button type="button" onClick={remove} className="btn btn-ghost btn-sm" disabled={pending || disabled}>
+            <button type="button" onClick={remove} className="btn btn-sm text-danger" disabled={pending || disabled}>
               Remove key
             </button>
           </div>
@@ -224,15 +246,7 @@ function ProviderCard({ kind, row, disabled }: { kind: Kind; row: ProviderView |
         ))}
       </datalist>
 
-      {msg ? (
-        <p
-          className={`mt-5 font-mono text-[11px] uppercase tracking-[0.08em] ${
-            msg.tone === "ok" ? "text-[var(--success)]" : "text-[var(--error)]"
-          }`}
-        >
-          {msg.text}
-        </p>
-      ) : null}
+      <Message msg={msg} />
     </section>
   );
 }
@@ -248,26 +262,25 @@ function RouteCard({ providers, route, disabled }: { providers: ProviderView[]; 
     setMsg(null);
     start(async () => {
       const r = await saveVoiceRoute(data);
-      setMsg(r.ok ? { tone: "ok", text: `CLEARED — ${r.message}` } : { tone: "error", text: `BLOCKED — ${r.error}` });
+      setMsg(r.ok ? { tone: "ok", text: r.message } : { tone: "error", text: r.error });
     });
   }
 
   return (
-    <section className="border border-ink-3 p-6">
-      <header className="mb-6">
-        <p className="caption mb-2">— routing</p>
-        <h2 className="font-serif text-[24px] font-light leading-tight text-bone">Voice desk</h2>
-        <p className="mt-2 max-w-[64ch] text-[13px] leading-[1.55] text-bone-2">
-          The primary provider runs every call. If it errors before the caller has heard anything,
-          the same turn is retried on the fallback. Each provider uses its own default model. With
-          no primary set, the service uses the ANTHROPIC_API_KEY environment variable on Render.
+    <section className="card p-6">
+      <header>
+        <h2 className="title-card-sm text-bone">Who answers the phone</h2>
+        <p className="mt-2 max-w-[64ch] text-[15px] text-bone-2">
+          The first choice takes every call. If it fails before the caller has heard anything, the same turn is
+          retried on the backup. Each provider uses its own default model. With no first choice set, the service
+          uses the ANTHROPIC_API_KEY environment variable on Render.
         </p>
       </header>
-      <form onSubmit={onSubmit} className="grid gap-4 md:grid-cols-[1fr_1fr_auto] md:items-end">
+      <form onSubmit={onSubmit} className="mt-5 grid gap-2.5 md:grid-cols-[1fr_1fr_auto] md:items-end">
         <div className="field-jn">
-          <label htmlFor="route-primary">Primary</label>
+          <label htmlFor="route-primary">Answers first</label>
           <select id="route-primary" name="primaryProviderId" defaultValue={route.primaryProviderId ?? ""} disabled={disabled}>
-            <option value="">— Environment key (Render) —</option>
+            <option value="">Environment key on Render</option>
             {usable.map((p) => (
               <option key={p.id} value={p.id}>
                 {p.label} · {p.defaultModel}
@@ -276,9 +289,9 @@ function RouteCard({ providers, route, disabled }: { providers: ProviderView[]; 
           </select>
         </div>
         <div className="field-jn">
-          <label htmlFor="route-fallback">Fallback</label>
+          <label htmlFor="route-fallback">Backup</label>
           <select id="route-fallback" name="fallbackProviderId" defaultValue={route.fallbackProviderId ?? ""} disabled={disabled}>
-            <option value="">— None —</option>
+            <option value="">None</option>
             {usable.map((p) => (
               <option key={p.id} value={p.id}>
                 {p.label} · {p.defaultModel}
@@ -287,42 +300,27 @@ function RouteCard({ providers, route, disabled }: { providers: ProviderView[]; 
           </select>
         </div>
         <button type="submit" className="btn btn-primary btn-sm" disabled={pending || disabled}>
-          Save routing
+          Save
         </button>
       </form>
-      {msg ? (
-        <p
-          className={`mt-5 font-mono text-[11px] uppercase tracking-[0.08em] ${
-            msg.tone === "ok" ? "text-[var(--success)]" : "text-[var(--error)]"
-          }`}
-        >
-          {msg.text}
-        </p>
-      ) : null}
+      <Message msg={msg} />
     </section>
   );
 }
 
-function StatusPill({ row }: { row: ProviderView | null }) {
-  const [cls, text] = !row
-    ? ["border-steel text-steel", "not set"]
+function Status({ row }: { row: ProviderView | null }) {
+  const [tone, text]: ["success" | "gold" | "danger" | "steel", string] = !row
+    ? ["steel", "No key"]
     : !row.enabled
-      ? ["border-steel text-steel", "disabled"]
+      ? ["steel", "Switched off"]
       : row.lastTestOk === false
-        ? ["border-[var(--error)] text-[var(--error)]", "test failed"]
+        ? ["danger", "Test failed"]
         : row.lastTestOk
-          ? ["border-[var(--success)] text-[var(--success)]", "verified"]
-          : ["border-[var(--warn)] text-[var(--warn)]", "untested"];
+          ? ["success", "Working"]
+          : ["gold", "Not tested yet"];
   return (
-    <span className={`border px-2 py-1 font-mono text-[10px] uppercase tracking-[0.14em] ${cls}`}>{text}</span>
-  );
-}
-
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div>
-      <dt className="text-steel">{label}</dt>
-      <dd className="mt-1 text-bone">{children}</dd>
-    </div>
+    <DotSentence tone={tone} className="flex-none text-[14px] text-bone-2">
+      {text}
+    </DotSentence>
   );
 }

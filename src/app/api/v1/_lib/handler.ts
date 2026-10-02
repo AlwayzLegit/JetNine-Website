@@ -109,6 +109,8 @@ export function apiHandler(def: RouteDef) {
     const auth = await authenticateApiKey(req, { write });
     if (!auth.ok) {
       errorCode = auth.code;
+      const failedKey = (auth.details as { keyId?: unknown } | undefined)?.keyId;
+      if (typeof failedKey === "string") keyId = failedKey;
       return finish(failure(requestId, auth));
     }
     const actor: Actor = { ...auth.value, requestId };

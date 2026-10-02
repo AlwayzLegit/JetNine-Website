@@ -21,8 +21,10 @@ import { err, ok } from "@/domain/result";
 const LEGACY_SCOPES: ReadonlySet<Scope> = new Set<Scope>(["read", "content"]);
 
 export async function authorizeBlogAdmin(req: Request, opts: { write?: boolean } = {}): Promise<Result<Actor>> {
+  const header = req.headers.get("authorization");
   const token = bearerToken(req);
-  if (token) {
+  if (header?.startsWith("Bearer")) {
+    if (!token) return unauthorized();
     if (parseToken(token)) {
       const auth = await authenticateApiKey(req, opts);
       if (!auth.ok) return auth;

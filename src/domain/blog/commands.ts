@@ -239,7 +239,8 @@ export async function ingestHero(actor: Actor, body: unknown): Promise<Result<He
       requireContentTypePrefix: "image/",
     });
     if (!got.ok) {
-      return err(got.status === 422 ? "invalid" : "unavailable", `sourceUrl: ${got.error}`, { library: HERO_LIBRARY, status: got.status });
+      const code = got.status === 422 || got.status === 413 ? "invalid" : "unavailable";
+      return err(code, `sourceUrl: ${got.error}`, { library: HERO_LIBRARY, status: got.status });
     }
     raw = got.body;
   } else {

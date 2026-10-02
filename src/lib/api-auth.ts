@@ -31,12 +31,13 @@ export function bearerToken(req: Request): string | null {
   return h.slice(7).trim() || null;
 }
 
-async function authFailure(ip: string): Promise<Result<never>> {
+/** `keyId` (a real key that is revoked, expired or orphaned) is for the request log; the envelope never shows it. */
+async function authFailure(ip: string, keyId?: string): Promise<Result<never>> {
   const limited = await checkRateLimit(`api:authfail:${ip}`, { max: 20, windowSeconds: 600 });
   if (!limited.ok) {
-    return err("rate_limited", "Too many failed attempts. Try again later.", { retryAfterMs: limited.retryAfterMs });
+    return err("rate_limited", "Too many failed attempts. Try again later.", { retryAfterMs: limited.retryAfterMs, keyId });
   }
-  return err("unauthorized", "Missing, invalid, expired or revoked API key.");
+  return err("unauthorized", "Missing, invalid, expired or revoked API key.", keyId ? { keyId } : undefined);
 }
 
 export async function authenticateApiKey(req: Request, opts: { write?: boolean } = {}): Promise<Result<Actor>> {
@@ -84,18 +85,22 @@ export async function authenticateApiKey(req: Request, opts: { write?: boolean }
   }
 
   if (!row || !hashesEqual(hashToken(parsed.token), row.tokenHash)) return authFailure(ip);
-  if (row.revokedAt) return authFailure(ip);
-  if (row.expiresAt && row.expiresAt.getTime() <= Date.now()) return authFailure(ip);
-  if (!row.creatorId || !row.creatorRole || !STAFF_ROLES.has(row.creatorRole)) return authFailure(ip);
+  if (row.revokedAt) return authFailure(ip, row.id);
+  if (row.expiresAt && row.expiresAt.getTime() <= Date.now()) return authFailure(ip, row.id);
+  if (!row.creatorId || !row.creatorRole || !STAFF_ROLES.has(row.creatorRole)) return authFailure(ip, row.id);
 
   const scopes = effectiveScopes(row.scopes, row.creatorRole);
-  if (scopes.size === 0) return err("forbidden", "This key has no permissions left.");
+  if (scopes.size === 0) return err("forbidden", "This key has no permissions left.", { keyId: row.id });
 
   const perKey = await checkRateLimit(`api:key:${row.id}`, { max: row.rateLimitPerMin, windowSeconds: 60 });
-  if (!perKey.ok) return err("rate_limited", "Rate limit reached for this key.", { retryAfterMs: perKey.retryAfterMs });
+  if (!perKey.ok) {
+    return err("rate_limited", "Rate limit reached for this key.", { retryAfterMs: perKey.retryAfterMs, keyId: row.id });
+  }
   if (opts.write) {
     const writes = await checkRateLimit(`api:keyw:${row.id}`, { max: 30, windowSeconds: 60 });
-    if (!writes.ok) return err("rate_limited", "Write rate limit reached for this key.", { retryAfterMs: writes.retryAfterMs });
+    if (!writes.ok) {
+      return err("rate_limited", "Write rate limit reached for this key.", { retryAfterMs: writes.retryAfterMs, keyId: row.id });
+    }
   }
 
   const stale = !row.lastUsedAt || Date.now() - row.lastUsedAt.getTime() > 60_000;

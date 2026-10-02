@@ -13,7 +13,7 @@
  * Importing the registry pulls in the db module, which connects lazily, so
  * a placeholder DATABASE_URL is enough.
  */
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 
 process.env.DATABASE_URL ||= "postgresql://ci:ci@localhost:5432/ci";
@@ -80,7 +80,7 @@ function check(name: string, cond: boolean, detail?: unknown) {
     // Hex forms Node's URL parser produces for bracketed IPv6 hosts.
     "::ffff:7f00:1", "::ffff:a9fe:a9fe", "::7f00:1", "0:0:0:0:0:ffff:7f00:1", "::ffff:0:7f00:1",
     "2002:7f00:1::", "2002:a9fe:a9fe::1", "2001:0:4136:e378::1", "2001:db8::1", "64:ff9b:1::1",
-    "FE80::1", "fe80::1%eth0",
+    "FE80::1", "fe80::1%eth0", "fec0::1",
   ];
   const allowed = [
     "8.8.8.8", "1.1.1.1", "172.32.0.1", "104.16.0.1", "2606:4700::1111", "::ffff:8.8.8.8",
@@ -123,6 +123,27 @@ function check(name: string, cond: boolean, detail?: unknown) {
     );
   }
   check("ROUTES lists every ROUTE", ROUTES.length === Object.keys(ROUTE).length);
+
+  // And from the other side: every route file under /api/v1 exports only
+  // registered handlers, so nothing there can skip apiHandler's auth.
+  const walk = (dir: string): string[] =>
+    readdirSync(dir, { withFileTypes: true }).flatMap((e) =>
+      e.isDirectory() ? walk(join(dir, e.name)) : e.name === "route.ts" ? [join(dir, e.name)] : [],
+    );
+  for (const file of walk("src/app/api/v1")) {
+    const src = readFileSync(file, "utf8");
+    const path = "/" + file.replace(/^src\/app\/api\/v1\//, "").replace(/\/route\.ts$/, "").replace(/\[(\w+)\]/g, "{$1}");
+    check(`${file}: no function handlers`, !/export\s+(async\s+)?function\s+(GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS)\b/.test(src));
+    const exported = [...src.matchAll(/export const (GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS)\s*=\s*([^;]+);/g)];
+    const anyExport = [...src.matchAll(/export const (GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS)\b/g)];
+    check(`${file}: every method export is a one-line handler`, exported.length === anyExport.length && exported.length > 0);
+    for (const [, method, rhs] of exported) {
+      const m = /^apiHandler\(ROUTE\.(\w+)\)$/.exec(rhs.trim());
+      const def = m ? (ROUTE as Record<string, { method: string; path: string }>)[m[1]] : undefined;
+      check(`${file}: ${method} uses a registered route`, Boolean(def), rhs);
+      if (def) check(`${file}: ${method} matches ROUTE.${m![1]} (${def.method} ${def.path})`, def.method === method && def.path === path);
+    }
+  }
 }
 
 // ─── OpenAPI ─────────────────────────────────────────────────────────────
@@ -134,6 +155,10 @@ function check(name: string, cond: boolean, detail?: unknown) {
       count++;
       check(`${method} ${path}: x-scope`, typeof op["x-scope"] === "string");
       check(`${method} ${path}: x-approval`, typeof op["x-approval"] === "string");
+      const responses = op.responses as Record<string, unknown>;
+      // Until the approval queue exists, nothing may promise a 202.
+      check(`${method} ${path}: no 202 before the approval queue`, !("202" in responses));
+      if (op["x-approval"] === "always") check(`${method} ${path}: documents the 403 refusal`, "403" in responses);
     }
   }
   check("one OpenAPI operation per route", count === ROUTES.length, { count, routes: ROUTES.length });

@@ -76,11 +76,12 @@ export function buildOpenApi(routes: RouteDef[], serverUrl: string) {
           description: "Success",
           content: { "application/json": { schema: { $ref: "#/components/schemas/Success" } } },
         },
-        ...(r.approval && r.approval !== "never"
+        // No approval queue yet: keys that ask before acting are refused.
+        ...(r.approval === "always"
           ? {
-              "202": {
-                description: "Queued for a person's OK (supervised keys).",
-                content: { "application/json": { schema: { $ref: "#/components/schemas/Success" } } },
+              "403": {
+                description: "Refused for keys that ask before acting; a person must do this.",
+                content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } },
               },
             }
           : {}),

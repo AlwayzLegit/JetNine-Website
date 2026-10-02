@@ -33,10 +33,11 @@ export function failure(requestId: string, e: Err, statusOverride?: number): Nex
   const retry = typeof details?.retryAfterMs === "number" ? Math.ceil(details.retryAfterMs / 1000) : undefined;
   if (e.code === "rate_limited" && retry !== undefined) headers["Retry-After"] = String(Math.max(retry, 1));
   let publicDetails: unknown = details;
-  if (details && ("status" in details || "retryAfterMs" in details)) {
-    const { status: _s, retryAfterMs: _r, ...rest } = details;
+  if (details && ("status" in details || "retryAfterMs" in details || "keyId" in details)) {
+    const { status: _s, retryAfterMs: _r, keyId: _k, ...rest } = details;
     void _s;
     void _r;
+    void _k;
     publicDetails = Object.keys(rest).length ? rest : undefined;
   }
   return NextResponse.json(

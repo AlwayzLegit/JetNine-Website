@@ -20,8 +20,12 @@ const LEGACY_STATUS: Partial<Record<Err["code"], number>> = { invalid: 400 };
 
 export function legacyError(e: Err): NextResponse {
   const details = (e.details ?? {}) as Record<string, unknown>;
+  // Bad input was always 400 here, except an oversized image (413).
   const status =
-    typeof details.status === "number" && details.status >= 400 ? details.status : LEGACY_STATUS[e.code] ?? statusFor(e.code);
+    details.status === 413
+      ? 413
+      : (LEGACY_STATUS[e.code] ??
+        (typeof details.status === "number" && details.status >= 400 ? details.status : statusFor(e.code)));
   return NextResponse.json(
     { ok: false, error: e.error, ...(details.library ? { library: details.library } : {}) },
     { status },
@@ -59,7 +63,8 @@ export function legacyRoute(route: string, successor: string, fn: Handler) {
     res.headers.set("Deprecation", "true");
     res.headers.set("Link", `</api/v1${successor}>; rel="successor-version"`);
 
-    const key = auth.ok ? auth.value.key : undefined;
+    const failedKey = !auth.ok ? (auth.details as { keyId?: unknown } | undefined)?.keyId : undefined;
+    const key = auth.ok ? auth.value.key : typeof failedKey === "string" ? { id: failedKey, legacy: false } : undefined;
     if (key) {
       const row = {
         keyId: key.legacy ? null : key.id,

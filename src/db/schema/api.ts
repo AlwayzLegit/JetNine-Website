@@ -2,6 +2,7 @@ import { sql } from "drizzle-orm";
 import {
   bigint,
   boolean,
+  check,
   index,
   integer,
   pgTable,
@@ -38,7 +39,17 @@ export const apiKeys = pgTable(
     revokedBy: uuid("revoked_by").references(() => users.id, { onDelete: "set null" }),
     revokeReason: text("revoke_reason"),
   },
-  (t) => [index("api_keys_created_by_idx").on(t.createdBy)],
+  (t) => [
+    index("api_keys_created_by_idx").on(t.createdBy),
+    check("api_keys_name_check", sql`char_length(${t.name}) between 1 and 60`),
+    check(
+      "api_keys_scopes_check",
+      sql`cardinality(${t.scopes}) > 0 and ${t.scopes} <@ array['read','content','desk','clients','money','settings','admin','agent']::text[]`,
+    ),
+    check("api_keys_rate_limit_per_min_check", sql`${t.rateLimitPerMin} between 1 and 2000`),
+    // The assistant's key always asks before anything client-facing.
+    check("api_keys_agent_supervised", sql`not ('agent' = any(${t.scopes})) or ${t.requiresApproval}`),
+  ],
 );
 
 export type ApiKey = typeof apiKeys.$inferSelect;
@@ -63,7 +74,7 @@ export const apiRequests = pgTable(
     requestId: text("request_id"),
     at: timestamp("at", { withTimezone: true }).notNull().default(sql`now()`),
   },
-  (t) => [index("api_requests_key_at_idx").on(t.keyId, t.at), index("api_requests_at_idx").on(t.at)],
+  (t) => [index("api_requests_key_at_idx").on(t.keyId, t.at.desc()), index("api_requests_at_idx").on(t.at)],
 );
 
 export type ApiRequestRow = typeof apiRequests.$inferSelect;

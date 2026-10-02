@@ -81,6 +81,7 @@ export function isBlockedAddress(ip: string): boolean {
   if (h[0] === 0x2001 && (h[1] === 0 || h[1] === 0xdb8)) return true; // Teredo, documentation
   if ((h[0] & 0xfe00) === 0xfc00) return true; // fc00::/7 unique local
   if ((h[0] & 0xffc0) === 0xfe80) return true; // fe80::/10 link local
+  if ((h[0] & 0xffc0) === 0xfec0) return true; // fec0::/10 site local (deprecated)
   if ((h[0] & 0xff00) === 0xff00) return true; // ff00::/8 multicast
   return false;
 }
@@ -127,6 +128,7 @@ export async function safeFetch(
       return { ok: false, status: 502, error: `Could not fetch the URL (${e instanceof Error ? e.name : "error"}).` };
     }
     if (res.status >= 300 && res.status < 400) {
+      await res.body?.cancel().catch(() => {});
       const next = res.headers.get("location");
       if (!next) return { ok: false, status: 502, error: "Redirect without a location." };
       url = new URL(next, u).toString();

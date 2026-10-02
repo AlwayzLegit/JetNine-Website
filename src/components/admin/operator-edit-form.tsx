@@ -6,8 +6,8 @@ import type { Operator } from "@/db/schema/operators";
 
 const STATUSES = [
   { id: "active", label: "Active — flying" },
-  { id: "audit_due", label: "Audit due — flag to ops" },
-  { id: "hold", label: "Hold — temporary pause" },
+  { id: "audit_due", label: "Audit due — flag to the desk" },
+  { id: "hold", label: "On hold — temporary pause" },
   { id: "suspended", label: "Suspended — reason required" },
   { id: "banned", label: "Banned — permanent" },
 ] as const;
@@ -33,9 +33,9 @@ export function OperatorEditForm({ initial }: { initial: Operator }) {
     startTransition(async () => {
       const result = await updateOperator(initial.id, data);
       if (result.ok) {
-        setMsg({ tone: "ok", text: "SAVED." });
+        setMsg({ tone: "ok", text: "Saved." });
       } else {
-        setMsg({ tone: "error", text: `BLOCKED — ${result.error.toUpperCase()}` });
+        setMsg({ tone: "error", text: result.error });
       }
     });
   }
@@ -48,25 +48,25 @@ export function OperatorEditForm({ initial }: { initial: Operator }) {
           onClick={() => setOpen(true)}
           className="btn btn-secondary btn-sm"
         >
-          Edit fields →
+          Edit operator
         </button>
       </div>
     );
   }
 
   return (
-    <section className="rounded-[4px] border border-clearance bg-ink-2 p-6">
-      <div className="mb-5 flex items-baseline justify-between">
-        <h2 className="caption text-clearance">— Edit operator</h2>
+    <section className="card card-highlight p-6">
+      <div className="mb-5 flex items-center justify-between gap-3">
+        <h2 className="label-jn text-[13px]">Edit operator</h2>
         <button
           type="button"
           onClick={() => {
             setOpen(false);
             setMsg(null);
           }}
-          className="font-mono text-[10px] uppercase tracking-[0.14em] text-bone-2 hover:text-bone"
+          className="btn btn-secondary h-9 px-3.5 text-[14px]"
         >
-          Close ✕
+          Close
         </button>
       </div>
 
@@ -85,7 +85,7 @@ export function OperatorEditForm({ initial }: { initial: Operator }) {
             />
           </div>
           <div className="field-jn">
-            <label htmlFor="op-cert">FAA cert number</label>
+            <label htmlFor="op-cert">FAA certificate number</label>
             <input
               id="op-cert"
               name="certNumber"
@@ -122,7 +122,7 @@ export function OperatorEditForm({ initial }: { initial: Operator }) {
             />
           </div>
           <div className="field-jn">
-            <label htmlFor="op-years">Years partner</label>
+            <label htmlFor="op-years">Years as a partner</label>
             <input
               id="op-years"
               name="yearsPartner"
@@ -132,7 +132,7 @@ export function OperatorEditForm({ initial }: { initial: Operator }) {
               defaultValue={initial.yearsPartner ?? ""}
             />
           </div>
-          <label className="flex h-full cursor-pointer items-center gap-3 rounded-[2px] border border-ink-3 bg-ink p-4">
+          <label className="flex h-full cursor-pointer items-center gap-3 rounded-control border border-line bg-surface-2 p-4">
             <input
               type="checkbox"
               name="isPreferred"
@@ -140,9 +140,9 @@ export function OperatorEditForm({ initial }: { initial: Operator }) {
               className="h-4 w-4 accent-clearance"
             />
             <div>
-              <div className="font-serif text-[14px] text-bone">Preferred partner</div>
-              <div className="mt-1 text-[12px] leading-[1.5] text-bone-2">
-                Sorts first on workbench candidates.
+              <div className="text-[15px] text-bone">Preferred partner</div>
+              <div className="mt-1 text-[13px] leading-[1.5] text-steel">
+                Sorts first when picking aircraft for a request.
               </div>
             </div>
           </label>
@@ -168,7 +168,7 @@ export function OperatorEditForm({ initial }: { initial: Operator }) {
           </div>
           {status === "suspended" || initial.suspendedReason ? (
             <div className="field-jn">
-              <label htmlFor="op-suspended">Suspended reason</label>
+              <label htmlFor="op-suspended">Reason for suspension</label>
               <input
                 id="op-suspended"
                 name="suspendedReason"
@@ -201,7 +201,7 @@ export function OperatorEditForm({ initial }: { initial: Operator }) {
               ))}
             </select>
           </div>
-          <label className="flex h-full cursor-pointer items-center gap-3 rounded-[2px] border border-ink-3 bg-ink p-4">
+          <label className="flex h-full cursor-pointer items-center gap-3 rounded-control border border-line bg-surface-2 p-4">
             <input
               type="checkbox"
               name="wyvernWingman"
@@ -209,14 +209,14 @@ export function OperatorEditForm({ initial }: { initial: Operator }) {
               className="h-4 w-4 accent-clearance"
             />
             <div>
-              <div className="font-serif text-[14px] text-bone">Wyvern Wingman</div>
-              <div className="mt-1 text-[12px] leading-[1.5] text-bone-2">
-                Adds the Wingman chip on candidate cards.
+              <div className="text-[15px] text-bone">Wyvern Wingman</div>
+              <div className="mt-1 text-[13px] leading-[1.5] text-steel">
+                Shows the Wingman badge on aircraft options.
               </div>
             </div>
           </label>
           <div className="field-jn">
-            <label htmlFor="op-isbao">IS-BAO Stage</label>
+            <label htmlFor="op-isbao">IS-BAO stage</label>
             <input
               id="op-isbao"
               name="isbaoStage"
@@ -252,7 +252,7 @@ export function OperatorEditForm({ initial }: { initial: Operator }) {
         {/* Commercial terms */}
         <div className="grid grid-cols-1 gap-3 md:grid-cols-[1fr_1fr_1fr]">
           <div className="field-jn">
-            <label htmlFor="op-liability">Liability limit (USD)</label>
+            <label htmlFor="op-liability">Liability limit ($)</label>
             <input
               id="op-liability"
               name="liabilityLimitUsd"
@@ -275,7 +275,7 @@ export function OperatorEditForm({ initial }: { initial: Operator }) {
             />
           </div>
           <div className="field-jn">
-            <label htmlFor="op-discount">Volume discount %</label>
+            <label htmlFor="op-discount">Volume discount (%)</label>
             <input
               id="op-discount"
               name="volumeDiscountPct"
@@ -288,7 +288,7 @@ export function OperatorEditForm({ initial }: { initial: Operator }) {
           </div>
         </div>
 
-        <label className="flex cursor-pointer items-center gap-3 rounded-[2px] border border-ink-3 bg-ink p-4">
+        <label className="flex cursor-pointer items-center gap-3 rounded-control border border-line bg-surface-2 p-4">
           <input
             type="checkbox"
             name="rateLock"
@@ -296,9 +296,9 @@ export function OperatorEditForm({ initial }: { initial: Operator }) {
             className="h-4 w-4 accent-clearance"
           />
           <div>
-            <div className="font-serif text-[14px] text-bone">Rate lock</div>
-            <div className="mt-1 text-[12px] leading-[1.5] text-bone-2">
-              Operator agreed to hold pricing through the current cycle.
+            <div className="text-[15px] text-bone">Rate lock</div>
+            <div className="mt-1 text-[13px] leading-[1.5] text-steel">
+              The operator agreed to hold pricing through the current cycle.
             </div>
           </div>
         </label>
@@ -315,20 +315,13 @@ export function OperatorEditForm({ initial }: { initial: Operator }) {
           />
         </div>
 
-        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-ink-3 pt-5">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-line pt-5">
           {msg ? (
-            <span
-              className={[
-                "font-mono text-[11px] uppercase tracking-[0.12em]",
-                msg.tone === "error" ? "text-[var(--error)]" : "text-[var(--success)]",
-              ].join(" ")}
-            >
+            <span className={`text-[14px] ${msg.tone === "error" ? "text-danger" : "text-success"}`}>
               {msg.text}
             </span>
           ) : (
-            <span className="font-mono text-[10px] uppercase tracking-[0.08em] text-steel">
-              — Admin-only. Field diffs land in audit_log per-key.
-            </span>
+            <span className="text-[13px] text-steel">Admin only. Every changed field is written to the history log.</span>
           )}
           <button
             type="submit"

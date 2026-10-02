@@ -372,6 +372,7 @@ export default async function AdminTripDetailPage({ params }: Props) {
                 defaultPhone={memberRow?.phoneE164 ?? null}
                 postAction={postTripMessage.bind(null, trip.id)}
                 composerHint={`Hi ${firstName}, your crew is briefed and departure is still on schedule.`}
+                clientName={firstName}
               />
             </div>
           </DeskCard>

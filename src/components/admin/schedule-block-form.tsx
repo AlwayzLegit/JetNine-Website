@@ -5,9 +5,9 @@ import { createScheduleBlock } from "@/app/admin/ops/actions";
 
 const KINDS = [
   { id: "maintenance", label: "Maintenance", desc: "C-check, inspection, scheduled work." },
-  { id: "repositioning", label: "Reposition", desc: "Ferry to/from another base." },
+  { id: "repositioning", label: "Reposition", desc: "Ferry to or from another base." },
   { id: "crew_rest", label: "Crew rest", desc: "Part 117 / 135.273 rest." },
-  { id: "owner", label: "Owner-private", desc: "Owner / fractional / joint use." },
+  { id: "owner", label: "Owner-private", desc: "Owner, fractional or joint use." },
   { id: "unavailable", label: "Unavailable", desc: "Catch-all hard block." },
 ] as const;
 
@@ -39,11 +39,11 @@ export function ScheduleBlockForm({
     startTransition(async () => {
       const result = await createScheduleBlock(data);
       if (result.ok) {
-        setMsg({ tone: "ok", text: "POSTED — planner refreshed." });
+        setMsg({ tone: "ok", text: "Posted — the board has been refreshed." });
         form.reset();
         setKind("maintenance");
       } else {
-        setMsg({ tone: "error", text: `BLOCKED — ${result.error.toUpperCase()}` });
+        setMsg({ tone: "error", text: result.error });
       }
     });
   }
@@ -55,24 +55,24 @@ export function ScheduleBlockForm({
         onClick={() => setOpen(true)}
         className="btn btn-secondary btn-sm"
       >
-        + Block airframe <span className="arrow">→</span>
+        + Block an aircraft <span className="arrow">→</span>
       </button>
     );
   }
 
   return (
-    <div className="rounded-[4px] border border-clearance bg-ink-2 p-5">
-      <div className="mb-4 flex items-baseline justify-between">
-        <p className="caption text-clearance">— Manual block</p>
+    <div className="card card-highlight w-full p-5">
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <h3 className="label-jn text-[13px]">Block an aircraft</h3>
         <button
           type="button"
           onClick={() => {
             setOpen(false);
             setMsg(null);
           }}
-          className="font-mono text-[10px] uppercase tracking-[0.14em] text-bone-2 hover:text-bone"
+          className="btn btn-secondary h-9 px-3.5 text-[14px]"
         >
-          Close ✕
+          Close
         </button>
       </div>
       <form onSubmit={onSubmit} className="flex flex-col gap-4">
@@ -81,7 +81,7 @@ export function ScheduleBlockForm({
             <label htmlFor="sb-aircraft">Aircraft</label>
             <select id="sb-aircraft" name="aircraftId" required defaultValue="">
               <option value="" disabled>
-                — Pick tail
+                Pick an aircraft
               </option>
               {aircraftOptions.map((a) => (
                 <option key={a.id} value={a.id}>
@@ -159,17 +159,12 @@ export function ScheduleBlockForm({
 
         <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
           {msg ? (
-            <span
-              className={[
-                "font-mono text-[11px] uppercase tracking-[0.12em]",
-                msg.tone === "error" ? "text-[var(--error)]" : "text-[var(--success)]",
-              ].join(" ")}
-            >
+            <span className={`text-[14px] ${msg.tone === "error" ? "text-danger" : "text-success"}`}>
               {msg.text}
             </span>
           ) : (
-            <span className="font-mono text-[10px] uppercase tracking-[0.08em] text-steel">
-              — Trip + soft-hold blocks are auto-managed; pick a manual kind.
+            <span className="text-[13px] text-steel">
+              Trip and soft-hold blocks are managed automatically; pick a manual kind.
             </span>
           )}
           <button

@@ -686,6 +686,8 @@ export default async function RequestPage({ params }: Props) {
                 defaultPhone={phone}
                 postAction={postQuoteMessage.bind(null, quote.id)}
                 composerHint={first ? `Reply to ${first}…` : "Reply to the client…"}
+                clientName={first ?? name}
+                compact
               />
             </div>
 

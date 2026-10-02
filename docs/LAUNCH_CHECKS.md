@@ -82,7 +82,10 @@ phase deploys and read them as direction, not statistics.
 ## 4. After deploy
 
 - [ ] Read the Semrush site audit for project "Jetnine". It crawls daily on its own; the 2026-10-03 16:14 UTC crawl is the first of the finished redesign. Before: 2026-09-28 — 0 errors, 120 warnings, mostly low text-to-HTML ratio; 2026-10-02 00:50 UTC (phases 1–2 live) — 153 pages, 0 errors, 119 warnings (118 low text-to-HTML ratio), 4 notices.
-- [ ] Open one blog post on production and check its BlogPosting JSON-LD in the page source.
-- [ ] Submit a `[SMOKE]` quote on production and open the status link from the acknowledgment email; check the email reads in plain words.
+- [x] Open one blog post on production and check its BlogPosting JSON-LD in the page source. Done 2026-10-02 on the phase 6 deploy: `/blog/challenger-350-charter-explained` returns 200 with Organization, WebSite, BlogPosting, BreadcrumbList and FAQPage (5 questions); canonical is the jetnine.com URL.
+- [x] Production smoke after the phase 6 deploy passed (GitHub "Post-deploy smoke"); its `[SMOKE]` quotes landed with a status token and a reply deadline of 30 minutes from the desk setting.
+- [ ] Read the new acknowledgment email: `[SMOKE]` quotes skip email by design, so submit one real test quote with your own address and open the status link from it.
 - [ ] Walk the member account and the dispatch desk signed in (they need live data, so they were not rendered locally).
 - [ ] In 30 days: re-run the PostHog queries above and compare.
+
+Known issue, not caused by the redesign: the aircraft-category social images (`/aircraft/[category]/opengraph-image`) still return a valid PNG, but the background photo is a `.webp` file that the image renderer cannot read (Vercel runtime error since June), so the card renders without the photo. Fix: give the cards JPEG or PNG copies of the six fleet photos.

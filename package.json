@@ -23,7 +23,8 @@
     "guide:pdf": "tsx scripts/build-pricing-guide.mts",
     "check:watchlist": "tsx scripts/check-watchlist-matching.mts",
     "audit:launch": "tsx scripts/audit-launch.mts",
-    "audit:seo": "tsx scripts/audit-seo-snapshot.mts"
+    "audit:seo": "tsx scripts/audit-seo-snapshot.mts",
+    "check:api": "tsx scripts/check-api.mts"
   },
   "dependencies": {
     "@sentry/nextjs": "^10.53.1",
@@ -38,6 +39,7 @@
     "react-dom": "^19.0.0",
     "sanitize-html": "^2.17.7",
     "stripe": "^22.1.1",
+    "zod": "^4.6.5",
     "zustand": "^5.0.13"
   },
   "devDependencies": {

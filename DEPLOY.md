@@ -161,6 +161,16 @@ Old desk URLs (`/admin/dispatch`, `/admin/quote/<id>`, `/admin/trip/<id>`,
 `/admin/audit`, `/admin/health`) redirect to the five new sections, so links
 in older dispatch emails keep working.
 
+## 8d. Desk API keys (API phase 1)
+
+Schema: migration `0051_api_keys.sql` adds `api_keys` (hashed keys, scopes,
+expiry, revocation) and `api_requests` (per-call log), and six audit subject
+types (`api_key`, `blog_post`, `approval`, `agent_run`, `agent_playbook`,
+`agent_memory`). Apply it before deploying — the blog endpoints now write
+audit rows with `subject_type = 'blog_post'`; without the enum values those
+rows are silently dropped (audit is best-effort) and `/api/v1` answers 503. No new env vars; `BLOG_ADMIN_API_KEY` keeps working on the legacy
+`/api/admin/blog/*` paths. API reference: `docs/API.md`.
+
 ## 9. Custom domain
 
 In Vercel → Domains → Add. Point your registrar's `A` record at Vercel's anycast IP (or `CNAME` for subdomain). Vercel issues a Let's Encrypt cert automatically.

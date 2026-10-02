@@ -7,17 +7,23 @@ inclusion within the hour).
 
 ## Auth
 
-Two ways in, either works on every endpoint:
+> **New callers:** use `/api/v1/blog/*` with a key from Admin › Settings ›
+> API keys — see [docs/API.md](docs/API.md). Same bodies, responses wrapped
+> as `{ ok, data }`, every change audited. The `/api/admin/blog/*` paths
+> below keep working and send `Deprecation: true` until they are retired.
 
-1. **API key** — `Authorization: Bearer $BLOG_ADMIN_API_KEY`. Set
-   `BLOG_ADMIN_API_KEY` in the environment (Vercel → Project → Settings →
-   Environment Variables, then redeploy). Generate one with
-   `openssl rand -hex 32`. If the var is unset, the bearer path is disabled.
-2. **Admin session** — a signed-in browser session whose user role is
+Three ways in, each works on every endpoint below:
+
+1. **API key** — `Authorization: Bearer jn_live_…`, minted in Admin ›
+   Settings › API keys with the **Content** permission.
+2. **Legacy key** — `Authorization: Bearer $BLOG_ADMIN_API_KEY` (env var;
+   the bearer path is disabled when it is unset). Audited as the legacy key.
+3. **Admin session** — a signed-in browser session whose user role is
    `admin`/`superadmin` (same gate as the rest of `/admin`).
 
 Everything under `/api/` is disallowed in robots.txt; unauthenticated calls
-get a plain 401.
+get a plain 401. Every create, update, publish, unpublish, delete and hero
+upload is recorded in Admin › History.
 
 ## Endpoints
 
@@ -74,9 +80,10 @@ converts to 1536×864 webp, and stores it in the public `blog` bucket. Pass the
 returned `url` as `heroImageUrl`. Without `HF_TOKEN` it returns 503 **with the
 library embedded** so a caller can fall back in one step.
 
-**Ingest** (no token needed) — hand the endpoint any https image URL, e.g. one
-produced by an image-generation tool whose hosting is temporary, and it stores
-a durable 1536×864 webp copy in the bucket:
+**Ingest** (no token needed) — hand the endpoint any public https image URL
+(standard port; private and internal addresses are refused, at most 3
+redirects, 25 MB), e.g. one produced by an image-generation tool whose
+hosting is temporary, and it stores a durable 1536×864 webp copy in the bucket:
 
 ```bash
 curl -sS -X POST https://jetnine.com/api/admin/blog/image \
@@ -155,7 +162,8 @@ curl -sS -X DELETE https://jetnine.com/api/admin/blog/some-slug -H "Authorizatio
 ```
 
 Responses are `{ ok: true, post, url }` on success; errors are
-`{ ok: false, error }` with 400/401/404/409 status.
+`{ ok: false, error }` with 400/401/403/404/409/429 status. Keys that ask
+before acting (the daily assistant's) cannot delete; unpublish instead.
 
 ## Editorial guardrails
 

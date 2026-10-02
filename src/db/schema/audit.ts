@@ -37,6 +37,13 @@ export const auditSubjectTypeEnum = pgEnum("audit_subject_type", [
   "preferences",
   "user_role",
   "system",
+  // API and assistant (migration 0051).
+  "api_key",
+  "blog_post",
+  "approval",
+  "agent_run",
+  "agent_playbook",
+  "agent_memory",
 ]);
 
 export const auditLog = pgTable(

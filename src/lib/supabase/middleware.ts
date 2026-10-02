@@ -15,6 +15,10 @@ function isProtected(pathname: string): { kind: "account" | "admin" } | null {
 }
 
 export async function updateSession(request: NextRequest) {
+  // The desk API is Bearer-key only: no session refresh, no cookies, and no
+  // `?code=` forwarding on its paths.
+  if (request.nextUrl.pathname.startsWith("/api/v1/")) return NextResponse.next();
+
   // Auth resilience: a magic link sometimes lands its auth params on a page
   // other than the callback — e.g. when Supabase falls back to the Site URL
   // because the intended redirect isn't in its allowlist. Forward any stray

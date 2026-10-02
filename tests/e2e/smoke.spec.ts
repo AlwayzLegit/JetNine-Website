@@ -234,3 +234,46 @@ test.describe("twilio inbound webhook", () => {
     expect([403, 503]).toContain(response.status());
   });
 });
+
+test.describe("api v1", () => {
+  // No database in CI: these cover everything decided before a key lookup.
+  test("rejects a call without a key with the error envelope", async ({ request }) => {
+    const response = await request.get("/api/v1/me");
+    expect(response.status()).toBe(401);
+    const body = await response.json();
+    expect(body).toMatchObject({ ok: false, error: { code: "unauthorized" } });
+    expect(response.headers()["x-request-id"]).toBeTruthy();
+    expect(response.headers()["cache-control"]).toContain("no-store");
+  });
+
+  test("rejects a malformed key before touching the database", async ({ request }) => {
+    const response = await request.get("/api/v1/me", { headers: { Authorization: "Bearer jn_live_short" } });
+    expect(response.status()).toBe(401);
+  });
+
+  test("openapi.json needs a key", async ({ request }) => {
+    const response = await request.get("/api/v1/openapi.json");
+    expect(response.status()).toBe(401);
+  });
+
+  test("writes are refused without a key", async ({ request }) => {
+    const response = await request.post("/api/v1/blog/posts", { data: { title: "x" } });
+    expect(response.status()).toBe(401);
+  });
+
+  test("sends no CORS headers", async ({ request }) => {
+    const response = await request.fetch("/api/v1/me", {
+      method: "OPTIONS",
+      headers: { Origin: "https://evil.example", "Access-Control-Request-Method": "GET" },
+    });
+    expect(response.headers()["access-control-allow-origin"]).toBeUndefined();
+  });
+
+  test("legacy blog API refuses an unknown key and points at v1", async ({ request }) => {
+    const response = await request.get("/api/admin/blog", { headers: { Authorization: "Bearer not-a-key" } });
+    expect(response.status()).toBe(401);
+    expect(await response.json()).toMatchObject({ ok: false, error: "Unauthorized." });
+    expect(response.headers()["deprecation"]).toBe("true");
+    expect(response.headers()["link"]).toContain("/api/v1/blog/posts");
+  });
+});

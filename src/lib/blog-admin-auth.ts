@@ -1,38 +1,55 @@
 import { timingSafeEqual } from "node:crypto";
 import { getCurrentUser } from "@/lib/auth";
+import { authenticateApiKey, bearerToken } from "@/lib/api-auth";
+import { parseToken, type Scope } from "@/lib/api-keys";
+import type { Actor } from "@/domain/actor";
+import type { Err, Result } from "@/domain/result";
+import { err, ok } from "@/domain/result";
 
-// Two ways into the blog admin API, checked in order:
+// Three ways into the legacy blog admin API (/api/admin/blog/*), checked
+// in order. New callers should use /api/v1/blog/* instead (docs/API.md).
 //
-//   1. `Authorization: Bearer <BLOG_ADMIN_API_KEY>` — for programmatic
-//      posting (content pipelines, this desk's own tooling). If the env
-//      var is unset the bearer path is disabled entirely, so a fresh
-//      deploy can never be written to with an empty-string token.
-//   2. A signed-in Supabase session whose users.role is admin/superadmin —
-//      same gate as requireAdmin, but returning 401 instead of redirecting
-//      (this is an API, not a page).
+//   1. `Authorization: Bearer jn_live_…` — an API key minted in
+//      Settings › API keys with the `content` permission. Same checks as
+//      /api/v1 (revocation, expiry, rate limits).
+//   2. `Authorization: Bearer <BLOG_ADMIN_API_KEY>` — the old single env
+//      key. Disabled when the env var is unset, so a fresh deploy can never
+//      be written to with an empty-string token. Audited as a legacy key.
+//   3. A signed-in Supabase session whose users.role is admin/superadmin —
+//      same gate as requireAdmin, but answering 401 instead of redirecting.
 
-export type BlogAdminIdentity =
-  | { kind: "api-key" }
-  | { kind: "session"; userId: string; email: string };
+const LEGACY_SCOPES: ReadonlySet<Scope> = new Set<Scope>(["read", "content"]);
 
-export async function authorizeBlogAdmin(
-  req: Request,
-): Promise<BlogAdminIdentity | null> {
-  const header = req.headers.get("authorization");
-  if (header?.startsWith("Bearer ")) {
+export async function authorizeBlogAdmin(req: Request, opts: { write?: boolean } = {}): Promise<Result<Actor>> {
+  const token = bearerToken(req);
+  if (token) {
+    if (parseToken(token)) {
+      const auth = await authenticateApiKey(req, opts);
+      if (!auth.ok) return auth;
+      if (!auth.value.scopes.has("content")) return err("forbidden", 'This key does not have the "content" permission.');
+      return auth;
+    }
     const key = process.env.BLOG_ADMIN_API_KEY;
-    if (!key) return null;
-    const provided = Buffer.from(header.slice(7));
+    if (!key) return unauthorized();
+    const provided = Buffer.from(token);
     const expected = Buffer.from(key);
     if (provided.length === expected.length && timingSafeEqual(provided, expected)) {
-      return { kind: "api-key" };
+      return ok({
+        userId: null,
+        role: "legacy",
+        via: "api",
+        scopes: LEGACY_SCOPES,
+        key: { id: "legacy", name: "BLOG_ADMIN_API_KEY", supervised: false, legacy: true },
+      });
     }
-    return null;
+    return unauthorized();
   }
 
   const user = await getCurrentUser();
   if (user && ["admin", "superadmin"].includes(user.role)) {
-    return { kind: "session", userId: user.id, email: user.email };
+    return ok({ userId: user.id, role: user.role, via: "session", scopes: LEGACY_SCOPES });
   }
-  return null;
+  return unauthorized();
 }
+
+const unauthorized = (): Err => err("unauthorized", "Unauthorized.");

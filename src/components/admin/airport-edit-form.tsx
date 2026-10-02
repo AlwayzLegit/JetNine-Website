@@ -62,9 +62,7 @@ export function AirportEditForm({ initial }: { initial: Airport }) {
             defaultValue={initial.icao}
             required
             maxLength={4}
-            minLength={4}
-            style={{ textTransform: "uppercase" }}
-          />
+            minLength={4}          />
         </div>
         <div className="field-jn">
           <label htmlFor="ae-iata">IATA</label>
@@ -73,9 +71,7 @@ export function AirportEditForm({ initial }: { initial: Airport }) {
             name="iata"
             type="text"
             defaultValue={initial.iata ?? ""}
-            maxLength={3}
-            style={{ textTransform: "uppercase" }}
-          />
+            maxLength={3}          />
         </div>
         <div className="field-jn">
           <label htmlFor="ae-country">Country (2-letter code)</label>
@@ -86,9 +82,7 @@ export function AirportEditForm({ initial }: { initial: Airport }) {
             defaultValue={initial.countryIso2}
             required
             maxLength={2}
-            minLength={2}
-            style={{ textTransform: "uppercase" }}
-          />
+            minLength={2}          />
         </div>
       </div>
 

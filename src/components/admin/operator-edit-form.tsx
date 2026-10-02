@@ -117,9 +117,7 @@ export function OperatorEditForm({ initial }: { initial: Operator }) {
               type="text"
               defaultValue={initial.homeAirportIcao ?? ""}
               placeholder="KTEB"
-              maxLength={4}
-              style={{ textTransform: "uppercase" }}
-            />
+              maxLength={4}            />
           </div>
           <div className="field-jn">
             <label htmlFor="op-years">Years as a partner</label>

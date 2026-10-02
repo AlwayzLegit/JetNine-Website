@@ -128,9 +128,7 @@ export function ScheduleBlockForm({
                 name="fromIcao"
                 type="text"
                 placeholder="KTEB"
-                maxLength={4}
-                style={{ textTransform: "uppercase" }}
-              />
+                maxLength={4}              />
             </div>
             <div className="field-jn">
               <label htmlFor="sb-toIcao">To (ICAO)</label>
@@ -139,9 +137,7 @@ export function ScheduleBlockForm({
                 name="toIcao"
                 type="text"
                 placeholder="KVNY"
-                maxLength={4}
-                style={{ textTransform: "uppercase" }}
-              />
+                maxLength={4}              />
             </div>
           </div>
         ) : null}

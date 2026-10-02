@@ -98,7 +98,7 @@ export function AircraftForm({
     );
   }
 
-  const form = (
+  const formEl = (
     <form onSubmit={onSubmit} className="flex flex-col gap-4">
       <div className="grid grid-cols-1 gap-3 md:grid-cols-[1fr_2fr]">
         <div className="field-jn">
@@ -111,9 +111,7 @@ export function AircraftForm({
             placeholder="N123JN"
             required
             maxLength={16}
-            minLength={3}
-            style={{ textTransform: "uppercase" }}
-          />
+            minLength={3}          />
         </div>
         <div className="field-jn">
           <label htmlFor="ac-operator">Operator</label>
@@ -234,9 +232,7 @@ export function AircraftForm({
             type="text"
             defaultValue={initial?.baseIcao ?? ""}
             placeholder="KTEB"
-            maxLength={4}
-            style={{ textTransform: "uppercase" }}
-          />
+            maxLength={4}          />
         </div>
         <div className="field-jn">
           <label htmlFor="ac-cabin-height">Cabin height (inches)</label>
@@ -330,7 +326,7 @@ export function AircraftForm({
   );
 
   // Edit mode sits inside the page's own card, so it renders the bare form.
-  if (mode === "edit") return form;
+  if (mode === "edit") return formEl;
 
   return (
     <div className="card card-highlight w-full p-5">
@@ -347,7 +343,7 @@ export function AircraftForm({
           Close
         </button>
       </div>
-      {form}
+      {formEl}
     </div>
   );
 }

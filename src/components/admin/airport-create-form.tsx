@@ -67,9 +67,7 @@ export function AirportCreateForm() {
               placeholder="KVNY"
               required
               maxLength={4}
-              minLength={4}
-              style={{ textTransform: "uppercase" }}
-            />
+              minLength={4}            />
           </div>
           <div className="field-jn">
             <label htmlFor="ap-iata">IATA (3 letters, optional)</label>
@@ -78,9 +76,7 @@ export function AirportCreateForm() {
               name="iata"
               type="text"
               placeholder="VNY"
-              maxLength={3}
-              style={{ textTransform: "uppercase" }}
-            />
+              maxLength={3}            />
           </div>
           <div className="field-jn">
             <label htmlFor="ap-country">Country (2-letter code)</label>
@@ -91,9 +87,7 @@ export function AirportCreateForm() {
               placeholder="US"
               required
               maxLength={2}
-              minLength={2}
-              style={{ textTransform: "uppercase" }}
-            />
+              minLength={2}            />
           </div>
         </div>
 

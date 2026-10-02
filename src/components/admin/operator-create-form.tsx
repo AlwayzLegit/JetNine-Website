@@ -100,9 +100,7 @@ export function OperatorCreateForm() {
               name="homeAirportIcao"
               type="text"
               placeholder="KTEB"
-              maxLength={4}
-              style={{ textTransform: "uppercase" }}
-            />
+              maxLength={4}            />
           </div>
           <div className="field-jn">
             <label htmlFor="oc-argus">ARG/US rating</label>

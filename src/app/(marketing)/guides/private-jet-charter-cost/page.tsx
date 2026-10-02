@@ -16,7 +16,7 @@ import { computeIndicative, formatUSD } from "@/lib/quote-pricing";
 export const metadata: Metadata = pageMetadata({
   title: "How Much Does a Private Jet Cost? (2026)",
   description:
-    "Straight answer with real rates: $3,200–$11,200/hr at market by category, a fully itemized $47,260 transcon quote, per-passenger math, and how to pay 30–60% less.",
+    "Straight answer with real rates: $3,200–$11,200/hr by category, an itemized $47,260 coast-to-coast quote, per-passenger math, and how to pay 30–60% less.",
   path: "/guides/private-jet-charter-cost",
 });
 

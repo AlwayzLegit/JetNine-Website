@@ -37,7 +37,7 @@ const SAMPLE_ROUTES: {
   { from: "VNY", to: "ASE", pax: 4, category: "light", note: "LA to Aspen · mountain slot" },
   { from: "LAX", to: "LAS", pax: 4, category: "light", note: "LA to Vegas · the quick hop" },
   { from: "JFK", to: "PBI", pax: 5, category: "midsize", note: "New York to Palm Beach" },
-  { from: "VNY", to: "TEB", pax: 6, category: "supermid", note: "LA to New York · transcon nonstop" },
+  { from: "VNY", to: "TEB", pax: 6, category: "supermid", note: "LA to New York · coast-to-coast nonstop" },
 ];
 
 function sampleTrips() {
@@ -89,7 +89,7 @@ const COST_FAQ: { q: string; a: string }[] = [
   },
   {
     q: "Why do hourly rates differ by aircraft category?",
-    a: "Bigger airframes burn more fuel, carry larger crews, and cost more to own and maintain. Light jets on our board run $3,200–3,600/hr at market rates; ultra-long-range aircraft run $10,400–11,200/hr. Card members lock rates from $2,950/hr (light) to $9,850/hr (ultra) for 24 months.",
+    a: "Bigger aircraft burn more fuel, carry larger crews, and cost more to own and maintain. Light jets on our board run $3,200–3,600/hr at market rates; ultra-long-range aircraft run $10,400–11,200/hr. Card members lock rates from $2,950/hr (light) to $9,850/hr (ultra) for 24 months.",
   },
   {
     q: "Is a one-way flight cheaper than a round trip?",

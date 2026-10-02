@@ -110,7 +110,7 @@ export default async function RoutePage({ params }: RouteParams) {
     },
     {
       q: `How long is the flight?`,
-      a: `The leg is ${formatNm(nm)} great-circle. Block time runs about ${fastest?.hours} in the fastest suitable category (${fastest?.name.toLowerCase()}), a little longer in a turboprop or light jet — the quote lists the estimate per airframe.`,
+      a: `The leg is ${formatNm(nm)} as the crow flies. Block time runs about ${fastest?.hours} in the fastest suitable category (${fastest?.name.toLowerCase()}), a little longer in a turboprop or light jet — the quote lists the estimate per aircraft.`,
     },
     {
       q: `Which airports does the flight use?`,

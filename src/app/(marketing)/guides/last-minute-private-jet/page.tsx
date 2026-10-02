@@ -17,11 +17,11 @@ const chapter = getGuideChapter("last-minute-private-jet")!;
 const FAQ = [
   {
     q: "How fast can a charter actually depart?",
-    a: "With passports, crew duty time, and an airframe in position, wheels-up in as little as a few hours is realistic at major markets. The quote itself is faster: JetNine returns three to five real airframes with all-in pricing within 30 minutes during operating hours, and the dispatch line answers around the clock.",
+    a: "With passports, crew duty time, and an aircraft in position, wheels-up in as little as a few hours is realistic at major markets. The quote itself is faster: JetNine returns three to five real aircraft with all-in pricing within 30 minutes during operating hours, and the dispatch line answers around the clock.",
   },
   {
     q: "Does booking late always cost more?",
-    a: "No — that's airline intuition, and charter doesn't price like airlines. The rate card doesn't change with the calendar. What changes is selection: fewer airframes in position means the cheapest category for your mission may be gone, or a repositioning fee appears. Late on a busy lane often prices exactly like booking a month out.",
+    a: "No — that's airline intuition, and charter doesn't price like airlines. The rate card doesn't change with the calendar. What changes is selection: fewer aircraft in position means the cheapest category for your mission may be gone, or a repositioning fee appears. Late on a busy lane often prices exactly like booking a month out.",
   },
   {
     q: "What's the cheapest last-minute play?",

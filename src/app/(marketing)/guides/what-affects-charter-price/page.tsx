@@ -8,7 +8,7 @@ import { PRICE_STACK, PRICE_STACK_TOTAL } from "@/lib/rates";
 export const metadata: Metadata = pageMetadata({
   title: "What Drives a Private Jet Charter Price",
   description:
-    "The six line items behind every charter quote — airframe time, fuel, repositioning, crew & catering, 7.5% FET, ground — mapped to a real $47,260 example, with the levers you control.",
+    "The six line items behind every charter quote — aircraft time, fuel, repositioning, crew & catering, 7.5% FET, ground — and the levers you control.",
   path: "/guides/what-affects-charter-price",
 });
 
@@ -19,7 +19,7 @@ const chapter = getGuideChapter("what-affects-charter-price")!;
 const DRIVERS = [
   {
     stack: PRICE_STACK[0],
-    h: "Airframe time is the price.",
+    h: "Aircraft time is the price.",
     p: "Category hourly rate × block time — engine start to shutdown, both directions. It dwarfs everything else on the invoice, which is why the two decisions that matter are category (don't buy a heavy jet for a light-jet mission) and routing (fewer flown hours beats every other saving combined).",
     lever: "Yours: right-size the category; the wizard recommends one per route.",
   },
@@ -32,7 +32,7 @@ const DRIVERS = [
   {
     stack: PRICE_STACK[2],
     h: "Repositioning is the avoidable one.",
-    p: "If the right airframe isn't already near your departure airport, it ferries in — and that flying gets built into your price. It's $0 in the example because the aircraft was home-based on the departure coast. This line is why flexibility on dates or nearby airports saves real money, and why empty legs (someone else's repositioning) sell at 30–60% off.",
+    p: "If the right aircraft isn't already near your departure airport, it ferries in — and that flying gets built into your price. It's $0 in the example because the aircraft was home-based on the departure coast. This line is why flexibility on dates or nearby airports saves real money, and why empty legs (someone else's repositioning) sell at 30–60% off.",
     lever: "Yours, largely: flex the date, consider the secondary airport, watch the legs board.",
   },
   {
@@ -50,7 +50,7 @@ const DRIVERS = [
   {
     stack: PRICE_STACK[5],
     h: "Ground is the rounding error done right.",
-    p: "Sedan transfer curb-to-FBO is included on our quotes; an SUV upgrade is a line item, not a surprise. It's the smallest number on the invoice and the first impression of the trip — which is exactly why it shouldn't be an afterthought bolted on at the ramp.",
+    p: "Sedan transfer from your curb to the private terminal is included on our quotes; an SUV upgrade is a line item, not a surprise. It's the smallest number on the invoice and the first impression of the trip — which is exactly why it shouldn't be an afterthought bolted on at the ramp.",
     lever: "Yours: sedan included, upgrades itemized up front.",
   },
 ];
@@ -65,7 +65,7 @@ export default function PriceDriversPage() {
   return (
     <GuideShell
       chapter={chapter}
-      lead={`Every quote is six numbers. Here they are on a real ${PRICE_STACK_TOTAL} transcon round trip — what moves each one, and which levers are actually yours to pull.`}
+      lead={`Every quote is six numbers. Here they are on a real ${PRICE_STACK_TOTAL} coast-to-coast round trip — what moves each one, and which levers are actually yours to pull.`}
     >
       <section className="section-jn">
         <div className="container-jn">

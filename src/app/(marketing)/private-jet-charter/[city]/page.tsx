@@ -121,7 +121,7 @@ export default async function CityPage({ params }: RouteParams) {
     ...city.opsFaq,
     {
       q: `How fast can a ${city.name} charter be arranged?`,
-      a: `The quote comes back within 30 minutes during operating hours — three to five real airframes with all-in pricing. Same-day departures are routine when an airframe is in position; the dispatch line answers in under twenty seconds, around the clock, at ${SITE.dispatchPhone}.`,
+      a: `The quote comes back within 30 minutes during operating hours — three to five real aircraft with all-in pricing. Same-day departures are routine when an aircraft is in position; the dispatch line answers in under twenty seconds, around the clock, at ${SITE.dispatchPhone}.`,
     },
   ];
 

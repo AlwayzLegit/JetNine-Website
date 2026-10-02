@@ -12,7 +12,7 @@ import { FLEET } from "@/lib/fleet";
 export const metadata: Metadata = pageMetadata({
   title: "Charter Fleet — Turboprop to Ultra-Long-Range Jets",
   description:
-    "Six categories, hundreds of airframes. Turboprop through ultra long range — match the airframe to the mission.",
+    "Six categories, hundreds of aircraft. Turboprop through ultra long range — match the aircraft to the mission.",
   path: "/aircraft",
 });
 

@@ -81,7 +81,7 @@ phase deploys and read them as direction, not statistics.
 
 ## 4. After deploy
 
-- [ ] Re-run the Semrush site audit for project "Jetnine" (baseline 2026-09-28: health 95, 0 errors, 120 warnings, mostly low text-to-HTML ratio).
+- [ ] Read the Semrush site audit for project "Jetnine". It crawls daily on its own; the 2026-10-03 16:14 UTC crawl is the first of the finished redesign. Before: 2026-09-28 — 0 errors, 120 warnings, mostly low text-to-HTML ratio; 2026-10-02 00:50 UTC (phases 1–2 live) — 153 pages, 0 errors, 119 warnings (118 low text-to-HTML ratio), 4 notices.
 - [ ] Open one blog post on production and check its BlogPosting JSON-LD in the page source.
 - [ ] Submit a `[SMOKE]` quote on production and open the status link from the acknowledgment email; check the email reads in plain words.
 - [ ] Walk the member account and the dispatch desk signed in (they need live data, so they were not rendered locally).

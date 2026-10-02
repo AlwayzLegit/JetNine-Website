@@ -149,26 +149,33 @@ export async function createKey(actor: Actor, input: CreateKeyInput): Promise<Re
   if (days !== null && !EXPIRY_CHOICES.some((c) => c.days === days)) return err("invalid", "Pick when the key expires.");
   const expiresAt = days === null ? null : new Date(Date.now() + days * 86_400_000);
 
-  const [{ active }] = await db
-    .select({ active: count() })
-    .from(apiKeys)
-    .where(and(isNull(apiKeys.revokedAt), sql`(${apiKeys.expiresAt} is null or ${apiKeys.expiresAt} > now())`));
-  if (active >= MAX_ACTIVE_KEYS) return err("conflict", `There are already ${MAX_ACTIVE_KEYS} working keys. Revoke one first.`);
-
   const minted = mintToken();
-  const [row] = await db
-    .insert(apiKeys)
-    .values({
-      name,
-      prefix: minted.prefix,
-      tokenHash: minted.hash,
-      last4: minted.last4,
-      scopes,
-      requiresApproval: supervised,
-      createdBy: actor.userId,
-      expiresAt,
-    })
-    .returning({ id: apiKeys.id });
+  const creatorId = actor.userId;
+  // Count and insert under one advisory lock so two creates can't both
+  // slip past the cap.
+  const row = await db.transaction(async (tx) => {
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtext('api_keys.create'))`);
+    const [{ active }] = await tx
+      .select({ active: count() })
+      .from(apiKeys)
+      .where(and(isNull(apiKeys.revokedAt), sql`(${apiKeys.expiresAt} is null or ${apiKeys.expiresAt} > now())`));
+    if (active >= MAX_ACTIVE_KEYS) return null;
+    const [inserted] = await tx
+      .insert(apiKeys)
+      .values({
+        name,
+        prefix: minted.prefix,
+        tokenHash: minted.hash,
+        last4: minted.last4,
+        scopes,
+        requiresApproval: supervised,
+        createdBy: creatorId,
+        expiresAt,
+      })
+      .returning({ id: apiKeys.id });
+    return inserted;
+  });
+  if (!row) return err("conflict", `There are already ${MAX_ACTIVE_KEYS} working keys. Revoke one first.`);
 
   const a = auditFields(actor);
   await logAudit({
@@ -184,9 +191,11 @@ export async function createKey(actor: Actor, input: CreateKeyInput): Promise<Re
   return ok({ id: row.id, name, token: minted.token });
 }
 
-export async function revokeKey(actor: Actor, id: string, reason: unknown): Promise<Result<{ name: string }>> {
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+export async function revokeKey(actor: Actor, id: unknown, reason: unknown): Promise<Result<{ name: string }>> {
   if (!isOwner(actor) || !actor.userId) return err("forbidden", "Only an owner can revoke API keys.");
-  if (!/^[0-9a-f-]{36}$/i.test(id)) return err("not_found", "That key no longer exists.");
+  if (typeof id !== "string" || !UUID_RE.test(id)) return err("not_found", "That key no longer exists.");
   const note = typeof reason === "string" ? reason.trim().slice(0, 200) || null : null;
 
   const [row] = await db

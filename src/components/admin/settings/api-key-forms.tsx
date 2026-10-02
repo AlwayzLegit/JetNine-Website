@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition, type FormEvent } from "react";
+import { useEffect, useState, useTransition, type FormEvent } from "react";
 import type { KeyTemplate } from "@/lib/api-keys";
 import { DeskHeader } from "@/components/admin/desk-ui";
 import { createApiKey, revokeApiKey } from "@/app/admin/settings/api-keys/actions";
@@ -9,13 +9,29 @@ type Msg = { tone: "ok" | "error"; text: string } | null;
 type ScopeOption = { scope: string; label: string; can: string };
 type ExpiryOption = { value: string; label: string };
 
-function Message({ msg }: { msg: Msg }) {
-  if (!msg) return null;
+/** Always mounted, so screen readers announce the text when it changes. */
+function Message({ msg, id }: { msg: Msg; id?: string }) {
   return (
-    <p role="status" className={`text-[14px] ${msg.tone === "ok" ? "text-success" : "text-danger"}`}>
-      {msg.text}
+    <p
+      id={id}
+      role="status"
+      tabIndex={id ? -1 : undefined}
+      className={`text-[14px] outline-none ${msg ? (msg.tone === "ok" ? "text-success" : "text-danger") : "sr-only"}`}
+    >
+      {msg?.text ?? ""}
     </p>
   );
+}
+
+/**
+ * A revoked row moves into "Revoked and expired" on refresh, which unmounts
+ * its controls; the result is reported in the page header instead.
+ */
+const STATUS_EVENT = "jn:api-keys-status";
+const STATUS_ID = "api-keys-status";
+
+function announce(msg: Msg) {
+  window.dispatchEvent(new CustomEvent<Msg>(STATUS_EVENT, { detail: msg }));
 }
 
 /**
@@ -38,6 +54,16 @@ export function ApiKeysHeader({
   const [created, setCreated] = useState<{ name: string; token: string } | null>(null);
   const [copied, setCopied] = useState(false);
   const [pending, start] = useTransition();
+
+  useEffect(() => {
+    const onStatus = (e: Event) => {
+      setMsg((e as CustomEvent<Msg>).detail);
+      // Focus would otherwise drop to <body> when the revoked row unmounts.
+      requestAnimationFrame(() => document.getElementById(STATUS_ID)?.focus());
+    };
+    window.addEventListener(STATUS_EVENT, onStatus);
+    return () => window.removeEventListener(STATUS_EVENT, onStatus);
+  }, []);
 
   const tpl = templates.find((t) => t.id === template);
   const defaultExpiry = tpl ? (tpl.expiresInDays === null ? "never" : String(tpl.expiresInDays)) : "90";
@@ -215,14 +241,12 @@ export function ApiKeysHeader({
             <button type="submit" className="btn btn-primary btn-sm" disabled={pending}>
               {pending ? "Creating…" : "Create the key"}
             </button>
-            <Message msg={msg} />
           </div>
         </form>
-      ) : msg ? (
-        <div className="mt-4">
-          <Message msg={msg} />
-        </div>
       ) : null}
+      <div className={msg ? "mt-4" : ""}>
+        <Message msg={msg} id={STATUS_ID} />
+      </div>
     </>
   );
 }
@@ -238,8 +262,12 @@ export function RevokeKey({ id, name }: { id: string; name: string }) {
     setMsg(null);
     start(async () => {
       const r = await revokeApiKey(id, reason);
-      setMsg(r.ok ? { tone: "ok", text: r.message } : { tone: "error", text: r.error });
-      if (r.ok) setOpen(false);
+      if (r.ok) {
+        announce({ tone: "ok", text: r.message });
+        setOpen(false);
+      } else {
+        setMsg({ tone: "error", text: r.error });
+      }
     });
   }
 
@@ -267,12 +295,15 @@ export function RevokeKey({ id, name }: { id: string; name: string }) {
               disabled={pending}
             />
           </div>
+          <span id={`revoke-name-${id}`} className="sr-only">
+            {name}
+          </span>
           <button
             type="button"
             className="btn btn-sm text-danger"
             onClick={revoke}
             disabled={pending}
-            aria-label={`Revoke ${name} now`}
+            aria-describedby={`revoke-name-${id}`}
           >
             {pending ? "Revoking…" : "Revoke now"}
           </button>

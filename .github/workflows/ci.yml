@@ -41,6 +41,11 @@ jobs:
       - name: Typecheck
         run: pnpm typecheck
 
+      # API invariants (tokens, scopes, SSRF classifier, route registry,
+      # OpenAPI) — no database needed.
+      - name: API checks
+        run: pnpm check:api
+
       # Build is the canonical check — catches Next.js / Drizzle issues that
       # lint + typecheck miss. Env values come from GitHub secrets when set;
       # the build's runtime code falls back to dummy values when env is

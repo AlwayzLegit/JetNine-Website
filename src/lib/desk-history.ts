@@ -72,6 +72,8 @@ const SUBJECT_WORDS: Record<string, string> = {
   preferences: "client preferences",
   user_role: "a team member",
   system: "the desk settings",
+  blog_post: "a blog post",
+  api_key: "an API key",
 };
 
 export function subjectHref(subjectType: string, subjectId: string | null): string | null {
@@ -237,6 +239,13 @@ const VERBS: Record<string, Entry> = {
   "contact_inquiry.submit": (c) => [`${c.named ? c.name : "Someone"} sent `, "a message through the contact form"],
   "contact_inquiry.notify.email": () => [`System emailed the desk about `, "a contact message"],
 
+  // Blog
+  "blog_post.create": (c) => [`${c.actor} drafted the blog post `, postTitle(c)],
+  "blog_post.publish": (c) => [`${c.actor} published the blog post `, postTitle(c)],
+  "blog_post.update": (c) => [`${c.actor} edited the blog post `, postTitle(c)],
+  "blog_post.unpublish": (c) => [`${c.actor} took down the blog post `, postTitle(c)],
+  "blog_post.delete": (c) => [`${c.actor} deleted the blog post `, postTitle(c)],
+  "blog_post.hero": (c) => [`${c.actor} added a hero image for `, c.code ?? "a blog post"],
   // AI
   "ai_provider.key.create": (c) => [`${c.actor} stored a key for `, "the phone answering AI"],
   "ai_provider.key.replace": (c) => [`${c.actor} replaced a key for `, "the phone answering AI"],
@@ -246,8 +255,22 @@ const VERBS: Record<string, Entry> = {
   "ai_route.update": (c) => [`${c.actor} changed which model answers `, "the phone"],
 };
 
+/** "Alex (via Daily assistant)" for API calls; the key's name when no person is behind it. */
+function actorWithKey(row: AuditSentenceRow): string {
+  const keyName = row.metadata?.via === "api" ? str(row.metadata?.keyName) : null;
+  const person = row.actorFirstName || row.actorLastName || row.actorEmail ? actorName(row) : null;
+  if (!keyName) return actorName(row);
+  if (row.metadata?.legacyKey) return "The blog posting key";
+  return person ? `${person} (via ${keyName})` : keyName;
+}
+
+function postTitle(c: Ctx): string {
+  const title = str(c.meta?.title);
+  return title ? `“${title}”` : (c.code ?? "a blog post");
+}
+
 export function auditSentence(row: AuditSentenceRow): AuditSentence {
-  const actor = actorName(row);
+  const actor = actorWithKey(row);
   const subjectName = row.subjectName?.trim() || null;
   const href = subjectHref(row.subjectType, row.subjectId);
   const ctx: Ctx = {

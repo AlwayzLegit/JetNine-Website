@@ -3,6 +3,7 @@
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import type { AircraftCategorySlug } from "@/lib/fleet";
+import { categoryFits } from "@/lib/quote-fit";
 import type { Leg, CateringTier, GroundType } from "@/lib/quote-pricing";
 
 export type TripType = "roundtrip" | "oneway" | "multileg";
@@ -273,8 +274,12 @@ export function isMissionComplete(s: QuoteDraft): boolean {
   return s.legs.every((l) => l.fromIata && l.toIata && l.date && l.time) && s.pax >= 1;
 }
 
+export { categoryFits };
+
 export function isAircraftComplete(s: QuoteDraft): boolean {
-  return Boolean(s.category && s.catering && s.ground);
+  return (
+    Boolean(s.category && s.catering && s.ground) && categoryFits(s.category, s.pax, s.legs).ok
+  );
 }
 
 export function isContactComplete(s: QuoteDraft): boolean {

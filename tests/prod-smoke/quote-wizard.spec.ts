@@ -102,7 +102,7 @@ test.describe("@prod-smoke quote wizard", () => {
     // Quote codes are JN-YYYY-NNNNN (next_quote_code in migration 0003);
     // QT- never existed in the DB and this matcher could never pass.
     const success = page.getByText(/JN-\d{4}-\d+/);
-    const errorBanner = page.locator('text=/RATE_LIMITED|NETWORK|MISSING_/');
+    const errorBanner = page.locator('text=/RATE_LIMITED|NETWORK|MISSING_|Not sent/');
 
     await expect(async () => {
       const found = (await success.count()) + (await errorBanner.count());

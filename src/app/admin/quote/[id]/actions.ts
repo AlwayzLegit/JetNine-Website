@@ -25,6 +25,7 @@ import {
 import { users } from "@/db/schema/users";
 import { requireStaff } from "@/lib/auth";
 import { logAudit } from "@/lib/audit";
+import { statusUrl } from "@/lib/request-status";
 import {
   sendBookingConfirmationEmail,
   sendQuoteLifecycleEmail,
@@ -1293,6 +1294,7 @@ export async function sendOptionsToClient(quoteId: string): Promise<SendOptionsR
       paxCount: quotes.paxCount,
       memberId: quotes.memberId,
       contactSnapshot: quotes.contactSnapshot,
+      statusToken: quotes.statusToken,
     })
     .from(quotes)
     .where(eq(quotes.id, quoteId));
@@ -1358,6 +1360,7 @@ export async function sendOptionsToClient(quoteId: string): Promise<SendOptionsR
     route,
     paxCount: q.paxCount,
     options: items,
+    statusUrl: q.statusToken ? statusUrl(q.statusToken) : undefined,
   });
   if (!result.ok) {
     return { ok: false, error: `Email failed: ${result.error.slice(0, 120)}` };

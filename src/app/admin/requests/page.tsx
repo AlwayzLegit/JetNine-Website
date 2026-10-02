@@ -72,10 +72,12 @@ export default async function RequestsPage({ searchParams }: Props) {
     inArray(quotes.status, [...OPEN_REQUEST_STATUSES]),
     and(
       inArray(quotes.status, ["accepted", "converted"]),
-      sql`coalesce(${quotes.acceptedAt}, ${quotes.updatedAt}) >= ${bookedSince}`,
+      // ISO strings, not Dates: raw sql params skip the column's serializer,
+      // and the postgres-js driver rejects a Date object.
+      sql`coalesce(${quotes.acceptedAt}, ${quotes.updatedAt}) >= ${bookedSince.toISOString()}::timestamptz`,
     ),
     // Closed (declined / expired / cancelled) stays findable for a month.
-    and(inArray(quotes.status, ["declined", "expired", "cancelled"]), sql`${quotes.updatedAt} >= ${closedSince}`),
+    and(inArray(quotes.status, ["declined", "expired", "cancelled"]), sql`${quotes.updatedAt} >= ${closedSince.toISOString()}::timestamptz`),
   );
 
   // Search: contact name / email, or any leg's city, airport name or code.

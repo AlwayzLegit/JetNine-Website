@@ -146,6 +146,32 @@ function check(name: string, cond: boolean, detail?: unknown) {
   }
 }
 
+// ─── No Date objects inside raw sql templates ────────────────────────────
+{
+  // drizzle's postgres-js driver passes timestamps through untouched, so a
+  // Date interpolated into sql`…` (no column to serialize it) throws at
+  // query time. Use date.toISOString() with ::timestamptz instead.
+  const walkSrc = (dir: string): string[] =>
+    readdirSync(dir, { withFileTypes: true }).flatMap((e) =>
+      e.isDirectory() ? walkSrc(join(dir, e.name)) : /\.tsx?$/.test(e.name) ? [join(dir, e.name)] : [],
+    );
+  for (const file of walkSrc("src")) {
+    const src = readFileSync(file, "utf8");
+    const dates = new Set(
+      [...src.matchAll(/\b(?:const|let)\s+(\w+)\s*(?::\s*Date\s*)?=\s*new Date\(([^\n]*)/g)]
+        .filter((m) => !/\)\s*\.\w+\(/.test(m[2])) // new Date(…).toISOString() etc. is a string
+        .map((m) => m[1]),
+    );
+    if (!dates.size) continue;
+    for (const t of src.matchAll(/sql`((?:[^`\\]|\\.)*)`/g)) {
+      for (const [, expr] of t[1].matchAll(/\$\{\s*(\w+)\s*\}/g)) {
+        const line = src.slice(0, t.index).split("\n").length;
+        check(`${file}:${line}: Date "${expr}" interpolated into sql\`\` (use .toISOString())`, !dates.has(expr));
+      }
+    }
+  }
+}
+
 // ─── OpenAPI ─────────────────────────────────────────────────────────────
 {
   const doc = buildOpenApi(ROUTES, "https://jetnine.com");

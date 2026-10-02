@@ -70,7 +70,14 @@ database. Pages compose the primitives in
   empty legs, AI providers — kept, restyled, decision 1b).
 
 Schema: migration `0050_desk_settings.sql` (see DEPLOY.md §8c). Old URLs
-redirect from `next.config.ts`. Decisions 1 and 3 below were taken on
+redirect from `next.config.ts`. Not in this phase: the public "within 30
+minutes" copy (emails, contact page, quote review) still hard-codes 30 and
+does not yet read the desk's reply promise — Phase 6 dictionary pass; the
+desk pages were not rendered locally (they need a signed-in staff user and
+live data), so walk them after deploy; staff notifications are email only
+(no SMS to staff); the client-facing `inapp` channel is labelled "Account
+note" because the member portal shows it, so a true team-only note channel
+is still to come. Decisions 1 and 3 below were taken on
 2026-10-02: keep the reference-data pages under Settings; build Team,
 Notifications and Connections now.
 

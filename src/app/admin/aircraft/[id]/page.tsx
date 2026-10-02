@@ -313,7 +313,7 @@ export default async function AdminAircraftDetailPage({ params }: Props) {
                     const span = Math.max(1, lastOverlap - i + 1);
                     const cls = KIND_CLS[block.kind] ?? "bg-bone-2 text-ink";
                     const href = block.relatedTripId
-                      ? `/admin/trip/${block.relatedTripId}`
+                      ? `/admin/trips/${block.relatedTripId}`
                       : null;
                     const label = block.tripCode ?? block.notes ?? block.kind;
                     const inner = (
@@ -378,7 +378,7 @@ export default async function AdminAircraftDetailPage({ params }: Props) {
                     className="grid grid-cols-[auto_1fr_auto_auto_auto] items-baseline gap-4 py-3"
                   >
                     <Link
-                      href={`/admin/trip/${t.id}`}
+                      href={`/admin/trips/${t.id}`}
                       className="font-mono text-[11px] tracking-[0.04em] text-clearance hover:underline"
                     >
                       {t.tripCode}

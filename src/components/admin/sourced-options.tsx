@@ -7,7 +7,7 @@ import {
   chooseSourcedOption,
   deleteSourcedOption,
   sendOptionsToClient,
-} from "@/app/admin/quote/[id]/actions";
+} from "@/app/admin/requests/[id]/actions";
 import { parseAvinodeOption } from "@/lib/avinode-parse";
 import { formatUSD } from "@/lib/quote-pricing";
 

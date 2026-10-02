@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState, useTransition } from "react";
-import { attachMemberToQuote } from "@/app/admin/quote/[id]/actions";
+import { attachMemberToQuote } from "@/app/admin/requests/[id]/actions";
 
 export type MemberOption = {
   id: string;
@@ -42,7 +42,7 @@ export function MemberAttach({
               — Member
             </p>
             <Link
-              href={`/admin/member/${current.id}`}
+              href={`/admin/clients/${current.id}`}
               className="mt-1 inline-block font-mono text-[12px] tracking-[0.04em] text-clearance hover:underline"
             >
               {current.memberCode} · {current.label}

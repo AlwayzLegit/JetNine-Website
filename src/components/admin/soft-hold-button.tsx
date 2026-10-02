@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { createSoftHold } from "@/app/admin/quote/[id]/actions";
+import { createSoftHold } from "@/app/admin/requests/[id]/actions";
 
 export function SoftHoldButton({
   quoteId,

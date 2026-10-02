@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState, useTransition } from "react";
-import { retryMessageDelivery, type RetryResult } from "@/app/admin/dispatch/actions";
+import { retryMessageDelivery, type RetryResult } from "@/app/admin/messages/retry-actions";
 
 export type FailedDeliveryRow = {
   id: string;
@@ -49,8 +49,8 @@ export function FailedDeliveryList({ initial }: { initial: FailedDeliveryRow[] }
         const busy = pendingId === r.id;
         const detailHref =
           r.subjectType === "quote"
-            ? `/admin/quote/${r.subjectId}`
-            : `/admin/trip/${r.subjectId}`;
+            ? `/admin/requests/${r.subjectId}`
+            : `/admin/trips/${r.subjectId}`;
         return (
           <li
             key={r.id}

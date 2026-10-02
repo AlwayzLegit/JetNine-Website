@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { releaseSoftHold } from "@/app/admin/quote/[id]/actions";
+import { releaseSoftHold } from "@/app/admin/requests/[id]/actions";
 
 export type HeldAircraft = {
   blockId: string;

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { updateInvoice } from "@/app/admin/trip/[id]/actions";
+import { updateInvoice } from "@/app/admin/trips/[id]/actions";
 
 type Props = {
   invoiceId: string;

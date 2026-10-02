@@ -104,8 +104,8 @@ export async function updateQuoteStatus(
     }
   }
 
-  revalidatePath("/admin/dispatch");
-  revalidatePath(`/admin/quote/${quoteId}`);
+  revalidatePath("/admin/requests");
+  revalidatePath(`/admin/requests/${quoteId}`);
   return { ok: true };
 }
 
@@ -154,8 +154,8 @@ export async function assignDispatcher(
     },
   });
 
-  revalidatePath("/admin/dispatch");
-  revalidatePath(`/admin/quote/${quoteId}`);
+  revalidatePath("/admin/requests");
+  revalidatePath(`/admin/requests/${quoteId}`);
   return { ok: true };
 }
 
@@ -216,8 +216,8 @@ export async function attachMemberToQuote(
     metadata: { memberCode },
   });
 
-  revalidatePath(`/admin/quote/${quoteId}`);
-  revalidatePath("/admin/dispatch");
+  revalidatePath(`/admin/requests/${quoteId}`);
+  revalidatePath("/admin/requests");
   return { ok: true, memberCode };
 }
 
@@ -248,7 +248,7 @@ export async function convertQuoteToTrip(
   // (and auto-draw from the reserve of) the unrelated victim's account.
   // Member linkage now requires either (a) the customer signed in before
   // submitting, or (b) a dispatcher explicitly attached a member at
-  // /admin/quote/[id] before clicking Convert.
+  // /admin/requests/[id] before clicking Convert.
   const memberId = quote.memberId;
   if (!memberId) {
     return {
@@ -458,9 +458,9 @@ export async function convertQuoteToTrip(
     throw err;
   }
 
-  revalidatePath("/admin/dispatch");
-  revalidatePath(`/admin/quote/${quoteId}`);
-  revalidatePath("/admin/trip");
+  revalidatePath("/admin/requests");
+  revalidatePath(`/admin/requests/${quoteId}`);
+  revalidatePath("/admin/trips");
   revalidatePath("/account/trips");
   revalidatePath("/account/invoices");
 
@@ -784,7 +784,7 @@ export async function postQuoteMessage(
     },
   });
 
-  revalidatePath(`/admin/quote/${quoteId}`);
+  revalidatePath(`/admin/requests/${quoteId}`);
   return { ok: true, id: messageId };
 }
 
@@ -904,7 +904,7 @@ export async function createSoftHold(
       },
     });
 
-    revalidatePath(`/admin/quote/${quoteId}`);
+    revalidatePath(`/admin/requests/${quoteId}`);
     revalidatePath("/admin/ops");
     revalidatePath(`/admin/aircraft/${aircraftId}`);
     return { ok: true, blockId: row.id, expiresAt: endAt.toISOString() };
@@ -957,7 +957,7 @@ export async function releaseSoftHold(
     metadata: { blockId: target.id, aircraftId: target.aircraftId },
   });
 
-  revalidatePath(`/admin/quote/${quoteId}`);
+  revalidatePath(`/admin/requests/${quoteId}`);
   revalidatePath("/admin/ops");
   revalidatePath(`/admin/aircraft/${target.aircraftId}`);
   return { ok: true };
@@ -1161,7 +1161,7 @@ export async function addSourcedOption(
       clientPriceUsd: built.fields.clientPriceUsd,
     },
   });
-  revalidatePath(`/admin/quote/${quoteId}`);
+  revalidatePath(`/admin/requests/${quoteId}`);
   return { ok: true, optionId: row.id };
 }
 
@@ -1192,7 +1192,7 @@ export async function updateSourcedOption(
     subjectId: opt.quoteId,
     metadata: { optionId, ...built.meta },
   });
-  revalidatePath(`/admin/quote/${opt.quoteId}`);
+  revalidatePath(`/admin/requests/${opt.quoteId}`);
   return { ok: true, optionId };
 }
 
@@ -1230,7 +1230,7 @@ export async function chooseSourcedOption(optionId: string): Promise<SourcedOpti
     subjectId: opt.quoteId,
     metadata: { optionId, clientPriceUsd: opt.clientPriceUsd, operatorCostUsd: opt.operatorCostUsd },
   });
-  revalidatePath(`/admin/quote/${opt.quoteId}`);
+  revalidatePath(`/admin/requests/${opt.quoteId}`);
   return { ok: true, optionId };
 }
 
@@ -1251,7 +1251,7 @@ export async function deleteSourcedOption(optionId: string): Promise<SourcedOpti
     subjectId: opt.quoteId,
     metadata: { optionId },
   });
-  revalidatePath(`/admin/quote/${opt.quoteId}`);
+  revalidatePath(`/admin/requests/${opt.quoteId}`);
   return { ok: true, optionId };
 }
 
@@ -1423,7 +1423,7 @@ export async function sendOptionsToClient(quoteId: string): Promise<SendOptionsR
     metadata: { count: sendable.length, to: toEmail, provider: result.provider, delivery },
   });
 
-  revalidatePath(`/admin/quote/${quoteId}`);
+  revalidatePath(`/admin/requests/${quoteId}`);
   return { ok: true, count: sendable.length, to: toEmail, delivery };
 }
 

@@ -129,7 +129,7 @@ export async function appendReserveTransaction(
     .where(eq(reserveTransactions.memberId, memberId));
   const balance = balanceRow?.total ?? 0;
 
-  revalidatePath(`/admin/member/${memberId}`);
+  revalidatePath(`/admin/clients/${memberId}`);
   revalidatePath("/account/members");
   return { ok: true, balanceUsd: balance };
 }

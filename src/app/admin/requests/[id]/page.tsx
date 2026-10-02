@@ -31,7 +31,7 @@ import {
   type SourcedOptionRow,
 } from "@/components/admin/sourced-options";
 import { AvinodeSearchCopy } from "@/components/admin/avinode-search-copy";
-import { postQuoteMessage } from "@/app/admin/quote/[id]/actions";
+import { postQuoteMessage } from "@/app/admin/requests/[id]/actions";
 import { formatUSD } from "@/lib/quote-pricing";
 import { DEFAULT_MARKUP_PCT } from "@/lib/constants";
 
@@ -297,11 +297,11 @@ export default async function QuoteWorkbenchPage({ params }: Props) {
       <div className="mb-6 flex flex-wrap items-end justify-between gap-6 border-b border-ink-3 pb-6">
         <div>
           <nav className="font-mono text-[10px] uppercase tracking-[0.14em] text-bone-2">
-            <Link href="/admin/dispatch" className="transition-colors hover:text-clearance">
+            <Link href="/admin/requests" className="transition-colors hover:text-clearance">
               Inbox
             </Link>{" "}
             <span className="text-steel">/</span>{" "}
-            <Link href="/admin/dispatch" className="transition-colors hover:text-clearance">
+            <Link href="/admin/requests" className="transition-colors hover:text-clearance">
               Quotes
             </Link>{" "}
             <span className="text-steel">/</span>{" "}

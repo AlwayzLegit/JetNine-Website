@@ -45,6 +45,6 @@ export async function setInquiryStatus(formData: FormData): Promise<InquiryActio
     subjectId: id,
   });
 
-  revalidatePath("/admin/inquiries");
+  revalidatePath("/admin/messages?tab=form");
   return { ok: true };
 }

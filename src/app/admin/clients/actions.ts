@@ -173,8 +173,8 @@ export async function inviteMember(
     },
   });
 
-  revalidatePath("/admin/member");
-  revalidatePath(`/admin/member/${memberRow.id}`);
+  revalidatePath("/admin/clients");
+  revalidatePath(`/admin/clients/${memberRow.id}`);
 
   return {
     ok: true,

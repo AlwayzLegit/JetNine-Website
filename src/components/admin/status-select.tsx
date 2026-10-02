@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { updateQuoteStatus } from "@/app/admin/quote/[id]/actions";
+import { updateQuoteStatus } from "@/app/admin/requests/[id]/actions";
 
 const STATUSES = [
   "draft",

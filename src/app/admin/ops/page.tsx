@@ -294,7 +294,7 @@ function FleetRow({
       );
       const span = Math.max(1, lastOverlap - startCol + 1);
       const theme = KIND[block.kind] ?? { label: block.kind, cls: "bg-bone-2 text-ink" };
-      const href = block.relatedTripId ? `/admin/trip/${block.relatedTripId}` : null;
+      const href = block.relatedTripId ? `/admin/trips/${block.relatedTripId}` : null;
       const label = block.tripCode ?? block.notes ?? theme.label;
 
       const inner = (

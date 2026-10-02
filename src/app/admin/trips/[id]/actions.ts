@@ -92,7 +92,7 @@ export async function updateTripStatus(
   // failed email never blocks the status change. The email itself is
   // logged as a message row on the trip thread (channel='email',
   // direction='out', fromUserId=actor) so it shows up in both the
-  // workbench thread and — if delivery fails — the /admin/dispatch
+  // workbench thread and — if delivery fails — the /admin/requests
   // failed-delivery panel for retry.
   let notification: { status: "sent" | "failed" | "skipped"; error?: string } = {
     status: "skipped",
@@ -126,9 +126,9 @@ export async function updateTripStatus(
     },
   });
 
-  revalidatePath("/admin/trip");
-  revalidatePath(`/admin/trip/${tripId}`);
-  revalidatePath("/admin/dispatch");
+  revalidatePath("/admin/trips");
+  revalidatePath(`/admin/trips/${tripId}`);
+  revalidatePath("/admin/requests");
   revalidatePath("/account/trips");
   return { ok: true };
 }
@@ -535,9 +535,9 @@ export async function updateInvoice(
   }
 
   if (inv.tripId) {
-    revalidatePath(`/admin/trip/${inv.tripId}`);
+    revalidatePath(`/admin/trips/${inv.tripId}`);
   }
-  revalidatePath("/admin/trip");
+  revalidatePath("/admin/trips");
   revalidatePath("/account/invoices");
 
   return { ok: true, status: intent === "finalize" ? "due" : "draft" };
@@ -700,7 +700,7 @@ export async function postTripMessage(
     },
   });
 
-  revalidatePath(`/admin/trip/${tripId}`);
+  revalidatePath(`/admin/trips/${tripId}`);
   return { ok: true, id: messageId };
 }
 
@@ -922,7 +922,7 @@ async function refundCardPaymentsForTrip(args: {
             `Invoice ${inv.invoiceCode}${args.tripCode ? ` (trip ${args.tripCode})` : ""} — ${result.error}.`,
             "Issue the refund manually in the Stripe dashboard; the invoice is still marked paid.",
           ],
-          link: { label: "Open the trip sheet", url: `https://jetnine.com/admin/trip/${args.tripId}` },
+          link: { label: "Open the trip sheet", url: `https://jetnine.com/admin/trips/${args.tripId}` },
         });
       } catch (err) {
         console.error("refund-failed alert failed (non-fatal)", err);

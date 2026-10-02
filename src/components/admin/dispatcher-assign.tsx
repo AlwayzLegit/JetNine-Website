@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { assignDispatcher } from "@/app/admin/quote/[id]/actions";
+import { assignDispatcher } from "@/app/admin/requests/[id]/actions";
 
 type Dispatcher = { id: string; displayName: string };
 

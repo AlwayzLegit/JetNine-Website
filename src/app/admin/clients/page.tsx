@@ -159,7 +159,7 @@ export default async function AdminMembersPage() {
                     </td>
                     <td className="px-5 py-5 text-right">
                       <Link
-                        href={`/admin/member/${m.id}`}
+                        href={`/admin/clients/${m.id}`}
                         className="font-mono text-[10px] uppercase tracking-[0.14em] text-bone-2 transition-colors hover:text-clearance"
                       >
                         Open →

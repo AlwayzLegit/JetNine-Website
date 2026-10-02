@@ -259,7 +259,7 @@ export async function submitQuote(draft: QuoteDraft): Promise<SubmitResult> {
     });
 
     // Bust any cached admin views so the new quote shows up on the desk.
-    revalidatePath("/admin/dispatch");
+    revalidatePath("/admin/requests");
 
     // Smoke-test submissions skip both ack + dispatch notification so
     // they don't generate noise in inboxes on every deploy. The DB row
@@ -276,7 +276,7 @@ export async function submitQuote(draft: QuoteDraft): Promise<SubmitResult> {
       const proto = hdrs.get("x-forwarded-proto") ?? (host.startsWith("localhost") ? "http" : "https");
       const baseUrl =
         process.env.NEXT_PUBLIC_SITE_URL ?? `${proto}://${host}`;
-      const workbenchUrl = `${baseUrl}/admin/quote/${inserted.id}`;
+      const workbenchUrl = `${baseUrl}/admin/requests/${inserted.id}`;
       const statusUrl = `${baseUrl}${statusPath(statusToken)}`;
 
       const legSummaries = draft.legs.map((l) => ({

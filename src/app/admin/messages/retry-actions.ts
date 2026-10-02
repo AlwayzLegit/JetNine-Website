@@ -112,7 +112,7 @@ export async function retryMessageDelivery(messageId: string): Promise<RetryResu
       },
     });
 
-    revalidatePath("/admin/dispatch");
+    revalidatePath("/admin/requests");
     revalidatePath(`/admin/${m.subjectType}/${m.subjectId}`);
     return { ok: true, status: "sent", provider: result.provider };
   }
@@ -140,6 +140,6 @@ export async function retryMessageDelivery(messageId: string): Promise<RetryResu
     },
   });
 
-  revalidatePath("/admin/dispatch");
+  revalidatePath("/admin/requests");
   return { ok: true, status: "failed", error: result.error };
 }

@@ -8,9 +8,9 @@ export const dynamic = "force-dynamic";
 
 // Map subject_type → href builder.
 const SUBJECT_HREF: Partial<Record<string, (id: string) => string>> = {
-  quote: (id) => `/admin/quote/${id}`,
-  trip: (id) => `/admin/trip/${id}`,
-  member: (id) => `/admin/member/${id}`,
+  quote: (id) => `/admin/requests/${id}`,
+  trip: (id) => `/admin/trips/${id}`,
+  member: (id) => `/admin/clients/${id}`,
   operator: (id) => `/admin/operators/${id}`,
   aircraft: (id) => `/admin/aircraft/${id}`,
   empty_leg: () => `/admin/empty-leg`,
@@ -152,7 +152,7 @@ export default async function AuditLogPage({ searchParams }: Props) {
           </button>
           {hasFilter ? (
             <Link
-              href="/admin/audit"
+              href="/admin/settings/history"
               className="text-center font-mono text-[10px] uppercase tracking-[0.14em] text-bone-2 transition-colors hover:text-clearance"
             >
               Clear

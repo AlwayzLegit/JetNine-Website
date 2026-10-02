@@ -212,7 +212,7 @@ export default async function AdminMemberDetailPage({ params }: Props) {
       <div className="mb-8 flex flex-wrap items-end justify-between gap-6 border-b border-ink-3 pb-6">
         <div>
           <nav className="font-mono text-[10px] uppercase tracking-[0.14em] text-bone-2">
-            <Link href="/admin/member" className="transition-colors hover:text-clearance">
+            <Link href="/admin/clients" className="transition-colors hover:text-clearance">
               Members
             </Link>{" "}
             <span className="text-steel">/</span>{" "}
@@ -429,7 +429,7 @@ export default async function AdminMemberDetailPage({ params }: Props) {
             <div className="mb-5 flex items-baseline justify-between">
               <h2 className="caption">— Recent trips · {tripsList.length}</h2>
               <Link
-                href="/admin/trip"
+                href="/admin/trips"
                 className="font-mono text-[10px] uppercase tracking-[0.14em] text-bone-2 transition-colors hover:text-clearance"
               >
                 All trips →
@@ -445,7 +445,7 @@ export default async function AdminMemberDetailPage({ params }: Props) {
                     className="grid grid-cols-[auto_1fr_auto_auto] items-baseline gap-4 py-3"
                   >
                     <Link
-                      href={`/admin/trip/${t.id}`}
+                      href={`/admin/trips/${t.id}`}
                       className="font-mono text-[11px] tracking-[0.04em] text-clearance hover:underline"
                     >
                       {t.tripCode}
@@ -475,7 +475,7 @@ export default async function AdminMemberDetailPage({ params }: Props) {
             <div className="mb-5 flex items-baseline justify-between">
               <h2 className="caption">— Recent quotes · {quotesList.length}</h2>
               <Link
-                href="/admin/dispatch"
+                href="/admin/requests"
                 className="font-mono text-[10px] uppercase tracking-[0.14em] text-bone-2 transition-colors hover:text-clearance"
               >
                 Inbox →
@@ -491,7 +491,7 @@ export default async function AdminMemberDetailPage({ params }: Props) {
                     className="grid grid-cols-[auto_1fr_auto_auto] items-baseline gap-4 py-3"
                   >
                     <Link
-                      href={`/admin/quote/${q.id}`}
+                      href={`/admin/requests/${q.id}`}
                       className="font-mono text-[11px] tracking-[0.04em] text-clearance hover:underline"
                     >
                       {q.quoteCode}
@@ -509,7 +509,7 @@ export default async function AdminMemberDetailPage({ params }: Props) {
                     </span>
                     {q.convertedTripId ? (
                       <Link
-                        href={`/admin/trip/${q.convertedTripId}`}
+                        href={`/admin/trips/${q.convertedTripId}`}
                         className="font-mono text-[10px] uppercase tracking-[0.14em] text-clearance hover:underline"
                       >
                         → trip

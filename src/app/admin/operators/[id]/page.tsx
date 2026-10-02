@@ -7,63 +7,76 @@ import { aircraft } from "@/db/schema/aircraft";
 import { trips } from "@/db/schema/trips";
 import { OperatorContactsEditor } from "@/components/admin/operator-contacts-editor";
 import { OperatorEditForm } from "@/components/admin/operator-edit-form";
+import { DeskCard, DeskHeader, DeskPage, DotSentence, NumberCard, StatusPill } from "@/components/admin/desk-ui";
+import { passengersWords, tripState } from "@/lib/desk-status";
+import { formatUSD } from "@/lib/quote-pricing";
 
 export const dynamic = "force-dynamic";
 
 type Props = { params: Promise<{ id: string }> };
 
-const STATUS_CLASS: Record<string, string> = {
-  active: "border-[var(--success)] text-[var(--success)]",
-  audit_due: "border-[var(--warn)] text-[var(--warn)]",
-  hold: "border-bone-2 text-bone-2",
-  suspended: "border-[var(--error)] text-[var(--error)]",
-  banned: "border-[var(--error)] text-[var(--error)]",
+type Tone = "gold" | "steel" | "success" | "danger";
+
+const STATUS_WORDS: Record<string, { label: string; tone: Tone }> = {
+  active: { label: "Active", tone: "success" },
+  audit_due: { label: "Audit due", tone: "gold" },
+  hold: { label: "On hold", tone: "steel" },
+  suspended: { label: "Suspended", tone: "danger" },
+  banned: { label: "Banned", tone: "danger" },
 };
 
-const ARGUS_CLASS: Record<string, string> = {
-  platinum: "border-clearance text-clearance",
-  gold: "border-[#C9A961] text-[#C9A961]",
-  silver: "border-bone-2 text-bone-2",
-  none: "border-steel text-steel",
+const ARGUS_WORDS: Record<string, string> = {
+  platinum: "Platinum",
+  gold: "Gold",
+  silver: "Silver",
+  none: "Not rated",
 };
 
-const AIRCRAFT_STATUS_CLASS: Record<string, string> = {
-  available: "border-[var(--success)] text-[var(--success)]",
-  aog: "border-[var(--error)] text-[var(--error)]",
-  maint: "border-[var(--warn)] text-[var(--warn)]",
-  sold: "border-steel text-steel",
+const AIRCRAFT_STATUS_WORDS: Record<string, { label: string; tone: Tone }> = {
+  available: { label: "Available", tone: "success" },
+  aog: { label: "Grounded (AOG)", tone: "danger" },
+  maint: { label: "In maintenance", tone: "gold" },
+  sold: { label: "Sold / retired", tone: "steel" },
 };
 
-const TRIP_STATUS_CLASS: Record<string, string> = {
-  confirmed: "border-clearance text-clearance",
-  airborne: "border-[var(--warn)] text-[var(--warn)]",
-  completed: "border-[var(--success)] text-[var(--success)]",
-  cancelled_wx: "border-[var(--error)] text-[var(--error)]",
-  cancelled_other: "border-[var(--error)] text-[var(--error)]",
+const CATEGORY_WORDS: Record<string, string> = {
+  turboprop: "Turboprop",
+  light: "Light",
+  midsize: "Midsize",
+  supermid: "Super-mid",
+  heavy: "Heavy",
+  ulr: "Ultra long range",
 };
 
-function daysUntil(date: Date | string | null): number | null {
+function daysUntil(date: Date | string | null, now: Date): number | null {
   if (!date) return null;
   const d = typeof date === "string" ? new Date(date) : date;
-  return Math.round((d.getTime() - Date.now()) / 86_400_000);
+  return Math.round((d.getTime() - now.getTime()) / 86_400_000);
 }
 
-function renewalTone(days: number | null): "ok" | "warn" | "crit" | "lock" {
-  if (days === null) return "lock";
-  if (days < 0) return "crit";
-  if (days < 60) return "warn";
-  return "ok";
+function renewalTone(days: number | null): string {
+  if (days === null) return "text-steel";
+  if (days < 0) return "text-danger";
+  if (days < 60) return "text-gold";
+  return "text-bone";
 }
 
-const TONE: Record<string, string> = {
-  ok: "text-bone",
-  warn: "text-[var(--warn)]",
-  crit: "text-[var(--error)]",
-  lock: "text-steel",
-};
+const DATE_FMT = new Intl.DateTimeFormat("en-US", {
+  month: "short",
+  day: "numeric",
+  year: "numeric",
+  timeZone: "UTC",
+});
+
+function formatDate(date: Date | string | null): string {
+  if (!date) return "—";
+  const d = typeof date === "string" ? new Date(`${date}T12:00:00Z`) : date;
+  return Number.isNaN(d.getTime()) ? String(date) : DATE_FMT.format(d);
+}
 
 export default async function AdminOperatorDetailPage({ params }: Props) {
   const { id } = await params;
+  const now = new Date();
 
   const [op] = await db.select().from(operators).where(eq(operators.id, id));
   if (!op) notFound();
@@ -110,258 +123,178 @@ export default async function AdminOperatorDetailPage({ params }: Props) {
     { label: "Next audit", date: op.nextAuditOn },
   ];
 
+  const status = STATUS_WORDS[op.status] ?? { label: op.status.replace(/_/g, " "), tone: "steel" as Tone };
+
+  const leadParts = [
+    op.certNumber ? `Certificate ${op.certNumber}` : null,
+    `FAA Part ${op.faaPart}`,
+    op.homeAirportIcao ? `Home base ${op.homeAirportIcao}` : null,
+    op.yearsPartner ? `${op.yearsPartner} year${op.yearsPartner === 1 ? "" : "s"} as a partner` : null,
+  ].filter(Boolean);
+
   return (
-    <div className="container-jn py-8">
-      {/* Top bar */}
-      <div className="mb-8 flex flex-wrap items-end justify-between gap-6 border-b border-ink-3 pb-6">
-        <div>
-          <nav className="font-mono text-[10px] uppercase tracking-[0.14em] text-bone-2">
-            <Link href="/admin/operators" className="transition-colors hover:text-clearance">
-              Operators
-            </Link>{" "}
-            <span className="text-steel">/</span>{" "}
-            <span className="text-bone">{op.certNumber ?? "—"}</span>
-          </nav>
-          <div className="mt-3 flex flex-wrap items-baseline gap-4">
-            <span
-              className="font-serif text-[36px] font-light leading-none tracking-tight text-bone"
-              style={{ letterSpacing: "-0.02em" }}
-            >
-              {op.name}
+    <DeskPage>
+      <DeskHeader
+        back={{ href: "/admin/operators", label: "Operators" }}
+        title={op.name}
+        lead={`${leadParts.join(" · ")}.`}
+        actions={
+          <>
+            <StatusPill tone={status.tone}>{status.label}</StatusPill>
+            {op.isPreferred ? <span className="pill pill-clearance h-9 text-[14px]">Preferred</span> : null}
+            <span className="pill pill-outline h-9 text-[14px]">
+              ARG/US {ARGUS_WORDS[op.argusRating] ?? op.argusRating}
             </span>
-            <span
-              className={[
-                "rounded-full border px-2.5 py-0.5 font-mono text-[10px] uppercase tracking-[0.14em]",
-                STATUS_CLASS[op.status] ?? "border-ink-3 text-bone-2",
-              ].join(" ")}
-            >
-              {op.status.replace(/_/g, " ")}
-            </span>
-            {op.isPreferred ? (
-              <span className="rounded-[2px] bg-clearance px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.14em] text-ink">
-                Preferred
-              </span>
-            ) : null}
-            <span
-              className={[
-                "rounded-[2px] border px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.14em]",
-                ARGUS_CLASS[op.argusRating] ?? "border-steel text-steel",
-              ].join(" ")}
-            >
-              ARG/US {op.argusRating}
-            </span>
-            {op.wyvernWingman ? (
-              <span className="rounded-[2px] border border-clearance px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.14em] text-clearance">
-                Wyvern Wingman
-              </span>
-            ) : null}
-          </div>
-          <p className="mt-2 font-mono text-[11px] uppercase tracking-[0.08em] text-bone-2">
-            {op.certNumber ?? "—"} · FAA Part {op.faaPart}
-            {op.homeAirportIcao ? ` · Home ${op.homeAirportIcao}` : ""}
-            {op.yearsPartner ? ` · ${op.yearsPartner}y partner` : ""}
-          </p>
-          {op.suspendedReason ? (
-            <p className="mt-3 max-w-[64ch] rounded-[2px] border-l-2 border-[var(--error)] bg-[rgba(164,69,58,0.06)] px-4 py-2 font-mono text-[11px] tracking-[0.04em] text-[var(--error)]">
-              — {op.suspendedReason}
-            </p>
-          ) : null}
-        </div>
-        <dl className="flex flex-wrap gap-x-10 gap-y-3 text-right">
-          {[
-            ["FLEET", String(fleet.length)],
-            ["LIFETIME TRIPS", String(aggregates?.lifetimeTrips ?? 0)],
-            [
-              "LIFETIME REVENUE",
-              aggregates?.lifetimeRevenue
-                ? `$${(aggregates.lifetimeRevenue / 1000).toFixed(1)}k`
-                : "$0",
-            ],
-            [
-              "LIABILITY",
-              op.liabilityLimitUsd
-                ? `$${(Number(op.liabilityLimitUsd) / 1_000_000).toFixed(0)}M`
-                : "—",
-            ],
-          ].map(([lbl, val]) => (
-            <div key={lbl} className="flex flex-col items-end">
-              <dt className="font-mono text-[10px] uppercase tracking-[0.14em] text-steel">{lbl}</dt>
-              <dd className="mt-1 font-serif text-[22px] font-light leading-none text-bone">{val}</dd>
-            </div>
-          ))}
-        </dl>
+            {op.wyvernWingman ? <span className="pill pill-outline h-9 text-[14px]">Wyvern Wingman</span> : null}
+          </>
+        }
+      />
+
+      {op.suspendedReason ? (
+        <p className="mt-5 max-w-[64ch] rounded-control border border-line-2 bg-surface px-4 py-3 text-[15px] text-danger">
+          {op.suspendedReason}
+        </p>
+      ) : null}
+
+      <div className="mt-6 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <NumberCard label="Aircraft" value={fleet.length} />
+        <NumberCard label="Trips flown" value={aggregates?.lifetimeTrips ?? 0} />
+        <NumberCard
+          label="Lifetime revenue"
+          value={aggregates?.lifetimeRevenue ? formatUSD(aggregates.lifetimeRevenue) : "$0"}
+        />
+        <NumberCard
+          label="Liability limit"
+          value={op.liabilityLimitUsd ? `$${(Number(op.liabilityLimitUsd) / 1_000_000).toFixed(0)}M` : "—"}
+        />
       </div>
 
-      <div className="mb-6">
+      <div className="mt-6">
         <OperatorEditForm initial={op} />
       </div>
 
-      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1.3fr_1fr]">
+      <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-[1.3fr_1fr]">
         {/* LEFT COLUMN */}
         <div className="flex flex-col gap-6">
           {/* Fleet */}
-          <section className="rounded-[4px] border border-ink-3 bg-ink-2 p-6">
-            <h2 className="caption mb-5">— Fleet · {fleet.length}</h2>
+          <DeskCard title={`Aircraft · ${fleet.length}`}>
             {fleet.length === 0 ? (
-              <p className="text-[13px] text-steel">— No aircraft on file.</p>
+              <p className="mt-4 text-[15px] text-steel">No aircraft on file.</p>
             ) : (
-              <ul className="divide-y divide-ink-3">
-                {fleet.map((ac) => (
-                  <li
-                    key={ac.id}
-                    className="grid grid-cols-[110px_1fr_auto_auto_auto] items-baseline gap-3 py-3"
-                  >
-                    <span className="font-mono text-[11px] tracking-[0.04em] text-clearance">
-                      {ac.tailNumber}
-                    </span>
-                    <div>
-                      <div className="font-serif text-[15px] leading-tight text-bone">
-                        {ac.makeModel}
-                      </div>
-                      <div className="mt-0.5 font-mono text-[10px] uppercase tracking-[0.08em] text-bone-2">
-                        {ac.category} · {ac.yearManufactured ?? "—"}
-                      </div>
-                    </div>
-                    <span className="font-mono text-[11px] tracking-[0.04em] text-bone-2">
-                      {ac.seats} pax
-                    </span>
-                    <span className="font-mono text-[11px] tracking-[0.04em] text-bone-2">
-                      {ac.rangeNm.toLocaleString()} NM
-                    </span>
-                    <span
-                      className={[
-                        "inline-block rounded-full border px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.14em]",
-                        AIRCRAFT_STATUS_CLASS[ac.status] ?? "border-ink-3 text-bone-2",
-                      ].join(" ")}
+              <ul className="mt-4 divide-y divide-line-faint">
+                {fleet.map((ac) => {
+                  const s = AIRCRAFT_STATUS_WORDS[ac.status] ?? { label: ac.status, tone: "steel" as Tone };
+                  return (
+                    <li
+                      key={ac.id}
+                      className="grid grid-cols-1 items-center gap-2 py-3 md:grid-cols-[110px_1fr_auto_auto_auto] md:gap-4"
                     >
-                      {ac.status}
-                    </span>
-                  </li>
-                ))}
+                      <Link href={`/admin/aircraft/${ac.id}`} className="text-[15px] font-medium text-bone hover:underline">
+                        {ac.tailNumber}
+                      </Link>
+                      <div>
+                        <div className="text-[15px] text-bone">{ac.makeModel}</div>
+                        <div className="mt-0.5 text-[13px] text-steel">
+                          {CATEGORY_WORDS[ac.category] ?? ac.category} · {ac.yearManufactured ?? "—"}
+                        </div>
+                      </div>
+                      <span className="text-[14px] text-bone-2">
+                        {ac.seats} seat{ac.seats === 1 ? "" : "s"}
+                      </span>
+                      <span className="text-[14px] text-bone-2">{ac.rangeNm.toLocaleString()} nm</span>
+                      <span className="pill pill-outline">
+                        <DotSentence tone={s.tone}>{s.label}</DotSentence>
+                      </span>
+                    </li>
+                  );
+                })}
               </ul>
             )}
-          </section>
+          </DeskCard>
 
           {/* Recent trips */}
-          <section className="rounded-[4px] border border-ink-3 bg-ink-2 p-6">
-            <div className="mb-5 flex items-baseline justify-between">
-              <h2 className="caption">— Recent trips · {recentTrips.length}</h2>
-              <Link
-                href="/admin/trip"
-                className="font-mono text-[10px] uppercase tracking-[0.14em] text-bone-2 transition-colors hover:text-clearance"
-              >
+          <DeskCard
+            title={`Recent trips · ${recentTrips.length}`}
+            actions={
+              <Link href="/admin/trips" className="text-[14px] text-steel transition-colors hover:text-bone">
                 All trips →
               </Link>
-            </div>
+            }
+          >
             {recentTrips.length === 0 ? (
-              <p className="text-[13px] text-steel">— No trips flown with this operator yet.</p>
+              <p className="mt-4 text-[15px] text-steel">No trips flown with this operator yet.</p>
             ) : (
-              <ul className="divide-y divide-ink-3">
-                {recentTrips.map((t) => (
-                  <li
-                    key={t.id}
-                    className="grid grid-cols-[auto_1fr_auto_auto_auto] items-baseline gap-4 py-3"
-                  >
-                    <Link
-                      href={`/admin/trip/${t.id}`}
-                      className="font-mono text-[11px] tracking-[0.04em] text-clearance hover:underline"
+              <ul className="mt-4 divide-y divide-line-faint">
+                {recentTrips.map((t) => {
+                  const s = tripState(t.status);
+                  return (
+                    <li
+                      key={t.id}
+                      className="grid grid-cols-1 items-center gap-2 py-3 md:grid-cols-[auto_1fr_auto_auto] md:gap-4"
                     >
-                      {t.tripCode}
-                    </Link>
-                    <span className="font-mono text-[10px] uppercase tracking-[0.08em] text-bone-2">
-                      {t.paxCount} pax · {t.createdAt.toISOString().slice(0, 10)}
-                    </span>
-                    <span
-                      className={[
-                        "inline-block rounded-full border px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.14em]",
-                        TRIP_STATUS_CLASS[t.status] ?? "border-ink-3 text-bone-2",
-                      ].join(" ")}
-                    >
-                      {t.status.replace(/_/g, " ")}
-                    </span>
-                    <span className="font-mono text-[11px] tracking-[0.04em] text-bone">
-                      {t.revenueUsd ? `$${(t.revenueUsd / 1000).toFixed(1)}k` : "—"}
-                    </span>
-                  </li>
-                ))}
+                      <Link href={`/admin/trips/${t.id}`} className="text-[15px] font-medium text-bone hover:underline">
+                        {t.tripCode}
+                      </Link>
+                      <span className="text-[14px] text-bone-2">
+                        {passengersWords(t.paxCount)} · {formatDate(t.createdAt)}
+                      </span>
+                      <span className="pill pill-outline">
+                        <DotSentence tone={s.dot}>{s.label}</DotSentence>
+                      </span>
+                      <span className="text-[15px] text-bone">{t.revenueUsd ? formatUSD(t.revenueUsd) : "—"}</span>
+                    </li>
+                  );
+                })}
               </ul>
             )}
-          </section>
+          </DeskCard>
 
           {/* Commercial terms */}
-          <section className="rounded-[4px] border border-ink-3 bg-ink-2 p-6">
-            <h2 className="caption mb-5">— Commercial terms</h2>
-            <dl className="grid grid-cols-[160px_1fr] gap-x-4 gap-y-3 text-[12px]">
-              <Row k="— Payment terms">
-                <span className="font-mono tracking-[0.04em] text-bone">
-                  {op.paymentTerms ?? "—"}
-                </span>
-              </Row>
-              <Row k="— Volume discount">
-                <span className="font-mono tracking-[0.04em] text-bone">
-                  {op.volumeDiscountPct ? `${op.volumeDiscountPct}%` : "—"}
-                </span>
-              </Row>
-              <Row k="— Rate lock">
-                <span className="font-mono uppercase tracking-[0.12em] text-bone">
-                  {op.rateLock ? (
-                    <span className="text-[var(--success)]">✓ Locked</span>
-                  ) : (
-                    <span className="text-steel">— None</span>
-                  )}
-                </span>
-              </Row>
-              <Row k="— Liability limit">
-                <span className="font-mono tracking-[0.04em] text-bone">
-                  {op.liabilityLimitUsd
-                    ? `$${Number(op.liabilityLimitUsd).toLocaleString()}`
-                    : "—"}
-                </span>
-              </Row>
+          <DeskCard title="Commercial terms">
+            <dl className="dl-jn mt-4">
+              <dt>Payment terms</dt>
+              <dd>{op.paymentTerms ?? "—"}</dd>
+              <dt>Volume discount</dt>
+              <dd>{op.volumeDiscountPct ? `${op.volumeDiscountPct}%` : "—"}</dd>
+              <dt>Rate lock</dt>
+              <dd>
+                {op.rateLock ? (
+                  <DotSentence tone="success">Locked</DotSentence>
+                ) : (
+                  <span className="text-steel">None</span>
+                )}
+              </dd>
+              <dt>Liability limit</dt>
+              <dd>{op.liabilityLimitUsd ? `$${Number(op.liabilityLimitUsd).toLocaleString()}` : "—"}</dd>
             </dl>
-          </section>
+          </DeskCard>
 
           {/* Notes */}
           {op.notes ? (
-            <section className="rounded-[4px] border-l-2 border-clearance bg-ink-2 p-6">
-              <h2 className="caption mb-3">— Operator notes</h2>
-              <p className="whitespace-pre-line italic text-[14px] leading-[1.65] text-bone">
-                {op.notes}
-              </p>
-            </section>
+            <DeskCard title="Operator notes">
+              <p className="mt-4 whitespace-pre-line text-[15px] leading-[1.6] text-bone">{op.notes}</p>
+            </DeskCard>
           ) : null}
         </div>
 
         {/* RIGHT COLUMN */}
         <div className="flex flex-col gap-6">
           {/* Vetting + renewal calendar */}
-          <section className="rounded-[4px] border border-ink-3 bg-ink-2 p-6">
-            <h2 className="caption mb-5">— Vetting renewals</h2>
-            <ul className="divide-y divide-ink-3">
+          <DeskCard title="Vetting renewals">
+            <ul className="mt-4 divide-y divide-line-faint">
               {renewals.map((r) => {
-                const days = daysUntil(r.date);
-                const tone = renewalTone(days);
+                const days = daysUntil(r.date, now);
                 return (
-                  <li
-                    key={r.label}
-                    className="grid grid-cols-[1fr_auto] items-baseline gap-3 py-3"
-                  >
-                    <span className="font-mono text-[11px] uppercase tracking-[0.08em] text-bone-2">
-                      — {r.label}
-                    </span>
-                    <span
-                      className={[
-                        "font-mono text-[11px] tracking-[0.04em]",
-                        TONE[tone],
-                      ].join(" ")}
-                    >
+                  <li key={r.label} className="grid grid-cols-[1fr_auto] items-baseline gap-3 py-3">
+                    <span className="text-[15px] text-steel">{r.label}</span>
+                    <span className={`text-[15px] ${renewalTone(days)}`}>
                       {r.date ? (
                         <>
-                          {String(r.date)}
+                          {formatDate(r.date)}
                           {days !== null
                             ? days < 0
-                              ? ` · ${Math.abs(days)}d past`
-                              : ` · ${days}d`
+                              ? ` · ${Math.abs(days)} days past`
+                              : ` · in ${days} days`
                             : ""}
                         </>
                       ) : (
@@ -372,54 +305,31 @@ export default async function AdminOperatorDetailPage({ params }: Props) {
                 );
               })}
             </ul>
-            {op.isbaoStage ? (
-              <p className="mt-4 font-mono text-[10px] uppercase tracking-[0.12em] text-steel">
-                — IS-BAO Stage {op.isbaoStage}
-              </p>
-            ) : null}
-          </section>
+            {op.isbaoStage ? <p className="mt-4 text-[14px] text-steel">IS-BAO Stage {op.isbaoStage}</p> : null}
+          </DeskCard>
 
           {/* Contacts */}
-          <section className="rounded-[4px] border border-ink-3 bg-ink-2 p-6">
-            <h2 className="caption mb-4">— Contacts · {contacts.length}</h2>
-            <OperatorContactsEditor operatorId={op.id} initial={contacts} />
-          </section>
+          <DeskCard title={`Contacts · ${contacts.length}`}>
+            <div className="mt-4">
+              <OperatorContactsEditor operatorId={op.id} initial={contacts} />
+            </div>
+          </DeskCard>
 
           {/* History */}
-          <section className="rounded-[4px] border border-ink-3 bg-ink-2 p-6">
-            <h2 className="caption mb-4">— History</h2>
-            <dl className="grid grid-cols-[140px_1fr] gap-x-4 gap-y-3 text-[12px]">
-              <Row k="— Onboarded">
-                <span className="font-mono tracking-[0.04em] text-bone-2">
-                  {op.createdAt.toISOString().slice(0, 10)}
-                </span>
-              </Row>
-              <Row k="— Updated">
-                <span className="font-mono tracking-[0.04em] text-bone-2">
-                  {op.updatedAt.toISOString().slice(0, 10)}
-                </span>
-              </Row>
-              <Row k="— Years partner">
-                <span className="font-mono tracking-[0.04em] text-bone">
-                  {op.yearsPartner ?? "—"}
-                </span>
-              </Row>
-              <Row k="— FAA Part">
-                <span className="font-mono tracking-[0.04em] text-bone">{op.faaPart}</span>
-              </Row>
+          <DeskCard title="History">
+            <dl className="dl-jn mt-4">
+              <dt>Onboarded</dt>
+              <dd className="text-bone-2">{formatDate(op.createdAt)}</dd>
+              <dt>Updated</dt>
+              <dd className="text-bone-2">{formatDate(op.updatedAt)}</dd>
+              <dt>Years as a partner</dt>
+              <dd>{op.yearsPartner ?? "—"}</dd>
+              <dt>FAA Part</dt>
+              <dd>{op.faaPart}</dd>
             </dl>
-          </section>
+          </DeskCard>
         </div>
       </div>
-    </div>
-  );
-}
-
-function Row({ k, children }: { k: string; children: React.ReactNode }) {
-  return (
-    <>
-      <dt className="font-mono text-[10px] uppercase tracking-[0.14em] text-steel">{k}</dt>
-      <dd>{children}</dd>
-    </>
+    </DeskPage>
   );
 }

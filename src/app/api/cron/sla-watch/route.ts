@@ -93,7 +93,7 @@ export async function GET(request: Request): Promise<NextResponse> {
         ageMin != null ? `The customer has been waiting ${ageMin} minutes.` : "",
         "They were told options arrive within 30 minutes — get them something now, even a holding note.",
       ].filter(Boolean),
-      link: { label: "Open the quote", url: `https://jetnine.com/admin/quote/${q.id}` },
+      link: { label: "Open the quote", url: `https://jetnine.com/admin/requests/${q.id}` },
     });
     if (result.ok) sent += 1;
     else failed += 1;

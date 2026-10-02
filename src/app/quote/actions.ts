@@ -19,6 +19,7 @@ import {
   sendDispatchNewQuoteNotification,
   sendQuoteAcknowledgmentEmail,
 } from "@/lib/email";
+import { getReplyPromiseMinutes, recipientsFor } from "@/lib/desk-settings";
 
 export type SubmitResult =
   | { ok: true; ref: string; id: string; statusUrl: string; deduped?: true }
@@ -154,6 +155,12 @@ export async function submitQuote(draft: QuoteDraft): Promise<SubmitResult> {
     console.error("submitQuote auth lookup failed — treating as anon", err);
   }
 
+  // Reply-time promise from Settings › Notifications (default 30 minutes).
+  // Stamped here instead of the column default so the desk-wide setting
+  // applies the moment an owner changes it.
+  const replyPromiseMinutes = await getReplyPromiseMinutes();
+  const receivedAt = new Date();
+
   try {
     const inserted = await db.transaction(async (tx) => {
       const values: NewQuote = {
@@ -205,6 +212,9 @@ export async function submitQuote(draft: QuoteDraft): Promise<SubmitResult> {
 
           clientIdempotencyKey: idempotencyKey,
           statusToken,
+
+          receivedAt,
+          slaDeadlineAt: new Date(receivedAt.getTime() + replyPromiseMinutes * 60_000),
 
           status: isSmoke ? "cancelled" : "submitted",
       };
@@ -285,6 +295,10 @@ export async function submitQuote(draft: QuoteDraft): Promise<SubmitResult> {
         date: l.date ?? null,
       }));
 
+      // Staff who turned on "A new request comes in" (Settings ›
+      // Notifications). Empty → the shared dispatch inbox.
+      const deskRecipients = await recipientsFor("newRequest");
+
       const [ack, notif] = await Promise.allSettled([
         sendQuoteAcknowledgmentEmail({
           quoteCode: inserted.quoteCode,
@@ -305,6 +319,7 @@ export async function submitQuote(draft: QuoteDraft): Promise<SubmitResult> {
           legs: legSummaries,
           paxCount: draft.pax,
           workbenchUrl,
+          to: deskRecipients,
         }),
       ]);
 

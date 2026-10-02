@@ -62,7 +62,7 @@ export function ClientsTable({
           <div className="card mt-6 overflow-hidden">
             <div
               className={`grid ${COLS} gap-4 border-b border-line px-6 py-3 text-[13px] font-semibold text-steel`}
-              role="row"
+              aria-hidden="true"
             >
               <span>Name</span>
               <span>Flights</span>

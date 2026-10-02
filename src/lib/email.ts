@@ -226,7 +226,11 @@ export async function sendQuoteAcknowledgmentEmail(
 }
 
 export async function sendDispatchNewQuoteNotification(
-  ctx: QuoteSubmittedContext & { workbenchUrl: string },
+  ctx: QuoteSubmittedContext & {
+    workbenchUrl: string;
+    /** Staff who turned on "A new request comes in"; empty → shared inbox. */
+    to?: string[];
+  },
 ): Promise<SendResult> {
   const fullName = `${ctx.firstName} ${ctx.lastName}`.trim();
   const route = ctx.legs
@@ -263,7 +267,7 @@ export async function sendDispatchNewQuoteNotification(
   `.trim();
 
   return sendEmail({
-    to: DISPATCH_NOTIFY,
+    to: ctx.to && ctx.to.length > 0 ? ctx.to : DISPATCH_NOTIFY,
     subject,
     html,
     text,

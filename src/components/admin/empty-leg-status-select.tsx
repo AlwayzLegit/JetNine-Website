@@ -5,13 +5,22 @@ import { updateEmptyLegStatus } from "@/app/admin/empty-leg/actions";
 
 const STATUSES = ["draft", "scheduled", "live", "sold", "cancelled", "expired"] as const;
 
-const TONE: Record<string, string> = {
-  draft: "border-ink-3 text-bone-2",
-  scheduled: "border-bone-2 text-bone-2",
-  live: "border-clearance text-clearance",
-  sold: "border-[var(--success)] text-[var(--success)]",
-  cancelled: "border-[var(--error)] text-[var(--error)]",
-  expired: "border-steel text-steel",
+const WORDS: Record<(typeof STATUSES)[number], string> = {
+  draft: "Draft",
+  scheduled: "Scheduled",
+  live: "Live",
+  sold: "Sold",
+  cancelled: "Cancelled",
+  expired: "Expired",
+};
+
+const DOT: Record<string, string> = {
+  draft: "dot",
+  scheduled: "dot",
+  live: "dot dot-success",
+  sold: "dot dot-gold",
+  cancelled: "dot dot-danger",
+  expired: "dot",
 };
 
 export function EmptyLegStatusSelect({
@@ -40,27 +49,26 @@ export function EmptyLegStatusSelect({
 
   return (
     <div className="inline-flex flex-col items-end gap-1">
-      <select
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        disabled={pending}
-        aria-label="Empty leg status"
-        className={[
-          "rounded-full border bg-transparent px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.14em] disabled:opacity-60",
-          TONE[value] ?? "border-ink-3 text-bone-2",
-        ].join(" ")}
-      >
-        {STATUSES.map((s) => (
-          <option key={s} value={s} className="bg-ink text-bone">
-            {s}
-          </option>
-        ))}
-      </select>
-      {error ? (
-        <span className="font-mono text-[9px] uppercase tracking-[0.1em] text-[var(--error)]">
-          {error}
+      <span className="pill pill-outline h-8 gap-2 pr-2">
+        <span className={DOT[value] ?? "dot"} aria-hidden="true" />
+        <select
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          disabled={pending}
+          aria-label="Empty leg status"
+          className="cursor-pointer appearance-none bg-transparent pr-4 text-[13px] font-medium text-bone outline-none disabled:opacity-60"
+        >
+          {STATUSES.map((s) => (
+            <option key={s} value={s} className="bg-ink text-bone">
+              {WORDS[s]}
+            </option>
+          ))}
+        </select>
+        <span aria-hidden="true" className="-ml-5 text-[11px] text-steel">
+          ▾
         </span>
-      ) : null}
+      </span>
+      {error ? <span className="text-[13px] text-danger">{error}</span> : null}
     </div>
   );
 }

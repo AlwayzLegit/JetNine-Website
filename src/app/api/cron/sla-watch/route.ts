@@ -1,16 +1,26 @@
 import { timingSafeEqual } from "crypto";
 import { NextResponse } from "next/server";
-import { sql } from "drizzle-orm";
+import { asc, sql } from "drizzle-orm";
 import { db } from "@/db";
+import { auditLog } from "@/db/schema/audit";
 import { quotes } from "@/db/schema/quotes";
+import { logAudit } from "@/lib/audit";
+import { getReplyPromiseMinutes, recipientsFor } from "@/lib/desk-settings";
 import { sendDispatchAlert } from "@/lib/email";
 
-// SLA watch — the site promises options "within 30 minutes" in the quote
-// ack and on the contact page, and `sla_deadline_at` is stamped on every
-// quote, but until this cron the promise was enforced only by a dispatcher
-// happening to have /admin/dispatch open. Runs every 10 minutes; each
-// breached quote pages the desk exactly once (claim-then-send on
-// sla_alerted_at, so two overlapping runs can't double-page).
+// SLA watch — the site promises options within the reply-time promise
+// (Settings › Notifications, default 30 minutes) and `sla_deadline_at` is
+// stamped on every quote. Runs every 10 minutes and does two passes:
+//
+// 1. Breach: each quote past its deadline pages the shared desk inbox
+//    exactly once (claim-then-send on sla_alerted_at, so two overlapping
+//    runs can't double-page).
+// 2. Due soon: each quote whose deadline falls within the next 10 minutes
+//    pages the staff who turned on "A reply is about to be late". The
+//    quotes table has no second claim column and sla_alerted_at belongs to
+//    the breach pass, so this pass claims through the audit log instead: a
+//    `quote.reply_due_soon.notify` row per quote, written before the send,
+//    and the query skips quotes that already have one.
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -18,6 +28,8 @@ export const runtime = "nodejs";
 // Cap per run — a backlog of breaches (e.g. after a cron outage) should
 // page in waves, not carpet-bomb the desk inbox in one tick.
 const MAX_ALERTS_PER_RUN = 10;
+const DUE_SOON_MINUTES = 10;
+const DUE_SOON_ACTION = "quote.reply_due_soon.notify";
 
 function authorized(req: Request): boolean {
   const secret = process.env.CRON_SECRET;
@@ -36,19 +48,26 @@ function authorized(req: Request): boolean {
   }
 }
 
+function clientName(snapshot: { firstName?: string; lastName?: string } | null): string {
+  return `${snapshot?.firstName ?? ""} ${snapshot?.lastName ?? ""}`.trim() || "The client";
+}
+
 export async function GET(request: Request): Promise<NextResponse> {
   if (!authorized(request)) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 
   const now = new Date();
+  const promiseMinutes = await getReplyPromiseMinutes();
+  const base = (process.env.NEXT_PUBLIC_SITE_URL || "https://jetnine.com").replace(/\/$/, "");
 
+  // ── Pass 1: breaches ──────────────────────────────────────────────────
   // Claim first, send second: stamping sla_alerted_at in the same statement
   // that selects the rows means a concurrent run sees them as already
   // claimed. The claim itself is capped at MAX_ALERTS_PER_RUN (via the id
   // subquery) so a backlog pages in waves — unclaimed rows stay eligible
   // for the next tick. A crash between claim and send loses that one page
-  // (the quote still shows PAST SLA on /admin/dispatch) — the same trade
+  // (the quote still shows as overdue on /admin/requests) — the same trade
   // the watchlist cron documents and accepts.
   const claimed = await db
     .update(quotes)
@@ -73,11 +92,10 @@ export async function GET(request: Request): Promise<NextResponse> {
       assignedDispatcherId: quotes.assignedDispatcherId,
     });
 
-  const toAlert = claimed;
   let sent = 0;
   let failed = 0;
 
-  for (const q of toAlert) {
+  for (const q of claimed) {
     const overdueMin = Math.max(
       0,
       Math.round((now.getTime() - q.slaDeadlineAt.getTime()) / 60_000),
@@ -86,17 +104,88 @@ export async function GET(request: Request): Promise<NextResponse> {
       ? Math.round((now.getTime() - q.receivedAt.getTime()) / 60_000)
       : null;
     const result = await sendDispatchAlert({
-      subject: `[${q.quoteCode}] SLA BREACHED — ${overdueMin} min past the 30-min promise`,
-      headline: `${q.quoteCode} has blown the 30-minute promise.`,
+      subject: `[${q.quoteCode}] Reply overdue — ${overdueMin} min past the ${promiseMinutes}-minute promise`,
+      headline: `${q.quoteCode} has blown the ${promiseMinutes}-minute promise.`,
       lines: [
-        `Status: ${q.status}${q.assignedDispatcherId ? "" : " · UNASSIGNED"}.`,
-        ageMin != null ? `The customer has been waiting ${ageMin} minutes.` : "",
-        "They were told options arrive within 30 minutes — get them something now, even a holding note.",
+        `Status: ${q.status}${q.assignedDispatcherId ? "" : " · nobody has taken it yet"}.`,
+        ageMin != null ? `The client has been waiting ${ageMin} minutes.` : "",
+        `They were told options arrive within ${promiseMinutes} minutes — get them something now, even a holding note.`,
       ].filter(Boolean),
-      link: { label: "Open the quote", url: `https://jetnine.com/admin/requests/${q.id}` },
+      link: { label: "Open the request", url: `${base}/admin/requests/${q.id}` },
     });
     if (result.ok) sent += 1;
     else failed += 1;
+  }
+
+  // ── Pass 2: due soon ──────────────────────────────────────────────────
+  // Only the staff who asked for it. With nobody subscribed the pass is a
+  // no-op (the breach pass still covers the shared inbox).
+  const dueSoonRecipients = await recipientsFor("replyDueSoon");
+  let dueSoon = 0;
+  let dueSoonSent = 0;
+  let dueSoonFailed = 0;
+
+  if (dueSoonRecipients.length > 0) {
+    const soon = new Date(now.getTime() + DUE_SOON_MINUTES * 60_000);
+    const candidates = await db
+      .select({
+        id: quotes.id,
+        quoteCode: quotes.quoteCode,
+        status: quotes.status,
+        slaDeadlineAt: quotes.slaDeadlineAt,
+        contactSnapshot: quotes.contactSnapshot,
+        assignedDispatcherId: quotes.assignedDispatcherId,
+      })
+      .from(quotes)
+      .where(
+        sql`${quotes.status} in ('submitted', 'triaged', 'sourcing')
+          and ${quotes.slaDeadlineAt} > ${now.toISOString()}::timestamptz
+          and ${quotes.slaDeadlineAt} <= ${soon.toISOString()}::timestamptz
+          and not exists (
+            select 1 from ${auditLog}
+            where ${auditLog.subjectType} = 'quote'
+              and ${auditLog.subjectId} = ${quotes.id}
+              and ${auditLog.action} = ${DUE_SOON_ACTION}
+          )`,
+      )
+      .orderBy(asc(quotes.slaDeadlineAt))
+      .limit(MAX_ALERTS_PER_RUN);
+
+    dueSoon = candidates.length;
+
+    for (const q of candidates) {
+      const minutesLeft = Math.max(1, Math.round((q.slaDeadlineAt.getTime() - now.getTime()) / 60_000));
+      const name = clientName(q.contactSnapshot);
+
+      // Claim before sending so the next tick skips this quote.
+      await logAudit({
+        actorUserId: null,
+        actorRole: "system",
+        action: DUE_SOON_ACTION,
+        subjectType: "quote",
+        subjectId: q.id,
+        subjectCode: q.quoteCode,
+        metadata: { minutesLeft, recipients: dueSoonRecipients.length },
+      });
+
+      const result = await sendDispatchAlert({
+        subject: `[${q.quoteCode}] Reply due in ${minutesLeft} min — ${name}`,
+        headline: `${name} is due a reply in ${minutesLeft} minutes.`,
+        lines: [
+          `The ${promiseMinutes}-minute promise runs out at ${q.slaDeadlineAt.toLocaleTimeString("en-US", {
+            hour: "numeric",
+            minute: "2-digit",
+            timeZone: "America/Los_Angeles",
+          })} Los Angeles time.`,
+          q.assignedDispatcherId ? "" : "Nobody has taken this request yet.",
+          "Send options, or a holding note so the clock stops on our side.",
+        ].filter(Boolean),
+        link: { label: "Open the request", url: `${base}/admin/requests/${q.id}` },
+        to: dueSoonRecipients,
+      });
+      if (result.ok) dueSoonSent += 1;
+      else dueSoonFailed += 1;
+    }
   }
 
   return NextResponse.json({
@@ -104,5 +193,9 @@ export async function GET(request: Request): Promise<NextResponse> {
     breached: claimed.length,
     alerted: sent,
     failed,
+    dueSoon,
+    dueSoonAlerted: dueSoonSent,
+    dueSoonFailed,
+    dueSoonRecipients: dueSoonRecipients.length,
   });
 }

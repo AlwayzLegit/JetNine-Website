@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition, type FormEvent } from "react";
+import { useEffect, useRef, useState, useTransition, type FormEvent } from "react";
 import { Bubble } from "@/components/admin/messages/bubble";
 import { channelWords, isTeamOnly, messageWhen } from "@/components/admin/messages/words";
 
@@ -116,6 +116,11 @@ export function MessageThread({
   const addressDefault =
     current.needs === "email" ? defaultEmail ?? "" : current.needs === "phone" ? defaultPhone ?? "" : "";
   const now = new Date();
+  const scrollRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  }, [list.length]);
 
   function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -159,8 +164,8 @@ export function MessageThread({
 
   return (
     <div className={`flex min-h-0 flex-1 flex-col ${compact ? "gap-4" : "gap-5"}`}>
-      {/* Bubbles */}
-      <div className={`flex flex-col ${compact ? "gap-3" : "gap-3.5"}`}>
+      {/* Bubbles — scroll to the newest when the pane has a fixed height */}
+      <div ref={scrollRef} className={`flex min-h-0 flex-1 flex-col overflow-y-auto ${compact ? "gap-3" : "gap-3.5"}`}>
         {list.length === 0 ? (
           <p className="rounded-card border border-dashed border-line-2 bg-surface px-5 py-6 text-center text-[15px] text-bone-2">
             No messages yet. The first one starts the thread.

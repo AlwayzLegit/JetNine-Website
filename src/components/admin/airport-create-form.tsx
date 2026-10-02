@@ -19,12 +19,12 @@ export function AirportCreateForm() {
     startTransition(async () => {
       const result = await createAirport(data);
       if (result.ok) {
-        setMsg({ tone: "ok", text: `ADDED — ${result.icao}` });
+        setMsg({ tone: "ok", text: `Added ${result.icao} — opening it now.` });
         form.reset();
         // Navigate into the new detail page so they can add FBOs.
         router.push(`/admin/airports/${result.id}`);
       } else {
-        setMsg({ tone: "error", text: `BLOCKED — ${result.error.toUpperCase()}` });
+        setMsg({ tone: "error", text: result.error });
       }
     });
   }
@@ -42,24 +42,24 @@ export function AirportCreateForm() {
   }
 
   return (
-    <div className="rounded-[4px] border border-clearance bg-ink-2 p-5">
-      <div className="mb-4 flex items-baseline justify-between">
-        <p className="caption text-clearance">— Add airport</p>
+    <div className="card card-highlight w-full p-5">
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <h3 className="label-jn text-[13px]">Add airport</h3>
         <button
           type="button"
           onClick={() => {
             setOpen(false);
             setMsg(null);
           }}
-          className="font-mono text-[10px] uppercase tracking-[0.14em] text-bone-2 hover:text-bone"
+          className="btn btn-secondary h-9 px-3.5 text-[14px]"
         >
-          Close ✕
+          Close
         </button>
       </div>
       <form onSubmit={onSubmit} className="flex flex-col gap-4">
         <div className="grid grid-cols-1 gap-3 md:grid-cols-[1fr_1fr_1fr]">
           <div className="field-jn">
-            <label htmlFor="ap-icao">ICAO (4)</label>
+            <label htmlFor="ap-icao">ICAO (4 letters)</label>
             <input
               id="ap-icao"
               name="icao"
@@ -72,7 +72,7 @@ export function AirportCreateForm() {
             />
           </div>
           <div className="field-jn">
-            <label htmlFor="ap-iata">IATA (3, optional)</label>
+            <label htmlFor="ap-iata">IATA (3 letters, optional)</label>
             <input
               id="ap-iata"
               name="iata"
@@ -83,7 +83,7 @@ export function AirportCreateForm() {
             />
           </div>
           <div className="field-jn">
-            <label htmlFor="ap-country">Country (ISO-2)</label>
+            <label htmlFor="ap-country">Country (2-letter code)</label>
             <input
               id="ap-country"
               name="countryIso2"
@@ -139,7 +139,7 @@ export function AirportCreateForm() {
             />
           </div>
           <div className="field-jn">
-            <label htmlFor="ap-tz">Timezone (IANA)</label>
+            <label htmlFor="ap-tz">Time zone (IANA)</label>
             <input
               id="ap-tz"
               name="tz"
@@ -152,17 +152,12 @@ export function AirportCreateForm() {
 
         <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
           {msg ? (
-            <span
-              className={[
-                "font-mono text-[11px] uppercase tracking-[0.12em]",
-                msg.tone === "error" ? "text-[var(--error)]" : "text-[var(--success)]",
-              ].join(" ")}
-            >
+            <span className={`text-[14px] ${msg.tone === "error" ? "text-danger" : "text-success"}`}>
               {msg.text}
             </span>
           ) : (
-            <span className="font-mono text-[10px] uppercase tracking-[0.08em] text-steel">
-              — Open the airport after creating to fill in customs, runway, FBOs.
+            <span className="text-[13px] text-steel">
+              Open the airport after creating it to fill in customs, runway and FBOs.
             </span>
           )}
           <button

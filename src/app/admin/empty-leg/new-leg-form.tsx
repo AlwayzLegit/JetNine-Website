@@ -23,13 +23,13 @@ export function NewEmptyLegForm({ tails }: { tails: Tail[] }) {
       if (result.ok) {
         setMsg({
           tone: "ok",
-          text: `CLEARED — ${result.code} published` ,
+          text: `Published — ${result.code} is on the board.`,
         });
         form.reset();
         setFull(38000);
         setListed(15200);
       } else {
-        setMsg({ tone: "error", text: `BLOCKED — ${result.error.toUpperCase()}` });
+        setMsg({ tone: "error", text: result.error });
       }
     });
   }
@@ -37,12 +37,12 @@ export function NewEmptyLegForm({ tails }: { tails: Tail[] }) {
   return (
     <form onSubmit={onSubmit} className="flex flex-col gap-8">
       {/* Aircraft */}
-      <Section n="01" title="Aircraft">
+      <Section title="Aircraft">
         <div className="field-jn">
-          <label htmlFor="aircraftTail">Tail</label>
+          <label htmlFor="aircraftTail">Aircraft</label>
           <select id="aircraftTail" name="aircraftTail" required defaultValue="">
             <option value="" disabled>
-              — Pick a tail —
+              Pick an aircraft
             </option>
             {tails.map((t) => (
               <option key={t.tail} value={t.tail}>
@@ -51,30 +51,28 @@ export function NewEmptyLegForm({ tails }: { tails: Tail[] }) {
             ))}
           </select>
         </div>
-        <p className="mt-1.5 font-mono text-[10px] uppercase tracking-[0.08em] text-steel">
-          — Must already exist in /admin/aircraft
-        </p>
+        <p className="mt-2 text-[13px] text-steel">Only aircraft already on file under Aircraft are listed.</p>
       </Section>
 
       {/* Route */}
-      <Section n="02" title="Route">
+      <Section title="Route">
         <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-          <TextField name="fromIcao" label="From ICAO" placeholder="KVNY" required />
-          <TextField name="fromIata" label="From IATA" placeholder="VNY" />
+          <TextField name="fromIcao" label="From (ICAO)" placeholder="KVNY" required />
+          <TextField name="fromIata" label="From (IATA)" placeholder="VNY" />
           <TextField name="fromCity" label="From city" placeholder="Los Angeles" />
-          <TextField name="toIcao" label="To ICAO" placeholder="KTEB" required />
-          <TextField name="toIata" label="To IATA" placeholder="TEB" />
+          <TextField name="toIcao" label="To (ICAO)" placeholder="KTEB" required />
+          <TextField name="toIata" label="To (IATA)" placeholder="TEB" />
           <TextField name="toCity" label="To city" placeholder="New York" />
         </div>
         <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-3">
-          <DateTimeField name="wheelsUpAt" label="Wheels-up (local)" required />
-          <NumberField name="flightMinutes" label="Flight time (min)" placeholder="290" />
-          <NumberField name="distanceNm" label="Distance (NM)" placeholder="2151" />
+          <DateTimeField name="wheelsUpAt" label="Departure (local time)" required />
+          <NumberField name="flightMinutes" label="Flight time (minutes)" placeholder="290" />
+          <NumberField name="distanceNm" label="Distance (nautical miles)" placeholder="2151" />
         </div>
       </Section>
 
       {/* Pricing */}
-      <Section n="03" title="Pricing">
+      <Section title="Pricing">
         <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
           <NumberField
             name="seats"
@@ -86,7 +84,7 @@ export function NewEmptyLegForm({ tails }: { tails: Tail[] }) {
           />
           <NumberField
             name="fullCharterRefUsd"
-            label="Full charter ref ($)"
+            label="Full charter price ($)"
             value={full}
             onValueChange={(n) => setFull(n)}
             min={1000}
@@ -101,27 +99,23 @@ export function NewEmptyLegForm({ tails }: { tails: Tail[] }) {
             required
           />
         </div>
-        <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-3 items-end">
+        <div className="mt-3 grid grid-cols-1 items-end gap-3 md:grid-cols-3">
           <div>
-            <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-steel">
-              — Discount auto-computed
-            </div>
+            <div className="text-[13px] text-bone-2">Discount (worked out for you)</div>
             <div
               className={[
                 "mt-2 font-serif text-[32px] font-light leading-none",
-                discount < 30 ? "text-[var(--warn)]" : "text-clearance",
+                discount < 30 ? "text-gold" : "text-success",
               ].join(" ")}
               style={{ letterSpacing: "-0.02em" }}
             >
               {discount}% off
             </div>
-            <p className="mt-2 font-mono text-[10px] uppercase tracking-[0.08em] text-steel">
-              — Floor 30%, publish blocked if &lt; 5%.
-            </p>
+            <p className="mt-2 text-[13px] text-steel">Floor is 30%; publishing is blocked under 5%.</p>
           </div>
           <NumberField
             name="minDiscountPct"
-            label="Min discount (floor)"
+            label="Minimum discount (floor)"
             placeholder="30"
             min={0}
             max={80}
@@ -129,13 +123,13 @@ export function NewEmptyLegForm({ tails }: { tails: Tail[] }) {
           />
           <CheckboxField
             name="autoPriceDecay"
-            label="Auto-decay 5%/day to floor"
+            label="Lower the price 5% a day down to the floor"
           />
         </div>
       </Section>
 
       {/* Copy */}
-      <Section n="04" title="Copy">
+      <Section title="Copy">
         <TextField
           name="headline"
           label="Headline"
@@ -149,7 +143,7 @@ export function NewEmptyLegForm({ tails }: { tails: Tail[] }) {
       </Section>
 
       {/* Visibility */}
-      <Section n="05" title="Visibility">
+      <Section title="Visibility">
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
           <CheckboxField name="visPublic" label="Public board" defaultChecked />
           <CheckboxField name="visMemberMatch" label="Member watchlist match" defaultChecked />
@@ -159,31 +153,24 @@ export function NewEmptyLegForm({ tails }: { tails: Tail[] }) {
       </Section>
 
       {/* Status */}
-      <Section n="06" title="Status">
-        <div className="field-jn max-w-[280px]">
+      <Section title="Status">
+        <div className="field-jn max-w-[320px]">
           <label htmlFor="status">Publish state</label>
           <select id="status" name="status" defaultValue="draft">
             <option value="draft">Draft — not visible</option>
-            <option value="scheduled">Scheduled — pre-board-go-live</option>
-            <option value="live">Live — public board now</option>
+            <option value="scheduled">Scheduled — goes live later</option>
+            <option value="live">Live — on the public board now</option>
           </select>
         </div>
       </Section>
 
-      <div className="flex flex-wrap items-center justify-between gap-4 border-t border-ink-3 pt-8">
+      <div className="flex flex-wrap items-center justify-between gap-4 border-t border-line pt-6">
         {msg ? (
-          <span
-            className={[
-              "font-mono text-[11px] uppercase tracking-[0.12em]",
-              msg.tone === "error" ? "text-[var(--error)]" : "text-[var(--success)]",
-            ].join(" ")}
-          >
+          <span className={`text-[14px] ${msg.tone === "error" ? "text-danger" : "text-success"}`}>
             {msg.text}
           </span>
         ) : (
-          <p className="font-mono text-[10px] uppercase tracking-[0.08em] text-steel">
-            — Code (EL-YYYY-NNNN) is auto-generated by the DB trigger.
-          </p>
+          <p className="text-[13px] text-steel">The reference code (EL-YYYY-NNNN) is generated automatically.</p>
         )}
         <button
           type="submit"
@@ -198,24 +185,15 @@ export function NewEmptyLegForm({ tails }: { tails: Tail[] }) {
 }
 
 function Section({
-  n,
   title,
   children,
 }: {
-  n: string;
   title: string;
   children: React.ReactNode;
 }) {
   return (
-    <section className="grid gap-4 lg:grid-cols-[180px_1fr] lg:gap-10">
-      <div>
-        <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-clearance">
-          — {n}
-        </span>
-        <h2 className="mt-3 font-serif text-[20px] font-normal leading-[1.2] tracking-tight text-bone">
-          {title}
-        </h2>
-      </div>
+    <section className="grid gap-3 lg:grid-cols-[160px_1fr] lg:gap-8">
+      <h3 className="label-jn text-[13px] lg:pt-1">{title}</h3>
       <div>{children}</div>
     </section>
   );
@@ -324,14 +302,14 @@ function CheckboxField({
   defaultChecked?: boolean;
 }) {
   return (
-    <label className="flex h-full cursor-pointer items-center gap-3 rounded-[4px] border border-ink-3 bg-ink-2 px-5 py-4">
+    <label className="flex h-full cursor-pointer items-center gap-3 rounded-control border border-line bg-surface-2 px-4 py-3">
       <input
         type="checkbox"
         name={name}
         defaultChecked={defaultChecked}
         className="h-4 w-4 accent-clearance"
       />
-      <span className="text-[14px] text-bone">{label}</span>
+      <span className="text-[15px] text-bone">{label}</span>
     </label>
   );
 }

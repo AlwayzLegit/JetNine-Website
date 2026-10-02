@@ -10,6 +10,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { logAudit } from "@/lib/audit";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { sendDispatchAlert } from "@/lib/email";
+import { recipientsFor } from "@/lib/desk-settings";
 import { STATUS_TOKEN_RE, statusPath } from "@/lib/request-status";
 
 export type ChooseResult = { ok: true } | { ok: false; error: string };
@@ -128,6 +129,8 @@ export async function chooseOption(token: string, optionId: string): Promise<Cho
         `Confirm with the operator and convert the quote to a trip.`,
       ],
       link: { label: "Open the request", url: `${base}/admin/requests/${q.id}` },
+      // Staff who turned on "A client picks an option"; empty → shared inbox.
+      to: await recipientsFor("clientPick"),
     });
   } catch (err) {
     console.error("chooseOption dispatch alert failed", err);

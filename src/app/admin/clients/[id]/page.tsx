@@ -1,72 +1,67 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { asc, desc, eq, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, notInArray, sql } from "drizzle-orm";
+import type { ReactNode } from "react";
 import { db } from "@/db";
 import { members } from "@/db/schema/members";
 import { users } from "@/db/schema/users";
 import { staff } from "@/db/schema/staff";
-import { memberPreferences } from "@/db/schema/member-prefs";
-import { memberLanes, companions } from "@/db/schema/member-prefs";
+import { aircraft } from "@/db/schema/aircraft";
+import { airports } from "@/db/schema/airports";
+import { memberPreferences, memberLanes, companions, memberDocuments } from "@/db/schema/member-prefs";
 import { memberships, reserveTransactions } from "@/db/schema/memberships";
-import { trips } from "@/db/schema/trips";
+import { trips, tripLegs } from "@/db/schema/trips";
 import { invoices } from "@/db/schema/invoices";
-import { quotes } from "@/db/schema/quotes";
+import { quotes, quoteLegs } from "@/db/schema/quotes";
 import { formatUSD } from "@/lib/quote-pricing";
+import { formatDay, relativeTime } from "@/lib/request-page";
+import {
+  invoiceWords,
+  isCardOrReserve,
+  passengersWords,
+  personName,
+  requestStage,
+  tierWords,
+  tripState,
+} from "@/lib/desk-status";
+import { ContactButtons, DeskCard, DeskHeader, DeskPage, DotSentence, StatusPill } from "@/components/admin/desk-ui";
 import { ReserveTxForm } from "@/components/admin/reserve-tx-form";
+import {
+  ACCOUNT_STATUS_WORDS,
+  DOC_WORDS,
+  RELATION_WORDS,
+  cabinChips,
+  cateringWords,
+  dayAndClock,
+  groundWords,
+  isReserveProgram,
+  ledgerKindWords,
+  monthYear,
+  privacyChips,
+  reachWords,
+  routeFromLegs,
+  shortDay,
+  shortStamp,
+} from "@/components/admin/clients/client-words";
 
 export const dynamic = "force-dynamic";
 
 type Props = { params: Promise<{ id: string }> };
 
-const TIER_LABEL: Record<string, string> = {
-  on_demand: "On-demand",
-  card_100: "Card · 100",
-  card_250: "Card · 250",
-  card_500: "Card · 500",
-  reserve_50: "Reserve · 50",
-  reserve_100: "Reserve · 100",
-  reserve_250: "Reserve · 250",
-  reserve_500_apply: "Reserve · 500 (apply)",
+const INVOICE_KIND_WORDS: Record<string, string> = {
+  charter: "Charter",
+  credit: "Credit",
+  refund: "Refund",
+  top_up: "Deposit",
+  renewal: "Renewal",
 };
 
-const MEMBER_STATUS_CLASS: Record<string, string> = {
-  active: "border-[var(--success)] text-[var(--success)]",
-  paused: "border-[var(--warn)] text-[var(--warn)]",
-  closed: "border-steel text-steel",
-};
+const PAST_TRIP_STATUSES = ["wheels_down", "completed", "cancelled_wx", "cancelled_other"] as const;
 
-const TRIP_STATUS_CLASS: Record<string, string> = {
-  confirmed: "border-clearance text-clearance",
-  airborne: "border-[var(--warn)] text-[var(--warn)]",
-  completed: "border-[var(--success)] text-[var(--success)]",
-  cancelled_wx: "border-[var(--error)] text-[var(--error)]",
-  cancelled_other: "border-[var(--error)] text-[var(--error)]",
-};
-
-const INVOICE_STATUS_CLASS: Record<string, string> = {
-  draft: "border-bone-2 text-bone-2",
-  due: "border-[var(--warn)] text-[var(--warn)]",
-  overdue: "border-[var(--error)] text-[var(--error)]",
-  paid: "border-[var(--success)] text-[var(--success)]",
-  credit: "border-clearance text-clearance",
-  void: "border-steel text-steel",
-};
-
-const QUOTE_STATUS_CLASS: Record<string, string> = {
-  submitted: "border-clearance text-clearance",
-  triaged: "border-bone-2 text-bone",
-  sourcing: "border-[var(--warn)] text-[var(--warn)]",
-  options_sent: "border-bone text-bone",
-  held: "border-ink-4 text-steel",
-  accepted: "border-[var(--success)] text-[var(--success)]",
-  declined: "border-[var(--error)] text-[var(--error)]",
-  expired: "border-steel text-steel",
-  cancelled: "border-steel text-steel",
-  converted: "border-[var(--success)] text-[var(--success)]",
-};
-
-export default async function AdminMemberDetailPage({ params }: Props) {
+export default async function AdminClientPage({ params }: Props) {
   const { id } = await params;
+  const now = new Date();
+  const today = now.toISOString().slice(0, 10);
 
   const [memberRow] = await db
     .select({
@@ -104,10 +99,7 @@ export default async function AdminMemberDetailPage({ params }: Props) {
         .where(eq(staff.id, memberRow.primaryDispatcherId))
     : [];
 
-  const [prefs] = await db
-    .select()
-    .from(memberPreferences)
-    .where(eq(memberPreferences.memberId, id));
+  const [prefs] = await db.select().from(memberPreferences).where(eq(memberPreferences.memberId, id));
 
   const lanesList = await db
     .select()
@@ -120,6 +112,18 @@ export default async function AdminMemberDetailPage({ params }: Props) {
     .from(companions)
     .where(eq(companions.memberId, id))
     .orderBy(asc(companions.legalName));
+
+  const documentsList = await db
+    .select({
+      id: memberDocuments.id,
+      docType: memberDocuments.docType,
+      countryIso2: memberDocuments.countryIso2,
+      expiresOn: memberDocuments.expiresOn,
+      isPrimary: memberDocuments.isPrimary,
+    })
+    .from(memberDocuments)
+    .where(eq(memberDocuments.memberId, id))
+    .orderBy(desc(memberDocuments.isPrimary), asc(memberDocuments.docType));
 
   const programs = await db
     .select()
@@ -144,6 +148,7 @@ export default async function AdminMemberDetailPage({ params }: Props) {
       missionType: trips.missionType,
       paxCount: trips.paxCount,
       revenueUsd: trips.revenueUsd,
+      aircraftId: trips.aircraftId,
       createdAt: trips.createdAt,
     })
     .from(trips)
@@ -151,13 +156,72 @@ export default async function AdminMemberDetailPage({ params }: Props) {
     .orderBy(desc(trips.createdAt))
     .limit(10);
 
+  // Everything still to fly, to pick the next trip for "Upcoming".
+  const openTrips = await db
+    .select({
+      id: trips.id,
+      status: trips.status,
+      paxCount: trips.paxCount,
+      revenueUsd: trips.revenueUsd,
+      aircraftId: trips.aircraftId,
+    })
+    .from(trips)
+    .where(and(eq(trips.memberId, id), notInArray(trips.status, [...PAST_TRIP_STATUSES])));
+
+  const tripIds = Array.from(new Set([...tripsList.map((t) => t.id), ...openTrips.map((t) => t.id)]));
+  const legRows = tripIds.length
+    ? await db
+        .select({
+          tripId: tripLegs.tripId,
+          fromIata: tripLegs.fromIata,
+          fromCity: tripLegs.fromCity,
+          fromName: tripLegs.fromName,
+          toIata: tripLegs.toIata,
+          toCity: tripLegs.toCity,
+          toName: tripLegs.toName,
+          departDate: tripLegs.departDate,
+          departTime: tripLegs.departTime,
+        })
+        .from(tripLegs)
+        .where(inArray(tripLegs.tripId, tripIds))
+        .orderBy(asc(tripLegs.legNumber))
+    : [];
+  const legsByTrip = new Map<string, typeof legRows>();
+  for (const l of legRows) legsByTrip.set(l.tripId, [...(legsByTrip.get(l.tripId) ?? []), l]);
+  const legsOf = (tripId: string) => legsByTrip.get(tripId) ?? [];
+  const nextLegOf = (tripId: string) => {
+    const legs = legsOf(tripId);
+    return legs.find((l) => l.departDate != null && l.departDate >= today) ?? legs[0] ?? null;
+  };
+
+  const upcoming = openTrips
+    .filter((t) => {
+      const legs = legsOf(t.id);
+      if (legs.every((l) => l.departDate == null)) return true; // dates not set yet
+      const next = nextLegOf(t.id)?.departDate;
+      return next != null && next >= today;
+    })
+    .sort((a, b) => (nextLegOf(a.id)?.departDate ?? "9999").localeCompare(nextLegOf(b.id)?.departDate ?? "9999"));
+  const nextTrip = upcoming[0] ?? null;
+
+  const [nextAircraft] = nextTrip?.aircraftId
+    ? await db
+        .select({ makeModel: aircraft.makeModel })
+        .from(aircraft)
+        .where(eq(aircraft.id, nextTrip.aircraftId))
+        .limit(1)
+    : [];
+
   const invoicesList = await db
     .select({
       id: invoices.id,
       invoiceCode: invoices.invoiceCode,
       status: invoices.status,
+      kind: invoices.kind,
       issuedOn: invoices.issuedOn,
+      dueOn: invoices.dueOn,
       totalUsd: invoices.totalUsd,
+      tripId: invoices.tripId,
       tripCode: trips.tripCode,
     })
     .from(invoices)
@@ -180,19 +244,38 @@ export default async function AdminMemberDetailPage({ params }: Props) {
     .orderBy(desc(quotes.receivedAt))
     .limit(10);
 
+  const quoteLegRows = quotesList.length
+    ? await db
+        .select({
+          quoteId: quoteLegs.quoteId,
+          fromIata: quoteLegs.fromIata,
+          fromCity: quoteLegs.fromCity,
+          fromName: quoteLegs.fromName,
+          toIata: quoteLegs.toIata,
+          toCity: quoteLegs.toCity,
+          toName: quoteLegs.toName,
+          departDate: quoteLegs.departDate,
+        })
+        .from(quoteLegs)
+        .where(
+          inArray(
+            quoteLegs.quoteId,
+            quotesList.map((q) => q.id),
+          ),
+        )
+        .orderBy(asc(quoteLegs.legNumber))
+    : [];
+  const legsByQuote = new Map<string, typeof quoteLegRows>();
+  for (const l of quoteLegRows) legsByQuote.set(l.quoteId, [...(legsByQuote.get(l.quoteId) ?? []), l]);
+
   const [lifetimeInvoicedRow] = await db
     .select({
       total: sql<number>`coalesce(sum(${invoices.totalUsd}), 0)::int`,
     })
     .from(invoices)
-    .where(
-      sql`${invoices.memberId} = ${id} and ${invoices.status} in ('paid','due','overdue')`,
-    );
+    .where(sql`${invoices.memberId} = ${id} and ${invoices.status} in ('paid','due','overdue')`);
   const lifetimeInvoiced = lifetimeInvoicedRow?.total ?? 0;
 
-  const displayName =
-    [memberRow.firstName, memberRow.lastName].filter(Boolean).join(" ") ||
-    memberRow.email;
   const recentLedger = await db
     .select({
       id: reserveTransactions.id,
@@ -206,541 +289,466 @@ export default async function AdminMemberDetailPage({ params }: Props) {
     .orderBy(desc(reserveTransactions.occurredAt))
     .limit(8);
 
+  // Lanes are stored as ICAO pairs; the desk reads them as cities.
+  const laneIcaos = Array.from(new Set(lanesList.flatMap((l) => [l.fromIcao, l.toIcao])));
+  const laneAirports = laneIcaos.length
+    ? await db
+        .select({ icao: airports.icao, city: airports.city, name: airports.name })
+        .from(airports)
+        .where(inArray(airports.icao, laneIcaos))
+    : [];
+  const cityOf = new Map(laneAirports.map((a) => [a.icao, a.city || a.name]));
+  const laneCity = (icao: string) => cityOf.get(icao) ?? icao;
+
+  // ── Words ─────────────────────────────────────────────────────────────
+  const displayName = personName(memberRow.firstName, memberRow.lastName, memberRow.email);
+  const phone = memberRow.mobileE164 ?? memberRow.phoneE164 ?? null;
+  const program = activeProgram?.program ?? memberRow.tier;
+  const isMember = isCardOrReserve(program);
+  const reserve = isReserveProgram(program);
+  const memberSince = monthYear(memberRow.memberSince);
+  const lead = [memberRow.email, phone, memberSince ? `Member since ${memberSince}` : null, tierWords(program)]
+    .filter(Boolean)
+    .join(" · ");
+
+  const prefBlocks: { label: string; text?: string | null; chips?: string[] }[] = prefs
+    ? [
+        { label: "How to reach them", text: reachWords(prefs) },
+        { label: "Cabin", chips: cabinChips(prefs) },
+        { label: "Catering", text: cateringWords(prefs) },
+        { label: "Ground", text: groundWords(prefs) },
+        { label: "Privacy", chips: privacyChips(prefs) },
+        { label: "Standing notes", text: prefs.standingCateringNotes },
+      ].filter((b) => (b.text ? true : (b.chips?.length ?? 0) > 0))
+    : [];
+
+  const nextLeg = nextTrip ? nextLegOf(nextTrip.id) : null;
+  const nextRoute = nextTrip ? routeFromLegs(legsOf(nextTrip.id)) : null;
+  const nextWhen = nextLeg ? dayAndClock(nextLeg.departDate, nextLeg.departTime) : null;
+  const nextState = nextTrip ? tripState(nextTrip.status) : null;
+
   return (
-    <div className="container-jn py-8">
-      {/* Top bar */}
-      <div className="mb-8 flex flex-wrap items-end justify-between gap-6 border-b border-ink-3 pb-6">
-        <div>
-          <nav className="font-mono text-[10px] uppercase tracking-[0.14em] text-bone-2">
-            <Link href="/admin/clients" className="transition-colors hover:text-clearance">
-              Members
-            </Link>{" "}
-            <span className="text-steel">/</span>{" "}
-            <span className="text-bone">{memberRow.memberCode}</span>
-          </nav>
-          <div className="mt-3 flex flex-wrap items-baseline gap-4">
-            <span
-              className="font-serif text-[40px] font-light leading-none tracking-tight text-bone"
-              style={{ letterSpacing: "-0.02em" }}
-            >
-              {displayName}
+    <DeskPage>
+      <DeskHeader
+        back={{ href: "/admin/clients", label: "All clients" }}
+        title={displayName}
+        lead={
+          <>
+            {lead}
+            <span className="mt-1 block text-[13px] text-steel">
+              Reference {memberRow.memberCode}
+              {memberRow.companyName
+                ? ` · ${memberRow.companyName}${memberRow.roleTitle ? `, ${memberRow.roleTitle}` : ""}`
+                : null}
             </span>
-            <span
-              className={[
-                "rounded-full border px-2.5 py-0.5 font-mono text-[10px] uppercase tracking-[0.14em]",
-                MEMBER_STATUS_CLASS[memberRow.status] ?? "border-ink-3 text-bone-2",
-              ].join(" ")}
-            >
-              {memberRow.status}
-            </span>
-            <span className="rounded-[2px] border border-ink-3 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.12em] text-clearance">
-              {TIER_LABEL[memberRow.tier] ?? memberRow.tier}
-            </span>
-            <span className="font-mono text-[10px] uppercase tracking-[0.08em] text-steel">
-              {memberRow.memberCode}
-            </span>
-          </div>
-          {memberRow.companyName ? (
-            <p className="mt-2 font-mono text-[11px] uppercase tracking-[0.08em] text-bone-2">
-              {memberRow.companyName}
-              {memberRow.roleTitle ? ` · ${memberRow.roleTitle}` : ""}
-            </p>
-          ) : null}
-        </div>
-        <dl className="flex flex-wrap gap-x-10 gap-y-3 text-right">
-          {[
-            ["LIFETIME TRIPS", String(memberRow.lifetimeTripsCache ?? 0)],
-            ["LIFETIME HOURS", String(memberRow.lifetimeHoursCache ?? 0)],
-            ["LIFETIME INVOICED", formatUSD(lifetimeInvoiced)],
-            ["RESERVE BALANCE", formatUSD(balance)],
-          ].map(([lbl, val]) => (
-            <div key={lbl} className="flex flex-col items-end">
-              <dt className="font-mono text-[10px] uppercase tracking-[0.14em] text-steel">{lbl}</dt>
-              <dd className="mt-1 font-serif text-[22px] font-light leading-none text-bone">{val}</dd>
-            </div>
-          ))}
-        </dl>
-      </div>
+          </>
+        }
+        actions={
+          <>
+            {memberRow.status !== "active" ? (
+              <StatusPill tone={memberRow.status === "closed" ? "danger" : "steel"}>
+                Account {ACCOUNT_STATUS_WORDS[memberRow.status]?.toLowerCase() ?? memberRow.status}
+              </StatusPill>
+            ) : null}
+            <ContactButtons phone={phone} email={memberRow.email} size="md" />
+          </>
+        }
+      />
 
-      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1.3fr_1fr]">
-        {/* LEFT COLUMN */}
-        <div className="flex flex-col gap-6">
-          {/* Contact + ID */}
-          <section className="rounded-[4px] border border-ink-3 bg-ink-2 p-6">
-            <h2 className="caption mb-5">— Contact &amp; ID</h2>
-            <dl className="grid grid-cols-[140px_1fr] gap-x-4 gap-y-3 text-[12px]">
-              <Row k="— Email">
-                <a
-                  href={`mailto:${memberRow.email}`}
-                  className="font-mono tracking-[0.04em] text-clearance hover:underline"
-                >
-                  {memberRow.email}
-                </a>
-              </Row>
-              <Row k="— Mobile">
-                {memberRow.mobileE164 || memberRow.phoneE164 ? (
-                  <a
-                    href={`tel:${memberRow.mobileE164 ?? memberRow.phoneE164}`}
-                    className="font-mono tracking-[0.04em] text-clearance hover:underline"
-                  >
-                    {memberRow.mobileE164 ?? memberRow.phoneE164}
-                  </a>
-                ) : (
-                  <span className="text-steel">—</span>
-                )}
-              </Row>
-              <Row k="— Legal name">
-                <span className="text-bone">{memberRow.legalName ?? "—"}</span>
-              </Row>
-              <Row k="— Preferred">
-                <span className="text-bone">{memberRow.preferredName ?? "—"}</span>
-              </Row>
-              <Row k="— Member since">
-                <span className="font-mono text-[11px] tracking-[0.04em] text-bone-2">
-                  {memberRow.memberSince ?? "—"}
-                </span>
-              </Row>
-              <Row k="— Tier since">
-                <span className="font-mono text-[11px] tracking-[0.04em] text-bone-2">
-                  {memberRow.tierSince ?? "—"}
-                </span>
-              </Row>
-              <Row k="— 2FA">
-                <span className="font-mono text-[11px] uppercase tracking-[0.12em]">
-                  <span
-                    className={
-                      memberRow.twoFactorEnabled ? "text-[var(--success)]" : "text-bone-2"
-                    }
-                  >
-                    {memberRow.twoFactorEnabled ? "Enabled" : "Disabled"}
-                  </span>
-                </span>
-              </Row>
-              <Row k="— Marketing">
-                <span className="font-mono text-[11px] uppercase tracking-[0.12em] text-bone-2">
-                  {memberRow.marketingOptIn ? "Opted-in" : "Opted-out"}
-                </span>
-              </Row>
-              <Row k="— Dispatcher">
-                {dispatcherRow ? (
-                  <span className="text-bone">{dispatcherRow.displayName}</span>
-                ) : (
-                  <span className="text-steel">— Unassigned</span>
-                )}
-              </Row>
-            </dl>
-          </section>
-
-          {/* Preferences */}
-          <section className="rounded-[4px] border border-ink-3 bg-ink-2 p-6">
-            <div className="mb-5 flex items-baseline justify-between">
-              <h2 className="caption">— Preferences</h2>
-              {prefs ? (
-                <span className="font-mono text-[10px] uppercase tracking-[0.08em] text-steel">
-                  Updated {prefs.updatedAt.toISOString().slice(0, 10)}
-                </span>
-              ) : null}
-            </div>
-            {prefs ? (
-              <div className="grid grid-cols-1 gap-x-6 gap-y-5 md:grid-cols-2">
-                <PrefBlock label="Cabin defaults">
-                  <ChipList
-                    items={[
-                      prefs.cabinWifi ? "Wi-Fi" : null,
-                      prefs.cabinStandup ? "Stand-up" : null,
-                      prefs.cabinLavatoryEnclosed ? "Enclosed lav" : null,
-                      prefs.cabinLieflat
-                        ? `Lie-flat ≥ ${prefs.lieflatMinHours}h`
-                        : null,
-                      prefs.cabinFlightAttendant ? "Flight attendant" : null,
-                      prefs.cabinPetFriendly ? "Pet" : null,
-                    ].filter(Boolean) as string[]}
-                  />
-                </PrefBlock>
-                <PrefBlock label="Catering">
-                  <span className="font-mono text-[11px] uppercase tracking-[0.08em] text-bone">
-                    {prefs.cateringTier}
-                  </span>
-                  {prefs.dietary ? (
-                    <p className="mt-1 text-[12px] text-bone-2">{prefs.dietary}</p>
-                  ) : null}
-                  {prefs.barPreferences ? (
-                    <p className="mt-1 text-[12px] text-bone-2">Bar: {prefs.barPreferences}</p>
-                  ) : null}
-                </PrefBlock>
-                <PrefBlock label="Ground">
-                  <span className="font-mono text-[11px] uppercase tracking-[0.08em] text-bone">
-                    {prefs.groundType.replace(/_/g, " ")}
-                  </span>
-                  {prefs.groundVendor ? (
-                    <p className="mt-1 text-[12px] text-bone-2">{prefs.groundVendor}</p>
-                  ) : null}
-                  <p className="mt-1 font-mono text-[10px] uppercase tracking-[0.08em] text-steel">
-                    Arrival window {prefs.arrivalWindowMinutes} min
+      <div className="mt-8 grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
+        {/* ── Left column ─────────────────────────────────────────── */}
+        <div className="flex min-w-0 flex-col gap-4">
+          <DeskCard title="Upcoming">
+            {nextTrip && nextState ? (
+              <div className="mt-3 flex flex-wrap items-start justify-between gap-4">
+                <div className="min-w-0">
+                  <div className="title-card-sm text-bone">{nextRoute ?? "Route being set up"}</div>
+                  <p className="mt-1 text-[15px] text-bone-2">
+                    {[
+                      nextLeg?.departDate === today ? "Today" : nextWhen,
+                      passengersWords(nextTrip.paxCount),
+                      nextAircraft?.makeModel ?? null,
+                    ]
+                      .filter(Boolean)
+                      .join(" · ")}
                   </p>
-                </PrefBlock>
-                <PrefBlock label="Comms">
-                  <ChipList
-                    items={[
-                      prefs.commsVoice ? "Voice" : null,
-                      prefs.commsEmail ? "Email" : null,
-                      prefs.commsSmsUpdates ? "SMS updates" : null,
-                      prefs.commsSmsEmptyLeg ? "SMS empty-leg" : null,
-                    ].filter(Boolean) as string[]}
-                  />
-                  {prefs.quietHoursStart && prefs.quietHoursEnd ? (
-                    <p className="mt-2 font-mono text-[10px] uppercase tracking-[0.08em] text-bone-2">
-                      Quiet {prefs.quietHoursStart}–{prefs.quietHoursEnd}{" "}
-                      {prefs.quietHoursTz ?? ""}
-                    </p>
-                  ) : null}
-                  <p className="mt-1 font-mono text-[10px] uppercase tracking-[0.08em] text-steel">
-                    Empty-leg threshold {prefs.emptyLegAlertThresholdPct}%+
-                  </p>
-                </PrefBlock>
-                <PrefBlock label="Privacy">
-                  <ChipList
-                    items={[
-                      prefs.anonymizeManifest ? "Anonymize manifest" : null,
-                      prefs.blockFlightTracking ? "Block flight tracking" : null,
-                    ].filter(Boolean) as string[]}
-                  />
-                  {!prefs.anonymizeManifest && !prefs.blockFlightTracking ? (
-                    <span className="text-[11px] text-steel">— No privacy holds</span>
-                  ) : null}
-                </PrefBlock>
-                {prefs.standingCateringNotes ? (
-                  <PrefBlock label="Standing catering notes">
-                    <p className="text-[12px] leading-[1.55] text-bone">
-                      {prefs.standingCateringNotes}
-                    </p>
-                  </PrefBlock>
-                ) : null}
+                  <DotSentence tone={nextState.dot} className="mt-2 text-[15px] text-bone">
+                    {nextState.label}
+                  </DotSentence>
+                </div>
+                <Link href={`/admin/trips/${nextTrip.id}`} className="btn btn-secondary btn-sm">
+                  Open the trip
+                </Link>
               </div>
             ) : (
-              <p className="text-[13px] leading-[1.55] text-steel">
-                — No preferences set. Member hasn&rsquo;t customized defaults yet.
+              <p className="mt-3 text-[15px] text-steel">
+                Nothing booked.
+                {quotesList.some((q) => requestStage(q.status).key !== "closed" && requestStage(q.status).key !== "booked")
+                  ? " A request is open below."
+                  : ""}
               </p>
             )}
-          </section>
+          </DeskCard>
 
-          {/* Trips */}
-          <section className="rounded-[4px] border border-ink-3 bg-ink-2 p-6">
-            <div className="mb-5 flex items-baseline justify-between">
-              <h2 className="caption">— Recent trips · {tripsList.length}</h2>
-              <Link
-                href="/admin/trips"
-                className="font-mono text-[10px] uppercase tracking-[0.14em] text-bone-2 transition-colors hover:text-clearance"
-              >
+          <DeskCard
+            title="Trips"
+            actions={
+              <Link href="/admin/trips" className="text-[14px] text-steel transition-colors hover:text-bone">
                 All trips →
               </Link>
-            </div>
+            }
+          >
             {tripsList.length === 0 ? (
-              <p className="text-[13px] text-steel">— No trips on file.</p>
+              <p className="mt-3 text-[15px] text-steel">No trips yet.</p>
             ) : (
-              <ul className="divide-y divide-ink-3">
-                {tripsList.map((t) => (
-                  <li
-                    key={t.id}
-                    className="grid grid-cols-[auto_1fr_auto_auto] items-baseline gap-4 py-3"
-                  >
-                    <Link
-                      href={`/admin/trips/${t.id}`}
-                      className="font-mono text-[11px] tracking-[0.04em] text-clearance hover:underline"
-                    >
-                      {t.tripCode}
-                    </Link>
-                    <span className="font-mono text-[10px] uppercase tracking-[0.08em] text-bone">
-                      {t.missionType.replace(/_/g, " ")} · {t.paxCount} pax
-                    </span>
-                    <span
-                      className={[
-                        "inline-block rounded-full border px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.14em]",
-                        TRIP_STATUS_CLASS[t.status] ?? "border-ink-3 text-bone-2",
-                      ].join(" ")}
-                    >
-                      {t.status.replace(/_/g, " ")}
-                    </span>
-                    <span className="font-mono text-[11px] tracking-[0.04em] text-bone">
-                      {t.revenueUsd ? formatUSD(t.revenueUsd) : "—"}
-                    </span>
-                  </li>
-                ))}
+              <ul className="mt-2">
+                {tripsList.map((t) => {
+                  const legs = legsOf(t.id);
+                  const first = nextLegOf(t.id);
+                  const state = tripState(t.status);
+                  return (
+                    <ListRow key={t.id} href={`/admin/trips/${t.id}`}>
+                      <span className="min-w-0">
+                        <span className="block truncate font-medium text-bone">
+                          {routeFromLegs(legs) ?? "Route being set up"}
+                        </span>
+                        <span className="block text-[14px] text-steel">
+                          {[formatDay(first?.departDate), passengersWords(t.paxCount)].filter(Boolean).join(" · ")}
+                        </span>
+                      </span>
+                      <DotSentence tone={state.dot} className="text-bone-2">
+                        {state.label}
+                      </DotSentence>
+                      <span className="text-right text-bone">{t.revenueUsd ? formatUSD(t.revenueUsd) : "—"}</span>
+                    </ListRow>
+                  );
+                })}
               </ul>
             )}
-          </section>
+          </DeskCard>
 
-          {/* Recent quotes */}
-          <section className="rounded-[4px] border border-ink-3 bg-ink-2 p-6">
-            <div className="mb-5 flex items-baseline justify-between">
-              <h2 className="caption">— Recent quotes · {quotesList.length}</h2>
-              <Link
-                href="/admin/requests"
-                className="font-mono text-[10px] uppercase tracking-[0.14em] text-bone-2 transition-colors hover:text-clearance"
-              >
-                Inbox →
+          <DeskCard
+            title="Requests"
+            actions={
+              <Link href="/admin/requests" className="text-[14px] text-steel transition-colors hover:text-bone">
+                All requests →
               </Link>
-            </div>
+            }
+          >
             {quotesList.length === 0 ? (
-              <p className="text-[13px] text-steel">— No quotes on file.</p>
+              <p className="mt-3 text-[15px] text-steel">No requests yet.</p>
             ) : (
-              <ul className="divide-y divide-ink-3">
-                {quotesList.map((q) => (
-                  <li
-                    key={q.id}
-                    className="grid grid-cols-[auto_1fr_auto_auto] items-baseline gap-4 py-3"
-                  >
-                    <Link
-                      href={`/admin/requests/${q.id}`}
-                      className="font-mono text-[11px] tracking-[0.04em] text-clearance hover:underline"
-                    >
-                      {q.quoteCode}
-                    </Link>
-                    <span className="font-mono text-[10px] uppercase tracking-[0.08em] text-bone-2">
-                      {q.paxCount} pax · {q.receivedAt?.toISOString().slice(0, 10) ?? "—"}
-                    </span>
-                    <span
-                      className={[
-                        "inline-block rounded-full border px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.14em]",
-                        QUOTE_STATUS_CLASS[q.status] ?? "border-ink-3 text-bone-2",
-                      ].join(" ")}
-                    >
-                      {q.status.replace(/_/g, " ")}
-                    </span>
-                    {q.convertedTripId ? (
-                      <Link
-                        href={`/admin/trips/${q.convertedTripId}`}
-                        className="font-mono text-[10px] uppercase tracking-[0.14em] text-clearance hover:underline"
-                      >
-                        → trip
-                      </Link>
-                    ) : (
-                      <span />
-                    )}
-                  </li>
-                ))}
+              <ul className="mt-2">
+                {quotesList.map((q) => {
+                  const legs = legsByQuote.get(q.id) ?? [];
+                  const stage = requestStage(q.status);
+                  return (
+                    <ListRow key={q.id} href={`/admin/requests/${q.id}`}>
+                      <span className="min-w-0">
+                        <span className="block truncate font-medium text-bone">
+                          {routeFromLegs(legs) ?? "Route not set"}
+                        </span>
+                        <span className="block text-[14px] text-steel">
+                          {[formatDay(legs[0]?.departDate), passengersWords(q.paxCount)].filter(Boolean).join(" · ")}
+                        </span>
+                      </span>
+                      <DotSentence tone={stage.dot} className="text-bone-2">
+                        {stage.label}
+                      </DotSentence>
+                      <span className="text-right text-[14px] text-steel">
+                        {q.receivedAt ? `Received ${relativeTime(q.receivedAt, now).toLowerCase()}` : ""}
+                      </span>
+                    </ListRow>
+                  );
+                })}
               </ul>
             )}
-          </section>
+          </DeskCard>
+
+          <DeskCard title="Invoices">
+            {invoicesList.length === 0 ? (
+              <p className="mt-3 text-[15px] text-steel">Nothing invoiced yet.</p>
+            ) : (
+              <ul className="mt-2">
+                {invoicesList.map((i) => {
+                  const words =
+                    i.status === "credit" ? { text: "Credit", tone: "steel" as const } : invoiceWords(i.status, i.dueOn, now);
+                  const route = i.tripId ? routeFromLegs(legsOf(i.tripId)) : null;
+                  return (
+                    <ListRow key={i.id}>
+                      <span className="min-w-0">
+                        <span className="block truncate font-medium text-bone">
+                          {[INVOICE_KIND_WORDS[i.kind] ?? i.kind, route].filter(Boolean).join(" · ")}
+                        </span>
+                        <span className="block text-[14px] text-steel">
+                          Issued {shortDay(i.issuedOn, now)}
+                          {i.dueOn && i.status === "due" ? ` · due ${shortDay(i.dueOn, now)}` : ""}
+                        </span>
+                      </span>
+                      <DotSentence tone={words.tone} className="text-bone-2">
+                        {words.text}
+                      </DotSentence>
+                      <span className="text-right text-bone">{i.totalUsd ? formatUSD(i.totalUsd) : "—"}</span>
+                    </ListRow>
+                  );
+                })}
+              </ul>
+            )}
+          </DeskCard>
         </div>
 
-        {/* RIGHT COLUMN */}
-        <div className="flex flex-col gap-6">
-          {/* Active program + balance */}
-          {activeProgram ? (
-            <section className="rounded-[4px] border border-clearance bg-[rgba(232,226,210,0.04)] p-6">
-              <p className="caption mb-3">— Active program</p>
-              <div className="font-serif text-[24px] font-normal leading-tight text-bone">
-                {TIER_LABEL[activeProgram.program] ?? activeProgram.program}
-              </div>
-              <div
-                className="mt-3 font-serif text-[44px] font-light leading-none tracking-tight text-bone"
-                style={{ letterSpacing: "-0.02em" }}
-              >
-                {formatUSD(balance)}
-              </div>
-              <p className="mt-2 font-mono text-[10px] uppercase tracking-[0.12em] text-steel">
-                Current reserve balance
-              </p>
-              <dl className="mt-5 grid grid-cols-2 gap-x-6 gap-y-3 border-t border-ink-3 pt-4 text-[11px]">
-                <Row k="Callout">
-                  <span className="font-mono text-bone">{activeProgram.calloutHours}h</span>
-                </Row>
-                <Row k="Rate lock">
-                  <span className="font-mono text-bone">{activeProgram.rateLockMonths}mo</span>
-                </Row>
-                <Row k="Cashback">
-                  <span className="font-mono text-clearance">{activeProgram.cashbackPct}%</span>
-                </Row>
-                <Row k="Cards">
-                  <span className="font-mono text-bone">
-                    {activeProgram.namedCardholdersLimit === 99
-                      ? "Unlimited"
-                      : activeProgram.namedCardholdersLimit}
-                  </span>
-                </Row>
-              </dl>
-            </section>
-          ) : (
-            <section className="rounded-[4px] border border-ink-3 bg-ink-2 p-6">
-              <p className="caption mb-3">— No active program</p>
-              <p className="text-[13px] leading-[1.55] text-bone-2">
-                Member is on-demand. Use this row to enroll in a Card / Reserve program.
-              </p>
-            </section>
-          )}
-
-          {/* Post a ledger entry */}
-          <section className="rounded-[4px] border border-clearance bg-[rgba(232,226,210,0.04)] p-6">
-            <h2 className="caption mb-4">— Post ledger entry</h2>
-            <ReserveTxForm memberId={memberRow.id} />
-          </section>
-
-          {/* Recent ledger */}
-          <section className="rounded-[4px] border border-ink-3 bg-ink-2 p-6">
-            <h2 className="caption mb-4">— Reserve ledger · last 8</h2>
-            {recentLedger.length === 0 ? (
-              <p className="text-[13px] text-steel">— No ledger activity.</p>
+        {/* ── Right column ────────────────────────────────────────── */}
+        <div className="flex min-w-0 flex-col gap-4">
+          <DeskCard
+            title="Good to know"
+            actions={
+              prefs ? <span className="text-[13px] text-steel">Updated {shortStamp(prefs.updatedAt, now)}</span> : null
+            }
+          >
+            {!prefs ? (
+              <p className="mt-3 text-[15px] text-steel">Nothing on file yet. They can set preferences from their account.</p>
+            ) : prefBlocks.length === 0 ? (
+              <p className="mt-3 text-[15px] text-steel">Nothing beyond the usual defaults.</p>
             ) : (
-              <ul className="flex flex-col gap-2 text-[12px]">
-                {recentLedger.map((tx) => (
-                  <li
-                    key={tx.id}
-                    className="grid grid-cols-[68px_1fr_auto] items-baseline gap-3"
-                  >
-                    <span className="font-mono text-[10px] uppercase tracking-[0.08em] text-steel">
-                      {tx.occurredAt.toISOString().slice(0, 10)}
-                    </span>
-                    <span className="text-bone">
-                      <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-clearance">
-                        {tx.kind.replace(/_/g, " ")}
-                      </span>
-                      {tx.description ? (
-                        <span className="ml-2 text-bone-2">{tx.description}</span>
-                      ) : null}
-                    </span>
-                    <span
-                      className={[
-                        "font-mono tracking-[0.04em]",
-                        tx.amountUsd >= 0 ? "text-[var(--success)]" : "text-bone",
-                      ].join(" ")}
-                    >
-                      {tx.amountUsd >= 0 ? "+" : ""}
-                      {formatUSD(tx.amountUsd)}
-                    </span>
-                  </li>
+              <div className="mt-3 flex flex-col gap-4">
+                {prefBlocks.map((b) => (
+                  <PrefBlock key={b.label} label={b.label}>
+                    {b.chips ? (
+                      <ChipList items={b.chips} />
+                    ) : (
+                      <p className="text-[15px] leading-[1.5] text-bone">{b.text}</p>
+                    )}
+                  </PrefBlock>
                 ))}
-              </ul>
+              </div>
             )}
-          </section>
+          </DeskCard>
 
-          {/* Companions */}
-          <section className="rounded-[4px] border border-ink-3 bg-ink-2 p-6">
-            <h2 className="caption mb-4">— Companions · {companionsList.length}</h2>
+          <DeskCard title="Who travels with them">
             {companionsList.length === 0 ? (
-              <p className="text-[13px] text-steel">— None on file.</p>
+              <p className="mt-3 text-[15px] text-steel">Nobody added yet.</p>
             ) : (
-              <ul className="flex flex-col gap-3">
-                {companionsList.map((c) => (
-                  <li key={c.id} className="rounded-[3px] border border-ink-3 bg-ink p-3">
-                    <div className="flex items-baseline justify-between">
-                      <span className="font-serif text-[15px] text-bone">{c.legalName}</span>
-                      <span className="font-mono text-[9px] uppercase tracking-[0.14em] text-clearance">
-                        {c.relation}
-                      </span>
-                    </div>
-                    {c.relation === "pet" && c.speciesBreed ? (
-                      <div className="mt-1 font-mono text-[10px] uppercase tracking-[0.08em] text-bone-2">
-                        {c.speciesBreed}
-                        {c.weightLb ? ` · ${c.weightLb} lb` : ""}
-                      </div>
-                    ) : null}
-                    {c.apisComplete ? (
-                      <div className="mt-1 font-mono text-[10px] uppercase tracking-[0.08em] text-[var(--success)]">
-                        APIS complete
-                      </div>
-                    ) : null}
-                  </li>
-                ))}
+              <ul className="mt-2 flex flex-col">
+                {companionsList.map((c) => {
+                  const facts = [
+                    RELATION_WORDS[c.relation] ?? c.relation,
+                    c.relation === "pet" ? c.speciesBreed : null,
+                    c.relation === "pet" && c.weightLb ? `${c.weightLb} lb` : null,
+                    c.apisComplete ? "travel details on file" : null,
+                    c.ccOnItinerary ? "copied on itineraries" : null,
+                  ].filter(Boolean);
+                  return (
+                    <li key={c.id} className="border-b border-line-faint py-3 last:border-b-0 last:pb-0">
+                      <div className="text-[15px] font-medium text-bone">{c.legalName}</div>
+                      <div className="text-[14px] text-steel">{facts.join(" · ")}</div>
+                      {c.notes ? <div className="mt-0.5 text-[14px] text-bone-2">{c.notes}</div> : null}
+                    </li>
+                  );
+                })}
               </ul>
             )}
-          </section>
+          </DeskCard>
 
-          {/* Lanes */}
-          <section className="rounded-[4px] border border-ink-3 bg-ink-2 p-6">
-            <h2 className="caption mb-4">— Frequent lanes · {lanesList.length}</h2>
+          <DeskCard title="Usual routes">
             {lanesList.length === 0 ? (
-              <p className="text-[13px] text-steel">— None recorded yet.</p>
+              <p className="mt-3 text-[15px] text-steel">Nothing regular yet.</p>
             ) : (
-              <ul className="flex flex-col gap-2">
-                {lanesList.map((l) => (
-                  <li
-                    key={l.id}
-                    className="grid grid-cols-[1fr_auto] items-baseline gap-3"
-                  >
-                    <span className="font-mono text-[11px] tracking-[0.06em] text-clearance">
-                      {l.fromIcao} → {l.toIcao}
-                    </span>
-                    <span className="font-mono text-[10px] tracking-[0.04em] text-bone-2">
-                      {l.frequencyPerYear ? `${l.frequencyPerYear}× / yr` : "—"}
-                      {l.seasonal ? " · seasonal" : ""}
-                    </span>
-                  </li>
-                ))}
+              <ul className="mt-2 flex flex-col">
+                {lanesList.map((l) => {
+                  const facts = [
+                    l.frequencyPerYear ? `${l.frequencyPerYear} ${l.frequencyPerYear === 1 ? "time" : "times"} a year` : null,
+                    l.seasonal ? "seasonal" : null,
+                    l.lastFlownAt ? `last flown ${shortDay(l.lastFlownAt, now)}` : null,
+                  ].filter(Boolean);
+                  return (
+                    <li key={l.id} className="border-b border-line-faint py-3 last:border-b-0 last:pb-0">
+                      <div className="text-[15px] font-medium text-bone">
+                        {laneCity(l.fromIcao)} → {laneCity(l.toIcao)}
+                      </div>
+                      {facts.length ? <div className="text-[14px] text-steel">{facts.join(" · ")}</div> : null}
+                    </li>
+                  );
+                })}
               </ul>
             )}
-          </section>
+          </DeskCard>
 
-          {/* Invoices */}
-          <section className="rounded-[4px] border border-ink-3 bg-ink-2 p-6">
-            <h2 className="caption mb-4">— Recent invoices · {invoicesList.length}</h2>
-            {invoicesList.length === 0 ? (
-              <p className="text-[13px] text-steel">— None yet.</p>
-            ) : (
-              <ul className="divide-y divide-ink-3">
-                {invoicesList.map((i) => (
-                  <li
-                    key={i.id}
-                    className="grid grid-cols-[auto_1fr_auto_auto] items-baseline gap-3 py-2 text-[11px]"
-                  >
-                    <span className="font-mono tracking-[0.04em] text-clearance">
-                      {i.invoiceCode}
-                    </span>
-                    <span className="font-mono text-bone-2">
-                      {i.tripCode ?? "—"} · {String(i.issuedOn)}
-                    </span>
-                    <span
-                      className={[
-                        "inline-block rounded-full border px-1.5 py-0.5 font-mono text-[8px] uppercase tracking-[0.14em]",
-                        INVOICE_STATUS_CLASS[i.status] ?? "border-ink-3 text-bone-2",
-                      ].join(" ")}
+          <DeskCard title="Membership">
+            <div className="mt-3">
+              <div className={`text-[17px] font-medium ${isMember ? "text-bone" : "text-steel"}`}>{tierWords(program)}</div>
+              {reserve || balance !== 0 ? (
+                <>
+                  <div className="mt-2 font-serif text-[32px] font-light leading-none text-bone">{formatUSD(balance)}</div>
+                  <div className="mt-1 text-[14px] text-steel">left in the reserve</div>
+                </>
+              ) : !isMember ? (
+                <p className="mt-1 text-[14px] text-steel">Pays per flight.</p>
+              ) : null}
+            </div>
+
+            {activeProgram ? (
+              <dl className="dl-jn mt-4 gap-y-2 border-t border-line pt-4">
+                <dt>Call-out</dt>
+                <dd>{activeProgram.calloutHours} hours</dd>
+                <dt>Rates locked</dt>
+                <dd>{activeProgram.rateLockMonths} months</dd>
+                <dt>Cashback</dt>
+                <dd>{Number(activeProgram.cashbackPct)}%</dd>
+                <dt>Cardholders</dt>
+                <dd>{activeProgram.namedCardholdersLimit === 99 ? "Unlimited" : activeProgram.namedCardholdersLimit}</dd>
+                <dt>Since</dt>
+                <dd>{monthYear(activeProgram.activatedOn) ?? "—"}</dd>
+                {activeProgram.nextRenewalDate ? (
+                  <>
+                    <dt>Renews</dt>
+                    <dd>
+                      {monthYear(activeProgram.nextRenewalDate)}
+                      {activeProgram.autoRenew ? " · automatically" : ""}
+                    </dd>
+                  </>
+                ) : activeProgram.expiresOn ? (
+                  <>
+                    <dt>Ends</dt>
+                    <dd>{monthYear(activeProgram.expiresOn)}</dd>
+                  </>
+                ) : null}
+              </dl>
+            ) : null}
+
+            <div className="mt-5 border-t border-line pt-4">
+              <h3 className="text-[13px] font-semibold text-steel">Reserve ledger</h3>
+              {recentLedger.length === 0 ? (
+                <p className="mt-2 text-[15px] text-steel">No entries yet.</p>
+              ) : (
+                <ul className="mt-1 flex flex-col">
+                  {recentLedger.map((tx) => (
+                    <li
+                      key={tx.id}
+                      className="grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-3 border-b border-line-faint py-2.5 last:border-b-0"
                     >
-                      {i.status}
-                    </span>
-                    <span className="font-mono tracking-[0.04em] text-bone">
-                      {i.totalUsd ? formatUSD(i.totalUsd) : "—"}
-                    </span>
-                  </li>
-                ))}
+                      <span className="min-w-0">
+                        <span className="block text-[15px] text-bone">
+                          {shortStamp(tx.occurredAt, now)} · {ledgerKindWords(tx.kind)}
+                        </span>
+                        {tx.description ? (
+                          <span className="block truncate text-[13px] text-steel">{tx.description}</span>
+                        ) : null}
+                      </span>
+                      <span className={`text-[15px] ${tx.amountUsd >= 0 ? "text-success" : "text-bone"}`}>
+                        {tx.amountUsd >= 0 ? "+" : "−"}
+                        {formatUSD(Math.abs(tx.amountUsd))}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              <details className="mt-3">
+                <summary className="btn btn-secondary btn-sm cursor-pointer list-none [&::-webkit-details-marker]:hidden">
+                  Add a ledger entry
+                </summary>
+                <div className="mt-3 rounded-control border border-line bg-surface-2/40 p-4">
+                  <ReserveTxForm memberId={memberRow.id} />
+                </div>
+              </details>
+            </div>
+          </DeskCard>
+
+          <DeskCard title="Account">
+            <dl className="dl-jn mt-3 gap-y-2">
+              <dt>Legal name</dt>
+              <dd>{memberRow.legalName ?? "—"}</dd>
+              <dt>Goes by</dt>
+              <dd>{memberRow.preferredName ?? "—"}</dd>
+              <dt>Company</dt>
+              <dd>
+                {memberRow.companyName
+                  ? `${memberRow.companyName}${memberRow.roleTitle ? ` · ${memberRow.roleTitle}` : ""}`
+                  : "—"}
+              </dd>
+              <dt>Dispatcher</dt>
+              <dd className={dispatcherRow ? "" : "text-steel"}>{dispatcherRow?.displayName ?? "Not assigned"}</dd>
+              <dt>Account</dt>
+              <dd>{ACCOUNT_STATUS_WORDS[memberRow.status] ?? memberRow.status}</dd>
+              <dt>Two-step sign-in</dt>
+              <dd>{memberRow.twoFactorEnabled ? "On" : "Off"}</dd>
+              <dt>Marketing email</dt>
+              <dd>{memberRow.marketingOptIn ? "Yes" : "No"}</dd>
+              <dt>Member since</dt>
+              <dd>{memberSince ?? "—"}</dd>
+              {memberRow.tierSince ? (
+                <>
+                  <dt>Membership since</dt>
+                  <dd>{monthYear(memberRow.tierSince)}</dd>
+                </>
+              ) : null}
+              <dt>Flown with us</dt>
+              <dd>
+                {memberRow.lifetimeTripsCache} {memberRow.lifetimeTripsCache === 1 ? "flight" : "flights"} ·{" "}
+                {memberRow.lifetimeHoursCache} hours
+              </dd>
+              <dt>Billed to date</dt>
+              <dd>{formatUSD(lifetimeInvoiced)}</dd>
+            </dl>
+          </DeskCard>
+
+          {documentsList.length > 0 ? (
+            <DeskCard title="Documents">
+              <ul className="mt-2 flex flex-col">
+                {documentsList.map((d) => {
+                  const expires = monthYear(d.expiresOn);
+                  const facts = [
+                    d.countryIso2 ?? null,
+                    expires ? `expires ${expires}` : null,
+                    d.isPrimary ? "primary" : null,
+                  ].filter(Boolean);
+                  return (
+                    <li key={d.id} className="border-b border-line-faint py-3 last:border-b-0 last:pb-0">
+                      <div className="text-[15px] font-medium text-bone">{DOC_WORDS[d.docType] ?? d.docType}</div>
+                      {facts.length ? <div className="text-[14px] text-steel">{facts.join(" · ")}</div> : null}
+                    </li>
+                  );
+                })}
               </ul>
-            )}
-          </section>
+              <p className="mt-3 text-[13px] text-steel">Numbers stay encrypted; only the type and expiry show here.</p>
+            </DeskCard>
+          ) : null}
         </div>
       </div>
-    </div>
+    </DeskPage>
   );
 }
 
-function Row({ k, children }: { k: string; children: React.ReactNode }) {
+/** Route · state · amount row inside a DeskCard; the whole row is the link. */
+function ListRow({ href, children }: { href?: string; children: ReactNode }) {
+  const cls = "grid grid-cols-1 items-center gap-x-6 gap-y-1 py-3.5 text-[15px] md:grid-cols-[minmax(0,1fr)_200px_110px]";
   return (
-    <>
-      <dt className="font-mono text-[10px] uppercase tracking-[0.14em] text-steel">{k}</dt>
-      <dd>{children}</dd>
-    </>
+    <li className="border-b border-line-faint last:border-b-0">
+      {href ? (
+        <Link href={href} className={`${cls} -mx-2 rounded-control px-2 transition-colors hover:bg-surface-2/50`}>
+          {children}
+        </Link>
+      ) : (
+        <div className={cls}>{children}</div>
+      )}
+    </li>
   );
 }
 
-function PrefBlock({ label, children }: { label: string; children: React.ReactNode }) {
+function PrefBlock({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div>
-      <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-steel">
-        — {label}
-      </span>
-      <div className="mt-2">{children}</div>
+      <div className="text-[13px] text-steel">{label}</div>
+      <div className="mt-1.5">{children}</div>
     </div>
   );
 }
 
 function ChipList({ items }: { items: string[] }) {
-  if (items.length === 0)
-    return <span className="font-mono text-[10px] uppercase tracking-[0.08em] text-steel">— None</span>;
+  if (items.length === 0) return <span className="text-[15px] text-steel">None</span>;
   return (
-    <div className="flex flex-wrap gap-1.5">
+    <div className="flex flex-wrap gap-2">
       {items.map((it) => (
-        <span
-          key={it}
-          className="rounded-full border border-ink-3 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.12em] text-bone"
-        >
+        <span key={it} className="chip chip-sm cursor-default">
           {it}
         </span>
       ))}

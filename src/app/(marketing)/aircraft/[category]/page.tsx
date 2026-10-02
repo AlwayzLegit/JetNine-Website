@@ -182,7 +182,7 @@ export default async function AircraftCategoryPage({ params }: RouteParams) {
           <p className="lead mt-5 max-w-[58ch]">{plainWords(entry.reach.lead)}</p>
 
           <div className="card mt-10 overflow-hidden">
-            <div className="overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            <div tabIndex={0} role="region" aria-label="Specifications — scrolls sideways" className="relative overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
               <table className="table-jn min-w-[560px] [&_td:first-child]:pl-6 [&_td:last-child]:pr-6 [&_th:first-child]:pl-6 [&_th:last-child]:pr-6">
                 <thead>
                   <tr>

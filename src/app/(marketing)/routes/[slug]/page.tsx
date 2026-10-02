@@ -202,7 +202,7 @@ export default async function RoutePage({ params }: RouteParams) {
         <div className="container-jn grid items-end gap-10 lg:grid-cols-[1.4fr_1fr]">
           <div>
             <p className="eyebrow">
-              <Link href="/routes" className="transition-colors hover:text-bone">
+              <Link href="/routes" className="tap-pad transition-colors hover:text-bone">
                 Routes
               </Link>
               <span aria-hidden> · </span>

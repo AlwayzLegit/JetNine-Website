@@ -32,7 +32,7 @@ function plainLane(s: string) {
 export function RateTable({ footnote = true }: { footnote?: boolean }) {
   return (
     <>
-      <div className="card overflow-x-auto">
+      <div className="card relative overflow-x-auto" tabIndex={0} role="region" aria-label="Rates by category — scrolls sideways">
         <table className="table-jn min-w-[720px]">
           <thead>
             <tr>

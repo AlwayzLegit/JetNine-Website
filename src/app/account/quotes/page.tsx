@@ -4,6 +4,8 @@ import { db } from "@/db";
 import { quotes, quoteLegs } from "@/db/schema/quotes";
 import { getCurrentUser, requireUser } from "@/lib/auth";
 import { getMemberByUserId } from "@/lib/member";
+import { getReplyPromiseMinutes } from "@/lib/desk-settings";
+import { replyPromiseWords } from "@/lib/desk-status";
 import { CATEGORY_PLAIN, USD, formatDay } from "@/lib/request-page";
 import { statusPath } from "@/lib/request-status";
 import { QuoteRow } from "@/components/account/quotes-row";
@@ -21,6 +23,8 @@ export default async function AccountQuotesPage() {
   // when a signed-in visitor submits before dispatch creates their member
   // profile — cover both.
   const member = await getMemberByUserId(user.id);
+  // Reply-time promise from the desk setting (Settings › Notifications).
+  const replyMinutes = await getReplyPromiseMinutes();
   const ownership = member
     ? or(eq(quotes.createdByUserId, user.id), eq(quotes.memberId, member.id))
     : eq(quotes.createdByUserId, user.id);
@@ -70,8 +74,8 @@ export default async function AccountQuotesPage() {
     <>
       <h1 className="title-app">Your quotes</h1>
       <p className="mt-2.5 text-[17px] text-bone-2">
-        Every request you&rsquo;ve sent, newest first. Dispatch replies within 30 minutes during operating
-        hours — open a row to track it.
+        Every request you&rsquo;ve sent, newest first. Dispatch replies {replyPromiseWords(replyMinutes)} during
+        operating hours — open a row to track it.
       </p>
 
       {rows.length === 0 ? (
@@ -115,7 +119,7 @@ export default async function AccountQuotesPage() {
                     </>
                   }
                   meta={meta}
-                  status={quoteStatusWords(q.status, q.slaDeadlineAt)}
+                  status={quoteStatusWords(q.status, q.slaDeadlineAt, undefined, replyMinutes)}
                   aside={indicative}
                 />
               </li>

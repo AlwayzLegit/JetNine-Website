@@ -80,6 +80,9 @@ async function phoneChecks(browser: Browser, path: string, r: PageResult) {
     userAgent:
       "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1",
   });
+  // tsx/esbuild wraps named functions with a `__name` helper that does not
+  // exist inside the page; define a no-op so page.evaluate bodies run.
+  await ctx.addInitScript("globalThis.__name = (f) => f;");
   const page = await ctx.newPage();
   try {
     const resp = await page.goto(BASE + path, { waitUntil: "networkidle", timeout: 30_000 });
@@ -131,6 +134,14 @@ async function phoneChecks(browser: Browser, path: string, r: PageResult) {
       for (const el of controls) {
         if (!visible(el)) continue;
         if (el.closest("[aria-hidden='true']")) continue;
+        // Skip links are 1px until focused; range inputs are judged by their thumb.
+        if ((el as HTMLElement).classList.contains("sr-only")) continue;
+        if ((el as HTMLInputElement).type === "range") continue;
+        // An input inside a label/field box: the box is the real target.
+        if (el.tagName === "INPUT" || el.tagName === "SELECT" || el.tagName === "TEXTAREA") {
+          const box = el.closest("label") ?? el.parentElement;
+          if (box && box.getBoundingClientRect().height >= 44) continue;
+        }
         if (el.tagName === "A") {
           // Inline text links inside running text are exempt.
           const parent = el.parentElement;

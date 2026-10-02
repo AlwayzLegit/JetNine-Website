@@ -10,6 +10,7 @@ import {
   type NewReserveTransaction,
 } from "@/db/schema/memberships";
 import { logAudit } from "@/lib/audit";
+import { tierWords } from "@/lib/desk-status";
 import { members } from "@/db/schema/members";
 import { users } from "@/db/schema/users";
 import { trips } from "@/db/schema/trips";
@@ -293,9 +294,9 @@ async function onMembershipToppedUp(session: Stripe.Checkout.Session): Promise<v
     }
     await sendDispatchAlert({
       subject: `[RESERVE] Top-up received — $${Math.round(amountUsd).toLocaleString("en-US")}`,
-      headline: "A member topped up their reserve.",
-      lines: [`$${Math.round(amountUsd).toLocaleString("en-US")} credited via Stripe.`],
-      link: { label: "Open members", url: "https://jetnine.com/admin/clients" },
+      headline: "A client topped up their reserve.",
+      lines: [`$${Math.round(amountUsd).toLocaleString("en-US")} added to their reserve, paid by card through Stripe.`],
+      link: { label: "Open clients", url: "https://jetnine.com/admin/clients" },
     });
   } catch (err) {
     console.error("[stripe-webhook] top-up notifications failed (non-fatal)", err);
@@ -396,12 +397,13 @@ async function onInvoicePaid(session: Stripe.Checkout.Session): Promise<void> {
     }
     await sendDispatchAlert({
       subject: `[${updated[0].invoiceCode}] Payment received${updated[0].totalUsd != null ? ` — $${Math.round(updated[0].totalUsd).toLocaleString("en-US")}` : ""}`,
-      headline: "Invoice paid.",
+      headline: "An invoice was paid.",
       lines: [
-        `Invoice ${updated[0].invoiceCode}${tripCode ? ` (trip ${tripCode})` : ""} was paid by card via Stripe.`,
+        `Paid by card through Stripe.`,
+        `Reference ${updated[0].invoiceCode}${tripCode ? ` · trip ${tripCode}` : ""}`,
       ],
       link: updated[0].tripId
-        ? { label: "Open the trip sheet", url: `https://jetnine.com/admin/trips/${updated[0].tripId}` }
+        ? { label: "Open the trip", url: `https://jetnine.com/admin/trips/${updated[0].tripId}` }
         : undefined,
     });
   } catch (err) {
@@ -451,14 +453,15 @@ async function onPaymentFailed(intent: Stripe.PaymentIntent): Promise<void> {
         });
       }
       await sendDispatchAlert({
-        subject: `[${inv.invoiceCode}] Card payment FAILED`,
-        headline: "A card payment failed.",
+        subject: `[${inv.invoiceCode}] Card payment didn't go through`,
+        headline: "A card payment didn't go through.",
         lines: [
-          `Invoice ${inv.invoiceCode} — ${intent.last_payment_error?.message ?? "no error detail from Stripe"}.`,
-          "The invoice is still due; the customer was told to retry or wire.",
+          `What Stripe said: ${intent.last_payment_error?.message ?? "no reason given"}.`,
+          `The invoice is still due.${contact ? " The client was emailed to try again or pay by bank wire." : ""}`,
+          `Reference ${inv.invoiceCode}`,
         ],
         link: inv.tripId
-          ? { label: "Open the trip sheet", url: `https://jetnine.com/admin/trips/${inv.tripId}` }
+          ? { label: "Open the trip", url: `https://jetnine.com/admin/trips/${inv.tripId}` }
           : undefined,
       });
     }
@@ -550,11 +553,11 @@ async function onMembershipPurchased(session: Stripe.Checkout.Session): Promise<
       // console.error — page the desk.
       try {
         await sendDispatchAlert({
-          subject: "ACTION REQUIRED — duplicate membership charge, refund needed",
-          headline: "Duplicate membership activation charge.",
+          subject: "Action needed — a membership was charged twice, refund needed",
+          headline: "A membership was charged twice.",
           lines: [
-            `Membership ${membershipId} (${row.program}) was charged twice — $${Math.round(row.depositUsd).toLocaleString("en-US")} needs a manual refund in Stripe.`,
-            `Payment intent: ${paymentIntentId ?? "unknown"} · session ${session.id}`,
+            `${tierWords(row.program)}: the $${Math.round(row.depositUsd).toLocaleString("en-US")} deposit was charged a second time. Refund it by hand in Stripe.`,
+            `For Stripe: payment ${paymentIntentId ?? "unknown"} · checkout session ${session.id} · membership ${membershipId}`,
           ],
         });
       } catch (err) {
@@ -616,10 +619,10 @@ async function onMembershipPurchased(session: Stripe.Checkout.Session): Promise<
       });
     }
     await sendDispatchAlert({
-      subject: `[MEMBERSHIP] ${row.program} activated — $${Math.round(row.depositUsd).toLocaleString("en-US")} deposit`,
-      headline: "A membership was purchased.",
-      lines: [`Program ${row.program}, deposit $${Math.round(row.depositUsd).toLocaleString("en-US")} credited to the reserve.`],
-      link: { label: "Open members", url: "https://jetnine.com/admin/clients" },
+      subject: `[MEMBERSHIP] ${tierWords(row.program)} bought — $${Math.round(row.depositUsd).toLocaleString("en-US")} deposit`,
+      headline: "A client bought a membership.",
+      lines: [`${tierWords(row.program)}. The $${Math.round(row.depositUsd).toLocaleString("en-US")} deposit is in their reserve.`],
+      link: { label: "Open clients", url: "https://jetnine.com/admin/clients" },
     });
   } catch (err) {
     console.error("[stripe-webhook] activation notifications failed (non-fatal)", err);

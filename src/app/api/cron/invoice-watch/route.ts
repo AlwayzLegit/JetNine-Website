@@ -7,6 +7,7 @@ import { members } from "@/db/schema/members";
 import { users } from "@/db/schema/users";
 import { logAudit } from "@/lib/audit";
 import { sendDispatchAlert, sendInvoiceReminderEmail } from "@/lib/email";
+import { formatDay } from "@/lib/request-format";
 
 // Invoice dunning — daily. Two passes:
 //   1. due → overdue: the `overdue` status existed but nothing ever
@@ -109,13 +110,14 @@ export async function GET(request: Request): Promise<NextResponse> {
         if (r.ok) overdueEmailed += 1;
       }
       await sendDispatchAlert({
-        subject: `[${inv.invoiceCode}] Invoice OVERDUE${inv.totalUsd != null ? ` — $${Math.round(inv.totalUsd).toLocaleString("en-US")}` : ""}`,
-        headline: "An invoice went overdue.",
+        subject: `[${inv.invoiceCode}] Invoice overdue${inv.totalUsd != null ? ` — $${Math.round(inv.totalUsd).toLocaleString("en-US")}` : ""}`,
+        headline: "An invoice is overdue.",
         lines: [
-          `Invoice ${inv.invoiceCode} was due ${inv.dueOn ?? "—"} and is unpaid. The member was emailed.`,
+          `It was due ${formatDay(inv.dueOn) ?? inv.dueOn ?? "—"} and hasn't been paid.${contact ? " The client was emailed a reminder." : ""}`,
+          `Reference ${inv.invoiceCode}`,
         ],
         link: inv.tripId
-          ? { label: "Open the trip sheet", url: `https://jetnine.com/admin/trips/${inv.tripId}` }
+          ? { label: "Open the trip", url: `https://jetnine.com/admin/trips/${inv.tripId}` }
           : undefined,
       });
     } catch (err) {

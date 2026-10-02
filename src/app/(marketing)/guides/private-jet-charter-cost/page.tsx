@@ -119,7 +119,7 @@ export default function CharterCostPage() {
             about ten hours of flight time. This is the same breakdown a JetNine quote itemizes
             before you accept:
           </p>
-          <div className="card mt-8 overflow-x-auto">
+          <div className="card relative mt-8 overflow-x-auto" tabIndex={0} role="region" aria-label="Price breakdown — scrolls sideways">
             <table className="table-jn min-w-[600px]">
               <tbody>
                 {PRICE_STACK.map((row) => (

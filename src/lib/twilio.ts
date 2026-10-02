@@ -1,6 +1,7 @@
 import "server-only";
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { SITE } from "@/lib/constants";
+import { plainTripText } from "@/lib/email";
 
 /**
  * Twilio outbound + inbound helpers. Ships dark when
@@ -252,7 +253,7 @@ export async function sendTripStatusSms(args: {
   const headline = STATUS_SMS_HEADLINES[args.status] ?? `JetNine: an update on your trip.`;
   // firstLeg arrives as "KVNY → KASE · 2026-06-12"; read it as
   // "Los Angeles (VNY) → Aspen (ASE) · Fri, Jun 12".
-  const itinerary = args.firstLeg ? ` (${plainTripText(args.firstLeg)})` : "";
+  const itinerary = args.firstLeg ? ` ${plainTripText(args.firstLeg)}.` : "";
   const body =
     `[${args.tripCode}] ${headline}${itinerary} ` +
     `Dispatch: ${SITE.dispatchPhone}, 24/7. Reply here to reach us.`;

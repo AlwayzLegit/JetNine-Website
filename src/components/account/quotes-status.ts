@@ -4,6 +4,8 @@
 // can act on; the tone drives the dot colour (gold = in progress, success =
 // chosen/booked, steel = closed).
 
+import { replyPromiseWords } from "@/lib/desk-status";
+
 export type StatusTone = "gold" | "success" | "steel";
 
 export type StatusWords = { text: string; tone: StatusTone };
@@ -49,13 +51,15 @@ export function quoteStatusWords(
   status: string,
   slaDeadlineAt: Date | null | undefined,
   now = new Date(),
+  /** Reply-time promise from the desk setting (`getReplyPromiseMinutes`). Default 30. */
+  replyMinutes = 30,
 ): StatusWords {
   switch (status) {
     case "draft":
       return { text: "Not sent yet", tone: "steel" };
     case "submitted":
     case "triaged":
-      return { text: "Received — dispatch picks it up within 30 minutes", tone: "gold" };
+      return { text: `Received — dispatch picks it up ${replyPromiseWords(replyMinutes)}`, tone: "gold" };
     case "sourcing":
       if (slaDeadlineAt && slaDeadlineAt.getTime() > now.getTime()) {
         return {

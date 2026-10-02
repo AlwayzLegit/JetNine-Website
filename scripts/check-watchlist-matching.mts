@@ -225,7 +225,7 @@ check(
 console.log("message copy");
 const body = smsBody(leg(), "https://jetnine.com");
 check("sms carries an opt-out", /reply STOP/i.test(body), true);
-check("sms names the route", body.includes("VNY → TEB"), true);
+check("sms names the route", body.includes("(VNY) → ") && body.includes("(TEB)"), true);
 check("sms fits one concatenated message", body.length <= 320, true);
 check(
   "email subject carries the discount",

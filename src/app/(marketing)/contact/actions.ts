@@ -50,7 +50,7 @@ export async function submitContactInquiry(formData: FormData): Promise<ContactR
   // is an autofill bot. Pretend success so the bot moves on; insert nothing.
   if (field("company")) {
     console.warn("submitContactInquiry honeypot tripped — dropping submission");
-    return { ok: true, message: "DISPATCH WILL REPLY WITHIN 30 MIN" };
+    return { ok: true, message: "Sent. Dispatch will reply within 30 minutes." };
   }
 
   // Server-side validation — the client repeats this for fast feedback,
@@ -155,7 +155,7 @@ export async function submitContactInquiry(formData: FormData): Promise<ContactR
   revalidatePath("/admin/messages");
 
   if (isSmoke) {
-    return { ok: true, message: "DISPATCH WILL REPLY WITHIN 30 MIN" };
+    return { ok: true, message: "Sent. Dispatch will reply within 30 minutes." };
   }
 
   // Fire-and-forget — never block the visitor's submit on SMTP. The email
@@ -208,5 +208,5 @@ export async function submitContactInquiry(formData: FormData): Promise<ContactR
     }
   }
 
-  return { ok: true, message: "DISPATCH WILL REPLY WITHIN 30 MIN" };
+  return { ok: true, message: "Sent. Dispatch will reply within 30 minutes." };
 }

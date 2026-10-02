@@ -124,9 +124,9 @@ export async function chooseOption(token: string, optionId: string): Promise<Cho
       subject: `[CHOSEN] ${q.code} · ${name} picked ${opt.aircraftType ?? "an option"}`,
       headline: `${name} chose an aircraft.`,
       lines: [
-        `Quote ${q.code} is now accepted.`,
+        `They picked an option on their request page.`,
         `Option: ${opt.aircraftType ?? "aircraft"} at ${new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(opt.clientPriceUsd)}.`,
-        `Confirm with the operator and convert the quote to a trip.`,
+        `Confirm with the operator, then confirm the booking so it becomes a trip.`,
       ],
       link: { label: "Open the request", url: `${base}/admin/requests/${q.id}` },
       // Staff who turned on "A client picks an option"; empty → shared inbox.

@@ -6,6 +6,7 @@ import { auditLog } from "@/db/schema/audit";
 import { quotes } from "@/db/schema/quotes";
 import { logAudit } from "@/lib/audit";
 import { getReplyPromiseMinutes, recipientsFor } from "@/lib/desk-settings";
+import { minutesWords, replyPromiseWords, requestStage } from "@/lib/desk-status";
 import { sendDispatchAlert } from "@/lib/email";
 
 // SLA watch — the site promises options within the reply-time promise
@@ -104,12 +105,13 @@ export async function GET(request: Request): Promise<NextResponse> {
       ? Math.round((now.getTime() - q.receivedAt.getTime()) / 60_000)
       : null;
     const result = await sendDispatchAlert({
-      subject: `[${q.quoteCode}] Reply overdue — ${overdueMin} min past the ${promiseMinutes}-minute promise`,
-      headline: `${q.quoteCode} has blown the ${promiseMinutes}-minute promise.`,
+      subject: `[${q.quoteCode}] Reply overdue by ${minutesWords(overdueMin)}`,
+      headline: `A request is past the reply promise — reply overdue by ${minutesWords(overdueMin)}.`,
       lines: [
-        `Status: ${q.status}${q.assignedDispatcherId ? "" : " · nobody has taken it yet"}.`,
-        ageMin != null ? `The client has been waiting ${ageMin} minutes.` : "",
-        `They were told options arrive within ${promiseMinutes} minutes — get them something now, even a holding note.`,
+        `${requestStage(q.status).label}${q.assignedDispatcherId ? "" : " · nobody has taken it yet"}.`,
+        ageMin != null ? `The client has been waiting ${minutesWords(ageMin)}.` : "",
+        `They were told they'd have options ${replyPromiseWords(promiseMinutes)} — send them something now, even a short holding note.`,
+        `Reference ${q.quoteCode}`,
       ].filter(Boolean),
       link: { label: "Open the request", url: `${base}/admin/requests/${q.id}` },
     });
@@ -169,16 +171,17 @@ export async function GET(request: Request): Promise<NextResponse> {
       });
 
       const result = await sendDispatchAlert({
-        subject: `[${q.quoteCode}] Reply due in ${minutesLeft} min — ${name}`,
-        headline: `${name} is due a reply in ${minutesLeft} minutes.`,
+        subject: `[${q.quoteCode}] Reply due in ${minutesWords(minutesLeft)} — ${name}`,
+        headline: `${name} is due a reply in ${minutesWords(minutesLeft)}.`,
         lines: [
-          `The ${promiseMinutes}-minute promise runs out at ${q.slaDeadlineAt.toLocaleTimeString("en-US", {
+          `The reply promise (${minutesWords(promiseMinutes)}) runs out at ${q.slaDeadlineAt.toLocaleTimeString("en-US", {
             hour: "numeric",
             minute: "2-digit",
             timeZone: "America/Los_Angeles",
           })} Los Angeles time.`,
           q.assignedDispatcherId ? "" : "Nobody has taken this request yet.",
-          "Send options, or a holding note so the clock stops on our side.",
+          "Send options, or a short holding note so the client knows we're on it.",
+          `Reference ${q.quoteCode}`,
         ].filter(Boolean),
         link: { label: "Open the request", url: `${base}/admin/requests/${q.id}` },
         to: dueSoonRecipients,

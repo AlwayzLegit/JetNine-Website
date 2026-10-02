@@ -116,18 +116,18 @@ export async function POST(
   try {
     const threadPath = m.subjectType === "quote" ? "requests" : m.subjectType === "trip" ? "trips" : null;
     await sendDispatchAlert({
-      subject: `[EMAIL ${type === "email.complained" ? "COMPLAINT" : "BOUNCE"}] ${m.toAddress ?? "unknown address"}`,
+      subject: `[EMAIL ${type === "email.complained" ? "COMPLAINT" : "BOUNCE"}] ${type === "email.complained" ? "Marked as spam" : "Didn't arrive"} — ${m.toAddress ?? "unknown address"}`,
       headline:
         type === "email.complained"
-          ? "A customer marked our email as spam."
-          : "An email to a customer bounced.",
+          ? "A client marked our email as spam."
+          : "An email to a client didn't arrive.",
       lines: [
         `Address: ${m.toAddress ?? "unknown"}`,
         `Message: ${m.preview ?? "—"}`,
         `Why: ${reason}`,
         type === "email.complained"
           ? "Stop emailing this address — call instead, and check what triggered the complaint."
-          : "The address looks dead — reach the customer another way and fix the record.",
+          : "The address looks dead — reach the client another way and fix their email address.",
       ],
       link:
         threadPath && m.subjectId

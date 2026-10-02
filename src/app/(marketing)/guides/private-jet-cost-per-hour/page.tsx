@@ -80,7 +80,7 @@ export default function CostPerHourPage() {
             1,500 nm the faster aircraft often costs less all-in, and it always costs less of your
             day. The wizard runs this math per route automatically.
           </p>
-          <div className="-mx-5 mt-8 flex gap-4 overflow-x-auto px-5 md:mx-0 md:grid md:grid-cols-3 md:overflow-visible md:px-0 xl:grid-cols-6">
+          <div className="-mx-[var(--pad-x)] mt-8 flex gap-4 overflow-x-auto px-[var(--pad-x)] md:mx-0 md:grid md:grid-cols-3 md:overflow-visible md:px-0 xl:grid-cols-6">
             {FLEET.map((f) => (
               <Link key={f.slug} href={f.href} className="card card-pad group min-w-[200px] md:min-w-0 max-md:p-5">
                 <div className="label-jn">{f.shortName}</div>

@@ -34,7 +34,7 @@ export function ProofStrip() {
   return (
     <section aria-label="Safety and trust standards" className="border-y border-line bg-ink-2">
       <div className="container-jn">
-        <div className="-mx-5 flex overflow-x-auto px-5 md:mx-0 md:grid md:grid-cols-5 md:overflow-visible md:px-0 max-md:divide-x max-md:divide-line">
+        <div className="-mx-[var(--pad-x)] flex overflow-x-auto px-[var(--pad-x)] md:mx-0 md:grid md:grid-cols-5 md:overflow-visible md:px-0 max-md:divide-x max-md:divide-line">
           {reviewScore && reviewSource ? (
             <div className={cell}>
               <span className="font-serif text-[26px] font-light leading-tight tracking-tight text-bone">

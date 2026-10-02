@@ -7,6 +7,8 @@ import { OptionRow } from "@/components/request/option-row";
 import { ContactCard, TripCard } from "@/components/request/side-cards";
 import { getCurrentUser } from "@/lib/auth";
 import { SITE } from "@/lib/constants";
+import { getReplyPromiseMinutes } from "@/lib/desk-settings";
+import { replyPromiseWords } from "@/lib/desk-status";
 import { checkRateLimit } from "@/lib/rate-limit";
 import {
   formatClock,
@@ -128,12 +130,14 @@ export default async function RequestPage({ params }: { params: Promise<{ token:
   );
 }
 
-function ReceivedStage({ view }: { view: RequestView }) {
+async function ReceivedStage({ view }: { view: RequestView }) {
+  // Reply time from the desk setting (Settings › Notifications).
+  const when = replyPromiseWords(await getReplyPromiseMinutes());
   const who = view.dispatcher ? `${view.dispatcher.displayName} from JetNine is on it now.` : "A senior dispatcher is on it now.";
   const steps: TimelineStep[] = [
     { title: "Received", note: relativeTime(view.receivedAt), state: "done" },
     { title: "Checking which aircraft are free", note: who, state: "current" },
-    { title: "Two or three options with prices, sent to you", note: "Within 30 minutes during operating hours", state: "upcoming" },
+    { title: "Two or three options with prices, sent to you", note: `${when.charAt(0).toUpperCase()}${when.slice(1)} during operating hours`, state: "upcoming" },
     { title: "You pick one — we book it", state: "upcoming" },
   ];
   return (

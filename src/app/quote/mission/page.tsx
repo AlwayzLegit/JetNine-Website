@@ -9,6 +9,7 @@ import { AirportInput } from "@/components/quote/airport-input";
 import { CompactField, COMPACT_INPUT_CLASS } from "@/components/quote/compact-field";
 import { StepFooter } from "@/components/quote/step-footer";
 import { StoreHydrationGate } from "@/components/quote/store-hydration";
+import { useReplyPromiseWords } from "@/components/quote/reply-promise";
 
 const TRIP_TYPES: { id: TripType; label: string }[] = [
   { id: "roundtrip", label: "Round trip" },
@@ -55,6 +56,7 @@ export default function MissionStep() {
 // the crawlable page is nearly empty (Semrush: low word count). Spans
 // both columns of the layout grid, under the form and the sidebar.
 function HowQuotingWorks() {
+  const when = useReplyPromiseWords();
   return (
     <section
       aria-labelledby="how-quoting-works"
@@ -76,8 +78,8 @@ function HowQuotingWorks() {
           <h3 className="mb-2 text-[16px] font-medium text-bone">Dispatch goes to work</h3>
           <p>
             A senior dispatcher sources three to five vetted aircraft that fit the trip — ARG/US
-            or Wyvern audited operators only — and returns all-in pricing within 30 minutes during
-            operating hours.
+            or Wyvern audited operators only — and returns all-in pricing {when} during operating
+            hours.
           </p>
         </div>
         <div>
@@ -105,6 +107,7 @@ function localTodayIso(): string {
 
 function MissionStepInner() {
   const router = useRouter();
+  const when = useReplyPromiseWords();
   const minDate = localTodayIso();
   const draft = useQuoteStore();
   const { tripType, legs, pax, setTripType, setPax, updateLeg, addLeg, removeLeg } = draft;
@@ -181,8 +184,8 @@ function MissionStepInner() {
         <h1 className="title-section max-w-[18ch] md:text-[52px]">Where, when, how many.</h1>
         <p className="mt-4 max-w-[60ch] text-[17px] leading-[1.55] text-bone-2">
           The basics. The more precise the better — but it doesn&rsquo;t have to be perfect.
-          Dispatch will follow up to refine. Every quote returns within 30 minutes during
-          operating hours — a real number in four steps, not a phone call.
+          Dispatch will follow up to refine. Every quote returns {when} during operating
+          hours — a real number in four steps, not a phone call.
         </p>
 
         {/* Trip type + legs */}

@@ -93,7 +93,7 @@ export async function POST(
     });
     // Don't silently lose it — a "yes, book it" that lost its subject
     // bracket is still a customer talking. Forward to the desk inbox.
-    await forwardUnroutedToDesk("no [CODE] in subject", payload);
+    await forwardUnroutedToDesk("there's no request or trip reference in the subject", payload);
     return NextResponse.json({ received: true, unmatched: true });
   }
 
@@ -105,7 +105,7 @@ export async function POST(
       messageId: payload.MessageID,
       subject,
     });
-    await forwardUnroutedToDesk(`code ${code} not found`, payload);
+    await forwardUnroutedToDesk(`reference ${code} doesn't match a request or trip`, payload);
     return NextResponse.json({ received: true, codeNotFound: true });
   }
 
@@ -138,7 +138,7 @@ export async function POST(
     // not lost either: anonymous quote requesters aren't in `users`, and a
     // reply to their own options email used to vanish here. The desk gets
     // it flagged as UNVERIFIED instead.
-    await forwardUnroutedToDesk(`sender not verified (thread ${code})`, payload);
+    await forwardUnroutedToDesk(`the sender isn't on a JetNine account (reference ${code})`, payload);
     return NextResponse.json({ received: true, droppedUnknownSender: true });
   }
 
@@ -203,9 +203,9 @@ export async function POST(
   // thread with nothing pointing at them.
   try {
     await sendDispatchAlert({
-      subject: `[${code}] Reply from ${fromEmail || "customer"}`,
-      headline: `New reply on ${code}.`,
-      lines: [preview || "(empty body)"],
+      subject: `[${code}] Reply from ${fromEmail || "the client"}`,
+      headline: "A client replied by email.",
+      lines: [preview || "(empty message)", `Reference ${code}`],
       link: {
         label: "Open the thread",
         url: `https://jetnine.com/admin/${route.subjectType === "quote" ? "requests" : "trips"}/${route.subjectId}`,
@@ -228,13 +228,13 @@ async function forwardUnroutedToDesk(
   try {
     const body = (payload.StrippedTextReply ?? payload.TextBody ?? "").slice(0, 1200);
     await sendDispatchAlert({
-      subject: `[UNROUTED] Inbound email — ${reason}`,
-      headline: "An inbound email couldn't be threaded.",
+      subject: `[UNROUTED] An email we couldn't match — ${reason}`,
+      headline: "An email came in that we couldn't match to a request or trip.",
       lines: [
         `From: ${payload.From ?? "unknown"}`,
         `Subject: ${payload.Subject ?? "(none)"}`,
-        `Why: ${reason}`,
-        "— Body (untrusted, first 1200 chars) —",
+        `Why: ${reason}.`,
+        "Their message (unverified, first 1,200 characters):",
         body || "(empty)",
       ],
     });

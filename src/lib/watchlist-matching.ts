@@ -197,8 +197,17 @@ const dayFmt = new Intl.DateTimeFormat("en-US", {
   timeZone: "UTC",
 });
 
+/** "Los Angeles (VNY)" — city first, code in parentheses. */
+function placeLabel(city: string | null, name: string | null, code: string): string {
+  const words = city ?? name;
+  return words ? `${words} (${code})` : code;
+}
+
 function routeLabel(leg: MatchableLeg): string {
-  return `${leg.fromIata ?? leg.fromIcao} → ${leg.toIata ?? leg.toIcao}`;
+  return (
+    `${placeLabel(leg.fromCity, leg.fromName, leg.fromIata ?? leg.fromIcao)} → ` +
+    `${placeLabel(leg.toCity, leg.toName, leg.toIata ?? leg.toIcao)}`
+  );
 }
 
 function categoryLabel(leg: MatchableLeg): string {
@@ -214,9 +223,9 @@ function categoryLabel(leg: MatchableLeg): string {
 export function smsBody(leg: MatchableLeg, siteUrl: string): string {
   const pct = effectiveDiscountPct(leg);
   return (
-    `JetNine: empty leg match. ${routeLabel(leg)} ${dayFmt.format(leg.wheelsUpAt)}, ` +
+    `JetNine: an empty leg matches your alert. ${routeLabel(leg)}, ${dayFmt.format(leg.wheelsUpAt)}, ` +
     `${categoryLabel(leg).toLowerCase()}, ${formatUSD(leg.listedPriceUsd)} (${pct}% off). ` +
-    `First call wins: ${SITE.dispatchPhone}. ${siteUrl}/empty-legs · reply STOP to end alerts.`
+    `First to call gets it: ${SITE.dispatchPhone}. ${siteUrl}/empty-legs · reply STOP to end alerts.`
   );
 }
 
@@ -237,23 +246,23 @@ export function emailBody(
   const board = `${siteUrl}/empty-legs`;
 
   const text =
-    `A leg on your watchlist just hit the board.\n\n` +
-    `${routeLabel(leg)} · ${when}\n${cat} · ${price} (was ${was}, ${pct}% off)\nLeg ${leg.code}\n\n` +
-    `Empty legs are not held — first call wins. Call dispatch on ${SITE.dispatchPhone} ` +
-    `and quote leg ${leg.code}, or see the board: ${board}\n\n` +
-    `You are getting this because you confirmed an empty-leg watchlist at jetnine.com.\n` +
+    `An empty leg matching your alert was just listed.\n\n` +
+    `${routeLabel(leg)} · ${when}\n${cat} · ${price} (was ${was}, ${pct}% off)\nReference ${leg.code}\n\n` +
+    `Empty legs can't be held — the first person to call gets it. Call dispatch on ${SITE.dispatchPhone} ` +
+    `and give them reference ${leg.code}, or see all empty legs: ${board}\n\n` +
+    `You're getting this because you confirmed an empty-leg alert at jetnine.com.\n` +
     `Stop these emails: ${unsubscribeUrl}`;
 
   const html =
-    `<p>A leg on your watchlist just hit the board.</p>` +
+    `<p>An empty leg matching your alert was just listed.</p>` +
     `<p><strong>${routeLabel(leg)}</strong> &middot; ${when}<br>` +
     `${cat} &middot; <strong>${price}</strong> (was ${was}, ${pct}% off)<br>` +
-    `Leg ${leg.code}</p>` +
-    `<p>Empty legs are not held &mdash; first call wins. Call dispatch on ` +
-    `<a href="tel:${SITE.dispatchPhoneE164}">${SITE.dispatchPhone}</a> and quote leg ${leg.code}, ` +
-    `or <a href="${board}">see the board</a>.</p>` +
-    `<p style="color:#666;font-size:13px">You are getting this because you confirmed an ` +
-    `empty-leg watchlist at jetnine.com. ` +
+    `<span style="color:#666;font-size:13px">Reference ${leg.code}</span></p>` +
+    `<p>Empty legs can&rsquo;t be held &mdash; the first person to call gets it. Call dispatch on ` +
+    `<a href="tel:${SITE.dispatchPhoneE164}">${SITE.dispatchPhone}</a> and give them reference ${leg.code}, ` +
+    `or <a href="${board}">see all empty legs</a>.</p>` +
+    `<p style="color:#666;font-size:13px">You&rsquo;re getting this because you confirmed an ` +
+    `empty-leg alert at jetnine.com. ` +
     `<a href="${unsubscribeUrl}">Stop these emails</a>.</p>`;
 
   return { html, text };

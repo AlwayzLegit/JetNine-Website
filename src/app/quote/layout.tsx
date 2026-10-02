@@ -1,5 +1,8 @@
 import type { Metadata } from "next";
+import { getReplyPromiseMinutes } from "@/lib/desk-settings";
+import { replyPromiseWords } from "@/lib/desk-status";
 import { QuoteNav } from "@/components/quote/quote-nav";
+import { ReplyPromiseProvider } from "@/components/quote/reply-promise";
 import { QuoteStepper } from "@/components/quote/stepper";
 import { SkipLink } from "@/components/skip-link";
 
@@ -9,12 +12,20 @@ import { SkipLink } from "@/components/skip-link";
 // Without an explicit title + description here the page inherited the root
 // layout's defaults verbatim — Semrush flagged / and /quote/mission as
 // duplicate-title and duplicate-meta-description pairs.
-export const metadata: Metadata = {
-  title: "Request a Private Jet Charter Quote",
-  description:
-    "Route, timing, and aircraft preferences in four short steps — a senior dispatcher returns three to five vetted airframes with all-in pricing within 30 minutes during operating hours.",
-  alternates: { canonical: "/quote/mission" },
-};
+//
+// The reply time ("within 30 minutes") follows the desk setting
+// (Settings › Notifications). The steps stay statically rendered and are
+// refreshed every five minutes, so a change shows up here within that.
+export const revalidate = 300;
+
+export async function generateMetadata(): Promise<Metadata> {
+  const when = replyPromiseWords(await getReplyPromiseMinutes());
+  return {
+    title: "Request a Private Jet Charter Quote",
+    description: `Route, timing, and aircraft preferences in four short steps — a senior dispatcher returns three to five vetted aircraft with all-in pricing ${when}.`,
+    alternates: { canonical: "/quote/mission" },
+  };
+}
 
 // Quote flow chrome from the simplification handoff: its own 72px header
 // (not the marketing SiteNav), the 4-step bar, then the two-column page
@@ -24,9 +35,10 @@ export const metadata: Metadata = {
 //
 // Bottom padding on phones clears the pinned StepFooter (52px button +
 // 24px of padding + the home-indicator inset).
-export default function QuoteLayout({ children }: { children: React.ReactNode }) {
+export default async function QuoteLayout({ children }: { children: React.ReactNode }) {
+  const replyMinutes = await getReplyPromiseMinutes();
   return (
-    <>
+    <ReplyPromiseProvider minutes={replyMinutes}>
       <SkipLink />
       <QuoteNav />
       <QuoteStepper />
@@ -36,6 +48,6 @@ export default function QuoteLayout({ children }: { children: React.ReactNode })
       >
         {children}
       </main>
-    </>
+    </ReplyPromiseProvider>
   );
 }

@@ -9,6 +9,7 @@ import { StepFooter } from "@/components/quote/step-footer";
 import { CompactField, COMPACT_INPUT_CLASS } from "@/components/quote/compact-field";
 import { ContactOptional } from "@/components/quote/contact-optional";
 import { CONSENTS, CONTACT_METHODS, COUNTRIES } from "@/components/quote/contact-options";
+import { useReplyPromiseWords } from "@/components/quote/reply-promise";
 
 type Errors = Partial<
   Record<"firstName" | "lastName" | "email" | "phone" | "methods" | "consent", true>
@@ -20,6 +21,7 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 export function ContactForm() {
   const router = useRouter();
   const s = useQuoteStore();
+  const when = useReplyPromiseWords();
   const [errors, setErrors] = useState<Errors>({});
 
   useEffect(() => {
@@ -61,7 +63,7 @@ export function ContactForm() {
           How to reach you.
         </h1>
         <p className="mt-4 max-w-[60ch] text-[17px] text-bone-2">
-          Dispatch returns the quote to you within 30 minutes during operating hours. We
+          Dispatch returns the quote to you {when} during operating hours. We
           won&rsquo;t share your details — quote requests stay between you and your dispatcher.
         </p>
 

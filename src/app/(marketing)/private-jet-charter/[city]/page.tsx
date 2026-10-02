@@ -200,7 +200,7 @@ export default async function CityPage({ params }: RouteParams) {
         <div className="container-jn grid items-end gap-10 lg:grid-cols-[1.4fr_1fr]">
           <div>
             <p className="eyebrow">
-              <Link href="/private-jet-charter" className="transition-colors hover:text-bone">
+              <Link href="/private-jet-charter" className="tap-pad transition-colors hover:text-bone">
                 Charter by city
               </Link>
               <span aria-hidden> · </span>
@@ -280,7 +280,7 @@ export default async function CityPage({ params }: RouteParams) {
             One-way, whole-aircraft indicative ranges from {city.primary.name}, in the category the
             wizard itself recommends per distance — computed by the same engine behind every quote.
           </p>
-          <div className="card mt-8 overflow-x-auto">
+          <div className="card relative mt-8 overflow-x-auto" tabIndex={0} role="region" aria-label="Lanes and prices — scrolls sideways">
             <table className="table-jn min-w-[760px]">
               <thead>
                 <tr>

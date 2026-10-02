@@ -84,7 +84,7 @@ export default async function QuestionPage({ params }: RouteParams) {
       <header className="bg-ink pt-[96px] max-md:pt-14">
         <div className="container-jn">
           <p className="eyebrow">
-            <Link href="/questions" className="transition-colors hover:text-bone">
+            <Link href="/questions" className="tap-pad transition-colors hover:text-bone">
               Good questions
             </Link>
             <span aria-hidden> · </span>

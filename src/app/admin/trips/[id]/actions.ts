@@ -186,7 +186,7 @@ async function notifyTripStatus(args: {
       return `${route} · ${date}`;
     });
   if (target.paxCount) {
-    itineraryLines.push(`${target.paxCount} pax`);
+    itineraryLines.push(`${target.paxCount} passenger${target.paxCount === 1 ? "" : "s"}`);
   }
 
   // Stub a message row in the thread BEFORE sending so the operator
@@ -916,7 +916,7 @@ async function refundCardPaymentsForTrip(args: {
       });
       try {
         await sendDispatchAlert({
-          subject: `ACTION REQUIRED — card refund failed on ${inv.invoiceCode}`,
+          subject: `Card refund failed on ${inv.invoiceCode} — refund it by hand`,
           headline: "A cancellation refund failed in Stripe.",
           lines: [
             `Invoice ${inv.invoiceCode}${args.tripCode ? ` (trip ${args.tripCode})` : ""} — ${result.error}.`,

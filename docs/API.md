@@ -6,9 +6,13 @@ is always the full, current list of operations.
 
 ## Keys
 
-Keys are created and revoked by an owner in **Admin › Settings › API keys**
-(arrives in the next release; until then a key can only be minted by hand).
-A key looks like `jn_live_ab12cd34_…` and is shown once. Only a hash is kept.
+Keys are created and revoked by an owner in **Admin › Settings › API keys**.
+Start from a template — *Daily assistant* (read, content, desk, assistant;
+asks first; 90 days), *Full access for me* (everything; 90 days) or *Read
+only* — or pick permissions yourself. A key looks like `jn_live_ab12cd34_…`
+and is shown once. Only a hash is kept. The page shows who each key acts
+as, when and from where it was last used, and today's calls; revoking takes
+effect on the key's next call. The per-call log is kept for 30 days.
 
 - A key **acts as the person who created it**, capped by its permissions.
   If that person is removed from the desk or loses their role, the key

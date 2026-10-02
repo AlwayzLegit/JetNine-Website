@@ -190,7 +190,7 @@ test.describe("auth surface", () => {
   });
 
   test("desk sections redirect to sign-in when signed out", async ({ page }) => {
-    for (const path of ["/admin", "/admin/requests", "/admin/messages", "/admin/settings"]) {
+    for (const path of ["/admin", "/admin/requests", "/admin/messages", "/admin/settings", "/admin/settings/api-keys"]) {
       const response = await page.goto(path);
       expect(response?.status(), path).toBeLessThan(500);
       expect(page.url(), path).toMatch(/sign-in/);

@@ -10,6 +10,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { logAudit } from "@/lib/audit";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { sendDispatchAlert } from "@/lib/email";
+import { recipientsFor } from "@/lib/desk-settings";
 import { STATUS_TOKEN_RE, statusPath } from "@/lib/request-status";
 
 export type ChooseResult = { ok: true } | { ok: false; error: string };
@@ -127,14 +128,16 @@ export async function chooseOption(token: string, optionId: string): Promise<Cho
         `Option: ${opt.aircraftType ?? "aircraft"} at ${new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(opt.clientPriceUsd)}.`,
         `Confirm with the operator and convert the quote to a trip.`,
       ],
-      link: { label: "Open the request", url: `${base}/admin/quote/${q.id}` },
+      link: { label: "Open the request", url: `${base}/admin/requests/${q.id}` },
+      // Staff who turned on "A client picks an option"; empty → shared inbox.
+      to: await recipientsFor("clientPick"),
     });
   } catch (err) {
     console.error("chooseOption dispatch alert failed", err);
   }
 
   revalidatePath(statusPath(token));
-  revalidatePath("/admin/dispatch");
-  revalidatePath(`/admin/quote/${q.id}`);
+  revalidatePath("/admin/requests");
+  revalidatePath(`/admin/requests/${q.id}`);
   return { ok: true };
 }

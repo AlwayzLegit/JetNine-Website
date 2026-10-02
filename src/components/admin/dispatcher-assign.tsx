@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { assignDispatcher } from "@/app/admin/quote/[id]/actions";
+import { assignDispatcher } from "@/app/admin/requests/[id]/actions";
 
 type Dispatcher = { id: string; displayName: string };
 
@@ -32,32 +32,23 @@ export function DispatcherAssign({
   }
 
   return (
-    <div className="inline-flex flex-col gap-1">
-      <label
-        htmlFor={`assign-${quoteId}`}
-        className="font-mono text-[9px] uppercase tracking-[0.14em] text-steel"
-      >
-        — Dispatcher
-      </label>
+    <div className={`field-jn ${error ? "error" : ""}`}>
+      <label htmlFor={`assign-${quoteId}`}>Who is on it</label>
       <select
         id={`assign-${quoteId}`}
         value={assignedId}
         onChange={(e) => onChange(e.target.value)}
         disabled={pending}
-        className="rounded-[2px] border border-ink-3 bg-ink-2 px-3 py-1.5 font-mono text-[11px] uppercase tracking-[0.08em] text-bone disabled:opacity-60"
+        className="disabled:opacity-60"
       >
-        <option value="">— Unassigned —</option>
+        <option value="">Nobody yet</option>
         {dispatchers.map((d) => (
           <option key={d.id} value={d.id}>
             {d.displayName}
           </option>
         ))}
       </select>
-      {error ? (
-        <span className="font-mono text-[10px] uppercase tracking-[0.1em] text-[var(--error)]">
-          {error}
-        </span>
-      ) : null}
+      {error ? <p className="mt-1.5 text-[13px] text-danger">{error}</p> : null}
     </div>
   );
 }

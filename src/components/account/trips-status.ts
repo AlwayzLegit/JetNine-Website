@@ -2,7 +2,7 @@
 // /account/trips and the trip detail page. Status enums become sentences;
 // legs become "City → City" routes and "departs 9:00 AM · about 2 h" lines.
 
-import { CATEGORY_PLAIN, formatClock, formatMinutes } from "@/lib/request-page";
+import { CATEGORY_PLAIN, formatClock, formatMinutes } from "@/lib/request-format";
 import type { StatusWords } from "./quotes-status";
 
 /** Trips that are over — they never count as "upcoming". */

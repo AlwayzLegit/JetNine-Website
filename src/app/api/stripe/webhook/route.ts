@@ -295,7 +295,7 @@ async function onMembershipToppedUp(session: Stripe.Checkout.Session): Promise<v
       subject: `[RESERVE] Top-up received — $${Math.round(amountUsd).toLocaleString("en-US")}`,
       headline: "A member topped up their reserve.",
       lines: [`$${Math.round(amountUsd).toLocaleString("en-US")} credited via Stripe.`],
-      link: { label: "Open members", url: "https://jetnine.com/admin/member" },
+      link: { label: "Open members", url: "https://jetnine.com/admin/clients" },
     });
   } catch (err) {
     console.error("[stripe-webhook] top-up notifications failed (non-fatal)", err);
@@ -401,7 +401,7 @@ async function onInvoicePaid(session: Stripe.Checkout.Session): Promise<void> {
         `Invoice ${updated[0].invoiceCode}${tripCode ? ` (trip ${tripCode})` : ""} was paid by card via Stripe.`,
       ],
       link: updated[0].tripId
-        ? { label: "Open the trip sheet", url: `https://jetnine.com/admin/trip/${updated[0].tripId}` }
+        ? { label: "Open the trip sheet", url: `https://jetnine.com/admin/trips/${updated[0].tripId}` }
         : undefined,
     });
   } catch (err) {
@@ -458,7 +458,7 @@ async function onPaymentFailed(intent: Stripe.PaymentIntent): Promise<void> {
           "The invoice is still due; the customer was told to retry or wire.",
         ],
         link: inv.tripId
-          ? { label: "Open the trip sheet", url: `https://jetnine.com/admin/trip/${inv.tripId}` }
+          ? { label: "Open the trip sheet", url: `https://jetnine.com/admin/trips/${inv.tripId}` }
           : undefined,
       });
     }
@@ -619,7 +619,7 @@ async function onMembershipPurchased(session: Stripe.Checkout.Session): Promise<
       subject: `[MEMBERSHIP] ${row.program} activated — $${Math.round(row.depositUsd).toLocaleString("en-US")} deposit`,
       headline: "A membership was purchased.",
       lines: [`Program ${row.program}, deposit $${Math.round(row.depositUsd).toLocaleString("en-US")} credited to the reserve.`],
-      link: { label: "Open members", url: "https://jetnine.com/admin/member" },
+      link: { label: "Open members", url: "https://jetnine.com/admin/clients" },
     });
   } catch (err) {
     console.error("[stripe-webhook] activation notifications failed (non-fatal)", err);

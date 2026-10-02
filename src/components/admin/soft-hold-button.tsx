@@ -1,7 +1,15 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { createSoftHold } from "@/app/admin/quote/[id]/actions";
+import { createSoftHold } from "@/app/admin/requests/[id]/actions";
+
+const UNTIL_FMT = new Intl.DateTimeFormat("en-US", {
+  month: "short",
+  day: "numeric",
+  hour: "numeric",
+  minute: "2-digit",
+  timeZone: "America/Los_Angeles",
+});
 
 export function SoftHoldButton({
   quoteId,
@@ -23,43 +31,33 @@ export function SoftHoldButton({
       const result = await createSoftHold(quoteId, aircraftId);
       if (result.ok) {
         setHeld(true);
-        setMsg({
-          tone: "ok",
-          text: `HELD until ${result.expiresAt.slice(11, 16)}Z`,
-        });
+        setMsg({ tone: "ok", text: `Held until ${UNTIL_FMT.format(new Date(result.expiresAt))}` });
       } else {
-        setMsg({ tone: "error", text: result.error.toUpperCase() });
+        setMsg({ tone: "error", text: result.error });
       }
     });
   }
 
   if (held) {
     return (
-      <span className="font-mono text-[9px] uppercase tracking-[0.14em] text-clearance">
-        — HELD
+      <span className="text-[14px] text-clearance">
+        Held{msg?.tone === "ok" ? <span className="text-steel"> · {msg.text.replace(/^Held /, "")}</span> : null}
       </span>
     );
   }
 
   return (
-    <span className="flex items-center gap-2">
+    <span className="flex flex-wrap items-center gap-2.5">
       {msg ? (
-        <span
-          className={[
-            "font-mono text-[9px] uppercase tracking-[0.12em]",
-            msg.tone === "error" ? "text-[var(--error)]" : "text-[var(--success)]",
-          ].join(" ")}
-        >
-          {msg.text}
-        </span>
+        <span className={`text-[13px] ${msg.tone === "error" ? "text-danger" : "text-success"}`}>{msg.text}</span>
       ) : null}
       <button
         type="button"
         onClick={onClick}
         disabled={pending}
-        className="font-mono text-[9px] uppercase tracking-[0.14em] text-bone-2 transition-colors hover:text-clearance disabled:cursor-wait disabled:opacity-50"
+        className="btn btn-secondary btn-sm disabled:cursor-wait"
       >
-        {pending ? "Holding…" : "Soft-hold →"}
+        {pending ? "Holding…" : "Hold this aircraft"}
       </button>
     </span>
   );

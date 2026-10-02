@@ -26,8 +26,60 @@ operators, aircraft, airports and live ops are no longer managed here.
 | 5 | Admin: five-section desk | 1, owner decisions below |
 | 6 | Dictionary in emails/SMS, mobile pass, launch checks (a11y audits, URL + JSON-LD diff, Semrush re-run, PostHog comparison) | 2–5 |
 
-Phases 1–4 are done (1–2 merged in #67, 3 in #68, 4 on the branch; see
-the status notes below). Phase 5 waits on the decisions below.
+Phases 1–5 are done (1–2 merged in #67, 3 in #68, 4 in #69, 5 on the
+branch; see the status notes below). Phase 6 is next.
+
+### Phase 5 status
+
+Shipped: the dispatch desk collapsed from fifteen sections to five —
+Requests, Trips, Clients, Messages, Settings — behind a 220px sidebar with
+counts (gold pill for requests that need a reply, outlined pill for unread
+messages), "Open Avinode ↗" and the signed-in user, and a five-tab bar on
+phones. Statuses are sentences from `src/lib/desk-status.ts` ("Needs a
+reply", "Working on it", "Options sent", "Booked"); the enums stay in the
+database. Pages compose the primitives in
+`src/components/admin/desk-ui.tsx`.
+
+- **Requests** (`/admin/requests`): tabs by stage with counts, grouped
+  rows (name · passengers, trip sentence, note; "Received 12 min ago" and
+  the due line in gold / danger; Open / Continue / Nudge / View trip), search
+  by name or city, phone layout with the due line first. One request
+  (`/admin/requests/<id>`): client · route title, status pill, Call / Text /
+  Email, four-stage strip, three columns (The trip + client, Options to send
+  with "Search in Avinode ↗" / "Paste Avinode quote" and "Send options"
+  enabled at two or more, Conversation). Every control of the old workbench
+  is still there (status, dispatcher, link to client, holds, confirm
+  booking) under "Desk tools" / "Our fleet matches and holds".
+- **Trips** (`/admin/trips`): Upcoming / Flown tabs, "Flying today"
+  featured card, grouped rows with the state sentence and a to-do line;
+  the trip sheet keeps the invoice and status controls.
+- **Clients** (`/admin/clients`): counts in the lead, All / Flew recently /
+  Card members / New tabs, Name · Flights · Total spent · Membership table
+  with a sticky preview drawer, "+ Invite a client"; the client page keeps
+  preferences, companions, lanes, ledger, invoices.
+- **Messages** (`/admin/messages`): one thread per client (quote, trip or
+  member), Unread / Call notes (voice desk) / Website form (contact
+  inquiries) / Problems (failed deliveries with retry) tabs, bubbles with
+  channel chips, quick replies and internal notes.
+- **Settings**: Reports (period segmented, three numbers, "Where requests
+  ended up", Money), Team (Owner / Team roles, invite, change, remove),
+  Notifications (four toggles per staff user + the reply-time promise),
+  Connections (Avinode, Resend, Twilio, phone answering, Stripe, database,
+  monitoring with live status and "Send a test"), History (audit log as
+  sentences), Reference data (operators, aircraft, airports, live ops,
+  empty legs, AI providers — kept, restyled, decision 1b).
+
+Schema: migration `0050_desk_settings.sql` (see DEPLOY.md §8c). Old URLs
+redirect from `next.config.ts`. Not in this phase: the public "within 30
+minutes" copy (emails, contact page, quote review) still hard-codes 30 and
+does not yet read the desk's reply promise — Phase 6 dictionary pass; the
+desk pages were not rendered locally (they need a signed-in staff user and
+live data), so walk them after deploy; staff notifications are email only
+(no SMS to staff); the client-facing `inapp` channel is labelled "Account
+note" because the member portal shows it, so a true team-only note channel
+is still to come. Decisions 1 and 3 below were taken on
+2026-10-02: keep the reference-data pages under Settings; build Team,
+Notifications and Connections now.
 
 ### Phase 4 status
 
@@ -125,20 +177,21 @@ so nothing moved on screen.
 
 ## Decisions needed from the owner
 
-1. **Operators, aircraft, airports, ops, empty-leg admin.** The handoff
-   removes them from the desk. Options: (a) delete the pages and leave the
-   tables in place, (b) keep them reachable under Settings › Connections as
-   "reference data" for the empty-leg board and quote conversion, which
-   still read those tables. I recommend (b) until Avinode replaces them.
+1. **Operators, aircraft, airports, ops, empty-leg admin.** Decided
+   2026-10-02: (b) — kept under Settings › Reference data, restyled, until
+   Avinode replaces them. The empty-leg board and quote matching still read
+   those tables.
 2. **"Your request" status page for guests.** Decided 2026-10-01: the
    tokenised guest link. Every quote gets a `status_token` (migration
    0048); the acknowledgment and options emails link to
    `/request/<token>`, the wizard lands there after submit, and the
    client picks an option from that page. The admin workbench shows the
    link so dispatch can paste it into a thread.
-3. **Settings › Team / Notifications / Connections.** These are new
-   features (role management, notification toggles, connection status
-   cards), not restyles. Build in phase 5, or defer?
+3. **Settings › Team / Notifications / Connections.** Decided 2026-10-02:
+   built in phase 5. Team maps the database roles to two words (Owner =
+   admin / superadmin, Team = dispatcher); Notifications stores per-user
+   toggles and the desk-wide reply promise (migration 0050); Connections
+   reads the health probes and the AI provider tables.
 4. **Rollout.** Page-by-page PRs to `main` (the site stays live, fonts and
    chrome change first so old and new pages never mix styles), or one long
    branch with a single cutover? I recommend page by page.

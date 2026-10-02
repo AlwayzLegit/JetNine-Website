@@ -9,6 +9,8 @@ import { trips } from "@/db/schema/trips";
 import { formatUSD } from "@/lib/quote-pricing";
 import { AircraftForm } from "@/components/admin/aircraft-form";
 import { SOURCING_INELIGIBLE_STATUSES } from "@/lib/operator-eligibility";
+import { DeskCard, DeskHeader, DeskPage, DotSentence, NumberCard, StatusPill } from "@/components/admin/desk-ui";
+import { passengersWords, tripState } from "@/lib/desk-status";
 
 export const dynamic = "force-dynamic";
 
@@ -16,11 +18,28 @@ type Props = { params: Promise<{ id: string }> };
 
 const HORIZON_DAYS = 14;
 
-const STATUS_CLASS: Record<string, string> = {
-  available: "border-[var(--success)] text-[var(--success)]",
-  aog: "border-[var(--error)] text-[var(--error)]",
-  maint: "border-[var(--warn)] text-[var(--warn)]",
-  sold: "border-steel text-steel",
+type Tone = "gold" | "steel" | "success" | "danger";
+
+const STATUS_WORDS: Record<string, { label: string; tone: Tone }> = {
+  available: { label: "Available", tone: "success" },
+  aog: { label: "Grounded (AOG)", tone: "danger" },
+  maint: { label: "In maintenance", tone: "gold" },
+  sold: { label: "Sold / retired", tone: "steel" },
+};
+
+const OPERATOR_STATUS_WORDS: Record<string, string> = {
+  active: "Active",
+  audit_due: "Audit due",
+  hold: "On hold",
+  suspended: "Suspended",
+  banned: "Banned",
+};
+
+const ARGUS_WORDS: Record<string, string> = {
+  platinum: "Platinum",
+  gold: "Gold",
+  silver: "Silver",
+  none: "Not rated",
 };
 
 const CATEGORY_LABEL: Record<string, string> = {
@@ -40,23 +59,38 @@ const WIFI_LABEL: Record<string, string> = {
   none: "No connectivity",
 };
 
+const KIND_WORDS: Record<string, string> = {
+  trip: "Trip",
+  maintenance: "Maintenance",
+  repositioning: "Reposition",
+  crew_rest: "Crew rest",
+  owner: "Owner",
+  hold: "Soft hold",
+  unavailable: "Unavailable",
+};
+
 const KIND_CLS: Record<string, string> = {
   trip: "bg-clearance text-ink",
-  maintenance: "bg-[var(--warn)] text-ink",
+  maintenance: "bg-gold text-ink",
   repositioning: "bg-bone-2 text-ink",
   crew_rest: "bg-steel text-ink",
   owner: "bg-[#C9A961] text-ink",
   hold: "bg-transparent border border-dashed border-clearance text-clearance",
-  unavailable: "bg-[var(--error)] text-bone",
+  unavailable: "bg-danger text-ink",
 };
 
-const TRIP_STATUS_CLASS: Record<string, string> = {
-  confirmed: "border-clearance text-clearance",
-  airborne: "border-[var(--warn)] text-[var(--warn)]",
-  completed: "border-[var(--success)] text-[var(--success)]",
-  cancelled_wx: "border-[var(--error)] text-[var(--error)]",
-  cancelled_other: "border-[var(--error)] text-[var(--error)]",
-};
+const DATE_FMT = new Intl.DateTimeFormat("en-US", {
+  month: "short",
+  day: "numeric",
+  year: "numeric",
+  timeZone: "UTC",
+});
+
+function formatDate(date: Date | string | null): string {
+  if (!date) return "—";
+  const d = typeof date === "string" ? new Date(`${date}T12:00:00Z`) : date;
+  return Number.isNaN(d.getTime()) ? String(date) : DATE_FMT.format(d);
+}
 
 function startOfUtcDay(d: Date): Date {
   return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
@@ -178,92 +212,52 @@ export default async function AdminAircraftDetailPage({ params }: Props) {
     .where(eq(trips.aircraftId, id));
 
   const cabinFeatures: string[] = [];
-  if (row.standupCabin) cabinFeatures.push("Stand-up");
+  if (row.standupCabin) cabinFeatures.push("Stand-up cabin");
   if (row.lavatoryEnclosed) cabinFeatures.push("Enclosed lavatory");
-  if (row.lieflatCapable) cabinFeatures.push("Lie-flat");
-  if (row.flightAttendantStandard) cabinFeatures.push("Flight attendant std.");
+  if (row.lieflatCapable) cabinFeatures.push("Lie-flat seating");
+  if (row.flightAttendantStandard) cabinFeatures.push("Flight attendant as standard");
   if (row.petFriendly) cabinFeatures.push("Pet-friendly");
 
   const dayHeaders = Array.from({ length: HORIZON_DAYS }, (_, i) => addDays(today, i));
 
+  const status = STATUS_WORDS[row.status] ?? { label: row.status, tone: "steel" as Tone };
+
+  const leadParts = [
+    `Tail ${row.tailNumber}`,
+    row.yearManufactured ? String(row.yearManufactured) : null,
+    CATEGORY_LABEL[row.category] ?? row.category,
+    row.baseIcao ? `Based at ${row.baseIcao}` : null,
+    row.totalHours ? `${row.totalHours.toLocaleString()} hours` : null,
+  ].filter(Boolean);
+
   return (
-    <div className="container-jn py-8">
-      {/* Top bar */}
-      <div className="mb-8 flex flex-wrap items-end justify-between gap-6 border-b border-ink-3 pb-6">
-        <div>
-          <nav className="font-mono text-[10px] uppercase tracking-[0.14em] text-bone-2">
-            <Link href="/admin/aircraft" className="transition-colors hover:text-clearance">
-              Aircraft
-            </Link>{" "}
-            <span className="text-steel">/</span>{" "}
-            <span className="text-bone">{row.tailNumber}</span>
-          </nav>
-          <div className="mt-3 flex flex-wrap items-baseline gap-4">
-            <span
-              className="font-mono text-[36px] tracking-[0.04em] text-clearance"
-              style={{ letterSpacing: "0.04em" }}
-            >
-              {row.tailNumber}
-            </span>
-            <span
-              className="font-serif text-[26px] font-light leading-none text-bone"
-              style={{ letterSpacing: "-0.01em" }}
-            >
-              {row.makeModel}
-              {row.yearManufactured ? (
-                <span className="ml-2 font-mono text-[14px] text-bone-2">
-                  · {row.yearManufactured}
-                </span>
-              ) : null}
-            </span>
-            <span
-              className={[
-                "rounded-full border px-2.5 py-0.5 font-mono text-[10px] uppercase tracking-[0.14em]",
-                STATUS_CLASS[row.status] ?? "border-ink-3 text-bone-2",
-              ].join(" ")}
-            >
-              {row.status}
-            </span>
-          </div>
-          <p className="mt-2 font-mono text-[11px] uppercase tracking-[0.08em] text-bone-2">
-            {CATEGORY_LABEL[row.category] ?? row.category}
-            {row.baseIcao ? ` · Base ${row.baseIcao}` : ""}
-            {row.totalHours ? ` · ${row.totalHours.toLocaleString()} hrs` : ""}
-          </p>
-        </div>
-        <dl className="flex flex-wrap gap-x-10 gap-y-3 text-right">
-          {[
-            ["LIFETIME TRIPS", String(aggregate?.lifetimeTrips ?? 0)],
-            ["LIFETIME REV", formatUSD(aggregate?.lifetimeRevenue ?? 0)],
-            ["PAX FLOWN", String(aggregate?.totalPax ?? 0)],
-          ].map(([lbl, val]) => (
-            <div key={lbl} className="flex flex-col items-end">
-              <dt className="font-mono text-[10px] uppercase tracking-[0.14em] text-steel">
-                {lbl}
-              </dt>
-              <dd className="mt-1 font-serif text-[22px] font-light leading-none text-bone">
-                {val}
-              </dd>
-            </div>
-          ))}
-        </dl>
+    <DeskPage>
+      <DeskHeader
+        back={{ href: "/admin/aircraft", label: "Aircraft" }}
+        title={row.makeModel}
+        lead={`${leadParts.join(" · ")}.`}
+        actions={<StatusPill tone={status.tone}>{status.label}</StatusPill>}
+      />
+
+      <div className="mt-6 grid gap-4 md:grid-cols-3">
+        <NumberCard label="Trips flown" value={aggregate?.lifetimeTrips ?? 0} />
+        <NumberCard label="Lifetime revenue" value={formatUSD(aggregate?.lifetimeRevenue ?? 0)} />
+        <NumberCard label="Passengers flown" value={aggregate?.totalPax ?? 0} />
       </div>
 
-      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1.3fr_1fr]">
+      <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-[1.3fr_1fr]">
         {/* LEFT */}
         <div className="flex flex-col gap-6">
           {/* 14-day strip */}
-          <section className="rounded-[4px] border border-ink-3 bg-ink-2 p-6">
-            <div className="mb-4 flex items-baseline justify-between">
-              <h2 className="caption">— Next {HORIZON_DAYS} days</h2>
-              <Link
-                href="/admin/ops"
-                className="font-mono text-[10px] uppercase tracking-[0.14em] text-bone-2 transition-colors hover:text-clearance"
-              >
+          <DeskCard
+            title={`Next ${HORIZON_DAYS} days`}
+            actions={
+              <Link href="/admin/ops" className="text-[14px] text-steel transition-colors hover:text-bone">
                 Full planner →
               </Link>
-            </div>
-            <div className="overflow-x-auto">
+            }
+          >
+            <div className="mt-4 overflow-x-auto">
               <div
                 className="grid min-w-[840px]"
                 style={{ gridTemplateColumns: `repeat(${HORIZON_DAYS}, minmax(0, 1fr))` }}
@@ -274,18 +268,14 @@ export default async function AdminAircraftDetailPage({ params }: Props) {
                     <div
                       key={d.toISOString()}
                       className={[
-                        "border-l border-ink-3 px-2 py-2 text-center font-mono",
-                        isToday ? "bg-ink text-clearance" : "text-bone-2",
+                        "border-l border-line-faint px-2 py-2 text-center",
+                        isToday ? "rounded-t-control bg-surface-2 text-clearance" : "text-steel",
                       ].join(" ")}
                     >
-                      <div className="text-[9px] uppercase tracking-[0.14em]">
-                        {d
-                          .toLocaleDateString("en-US", { weekday: "short", timeZone: "UTC" })
-                          .toUpperCase()}
+                      <div className="text-[12px]">
+                        {d.toLocaleDateString("en-US", { weekday: "short", timeZone: "UTC" })}
                       </div>
-                      <div className="mt-0.5 text-[13px] tracking-[0.04em] text-bone">
-                        {d.getUTCDate()}
-                      </div>
+                      <div className="mt-0.5 text-[14px] font-medium text-bone">{d.getUTCDate()}</div>
                     </div>
                   );
                 })}
@@ -312,17 +302,18 @@ export default async function AdminAircraftDetailPage({ params }: Props) {
                     );
                     const span = Math.max(1, lastOverlap - i + 1);
                     const cls = KIND_CLS[block.kind] ?? "bg-bone-2 text-ink";
+                    const kindLabel = KIND_WORDS[block.kind] ?? block.kind;
                     const href = block.relatedTripId
-                      ? `/admin/trip/${block.relatedTripId}`
+                      ? `/admin/trips/${block.relatedTripId}`
                       : null;
-                    const label = block.tripCode ?? block.notes ?? block.kind;
+                    const label = block.tripCode ?? block.notes ?? kindLabel;
                     const inner = (
                       <span
                         className={[
-                          "block h-7 truncate rounded-[2px] px-2 py-1 font-mono text-[10px] uppercase tracking-[0.08em]",
+                          "block h-7 truncate rounded-[4px] px-2 py-1 text-[12px] font-medium leading-5",
                           cls,
                         ].join(" ")}
-                        title={`${block.kind} · ${block.startAt
+                        title={`${kindLabel} · ${block.startAt
                           .toISOString()
                           .slice(0, 16)
                           .replace("T", " ")} → ${block.endAt
@@ -336,7 +327,7 @@ export default async function AdminAircraftDetailPage({ params }: Props) {
                     return (
                       <div
                         key={`${i}-block`}
-                        className="border-l border-ink-3 px-1 py-2"
+                        className="border-l border-line-faint px-1 py-2"
                         style={{ gridColumn: `span ${span} / span ${span}` }}
                       >
                         {href ? (
@@ -352,194 +343,124 @@ export default async function AdminAircraftDetailPage({ params }: Props) {
                   return (
                     <div
                       key={`${i}-empty`}
-                      className="border-l border-ink-3 px-1 py-2"
+                      className="border-l border-line-faint px-1 py-2"
                     />
                   );
                 })}
               </div>
             </div>
             {blocks.length === 0 ? (
-              <p className="mt-4 font-mono text-[10px] uppercase tracking-[0.08em] text-steel">
-                — No blocks in window. Available for the full 14 days.
+              <p className="mt-4 text-[14px] text-steel">
+                Nothing scheduled. Available for the full {HORIZON_DAYS} days.
               </p>
             ) : null}
-          </section>
+          </DeskCard>
 
           {/* Recent trips */}
-          <section className="rounded-[4px] border border-ink-3 bg-ink-2 p-6">
-            <h2 className="caption mb-4">— Recent trips · {recentTrips.length}</h2>
+          <DeskCard title={`Recent trips · ${recentTrips.length}`}>
             {recentTrips.length === 0 ? (
-              <p className="text-[13px] text-steel">— No trips flown on this tail yet.</p>
+              <p className="mt-4 text-[15px] text-steel">No trips flown on this aircraft yet.</p>
             ) : (
-              <ul className="divide-y divide-ink-3">
-                {recentTrips.map((t) => (
-                  <li
-                    key={t.id}
-                    className="grid grid-cols-[auto_1fr_auto_auto_auto] items-baseline gap-4 py-3"
-                  >
-                    <Link
-                      href={`/admin/trip/${t.id}`}
-                      className="font-mono text-[11px] tracking-[0.04em] text-clearance hover:underline"
+              <ul className="mt-4 divide-y divide-line-faint">
+                {recentTrips.map((t) => {
+                  const s = tripState(t.status);
+                  return (
+                    <li
+                      key={t.id}
+                      className="grid grid-cols-1 items-center gap-2 py-3 md:grid-cols-[auto_1fr_auto_auto] md:gap-4"
                     >
-                      {t.tripCode}
-                    </Link>
-                    <span className="font-mono text-[10px] uppercase tracking-[0.08em] text-bone-2">
-                      {t.paxCount} pax ·{" "}
-                      {t.wheelsUpAt
-                        ? t.wheelsUpAt.toISOString().slice(0, 10)
-                        : t.createdAt.toISOString().slice(0, 10)}
-                    </span>
-                    <span
-                      className={[
-                        "inline-block rounded-full border px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.14em]",
-                        TRIP_STATUS_CLASS[t.status] ?? "border-ink-3 text-bone-2",
-                      ].join(" ")}
-                    >
-                      {t.status.replace(/_/g, " ")}
-                    </span>
-                    <span className="font-mono text-[11px] tracking-[0.04em] text-bone">
-                      {t.revenueUsd ? formatUSD(t.revenueUsd) : "—"}
-                    </span>
-                    <span />
-                  </li>
-                ))}
+                      <Link
+                        href={`/admin/trips/${t.id}`}
+                        className="text-[15px] font-medium text-bone hover:underline"
+                      >
+                        {t.tripCode}
+                      </Link>
+                      <span className="text-[14px] text-bone-2">
+                        {passengersWords(t.paxCount)} · {formatDate(t.wheelsUpAt ?? t.createdAt)}
+                      </span>
+                      <span className="pill pill-outline">
+                        <DotSentence tone={s.dot}>{s.label}</DotSentence>
+                      </span>
+                      <span className="text-[15px] text-bone">
+                        {t.revenueUsd ? formatUSD(t.revenueUsd) : "—"}
+                      </span>
+                    </li>
+                  );
+                })}
               </ul>
             )}
-          </section>
+          </DeskCard>
 
           {/* Spec */}
-          <section className="rounded-[4px] border border-ink-3 bg-ink-2 p-6">
-            <h2 className="caption mb-5">— Spec sheet</h2>
-            <dl className="grid grid-cols-[160px_1fr] gap-x-4 gap-y-3 text-[12px]">
-              <Row k="— Range">
-                <span className="font-mono tracking-[0.04em] text-bone">
-                  {row.rangeNm.toLocaleString()} NM
-                </span>
-              </Row>
-              <Row k="— Cruise speed">
-                <span className="font-mono tracking-[0.04em] text-bone">{row.speedKt} KT</span>
-              </Row>
-              <Row k="— Seats">
-                <span className="font-mono tracking-[0.04em] text-bone">{row.seats}</span>
-              </Row>
-              <Row k="— Wi-Fi">
-                <span className="font-mono tracking-[0.04em] text-bone">
-                  {WIFI_LABEL[row.wifiType] ?? row.wifiType}
-                </span>
-              </Row>
-              <Row k="— Cabin height">
-                <span className="font-mono tracking-[0.04em] text-bone">
-                  {row.cabinHeightIn ? `${row.cabinHeightIn}"` : "—"}
-                </span>
-              </Row>
-              <Row k="— Cabin features">
-                <span className="text-bone">
-                  {cabinFeatures.length ? cabinFeatures.join(" · ") : "—"}
-                </span>
-              </Row>
-              <Row k="— Base">
-                <span className="font-mono tracking-[0.06em] text-bone">
-                  {row.baseIcao ?? "—"}
-                </span>
-              </Row>
-              <Row k="— Total hours">
-                <span className="font-mono tracking-[0.04em] text-bone">
-                  {row.totalHours ? row.totalHours.toLocaleString() : "—"}
-                </span>
-              </Row>
-              <Row k="— Last C-check">
-                <span className="font-mono tracking-[0.04em] text-bone-2">
-                  {row.lastCCheckOn ? String(row.lastCCheckOn) : "—"}
-                </span>
-              </Row>
+          <DeskCard title="Spec sheet">
+            <dl className="dl-jn mt-4">
+              <dt>Range</dt>
+              <dd>{row.rangeNm.toLocaleString()} nm</dd>
+              <dt>Cruise speed</dt>
+              <dd>{row.speedKt} kt</dd>
+              <dt>Seats</dt>
+              <dd>{row.seats}</dd>
+              <dt>Wi-Fi</dt>
+              <dd>{WIFI_LABEL[row.wifiType] ?? row.wifiType}</dd>
+              <dt>Cabin height</dt>
+              <dd>{row.cabinHeightIn ? `${row.cabinHeightIn} in` : "—"}</dd>
+              <dt>Cabin features</dt>
+              <dd>{cabinFeatures.length ? cabinFeatures.join(" · ") : "—"}</dd>
+              <dt>Base</dt>
+              <dd>{row.baseIcao ?? "—"}</dd>
+              <dt>Total hours</dt>
+              <dd>{row.totalHours ? row.totalHours.toLocaleString() : "—"}</dd>
+              <dt>Last C-check</dt>
+              <dd>{row.lastCCheckOn ? formatDate(row.lastCCheckOn) : "—"}</dd>
             </dl>
-          </section>
+          </DeskCard>
         </div>
 
         {/* RIGHT */}
         <div className="flex flex-col gap-6">
           {/* Edit fields */}
-          <section className="rounded-[4px] border border-ink-3 bg-ink-2 p-6">
-            <h2 className="caption mb-4">— Edit fields</h2>
-            <AircraftForm mode="edit" initial={acRow} operatorOptions={operatorOptions} />
-          </section>
+          <DeskCard title="Edit aircraft">
+            <div className="mt-4">
+              <AircraftForm mode="edit" initial={acRow} operatorOptions={operatorOptions} />
+            </div>
+          </DeskCard>
 
           {/* Operator card */}
-          <section className="rounded-[4px] border border-ink-3 bg-ink-2 p-6">
-            <h2 className="caption mb-4">— Operator</h2>
+          <DeskCard title="Operator">
             <Link
               href={`/admin/operators/${row.operatorId}`}
-              className="font-serif text-[22px] leading-tight text-bone transition-colors hover:text-clearance"
+              className="mt-3 block text-[19px] font-medium leading-tight text-bone transition-colors hover:text-clearance"
             >
               {row.operatorName} →
             </Link>
-            <p className="mt-2 font-mono text-[11px] uppercase tracking-[0.08em] text-bone-2">
-              {row.operatorCertNumber ?? "—"} · status{" "}
-              <span className="text-bone">{row.operatorStatus}</span>
+            <p className="mt-2 text-[14px] text-steel">
+              {row.operatorCertNumber ? `Certificate ${row.operatorCertNumber} · ` : ""}
+              {OPERATOR_STATUS_WORDS[row.operatorStatus] ?? row.operatorStatus.replace(/_/g, " ")}
             </p>
             <div className="mt-4 flex flex-wrap gap-2">
-              {row.operatorIsPreferred ? (
-                <span className="rounded-[2px] bg-clearance px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.14em] text-ink">
-                  Preferred
-                </span>
-              ) : null}
-              <span
-                className={[
-                  "rounded-[2px] border px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.14em]",
-                  row.operatorArgus === "platinum"
-                    ? "border-clearance text-clearance"
-                    : row.operatorArgus === "gold"
-                      ? "border-[#C9A961] text-[#C9A961]"
-                      : "border-bone-2 text-bone-2",
-                ].join(" ")}
-              >
-                ARG/US {row.operatorArgus}
+              {row.operatorIsPreferred ? <span className="pill pill-clearance">Preferred</span> : null}
+              <span className="pill pill-outline">
+                ARG/US {ARGUS_WORDS[row.operatorArgus] ?? row.operatorArgus}
               </span>
-              {row.operatorWyvern ? (
-                <span className="rounded-[2px] border border-clearance px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.14em] text-clearance">
-                  Wyvern Wingman
-                </span>
-              ) : null}
+              {row.operatorWyvern ? <span className="pill pill-outline">Wyvern Wingman</span> : null}
             </div>
-          </section>
+          </DeskCard>
 
           {/* Onboarded */}
-          <section className="rounded-[4px] border border-ink-3 bg-ink-2 p-6">
-            <h2 className="caption mb-4">— History</h2>
-            <dl className="grid grid-cols-[140px_1fr] gap-x-4 gap-y-3 text-[12px]">
-              <Row k="— On network since">
-                <span className="font-mono tracking-[0.04em] text-bone-2">
-                  {row.createdAt.toISOString().slice(0, 10)}
-                </span>
-              </Row>
-              <Row k="— Category">
-                <span className="font-mono uppercase tracking-[0.08em] text-bone">
-                  {row.category}
-                </span>
-              </Row>
-              <Row k="— Status">
-                <span
-                  className={[
-                    "inline-block rounded-full border px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.14em]",
-                    STATUS_CLASS[row.status] ?? "border-ink-3 text-bone-2",
-                  ].join(" ")}
-                >
-                  {row.status}
-                </span>
-              </Row>
+          <DeskCard title="History">
+            <dl className="dl-jn mt-4">
+              <dt>On the network since</dt>
+              <dd>{formatDate(row.createdAt)}</dd>
+              <dt>Category</dt>
+              <dd>{CATEGORY_LABEL[row.category] ?? row.category}</dd>
+              <dt>Status</dt>
+              <dd>
+                <DotSentence tone={status.tone}>{status.label}</DotSentence>
+              </dd>
             </dl>
-          </section>
+          </DeskCard>
         </div>
       </div>
-    </div>
-  );
-}
-
-function Row({ k, children }: { k: string; children: React.ReactNode }) {
-  return (
-    <>
-      <dt className="font-mono text-[10px] uppercase tracking-[0.14em] text-steel">{k}</dt>
-      <dd>{children}</dd>
-    </>
+    </DeskPage>
   );
 }

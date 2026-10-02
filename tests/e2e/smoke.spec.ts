@@ -169,6 +169,33 @@ test.describe("auth surface", () => {
     expect(response?.status()).toBeLessThan(500);
     expect(page.url()).toMatch(/sign-in/);
   });
+
+  test("old desk URLs redirect into the five-section desk, then to sign-in", async ({ request }) => {
+    // Redesign phase 5 collapsed the admin to five sections. Old links live
+    // in dispatch emails, so they must keep resolving (next.config redirects)
+    // before the sign-in gate takes over.
+    const cases: [string, string][] = [
+      ["/admin/dispatch", "/admin/requests"],
+      ["/admin/quote/abc", "/admin/requests/abc"],
+      ["/admin/trip/abc", "/admin/trips/abc"],
+      ["/admin/member", "/admin/clients"],
+      ["/admin/health", "/admin/settings/connections"],
+    ];
+    for (const [from, to] of cases) {
+      const res = await request.get(from, { maxRedirects: 0 });
+      expect(res.status(), from).toBeGreaterThanOrEqual(300);
+      expect(res.status(), from).toBeLessThan(400);
+      expect(res.headers()["location"], from).toContain(to);
+    }
+  });
+
+  test("desk sections redirect to sign-in when signed out", async ({ page }) => {
+    for (const path of ["/admin", "/admin/requests", "/admin/messages", "/admin/settings"]) {
+      const response = await page.goto(path);
+      expect(response?.status(), path).toBeLessThan(500);
+      expect(page.url(), path).toMatch(/sign-in/);
+    }
+  });
 });
 
 test.describe("stripe webhook endpoint", () => {

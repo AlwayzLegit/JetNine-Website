@@ -13,6 +13,8 @@ type Props = {
   initial: OperatorContact[];
 };
 
+const ROW_BTN = "btn btn-secondary h-9 px-3.5 text-[14px] disabled:cursor-wait disabled:opacity-50";
+
 export function OperatorContactsEditor({ operatorId, initial }: Props) {
   const [list, setList] = useState<OperatorContact[]>(initial);
   const [pending, startTransition] = useTransition();
@@ -38,10 +40,10 @@ export function OperatorContactsEditor({ operatorId, initial }: Props) {
           createdAt: new Date(),
         };
         setList((prev) => [...prev, optimistic]);
-        setMsg({ tone: "ok", text: "ADDED — contact on file." });
+        setMsg({ tone: "ok", text: "Added — contact on file." });
         form.reset();
       } else {
-        setMsg({ tone: "error", text: `BLOCKED — ${result.error.toUpperCase()}` });
+        setMsg({ tone: "error", text: result.error });
       }
     });
   }
@@ -52,9 +54,9 @@ export function OperatorContactsEditor({ operatorId, initial }: Props) {
       const result = await deleteOperatorContact(operatorId, contactId);
       if (result.ok) {
         setList((prev) => prev.filter((c) => c.id !== contactId));
-        setMsg({ tone: "ok", text: "REMOVED." });
+        setMsg({ tone: "ok", text: "Removed." });
       } else {
-        setMsg({ tone: "error", text: `BLOCKED — ${result.error.toUpperCase()}` });
+        setMsg({ tone: "error", text: result.error });
       }
     });
   }
@@ -71,10 +73,10 @@ export function OperatorContactsEditor({ operatorId, initial }: Props) {
         );
         setMsg({
           tone: "ok",
-          text: result.isEscalation ? "PROMOTED — escalation contact." : "DEMOTED — standard contact.",
+          text: result.isEscalation ? "Now an escalation contact." : "Now a standard contact.",
         });
       } else {
-        setMsg({ tone: "error", text: `BLOCKED — ${result.error.toUpperCase()}` });
+        setMsg({ tone: "error", text: result.error });
       }
     });
   }
@@ -88,9 +90,9 @@ export function OperatorContactsEditor({ operatorId, initial }: Props) {
   return (
     <div className="flex flex-col gap-4">
       {sorted.length === 0 ? (
-        <p className="rounded-[2px] border border-dashed border-ink-3 bg-ink p-4 font-mono text-[10px] uppercase tracking-[0.1em] text-bone-2">
-          — No contacts on file. Add at least one escalation contact before this operator can fly
-          revenue trips.
+        <p className="rounded-control border border-dashed border-line-2 bg-surface-2 p-4 text-[14px] text-bone-2">
+          No contacts on file. Add at least one escalation contact before this operator can fly revenue
+          trips.
         </p>
       ) : (
         <ul className="flex flex-col gap-3">
@@ -98,57 +100,43 @@ export function OperatorContactsEditor({ operatorId, initial }: Props) {
             <li
               key={c.id}
               className={[
-                "rounded-[3px] border bg-ink p-3",
-                c.isEscalation ? "border-clearance" : "border-ink-3",
+                "rounded-control border bg-surface-2 p-4",
+                c.isEscalation ? "border-clearance" : "border-line",
               ].join(" ")}
             >
-              <div className="flex items-baseline justify-between gap-3">
-                <span className="font-serif text-[15px] text-bone">{c.name}</span>
-                {c.isEscalation ? (
-                  <span className="rounded-[2px] bg-clearance px-1.5 py-0.5 font-mono text-[8px] uppercase tracking-[0.14em] text-ink">
-                    Escalation
-                  </span>
-                ) : null}
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <span className="text-[16px] font-medium text-bone">{c.name}</span>
+                {c.isEscalation ? <span className="pill pill-clearance">Escalation</span> : null}
               </div>
-              {c.role ? (
-                <div className="mt-1 font-mono text-[10px] uppercase tracking-[0.08em] text-bone-2">
-                  {c.role}
-                </div>
-              ) : null}
-              <dl className="mt-2 flex flex-col gap-1 text-[11px]">
+              {c.role ? <div className="mt-1 text-[14px] text-steel">{c.role}</div> : null}
+              <dl className="mt-2 flex flex-col gap-1 text-[14px]">
                 {c.email ? (
-                  <a
-                    href={`mailto:${c.email}`}
-                    className="font-mono tracking-[0.04em] text-clearance hover:underline"
-                  >
+                  <a href={`mailto:${c.email}`} className="text-link">
                     {c.email}
                   </a>
                 ) : null}
                 {c.phoneE164 ? (
-                  <a
-                    href={`tel:${c.phoneE164}`}
-                    className="font-mono tracking-[0.04em] text-clearance hover:underline"
-                  >
+                  <a href={`tel:${c.phoneE164}`} className="text-link">
                     {c.phoneE164}
                   </a>
                 ) : null}
               </dl>
-              <div className="mt-3 flex items-center justify-between gap-3 border-t border-ink-3 pt-3">
+              <div className="mt-3 flex flex-wrap items-center justify-between gap-3 border-t border-line pt-3">
                 <button
                   type="button"
                   onClick={() => onToggleEscalation(c.id, !c.isEscalation)}
                   disabled={pending}
-                  className="font-mono text-[10px] uppercase tracking-[0.14em] text-bone-2 transition-colors hover:text-clearance disabled:cursor-wait disabled:opacity-50"
+                  className={ROW_BTN}
                 >
-                  {c.isEscalation ? "Demote ↓" : "Promote ↑"}
+                  {c.isEscalation ? "Make standard" : "Make escalation"}
                 </button>
                 <button
                   type="button"
                   onClick={() => onDelete(c.id)}
                   disabled={pending}
-                  className="font-mono text-[10px] uppercase tracking-[0.14em] text-bone-2 transition-colors hover:text-[var(--error)] disabled:cursor-wait disabled:opacity-50"
+                  className={`${ROW_BTN} text-danger`}
                 >
-                  Remove →
+                  Remove
                 </button>
               </div>
             </li>
@@ -156,8 +144,8 @@ export function OperatorContactsEditor({ operatorId, initial }: Props) {
         </ul>
       )}
 
-      <form onSubmit={onAdd} className="rounded-[3px] border border-ink-3 bg-ink p-4">
-        <p className="caption mb-3">— Add contact</p>
+      <form onSubmit={onAdd} className="rounded-control border border-line bg-surface-2 p-4">
+        <h3 className="label-jn mb-3 text-[13px]">Add contact</h3>
         <div className="field-jn">
           <label htmlFor="oc-name">Name</label>
           <input id="oc-name" name="name" type="text" placeholder="Riley Chen" required maxLength={120} />
@@ -172,39 +160,34 @@ export function OperatorContactsEditor({ operatorId, initial }: Props) {
             maxLength={80}
           />
         </div>
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 mt-3">
+        <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2">
           <div className="field-jn">
             <label htmlFor="oc-email">Email</label>
             <input id="oc-email" name="email" type="email" placeholder="riley@operator.com" />
           </div>
           <div className="field-jn">
-            <label htmlFor="oc-phone">Phone (E.164)</label>
+            <label htmlFor="oc-phone">Phone (with country code)</label>
             <input id="oc-phone" name="phoneE164" type="tel" placeholder="+15551234567" />
           </div>
         </div>
-        <label className="mt-3 flex cursor-pointer items-center gap-3">
+        <label className="mt-3 flex cursor-pointer items-center gap-3 py-1">
           <input
             type="checkbox"
             name="isEscalation"
             className="h-4 w-4 accent-clearance"
           />
-          <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-bone-2">
-            Escalation contact (overnight + weekend pages route here)
+          <span className="text-[14px] text-bone-2">
+            Escalation contact (overnight and weekend pages go here)
           </span>
         </label>
         <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
           {msg ? (
-            <span
-              className={[
-                "font-mono text-[11px] uppercase tracking-[0.12em]",
-                msg.tone === "error" ? "text-[var(--error)]" : "text-[var(--success)]",
-              ].join(" ")}
-            >
+            <span className={`text-[14px] ${msg.tone === "error" ? "text-danger" : "text-success"}`}>
               {msg.text}
             </span>
           ) : (
-            <span className="font-mono text-[10px] uppercase tracking-[0.08em] text-steel">
-              — At least one of email or phone required. E.164 format for phone.
+            <span className="text-[13px] text-steel">
+              At least one of email or phone is required. Phone with country code, like +1 555 123 4567.
             </span>
           )}
           <button

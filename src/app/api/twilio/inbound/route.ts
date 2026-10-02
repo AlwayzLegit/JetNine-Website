@@ -234,7 +234,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       lines: [preview || "(empty body)"],
       link: {
         label: "Open the thread",
-        url: `https://jetnine.com/admin/${route.subjectType === "quote" ? "quote" : "trip"}/${route.subjectId}`,
+        url: `https://jetnine.com/admin/${route.subjectType === "quote" ? "requests" : "trips"}/${route.subjectId}`,
       },
     });
   } catch (err) {

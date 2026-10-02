@@ -115,7 +115,7 @@ export async function GET(request: Request): Promise<NextResponse> {
           `Invoice ${inv.invoiceCode} was due ${inv.dueOn ?? "—"} and is unpaid. The member was emailed.`,
         ],
         link: inv.tripId
-          ? { label: "Open the trip sheet", url: `https://jetnine.com/admin/trip/${inv.tripId}` }
+          ? { label: "Open the trip sheet", url: `https://jetnine.com/admin/trips/${inv.tripId}` }
           : undefined,
       });
     } catch (err) {

@@ -1,10 +1,11 @@
 "use client";
 
 import { useState } from "react";
+import { AVINODE_URL } from "@/components/admin/desk-sidebar";
 
 // Minimal leg shape needed to build an Avinode search line. ICAO codes live
-// on quote_legs but aren't rendered elsewhere in the workbench (the leg cards
-// show IATA); Avinode's search wants ICAO, so we use them here.
+// on quote_legs but aren't rendered elsewhere on the request page (the trip
+// card shows IATA); Avinode's search wants ICAO, so we use them here.
 export type AvinodeSearchLeg = {
   fromIcao: string | null;
   toIcao: string | null;
@@ -54,6 +55,11 @@ function buildSearchString(
   return [...lines, summary].join("\n");
 }
 
+/**
+ * "Search in Avinode ↗": opens Avinode in a new tab and puts a paste-ready
+ * search (route · date · time · passengers · category floor) on the
+ * clipboard, since Avinode has no API to hand the search over directly.
+ */
 export function AvinodeSearchCopy({
   paxCount,
   requestedCategory,
@@ -66,8 +72,10 @@ export function AvinodeSearchCopy({
   const [state, setState] = useState<"idle" | "copied" | "error">("idle");
   const disabled = legs.length === 0;
 
-  async function onCopy() {
+  async function onClick() {
     const text = buildSearchString(paxCount, requestedCategory, legs);
+    // Open first — a popup opened after an await can be blocked.
+    window.open(AVINODE_URL, "_blank", "noopener,noreferrer");
     try {
       await navigator.clipboard.writeText(text);
       setState("copied");
@@ -75,22 +83,26 @@ export function AvinodeSearchCopy({
       setState("error");
     }
     // Transient — reset the label after a moment.
-    setTimeout(() => setState("idle"), 2000);
+    setTimeout(() => setState("idle"), 2500);
   }
 
   return (
     <button
       type="button"
-      onClick={onCopy}
+      onClick={onClick}
       disabled={disabled}
-      title="Copy a paste-ready Avinode search (route · date · time · pax · min category)"
-      className="font-mono text-[10px] uppercase tracking-[0.14em] text-bone-2 transition-colors hover:text-clearance disabled:opacity-40"
+      title="Opens Avinode and copies a paste-ready search: route, date, time, passengers and the smallest category that fits."
+      className="btn btn-secondary h-9 px-3 text-[14px] disabled:cursor-not-allowed"
     >
-      {state === "copied"
-        ? "✓ Copied"
-        : state === "error"
-          ? "Copy failed"
-          : "Copy search ⧉"}
+      {state === "copied" ? (
+        "Search copied ✓"
+      ) : state === "error" ? (
+        "Couldn't copy the search"
+      ) : (
+        <>
+          Search in Avinode <span aria-hidden="true">↗</span>
+        </>
+      )}
     </button>
   );
 }

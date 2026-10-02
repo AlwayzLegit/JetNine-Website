@@ -6,6 +6,7 @@ import { operators } from "@/db/schema/operators";
 import { aircraftScheduleBlocks } from "@/db/schema/schedule-blocks";
 import { trips } from "@/db/schema/trips";
 import { ScheduleBlockForm } from "@/components/admin/schedule-block-form";
+import { DeskEmpty, DeskHeader, DeskPage, NumberCard } from "@/components/admin/desk-ui";
 
 export const dynamic = "force-dynamic";
 
@@ -17,7 +18,7 @@ const KIND: Record<
   { label: string; cls: string }
 > = {
   trip: { label: "Trip", cls: "bg-clearance text-ink" },
-  maintenance: { label: "Maintenance", cls: "bg-[var(--warn)] text-ink" },
+  maintenance: { label: "Maintenance", cls: "bg-gold text-ink" },
   repositioning: { label: "Reposition", cls: "bg-bone-2 text-ink" },
   crew_rest: { label: "Crew rest", cls: "bg-steel text-ink" },
   owner: { label: "Owner", cls: "bg-[#C9A961] text-ink" },
@@ -25,7 +26,16 @@ const KIND: Record<
     label: "Soft hold",
     cls: "bg-transparent border border-dashed border-clearance text-clearance",
   },
-  unavailable: { label: "Unavailable", cls: "bg-[var(--error)] text-bone" },
+  unavailable: { label: "Unavailable", cls: "bg-danger text-ink" },
+};
+
+const CATEGORY_LABEL: Record<string, string> = {
+  turboprop: "Turboprop",
+  light: "Light",
+  midsize: "Midsize",
+  supermid: "Super-mid",
+  heavy: "Heavy",
+  ulr: "Ultra long range",
 };
 
 // Truncate a Date to the start of its UTC day. The planner is grid-based so
@@ -42,8 +52,8 @@ function addDays(d: Date, n: number): Date {
 
 function fmtDay(d: Date): { dow: string; mday: string } {
   return {
-    dow: d.toLocaleDateString("en-US", { weekday: "short", timeZone: "UTC" }).toUpperCase(),
-    mday: d.toLocaleDateString("en-US", { day: "2-digit", timeZone: "UTC" }),
+    dow: d.toLocaleDateString("en-US", { weekday: "short", timeZone: "UTC" }),
+    mday: d.toLocaleDateString("en-US", { day: "numeric", timeZone: "UTC" }),
   };
 }
 
@@ -116,47 +126,28 @@ export default async function AdminOpsPage() {
   const utilization = totalCells > 0 ? Math.round((busyCells / totalCells) * 100) : 0;
 
   return (
-    <div className="container-jn py-10">
-      <header className="mb-8 flex flex-wrap items-end justify-between gap-6 border-b border-ink-3 pb-6">
-        <div>
-          <p className="caption mb-3">— Admin · live ops</p>
-          <h1 className="font-serif text-[36px] font-light leading-tight tracking-tight text-bone">
-            Fleet planner · next {HORIZON_DAYS} days.
-          </h1>
-          <p className="mt-3 max-w-[64ch] text-[14px] leading-[1.55] text-bone-2">
-            Every tail in the network across a rolling 14-day window. Trips mirror in from{" "}
-            <code className="font-mono text-[12px] text-clearance">trips</code> via the sync
-            trigger; manual blocks (maintenance, owner-private, unavailable) get authored from the
-            aircraft detail. Soft holds appear with a dashed border.
-          </p>
-        </div>
-        <dl className="flex flex-wrap gap-x-8 gap-y-3 text-right">
-          {[
-            ["FLEET", String(fleet.length)],
-            ["BLOCKS", String(blocks.length)],
-            ["UTIL", `${utilization}%`],
-            ["WINDOW", `${HORIZON_DAYS}d`],
-          ].map(([lbl, val]) => (
-            <div key={lbl} className="flex flex-col items-end">
-              <dt className="font-mono text-[10px] uppercase tracking-[0.14em] text-steel">
-                {lbl}
-              </dt>
-              <dd className="mt-1 font-serif text-[26px] font-light leading-none text-bone">
-                {val}
-              </dd>
-            </div>
-          ))}
-        </dl>
-      </header>
+    <DeskPage>
+      <DeskHeader
+        back={{ href: "/admin/settings/reference", label: "Reference data" }}
+        title="Live ops board"
+        lead={`Every aircraft in the network across the next ${HORIZON_DAYS} days. Trips come in automatically; maintenance, owner and unavailable blocks are added by hand, and soft holds show with a dashed border.`}
+      />
+
+      <div className="mt-6 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <NumberCard label="Aircraft" value={fleet.length} />
+        <NumberCard label="Blocks in window" value={blocks.length} />
+        <NumberCard label="Days in use" value={`${utilization}%`} note="Share of aircraft-days with a block" />
+        <NumberCard label="Window" value={`${HORIZON_DAYS} days`} />
+      </div>
 
       {/* Legend + manual-block authoring */}
-      <section className="mb-6 flex flex-wrap items-start justify-between gap-4">
-        <div className="flex flex-wrap items-center gap-x-5 gap-y-2 font-mono text-[10px] uppercase tracking-[0.12em]">
+      <section className="mt-6 flex flex-wrap items-start justify-between gap-4">
+        <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-[14px]">
           {Object.entries(KIND).map(([k, v]) => (
             <span key={k} className="flex items-center gap-2">
               <span
                 className={[
-                  "inline-block h-3 w-5 rounded-[2px]",
+                  "inline-block h-3 w-5 rounded-[3px]",
                   v.cls,
                 ].join(" ")}
               />
@@ -175,64 +166,73 @@ export default async function AdminOpsPage() {
       </section>
 
       {fleet.length === 0 ? (
-        <div className="rounded-[4px] border border-ink-3 bg-ink-2 p-12 text-center">
-          <p className="caption mb-3">— No aircraft yet</p>
-          <p className="mx-auto mt-3 max-w-[48ch] text-[14px] leading-[1.55] text-bone-2">
-            Seed the operators + aircraft tables, or onboard partners via /admin/operators.
-          </p>
-        </div>
+        <DeskEmpty
+          className="mt-6"
+          title="No aircraft yet."
+          body={
+            <>
+              Seed the operators and aircraft tables, or add partners under{" "}
+              <Link href="/admin/operators" className="text-link">
+                Operators
+              </Link>
+              .
+            </>
+          }
+        />
       ) : (
-        <div className="overflow-x-auto rounded-[4px] border border-ink-3 bg-ink-2">
-          <div
-            className="grid min-w-[1280px]"
-            style={{
-              gridTemplateColumns: `260px repeat(${HORIZON_DAYS}, minmax(0, 1fr))`,
-            }}
-          >
-            {/* Header row */}
-            <div className="sticky left-0 z-10 bg-ink-2 px-4 py-3 font-mono text-[10px] uppercase tracking-[0.14em] text-bone-2">
-              — Tail · operator
-            </div>
-            {dayHeaders.map((d) => {
-              const { dow, mday } = fmtDay(d);
-              const isToday = d.getTime() === today.getTime();
-              return (
-                <div
-                  key={d.toISOString()}
-                  className={[
-                    "border-l border-ink-3 px-2 py-3 text-center font-mono",
-                    isToday ? "bg-ink text-clearance" : "text-bone-2",
-                  ].join(" ")}
-                >
-                  <div className="text-[10px] uppercase tracking-[0.14em]">{dow}</div>
-                  <div className="mt-0.5 text-[13px] tracking-[0.04em] text-bone">{mday}</div>
-                </div>
-              );
-            })}
+        <div className="card mt-6 overflow-hidden">
+          <div className="overflow-x-auto">
+            <div
+              className="grid min-w-[1280px]"
+              style={{
+                gridTemplateColumns: `260px repeat(${HORIZON_DAYS}, minmax(0, 1fr))`,
+              }}
+            >
+              {/* Header row */}
+              <div className="label-jn sticky left-0 z-10 border-b border-line bg-surface px-4 py-3 text-[13px]">
+                Aircraft · operator
+              </div>
+              {dayHeaders.map((d) => {
+                const { dow, mday } = fmtDay(d);
+                const isToday = d.getTime() === today.getTime();
+                return (
+                  <div
+                    key={d.toISOString()}
+                    className={[
+                      "border-b border-l border-line border-l-line-faint px-2 py-3 text-center",
+                      isToday ? "bg-surface-2 text-clearance" : "text-steel",
+                    ].join(" ")}
+                  >
+                    <div className="text-[12px]">{dow}</div>
+                    <div className="mt-0.5 text-[14px] font-medium text-bone">{mday}</div>
+                  </div>
+                );
+              })}
 
-            {/* Aircraft rows */}
-            {fleet.map((ac) => {
-              const rowBlocks = blocksByTail.get(ac.id) ?? [];
-              return (
-                <FleetRow
-                  key={ac.id}
-                  aircraftId={ac.id}
-                  tailNumber={ac.tailNumber}
-                  category={ac.category}
-                  seats={ac.seats}
-                  makeModel={ac.makeModel}
-                  operatorName={ac.operatorName}
-                  isPreferred={ac.isPreferred}
-                  acStatus={ac.status}
-                  today={today}
-                  blocks={rowBlocks}
-                />
-              );
-            })}
+              {/* Aircraft rows */}
+              {fleet.map((ac) => {
+                const rowBlocks = blocksByTail.get(ac.id) ?? [];
+                return (
+                  <FleetRow
+                    key={ac.id}
+                    aircraftId={ac.id}
+                    tailNumber={ac.tailNumber}
+                    category={ac.category}
+                    seats={ac.seats}
+                    makeModel={ac.makeModel}
+                    operatorName={ac.operatorName}
+                    isPreferred={ac.isPreferred}
+                    acStatus={ac.status}
+                    today={today}
+                    blocks={rowBlocks}
+                  />
+                );
+              })}
+            </div>
           </div>
         </div>
       )}
-    </div>
+    </DeskPage>
   );
 }
 
@@ -294,13 +294,13 @@ function FleetRow({
       );
       const span = Math.max(1, lastOverlap - startCol + 1);
       const theme = KIND[block.kind] ?? { label: block.kind, cls: "bg-bone-2 text-ink" };
-      const href = block.relatedTripId ? `/admin/trip/${block.relatedTripId}` : null;
+      const href = block.relatedTripId ? `/admin/trips/${block.relatedTripId}` : null;
       const label = block.tripCode ?? block.notes ?? theme.label;
 
       const inner = (
         <span
           className={[
-            "block h-7 truncate rounded-[2px] px-2 py-1 font-mono text-[10px] uppercase tracking-[0.08em]",
+            "block h-7 truncate rounded-[4px] px-2 py-1 text-[12px] font-medium leading-5",
             theme.cls,
           ].join(" ")}
           title={`${theme.label} · ${block.startAt.toISOString().slice(0, 16).replace("T", " ")} → ${block.endAt
@@ -315,7 +315,7 @@ function FleetRow({
       cells.push(
         <div
           key={`${aircraftId}-${i}`}
-          className="border-l border-ink-3 px-1 py-2"
+          className="border-l border-t border-line-faint px-1 py-2"
           style={{ gridColumn: `span ${span} / span ${span}` }}
         >
           {href ? (
@@ -335,7 +335,7 @@ function FleetRow({
     cells.push(
       <div
         key={`${aircraftId}-${i}-empty`}
-        className="border-l border-ink-3 px-1 py-2"
+        className="border-l border-t border-line-faint px-1 py-2"
       />,
     );
   }
@@ -343,23 +343,25 @@ function FleetRow({
   const isAog = acStatus === "aog";
   const isMaint = acStatus === "maint";
 
+  const meta = [
+    CATEGORY_LABEL[category] ?? category,
+    `${seats} seat${seats === 1 ? "" : "s"}`,
+    operatorName,
+    isPreferred ? "Preferred" : null,
+    isAog ? "Grounded (AOG)" : isMaint ? "In maintenance" : null,
+  ].filter(Boolean);
+
   return (
     <>
       <Link
         href={`/admin/aircraft/${aircraftId}`}
-        className="sticky left-0 z-10 grid grid-cols-[auto_1fr] items-baseline gap-3 border-t border-ink-3 bg-ink-2 px-4 py-3 transition-colors hover:bg-ink"
+        className="sticky left-0 z-10 grid grid-cols-[auto_1fr] items-baseline gap-3 border-t border-line-faint bg-surface px-4 py-3 transition-colors hover:bg-surface-2/50"
       >
-        <span className="font-mono text-[12px] tracking-[0.04em] text-clearance">
-          {tailNumber}
-        </span>
+        <span className="text-[14px] font-medium text-bone">{tailNumber}</span>
         <div className="min-w-0">
-          <div className="truncate font-serif text-[14px] leading-tight text-bone">
-            {makeModel}
-          </div>
-          <div className="mt-0.5 truncate font-mono text-[9px] uppercase tracking-[0.1em] text-bone-2">
-            {category} · {seats} pax · {operatorName}
-            {isPreferred ? " · pref" : ""}
-            {isAog ? " · AOG" : isMaint ? " · MAINT" : ""}
+          <div className="truncate text-[14px] leading-tight text-bone">{makeModel}</div>
+          <div className={`mt-0.5 truncate text-[12px] ${isAog ? "text-danger" : "text-steel"}`}>
+            {meta.join(" · ")}
           </div>
         </div>
       </Link>

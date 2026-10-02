@@ -1,0 +1,934 @@
+"use server";
+
+import { revalidatePath } from "next/cache";
+import { and, asc, eq, inArray, sql } from "drizzle-orm";
+import { db } from "@/db";
+import { trips, tripLegs, tripStatusEnum } from "@/db/schema/trips";
+import { invoices } from "@/db/schema/invoices";
+import { members } from "@/db/schema/members";
+import { users } from "@/db/schema/users";
+import {
+  reserveTransactions,
+  type NewReserveTransaction,
+} from "@/db/schema/memberships";
+import {
+  messageChannelEnum,
+  messages,
+  type NewMessage,
+} from "@/db/schema/audit";
+import { requireStaff } from "@/lib/auth";
+import { logAudit } from "@/lib/audit";
+import {
+  isNotifiableTripStatus,
+  sendInvoiceIssuedEmail,
+  sendTripStatusEmail,
+  type TripNotifyStatus,
+} from "@/lib/email";
+import { memberPreferences } from "@/db/schema/member-prefs";
+import { isStripeConfigured, refundPaymentIntent } from "@/lib/stripe";
+import { sendDispatchAlert, sendRefundIssuedEmail } from "@/lib/email";
+import { sendTripStatusSms } from "@/lib/twilio";
+import { dispatchThreadMessage, type ThreadChannel } from "@/lib/message-delivery";
+
+type Status = (typeof tripStatusEnum.enumValues)[number];
+
+function isStatus(v: string): v is Status {
+  return (tripStatusEnum.enumValues as readonly string[]).includes(v);
+}
+
+export async function updateTripStatus(
+  tripId: string,
+  status: string,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const actor = await requireStaff();
+  if (!isStatus(status)) return { ok: false, error: "Invalid status" };
+
+  const [before] = await db
+    .select({ status: trips.status, code: trips.tripCode })
+    .from(trips)
+    .where(eq(trips.id, tripId));
+
+  const patch: Partial<typeof trips.$inferInsert> = { status };
+  // Stamp wheels timestamps as a convenience when the dispatcher moves the
+  // trip across the obvious milestones.
+  const now = new Date();
+  if (status === "airborne") patch.wheelsUpAt = now;
+  if (status === "wheels_down" || status === "completed") patch.wheelsDownAt = now;
+
+  await db.update(trips).set(patch).where(eq(trips.id, tripId));
+
+  // Auto-refund: when a trip transitions into a cancelled state, look
+  // for any charter_draw rows we inserted at conversion time and post
+  // equal-and-opposite refund rows so the member's balance is made
+  // whole. Triggered only on these two states — `diverted` and
+  // `irregular_ops` mean the trip still happened (or partly happened)
+  // so refund policy is ops-decided.
+  let refund: { count: number; totalUsd: number } | null = null;
+  let cardRefund: { refunded: number; failed: number; totalUsd: number } | null = null;
+  if (
+    (status === "cancelled_wx" || status === "cancelled_other") &&
+    before?.status !== status
+  ) {
+    refund = await refundChartDrawsForTrip({
+      tripId,
+      reason: status,
+      actorUserId: actor.id,
+      tripCode: before?.code ?? null,
+    });
+    // Same policy for card payments: reserve draws have auto-refunded since
+    // they shipped, but a card-paid invoice was only ever voided on paper —
+    // the customer stayed charged. Mirrors the reserve path's transitions
+    // and idempotency (only status='paid' rows are touched, and Stripe
+    // rejects a second full refund of the same intent).
+    cardRefund = await refundCardPaymentsForTrip({
+      tripId,
+      actorUserId: actor.id,
+      actorRole: actor.role,
+      tripCode: before?.code ?? null,
+    });
+  }
+
+  // Customer-facing status notifications. Fire after the DB update so a
+  // failed email never blocks the status change. The email itself is
+  // logged as a message row on the trip thread (channel='email',
+  // direction='out', fromUserId=actor) so it shows up in both the
+  // workbench thread and — if delivery fails — the /admin/requests
+  // failed-delivery panel for retry.
+  let notification: { status: "sent" | "failed" | "skipped"; error?: string } = {
+    status: "skipped",
+  };
+  if (
+    isNotifiableTripStatus(status) &&
+    before?.status !== status // only on actual transition, not idempotent flips
+  ) {
+    notification = await notifyTripStatus({
+      tripId,
+      tripCode: before?.code ?? null,
+      newStatus: status,
+      actorUserId: actor.id,
+    });
+  }
+
+  await logAudit({
+    actorUserId: actor.id,
+    actorRole: actor.role,
+    action: "trip.status.update",
+    subjectType: "trip",
+    subjectId: tripId,
+    subjectCode: before?.code ?? null,
+    diff: { status: { before: before?.status ?? null, after: status } },
+    metadata: {
+      wheelsUpAt: patch.wheelsUpAt?.toISOString() ?? null,
+      wheelsDownAt: patch.wheelsDownAt?.toISOString() ?? null,
+      notification,
+      refund,
+      cardRefund,
+    },
+  });
+
+  revalidatePath("/admin/trips");
+  revalidatePath(`/admin/trips/${tripId}`);
+  revalidatePath("/admin/requests");
+  revalidatePath("/account/trips");
+  return { ok: true };
+}
+
+async function notifyTripStatus(args: {
+  tripId: string;
+  tripCode: string | null;
+  newStatus: TripNotifyStatus;
+  actorUserId: string;
+}): Promise<{ status: "sent" | "failed" | "skipped"; error?: string }> {
+  // Member + itinerary lookups are independent — parallelize. Saves
+  // one DB round-trip on every status flip (~20-50 ms p50).
+  const [targetRows, legs] = await Promise.all([
+    db
+      .select({
+        memberUserId: members.userId,
+        memberEmail: users.email,
+        memberPhone: users.phoneE164,
+        memberFirstName: users.firstName,
+        paxCount: trips.paxCount,
+        smsOptIn: memberPreferences.commsSmsUpdates,
+        quietStart: memberPreferences.quietHoursStart,
+        quietEnd: memberPreferences.quietHoursEnd,
+        quietTz: memberPreferences.quietHoursTz,
+      })
+      .from(trips)
+      .innerJoin(members, eq(members.id, trips.memberId))
+      .innerJoin(users, eq(users.id, members.userId))
+      .leftJoin(memberPreferences, eq(memberPreferences.memberId, trips.memberId))
+      .where(eq(trips.id, args.tripId)),
+    db
+      .select({
+        fromIcao: tripLegs.fromIcao,
+        toIcao: tripLegs.toIcao,
+        departDate: tripLegs.departDate,
+      })
+      .from(tripLegs)
+      .where(eq(tripLegs.tripId, args.tripId))
+      .orderBy(asc(tripLegs.legNumber)),
+  ]);
+  const target = targetRows[0];
+
+  if (!target || !args.tripCode) {
+    return { status: "skipped" };
+  }
+  if (!target.memberEmail && !target.memberPhone) {
+    return { status: "skipped" };
+  }
+
+  const itineraryLines = legs
+    .slice(0, 4) // cap to 4 lines so the email stays scannable
+    .map((l) => {
+      const route = `${l.fromIcao ?? "—"} → ${l.toIcao ?? "—"}`;
+      const date = l.departDate ? String(l.departDate) : "—";
+      return `${route} · ${date}`;
+    });
+  if (target.paxCount) {
+    itineraryLines.push(`${target.paxCount} pax`);
+  }
+
+  // Stub a message row in the thread BEFORE sending so the operator
+  // sees a `queued` pill immediately on revalidate. Then update with
+  // the delivery outcome.
+  const body =
+    `Auto-generated status notification: ${args.newStatus}. ` +
+    `See email content for member-facing copy.`;
+  const previewBody = `Status → ${args.newStatus}`;
+
+  // Email + SMS in parallel for real this time — each independently
+  // logged in messages so delivery failures of one don't lose the
+  // other. Saves ~300-800 ms p50 vs the previous sequential awaits.
+  const [emailOutcome, smsOutcome] = await Promise.all([
+    target.memberEmail
+      ? fireChannel({
+          channel: "email",
+          toAddress: target.memberEmail,
+          send: () =>
+            sendTripStatusEmail({
+              to: target.memberEmail!,
+              tripCode: args.tripCode!,
+              status: args.newStatus,
+              firstName: target.memberFirstName,
+              itineraryLines,
+            }),
+          previewBody,
+          body,
+          tripId: args.tripId,
+          memberUserId: target.memberUserId,
+          actorUserId: args.actorUserId,
+        })
+      : Promise.resolve({ status: "skipped" as const }),
+    // SMS only with explicit opt-in (comms_sms_updates defaults false — the
+    // member never consented otherwise; TCPA-adjacent) and outside the
+    // member's quiet hours. Email is the always-on channel.
+    target.memberPhone &&
+    target.smsOptIn === true &&
+    !inQuietHours(target.quietStart, target.quietEnd, target.quietTz)
+      ? fireChannel({
+          channel: "sms",
+          toAddress: target.memberPhone,
+          send: () =>
+            sendTripStatusSms({
+              to: target.memberPhone!,
+              tripCode: args.tripCode!,
+              status: args.newStatus,
+              firstLeg: itineraryLines[0] ?? null,
+            }),
+          previewBody,
+          body,
+          tripId: args.tripId,
+          memberUserId: target.memberUserId,
+          actorUserId: args.actorUserId,
+        })
+      : Promise.resolve({ status: "skipped" as const }),
+  ]);
+
+  // Treat 'sent' on either channel as overall success for audit
+  // purposes. The per-channel detail is in the messages rows.
+  if (emailOutcome.status === "sent" || smsOutcome.status === "sent") {
+    return { status: "sent" };
+  }
+  if (emailOutcome.status === "failed" || smsOutcome.status === "failed") {
+    return {
+      status: "failed",
+      error:
+        emailOutcome.status === "failed"
+          ? emailOutcome.error
+          : (smsOutcome as { error?: string }).error,
+    };
+  }
+  return { status: "skipped" };
+}
+
+/**
+ * True when `now` falls inside the member's quiet-hours window. start/end
+ * are Postgres `time` strings ("22:00:00"); the window may wrap midnight
+ * (22:00 -> 07:00). Any parse/timezone failure returns false — quiet hours
+ * must never silently eat an alert on bad data.
+ */
+function inQuietHours(
+  start: string | null,
+  end: string | null,
+  tz: string | null,
+  now: Date = new Date(),
+): boolean {
+  if (!start || !end) return false;
+  try {
+    const parts = new Intl.DateTimeFormat("en-US", {
+      timeZone: tz || "America/Los_Angeles",
+      hour12: false,
+      hour: "2-digit",
+      minute: "2-digit",
+    }).formatToParts(now);
+    const hh = Number(parts.find((x) => x.type === "hour")?.value);
+    const mm = Number(parts.find((x) => x.type === "minute")?.value);
+    const cur = hh * 60 + mm;
+    const toMin = (t: string) => {
+      const [h, m] = t.split(":");
+      return Number(h) * 60 + Number(m);
+    };
+    const s = toMin(start);
+    const e = toMin(end);
+    if ([cur, s, e].some(Number.isNaN)) return false;
+    return s <= e ? cur >= s && cur < e : cur >= s || cur < e;
+  } catch {
+    return false;
+  }
+}
+
+type FireResult = { status: "sent" } | { status: "failed"; error?: string };
+
+async function fireChannel(args: {
+  channel: "email" | "sms";
+  toAddress: string;
+  send: () => Promise<{ ok: true; provider: string; messageId?: string } | { ok: false; error: string }>;
+  previewBody: string;
+  body: string;
+  tripId: string;
+  memberUserId: string;
+  actorUserId: string;
+}): Promise<FireResult> {
+  const values: NewMessage = {
+    subjectType: "trip",
+    subjectId: args.tripId,
+    channel: args.channel,
+    direction: "out",
+    fromAddress: null,
+    toAddress: args.toAddress,
+    fromUserId: args.actorUserId,
+    toUserId: args.memberUserId,
+    preview: args.previewBody,
+    body: args.body,
+    isRead: false,
+    deliveryStatus: "queued",
+  };
+
+  let messageId: string;
+  try {
+    const [row] = await db.insert(messages).values(values).returning({ id: messages.id });
+    messageId = row.id;
+  } catch (err) {
+    console.error(`[trip-status:${args.channel}] message insert failed`, err);
+    return { status: "failed", error: "DB_INSERT_FAILED" };
+  }
+
+  const result = await args.send();
+
+  if (result.ok) {
+    // Honest status: in logger mode nothing left the building — record
+    // `queued`, not a false green `sent`.
+    const delivered = result.provider !== "logger";
+    await db
+      .update(messages)
+      .set({
+        deliveryStatus: delivered ? "sent" : "queued",
+        deliveryProvider: result.provider,
+        deliveryMessageId: result.messageId ?? null,
+        deliveryError: delivered ? null : "channel not configured — logged only, not delivered",
+        deliveredAt: delivered ? new Date() : null,
+      })
+      .where(eq(messages.id, messageId));
+    return { status: "sent" };
+  }
+
+  await db
+    .update(messages)
+    .set({
+      deliveryStatus: "failed",
+      deliveryError: result.error.slice(0, 500),
+    })
+    .where(eq(messages.id, messageId));
+  return { status: "failed", error: result.error };
+}
+
+// ─── Invoice finalize (draft → due) ──────────────────────────────────────
+//
+// The last unbuilt segment of the money path (#34). convertQuoteToTrip
+// creates the invoice as `draft` (unless an immediate reserve drawdown
+// flips it straight to `paid`); a draft has no member-facing Pay button
+// until a dispatcher reviews the figures and finalizes it to `due`. This
+// action backs the editor on the trip sheet: edit the money fields + due
+// date, then either Save (stay draft) or Finalize (→ due). Editing is
+// locked once the invoice leaves `draft`.
+
+export type InvoiceUpdateResult =
+  | { ok: true; status: "draft" | "due" }
+  | { ok: false; error: string };
+
+// Stripe's per-line-item ceiling is 99,999,999 cents; our amounts are
+// whole USD, so the same number is a safe upper bound in dollars too.
+const MAX_INVOICE_USD = 99_999_999;
+
+// Parse a money field: empty → null (unknown), otherwise a rounded
+// integer. Returns NaN as an invalid-input sentinel the caller rejects.
+function parseUsdField(v: FormDataEntryValue | null): number | null {
+  if (v === null) return null;
+  const s = String(v).trim();
+  if (s === "") return null;
+  const n = Number(s);
+  if (!Number.isFinite(n)) return NaN;
+  return Math.round(n);
+}
+
+export async function updateInvoice(
+  invoiceId: string,
+  formData: FormData,
+): Promise<InvoiceUpdateResult> {
+  const actor = await requireStaff();
+
+  if (!/^[0-9a-f-]{36}$/i.test(invoiceId)) {
+    return { ok: false, error: "Bad invoice id" };
+  }
+
+  const intent = String(formData.get("intent") ?? "save");
+  if (intent !== "save" && intent !== "finalize") {
+    return { ok: false, error: "Bad intent" };
+  }
+
+  const [inv] = await db.select().from(invoices).where(eq(invoices.id, invoiceId));
+  if (!inv) return { ok: false, error: "Invoice not found" };
+  if (inv.status !== "draft") {
+    return { ok: false, error: `Invoice is ${inv.status} — only drafts are editable` };
+  }
+
+  const subtotalUsd = parseUsdField(formData.get("subtotalUsd"));
+  const fetUsd = parseUsdField(formData.get("fetUsd"));
+  const segmentFeeUsd = parseUsdField(formData.get("segmentFeeUsd"));
+  const totalUsd = parseUsdField(formData.get("totalUsd"));
+
+  for (const [label, val] of [
+    ["Subtotal", subtotalUsd],
+    ["FET", fetUsd],
+    ["Segment fee", segmentFeeUsd],
+    ["Total", totalUsd],
+  ] as const) {
+    if (typeof val === "number" && Number.isNaN(val)) {
+      return { ok: false, error: `${label} must be a number` };
+    }
+    if (val !== null && (val < 0 || val > MAX_INVOICE_USD)) {
+      return { ok: false, error: `${label} is out of range` };
+    }
+  }
+
+  const notesRaw = String(formData.get("notes") ?? "").trim();
+  const notes = notesRaw === "" ? null : notesRaw.slice(0, 2000);
+
+  const dueOnRaw = String(formData.get("dueOn") ?? "").trim();
+  let dueOn: string | null = null;
+  if (dueOnRaw !== "") {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(dueOnRaw) || Number.isNaN(Date.parse(dueOnRaw))) {
+      return { ok: false, error: "Due date must be a valid YYYY-MM-DD" };
+    }
+    dueOn = dueOnRaw;
+  }
+
+  if (intent === "finalize" && (totalUsd === null || totalUsd <= 0)) {
+    return { ok: false, error: "Total must be greater than zero to finalize" };
+  }
+
+  const patch: Partial<typeof invoices.$inferInsert> = {
+    subtotalUsd,
+    fetUsd,
+    segmentFeeUsd,
+    totalUsd,
+    notes,
+    updatedAt: new Date(),
+  };
+  if (dueOn !== null) patch.dueOn = dueOn;
+
+  if (intent === "finalize") {
+    patch.status = "due";
+    // A due invoice should carry a due date; default to +7 days when the
+    // dispatcher didn't set one and the row doesn't already have one.
+    if (dueOn === null && !inv.dueOn) {
+      const d = new Date();
+      d.setUTCDate(d.getUTCDate() + 7);
+      patch.dueOn = d.toISOString().slice(0, 10);
+    }
+  }
+
+  // Constrain to status='draft' so a concurrent finalize can't be
+  // double-applied; empty result means someone else moved it first.
+  const updated = await db
+    .update(invoices)
+    .set(patch)
+    .where(and(eq(invoices.id, invoiceId), eq(invoices.status, "draft")))
+    .returning({ id: invoices.id });
+
+  if (updated.length === 0) {
+    return { ok: false, error: "Invoice changed under you — reload the sheet" };
+  }
+
+  const diff: Record<string, unknown> = {
+    subtotalUsd: { before: inv.subtotalUsd, after: subtotalUsd },
+    fetUsd: { before: inv.fetUsd, after: fetUsd },
+    segmentFeeUsd: { before: inv.segmentFeeUsd, after: segmentFeeUsd },
+    totalUsd: { before: inv.totalUsd, after: totalUsd },
+  };
+  if (intent === "finalize") {
+    diff.status = { before: "draft", after: "due" };
+  }
+
+  await logAudit({
+    actorUserId: actor.id,
+    actorRole: actor.role,
+    action: intent === "finalize" ? "invoice.finalize" : "invoice.draft.update",
+    subjectType: "invoice",
+    subjectId: invoiceId,
+    subjectCode: inv.invoiceCode,
+    diff,
+    metadata: { intent, dueOn: patch.dueOn ?? inv.dueOn ?? null },
+  });
+
+  // Finalizing puts money on the table — tell the member rather than let
+  // them discover the invoice by browsing /account/invoices. Best-effort.
+  if (intent === "finalize" && inv.memberId && totalUsd !== null) {
+    try {
+      const [m] = await db
+        .select({ email: users.email, firstName: users.firstName })
+        .from(members)
+        .innerJoin(users, eq(users.id, members.userId))
+        .where(eq(members.id, inv.memberId));
+      if (m?.email) {
+        let tripCode: string | null = null;
+        if (inv.tripId) {
+          const [t] = await db
+            .select({ tripCode: trips.tripCode })
+            .from(trips)
+            .where(eq(trips.id, inv.tripId));
+          tripCode = t?.tripCode ?? null;
+        }
+        await sendInvoiceIssuedEmail({
+          to: m.email,
+          firstName: m.firstName || "Hello",
+          invoiceCode: inv.invoiceCode,
+          tripCode,
+          totalUsd,
+          dueOn: (patch.dueOn ?? inv.dueOn ?? null) as string | null,
+        });
+      }
+    } catch (err) {
+      console.error("invoice-issued email failed (non-fatal)", err);
+    }
+  }
+
+  if (inv.tripId) {
+    revalidatePath(`/admin/trips/${inv.tripId}`);
+  }
+  revalidatePath("/admin/trips");
+  revalidatePath("/account/invoices");
+
+  return { ok: true, status: intent === "finalize" ? "due" : "draft" };
+}
+
+// ─── Messaging thread (subject_type='trip') ──────────────────────────────
+
+type Channel = (typeof messageChannelEnum.enumValues)[number];
+
+const ALLOWED_DISPATCHER_CHANNELS: readonly Channel[] = [
+  "inapp",
+  "email",
+  "sms",
+  "whatsapp",
+  "call",
+  "voicemail",
+] as const;
+
+function isAllowedChannel(v: string): v is Channel {
+  return (ALLOWED_DISPATCHER_CHANNELS as readonly string[]).includes(v);
+}
+
+export type PostTripMessageResult =
+  | { ok: true; id: string }
+  | { ok: false; error: string };
+
+export async function postTripMessage(
+  tripId: string,
+  formData: FormData,
+): Promise<PostTripMessageResult> {
+  const actor = await requireStaff();
+
+  if (!/^[0-9a-f-]{36}$/i.test(tripId)) {
+    return { ok: false, error: "Bad trip id" };
+  }
+
+  const channelRaw = ((formData.get("channel") as string | null) ?? "").trim();
+  if (!isAllowedChannel(channelRaw)) return { ok: false, error: "Pick a channel" };
+
+  const body = ((formData.get("body") as string | null) ?? "").trim();
+  if (body.length < 1) return { ok: false, error: "Body required" };
+  if (body.length > 4000) return { ok: false, error: "Body too long (4000 max)" };
+
+  const toAddress = ((formData.get("toAddress") as string | null) ?? "").trim() || null;
+
+  // Look up the trip + its member's contact info for default to-address.
+  const [t] = await db
+    .select({
+      id: trips.id,
+      code: trips.tripCode,
+      memberId: trips.memberId,
+      memberUserId: members.userId,
+      memberEmail: users.email,
+      memberPhone: users.phoneE164,
+    })
+    .from(trips)
+    .innerJoin(members, eq(members.id, trips.memberId))
+    .innerJoin(users, eq(users.id, members.userId))
+    .where(eq(trips.id, tripId));
+  if (!t) return { ok: false, error: "Trip not found" };
+
+  const defaultTo =
+    channelRaw === "email"
+      ? t.memberEmail
+      : channelRaw === "sms" || channelRaw === "call" || channelRaw === "voicemail"
+        ? t.memberPhone
+        : null;
+
+  const preview = body.length > 140 ? `${body.slice(0, 139)}…` : body;
+  const finalTo = toAddress ?? defaultTo;
+
+  // SMS + WhatsApp now transmit via Twilio in addition to email. Other
+  // channels (inapp, call, voicemail) remain logged-only dispatcher notes.
+  const willTransmit =
+    (channelRaw === "email" || channelRaw === "sms" || channelRaw === "whatsapp") &&
+    Boolean(finalTo);
+  const initialStatus: "queued" | "skipped" = willTransmit ? "queued" : "skipped";
+
+  const values: NewMessage = {
+    subjectType: "trip",
+    subjectId: tripId,
+    channel: channelRaw,
+    direction: "out",
+    fromAddress: null,
+    toAddress: finalTo,
+    fromUserId: actor.id,
+    toUserId: t.memberUserId,
+    preview,
+    body,
+    isRead: false,
+    deliveryStatus: initialStatus,
+  };
+
+  let messageId: string;
+  try {
+    const [row] = await db
+      .insert(messages)
+      .values(values)
+      .returning({ id: messages.id });
+    messageId = row.id;
+  } catch (err) {
+    console.error("postTripMessage insert failed", err);
+    return { ok: false, error: "DB_INSERT_FAILED" };
+  }
+
+  let deliveryAudit: Record<string, unknown> = { status: initialStatus };
+  if (willTransmit && finalTo) {
+    const summary = preview.length > 60 ? `${preview.slice(0, 59)}…` : preview;
+    const result = await dispatchThreadMessage(channelRaw as ThreadChannel, {
+      to: finalTo,
+      subjectCode: t.code,
+      subjectSummary: summary,
+      body,
+    });
+    if (result.ok) {
+      await db
+        .update(messages)
+        .set({
+          // Honest status: logger mode means nothing left the building.
+          deliveryStatus: result.provider === "logger" ? "queued" : "sent",
+          deliveryProvider: result.provider,
+          deliveryMessageId: result.messageId ?? null,
+          deliveryError:
+            result.provider === "logger"
+              ? "channel not configured — logged only, not delivered"
+              : null,
+          deliveredAt: result.provider === "logger" ? null : new Date(),
+        })
+        .where(eq(messages.id, messageId));
+      deliveryAudit = {
+        status: result.provider === "logger" ? "queued" : "sent",
+        provider: result.provider,
+        messageId: result.messageId ?? null,
+      };
+    } else {
+      await db
+        .update(messages)
+        .set({
+          deliveryStatus: "failed",
+          deliveryError: result.error.slice(0, 500),
+        })
+        .where(eq(messages.id, messageId));
+      deliveryAudit = { status: "failed", error: result.error };
+    }
+  }
+
+  await logAudit({
+    actorUserId: actor.id,
+    actorRole: actor.role,
+    action: "trip.message.post",
+    subjectType: "trip",
+    subjectId: tripId,
+    subjectCode: t.code,
+    metadata: {
+      messageId,
+      channel: channelRaw,
+      toAddress: finalTo,
+      bodyLen: body.length,
+      delivery: deliveryAudit,
+    },
+  });
+
+  revalidatePath(`/admin/trips/${tripId}`);
+  return { ok: true, id: messageId };
+}
+
+/**
+ * On a cancelled-trip transition, post equal-and-opposite refund rows
+ * to the reserve ledger for every prior charter_draw against this
+ * trip. Marks the linked invoice(s) as 'void' so /account/invoices and
+ * /admin reports don't keep counting them as paid revenue.
+ *
+ * Policy: full refund of the drawn amount. Partial-keep / penalty
+ * scenarios (member-initiated late cancel, etc.) need an ops-side
+ * manual adjustment row on top — this baseline just unwinds the
+ * automatic draw so the member's balance reflects the trip not
+ * happening.
+ *
+ * Returns null when no draws existed (nothing to refund).
+ */
+async function refundChartDrawsForTrip(args: {
+  tripId: string;
+  reason: "cancelled_wx" | "cancelled_other";
+  actorUserId: string;
+  tripCode: string | null;
+}): Promise<{ count: number; totalUsd: number } | null> {
+  // Select only draws that don't already have a matching refund. Filters
+  // out both the cancel→confirm→cancel cycle (where a previous cancel
+  // already posted refunds) and a partial racer where another call beat
+  // us to half the refunds. The partial unique index
+  // `reserve_tx_refund_per_draw_uniq` (migration 0032) is the final
+  // backstop against the concurrent-cancel race; the NOT EXISTS guard
+  // here keeps it from throwing in the common single-writer case.
+  const draws = await db
+    .select({
+      id: reserveTransactions.id,
+      memberId: reserveTransactions.memberId,
+      membershipId: reserveTransactions.membershipId,
+      amountUsd: reserveTransactions.amountUsd,
+      invoiceId: reserveTransactions.invoiceId,
+    })
+    .from(reserveTransactions)
+    .where(
+      and(
+        eq(reserveTransactions.tripId, args.tripId),
+        eq(reserveTransactions.kind, "charter_draw"),
+        sql`not exists (
+          select 1 from ${reserveTransactions} r
+          where r.trip_id = ${reserveTransactions.tripId}
+            and r.invoice_id is not distinct from ${reserveTransactions.invoiceId}
+            and r.kind = 'refund'
+        )`,
+      ),
+    );
+
+  if (draws.length === 0) return null;
+
+  let totalUsd = 0;
+  const refundedInvoiceIds = new Set<string>();
+  try {
+    await db.transaction(async (tx) => {
+      for (const d of draws) {
+        // charter_draws are stored as negative amounts; refund is the
+        // signed opposite (positive) so balance returns to pre-flight.
+        const refundAmount = -d.amountUsd;
+        const refundRow: NewReserveTransaction = {
+          memberId: d.memberId,
+          membershipId: d.membershipId,
+          kind: "refund",
+          amountUsd: refundAmount,
+          description: `Refund — trip ${args.tripCode ?? args.tripId.slice(0, 8)} (${args.reason})`,
+          tripId: args.tripId,
+          invoiceId: d.invoiceId,
+        };
+        await tx.insert(reserveTransactions).values(refundRow);
+        totalUsd += refundAmount;
+        if (d.invoiceId) refundedInvoiceIds.add(d.invoiceId);
+      }
+
+      if (refundedInvoiceIds.size > 0) {
+        await tx
+          .update(invoices)
+          .set({
+            status: "void",
+            notes: sql`coalesce(${invoices.notes} || E'\n', '') || ${`Voided on trip cancel (${args.reason})`}`,
+            updatedAt: new Date(),
+          })
+          .where(inArray(invoices.id, Array.from(refundedInvoiceIds)));
+      }
+    });
+  } catch (err) {
+    // The partial unique index can fire when two cancellations race even
+    // after the NOT EXISTS guard (between SELECT and INSERT). The other
+    // writer has already posted the refunds — fall through with null.
+    if ((err as { code?: string }).code === "23505") {
+      console.warn("[trip.cancel.refund] lost race to concurrent cancellation", {
+        tripId: args.tripId,
+        reason: args.reason,
+      });
+      return null;
+    }
+    throw err;
+  }
+
+  await logAudit({
+    actorUserId: args.actorUserId,
+    actorRole: "system",
+    action: "trip.cancel.refund",
+    subjectType: "trip",
+    subjectId: args.tripId,
+    subjectCode: args.tripCode,
+    metadata: {
+      reason: args.reason,
+      refundCount: draws.length,
+      totalRefundedUsd: totalUsd,
+      reserveTxIds: draws.map((d) => d.id),
+    },
+  });
+
+  return { count: draws.length, totalUsd };
+}
+
+// ─── Card-payment refunds on trip cancellation ───────────────────────────
+// Counterpart to refundChartDrawsForTrip for invoices paid by card via
+// Stripe. Refund failures never block the cancellation — they page the
+// desk for a manual refund instead.
+async function refundCardPaymentsForTrip(args: {
+  tripId: string;
+  actorUserId: string;
+  actorRole: string;
+  tripCode: string | null;
+}): Promise<{ refunded: number; failed: number; totalUsd: number } | null> {
+  if (!isStripeConfigured()) return null;
+
+  const paidRows = await db
+    .select({
+      id: invoices.id,
+      invoiceCode: invoices.invoiceCode,
+      memberId: invoices.memberId,
+      totalUsd: invoices.totalUsd,
+      stripePaymentIntentId: invoices.stripePaymentIntentId,
+    })
+    .from(invoices)
+    .where(and(eq(invoices.tripId, args.tripId), eq(invoices.status, "paid")));
+  const refundable = paidRows.filter((r) => r.stripePaymentIntentId);
+  if (refundable.length === 0) return null;
+
+  let refunded = 0;
+  let failed = 0;
+  let totalUsd = 0;
+
+  for (const inv of refundable) {
+    const result = await refundPaymentIntent(inv.stripePaymentIntentId!);
+
+    if (result.ok) {
+      // Guard on status='paid' so a concurrent runner can't double-book the
+      // ledger state; Stripe already refuses a duplicate full refund.
+      await db
+        .update(invoices)
+        .set({ status: "void", updatedAt: new Date() })
+        .where(and(eq(invoices.id, inv.id), eq(invoices.status, "paid")));
+      refunded += 1;
+      totalUsd += result.amountUsd ?? inv.totalUsd ?? 0;
+
+      await logAudit({
+        actorUserId: args.actorUserId,
+        actorRole: args.actorRole,
+        action: "invoice.refund.card",
+        subjectType: "invoice",
+        subjectId: inv.id,
+        subjectCode: inv.invoiceCode,
+        diff: { status: { before: "paid", after: "void" } },
+        metadata: {
+          stripeRefundId: result.refundId,
+          amountUsd: result.amountUsd ?? inv.totalUsd,
+          tripCode: args.tripCode,
+          trigger: "trip_cancellation",
+        },
+      });
+
+      // Customer refund notice — best-effort.
+      try {
+        if (inv.memberId) {
+          const [m] = await db
+            .select({ email: users.email, firstName: users.firstName })
+            .from(members)
+            .innerJoin(users, eq(users.id, members.userId))
+            .where(eq(members.id, inv.memberId));
+          if (m?.email) {
+            await sendRefundIssuedEmail({
+              to: m.email,
+              firstName: m.firstName || "Hello",
+              invoiceCode: inv.invoiceCode,
+              tripCode: args.tripCode,
+              amountUsd: result.amountUsd ?? inv.totalUsd,
+            });
+          }
+        }
+      } catch (err) {
+        console.error("refund email failed (non-fatal)", err);
+      }
+    } else {
+      failed += 1;
+      await logAudit({
+        actorUserId: args.actorUserId,
+        actorRole: args.actorRole,
+        action: "invoice.refund.card_failed",
+        subjectType: "invoice",
+        subjectId: inv.id,
+        subjectCode: inv.invoiceCode,
+        metadata: {
+          error: result.error,
+          stripePaymentIntentId: inv.stripePaymentIntentId,
+          tripCode: args.tripCode,
+        },
+      });
+      try {
+        await sendDispatchAlert({
+          subject: `ACTION REQUIRED — card refund failed on ${inv.invoiceCode}`,
+          headline: "A cancellation refund failed in Stripe.",
+          lines: [
+            `Invoice ${inv.invoiceCode}${args.tripCode ? ` (trip ${args.tripCode})` : ""} — ${result.error}.`,
+            "Issue the refund manually in the Stripe dashboard; the invoice is still marked paid.",
+          ],
+          link: { label: "Open the trip sheet", url: `https://jetnine.com/admin/trips/${args.tripId}` },
+        });
+      } catch (err) {
+        console.error("refund-failed alert failed (non-fatal)", err);
+      }
+    }
+  }
+
+  return { refunded, failed, totalUsd };
+}

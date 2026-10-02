@@ -1,8 +1,14 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { updateTripStatus } from "@/app/admin/trip/[id]/actions";
+import { updateTripStatus } from "@/app/admin/trips/[id]/actions";
+import type { Trip } from "@/db/schema/trips";
+import { tripState } from "@/lib/desk-status";
 
+type Status = Trip["status"];
+
+// Mirrors `tripStatusEnum` (type-checked below) without pulling drizzle
+// into the client bundle. Order = the order a trip moves through them.
 const STATUSES = [
   "draft",
   "confirmed",
@@ -11,25 +17,23 @@ const STATUSES = [
   "airborne",
   "wheels_down",
   "completed",
-  "cancelled_wx",
-  "cancelled_other",
   "diverted",
   "irregular_ops",
-] as const;
+  "cancelled_wx",
+  "cancelled_other",
+] as const satisfies readonly Status[];
 
-export function TripStatusSelect({
-  tripId,
-  current,
-}: {
-  tripId: string;
-  current: (typeof STATUSES)[number];
-}) {
-  const [value, setValue] = useState<(typeof STATUSES)[number]>(current);
+/**
+ * Trip status control on the trip sheet. Shows the desk's plain-words
+ * sentences (`tripState(...).label`) but submits the database enum values.
+ */
+export function TripStatusSelect({ tripId, current }: { tripId: string; current: Status }) {
+  const [value, setValue] = useState<Status>(current);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
   function onChange(next: string) {
-    const cast = next as (typeof STATUSES)[number];
+    const cast = next as Status;
     setValue(cast);
     setError(null);
     startTransition(async () => {
@@ -42,30 +46,29 @@ export function TripStatusSelect({
   }
 
   return (
-    <div className="inline-flex flex-col gap-1">
-      <label
-        htmlFor={`trip-status-${tripId}`}
-        className="font-mono text-[9px] uppercase tracking-[0.14em] text-steel"
-      >
-        — Trip status
-      </label>
+    <div className="field-jn">
+      <label htmlFor={`trip-status-${tripId}`}>Where this trip is</label>
       <select
         id={`trip-status-${tripId}`}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         disabled={pending}
-        className="rounded-[2px] border border-ink-3 bg-ink-2 px-3 py-1.5 font-mono text-[11px] uppercase tracking-[0.08em] text-bone disabled:opacity-60"
+        aria-busy={pending}
+        className="disabled:opacity-60"
       >
         {STATUSES.map((s) => (
           <option key={s} value={s}>
-            {s.replace(/_/g, " ")}
+            {tripState(s).label}
           </option>
         ))}
       </select>
+      <p className="mt-1.5 text-[13px] text-steel">
+        {pending ? "Saving…" : "Changing it tells the client by email, and by text if they opted in."}
+      </p>
       {error ? (
-        <span className="font-mono text-[10px] uppercase tracking-[0.1em] text-[var(--error)]">
+        <p role="alert" className="mt-1.5 text-[13px] text-danger">
           {error}
-        </span>
+        </p>
       ) : null}
     </div>
   );

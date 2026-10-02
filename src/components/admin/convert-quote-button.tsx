@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { convertQuoteToTrip } from "@/app/admin/quote/[id]/actions";
+import { convertQuoteToTrip } from "@/app/admin/requests/[id]/actions";
 
 export function ConvertQuoteButton({
   quoteId,
@@ -19,11 +19,8 @@ export function ConvertQuoteButton({
 
   if (alreadyConvertedTripId) {
     return (
-      <a
-        href={`/admin/trip/${alreadyConvertedTripId}`}
-        className="inline-flex items-center gap-2 rounded-[2px] border border-[var(--success)] px-3 py-1.5 font-mono text-[11px] uppercase tracking-[0.14em] text-[var(--success)] transition-colors hover:bg-[rgba(91,140,90,0.08)]"
-      >
-        Converted → trip
+      <a href={`/admin/trips/${alreadyConvertedTripId}`} className="btn btn-secondary btn-sm">
+        Open the trip <span className="arrow">→</span>
       </a>
     );
   }
@@ -35,7 +32,7 @@ export function ConvertQuoteButton({
     startTransition(async () => {
       const result = await convertQuoteToTrip(quoteId);
       if (result.ok) {
-        router.push(`/admin/trip`);
+        router.push(`/admin/trips`);
       } else {
         setError(result.error);
       }
@@ -43,20 +40,16 @@ export function ConvertQuoteButton({
   }
 
   return (
-    <div className="flex flex-col items-end gap-1">
+    <div className="flex flex-col gap-1.5">
       <button
         type="button"
         onClick={onClick}
         disabled={!enabled || pending}
-        className="rounded-[2px] border border-clearance bg-clearance px-3 py-1.5 font-mono text-[11px] uppercase tracking-[0.14em] text-ink transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+        className="btn btn-primary btn-sm self-start disabled:cursor-not-allowed"
       >
-        {pending ? "Converting…" : "Convert to trip"}
+        {pending ? "Confirming…" : "Confirm booking → creates a Trip"}
       </button>
-      {error ? (
-        <span className="max-w-[220px] text-right font-mono text-[10px] uppercase tracking-[0.08em] text-[var(--error)]">
-          {error}
-        </span>
-      ) : null}
+      {error ? <p className="text-[13px] leading-[1.45] text-danger">{error}</p> : null}
     </div>
   );
 }

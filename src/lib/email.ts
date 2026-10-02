@@ -148,6 +148,17 @@ export async function sendEmail(payload: EmailPayload): Promise<SendResult> {
 // render right in a customer's mail client, you read the page and you read
 // the function side-by-side, not the page and a templating layer.
 
+/**
+ * Desk alerts always reach the shared dispatch inbox; per-user notification
+ * preferences (Settings › Notifications) add staff on top, never replace it.
+ */
+function withDispatchInbox(to: string[] | undefined): string | string[] {
+  const extra = (to ?? []).map((a) => a.trim().toLowerCase()).filter(Boolean);
+  const inbox = DISPATCH_NOTIFY.toLowerCase();
+  const list = Array.from(new Set([inbox, ...extra.filter((a) => a !== inbox)]));
+  return list.length === 1 ? DISPATCH_NOTIFY : [DISPATCH_NOTIFY, ...list.slice(1)];
+}
+
 const DISPATCH_NOTIFY =
   process.env.DISPATCH_NOTIFY_EMAIL ||
   process.env.NEXT_PUBLIC_DISPATCH_EMAIL ||
@@ -226,7 +237,11 @@ export async function sendQuoteAcknowledgmentEmail(
 }
 
 export async function sendDispatchNewQuoteNotification(
-  ctx: QuoteSubmittedContext & { workbenchUrl: string },
+  ctx: QuoteSubmittedContext & {
+    workbenchUrl: string;
+    /** Staff who turned on "A new request comes in"; empty → shared inbox. */
+    to?: string[];
+  },
 ): Promise<SendResult> {
   const fullName = `${ctx.firstName} ${ctx.lastName}`.trim();
   const route = ctx.legs
@@ -263,7 +278,7 @@ export async function sendDispatchNewQuoteNotification(
   `.trim();
 
   return sendEmail({
-    to: DISPATCH_NOTIFY,
+    to: withDispatchInbox(ctx.to),
     subject,
     html,
     text,
@@ -898,6 +913,12 @@ export async function sendDispatchAlert(ctx: {
   headline: string;
   lines: string[];
   link?: { label: string; url: string };
+  /**
+   * Staff addresses from Settings › Notifications (`recipientsFor`). When
+   * empty or omitted the alert goes to the shared dispatch inbox, so a
+   * misread preference never silences a page.
+   */
+  to?: string[];
 }): Promise<SendResult> {
   const text = [ctx.headline, "", ...ctx.lines, "", ctx.link ? `${ctx.link.label}: ${ctx.link.url}` : null]
     .filter((l): l is string => l !== null)
@@ -910,7 +931,7 @@ export async function sendDispatchAlert(ctx: {
       ${ctx.link ? `<p style="margin:16px 0 0;font-size:14px;"><a href="${ctx.link.url}" style="color:#0F1115;font-weight:600;">${escapeHtml(ctx.link.label)} →</a></p>` : ""}
     `,
   );
-  return sendEmail({ to: DISPATCH_NOTIFY, subject: ctx.subject, html, text });
+  return sendEmail({ to: withDispatchInbox(ctx.to), subject: ctx.subject, html, text });
 }
 
 

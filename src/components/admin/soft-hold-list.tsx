@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { releaseSoftHold } from "@/app/admin/quote/[id]/actions";
+import { releaseSoftHold } from "@/app/admin/requests/[id]/actions";
 
 export type HeldAircraft = {
   blockId: string;
@@ -11,6 +11,15 @@ export type HeldAircraft = {
   startAt: Date;
   endAt: Date;
 };
+
+const WINDOW_FMT = new Intl.DateTimeFormat("en-US", {
+  weekday: "short",
+  month: "short",
+  day: "numeric",
+  hour: "numeric",
+  minute: "2-digit",
+  timeZone: "America/Los_Angeles",
+});
 
 export function SoftHoldList({
   quoteId,
@@ -29,63 +38,51 @@ export function SoftHoldList({
       const result = await releaseSoftHold(quoteId, blockId);
       if (result.ok) {
         setList((prev) => prev.filter((h) => h.blockId !== blockId));
-        setMsg({ tone: "ok", text: "RELEASED." });
+        setMsg({ tone: "ok", text: "Hold released." });
       } else {
-        setMsg({ tone: "error", text: `BLOCKED — ${result.error.toUpperCase()}` });
+        setMsg({ tone: "error", text: result.error });
       }
     });
   }
 
   if (list.length === 0) {
     return (
-      <p className="text-[12px] text-steel">
-        — No active soft holds. Use the candidates list to put an airframe on hold while sourcing.
+      <p className="text-[14px] text-steel">
+        No holds yet. Hold an aircraft from the matches above while you source.
+        {msg ? <span className={msg.tone === "error" ? "text-danger" : "text-success"}> {msg.text}</span> : null}
       </p>
     );
   }
 
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex flex-col gap-2.5">
       <ul className="flex flex-col gap-2">
         {list.map((h) => (
           <li
             key={h.blockId}
-            className="grid grid-cols-[1fr_auto] items-center gap-3 rounded-[3px] border border-dashed border-clearance bg-ink p-3"
+            className="flex items-center justify-between gap-3 rounded-control border border-dashed border-clearance bg-ink px-4 py-3"
           >
             <div className="min-w-0">
-              <div className="flex items-baseline gap-3">
-                <span className="font-mono text-[12px] tracking-[0.04em] text-clearance">
-                  {h.tailNumber}
-                </span>
-                <span className="font-serif text-[13px] leading-none text-bone">
-                  {h.makeModel}
-                </span>
+              <div className="text-[15px] text-bone">
+                {h.makeModel} <span className="text-steel">· {h.tailNumber}</span>
               </div>
-              <div className="mt-1 font-mono text-[10px] uppercase tracking-[0.08em] text-bone-2">
-                {h.startAt.toISOString().slice(0, 16).replace("T", " ")} →{" "}
-                {h.endAt.toISOString().slice(0, 16).replace("T", " ")} UTC
+              <div className="mt-0.5 text-[13px] text-steel">
+                Held {WINDOW_FMT.format(h.startAt)} → {WINDOW_FMT.format(h.endAt)}
               </div>
             </div>
             <button
               type="button"
               onClick={() => onRelease(h.blockId)}
               disabled={pending}
-              className="font-mono text-[10px] uppercase tracking-[0.14em] text-bone-2 transition-colors hover:text-[var(--error)] disabled:cursor-wait disabled:opacity-50"
+              className="text-link text-[14px] disabled:cursor-wait disabled:opacity-50"
             >
-              Release →
+              Release
             </button>
           </li>
         ))}
       </ul>
       {msg ? (
-        <span
-          className={[
-            "font-mono text-[10px] uppercase tracking-[0.12em]",
-            msg.tone === "error" ? "text-[var(--error)]" : "text-[var(--success)]",
-          ].join(" ")}
-        >
-          {msg.text}
-        </span>
+        <p className={`text-[13px] ${msg.tone === "error" ? "text-danger" : "text-success"}`}>{msg.text}</p>
       ) : null}
     </div>
   );

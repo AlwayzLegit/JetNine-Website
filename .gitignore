@@ -59,3 +59,4 @@ tmp/
 # processed webp outputs, not the source zips. Keeps clone size down.
 *.zip
 !public/**/*.zip
+.pw.tmp.config.ts

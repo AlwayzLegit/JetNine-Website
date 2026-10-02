@@ -1,10 +1,10 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { asc, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { airports, fbos } from "@/db/schema/airports";
 import { AirportEditForm } from "@/components/admin/airport-edit-form";
 import { FboEditor } from "@/components/admin/fbo-editor";
+import { DeskCard, DeskHeader, DeskPage, StatusPill } from "@/components/admin/desk-ui";
 
 export const dynamic = "force-dynamic";
 
@@ -22,65 +22,42 @@ export default async function AdminAirportDetailPage({ params }: Props) {
     .where(eq(fbos.airportId, id))
     .orderBy(asc(fbos.name));
 
+  const leadParts = [
+    airport.iata ? `${airport.icao} / ${airport.iata}` : airport.icao,
+    `${airport.city}${airport.region ? `, ${airport.region}` : ""}`,
+    airport.countryIso2,
+    airport.tz ?? null,
+    airport.longestRunwayFt ? `Longest runway ${airport.longestRunwayFt.toLocaleString()} ft` : null,
+  ].filter(Boolean);
+
   return (
-    <div className="container-jn py-8">
-      <div className="mb-8 border-b border-ink-3 pb-6">
-        <nav className="font-mono text-[10px] uppercase tracking-[0.14em] text-bone-2">
-          <Link href="/admin/airports" className="transition-colors hover:text-clearance">
-            Airports
-          </Link>{" "}
-          <span className="text-steel">/</span>{" "}
-          <span className="text-bone">{airport.icao}</span>
-        </nav>
-        <div className="mt-3 flex flex-wrap items-baseline gap-4">
-          <span
-            className="font-mono text-[36px] tracking-[0.06em] text-clearance"
-            style={{ letterSpacing: "0.06em" }}
-          >
-            {airport.icao}
-          </span>
-          {airport.iata ? (
-            <span className="font-mono text-[18px] tracking-[0.04em] text-bone-2">
-              {airport.iata}
-            </span>
-          ) : null}
-          <span
-            className="font-serif text-[26px] font-light leading-none text-bone"
-            style={{ letterSpacing: "-0.01em" }}
-          >
-            {airport.name}
-          </span>
-          {!airport.active ? (
-            <span className="rounded-full border border-steel px-2.5 py-0.5 font-mono text-[10px] uppercase tracking-[0.14em] text-steel">
-              Inactive
-            </span>
+    <DeskPage>
+      <DeskHeader
+        back={{ href: "/admin/airports", label: "Airports & FBOs" }}
+        title={airport.name}
+        lead={`${leadParts.join(" · ")}.`}
+        actions={
+          airport.active ? (
+            <StatusPill tone="success">Active</StatusPill>
           ) : (
-            <span className="rounded-full border border-[var(--success)] px-2.5 py-0.5 font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--success)]">
-              Active
-            </span>
-          )}
-        </div>
-        <p className="mt-2 font-mono text-[11px] uppercase tracking-[0.08em] text-bone-2">
-          {airport.city}
-          {airport.region ? ` · ${airport.region}` : ""} · {airport.countryIso2}
-          {airport.tz ? ` · ${airport.tz}` : ""}
-          {airport.longestRunwayFt ? ` · runway ${airport.longestRunwayFt.toLocaleString()} ft` : ""}
-        </p>
-      </div>
+            <StatusPill tone="steel">Inactive</StatusPill>
+          )
+        }
+      />
 
-      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1.5fr_1fr]">
-        <section className="rounded-[4px] border border-ink-3 bg-ink-2 p-6">
-          <h2 className="caption mb-5">— Fields</h2>
-          <AirportEditForm initial={airport} />
-        </section>
-
-        <section className="rounded-[4px] border border-ink-3 bg-ink-2 p-6">
-          <div className="mb-4 flex items-baseline justify-between">
-            <h2 className="caption">— FBOs · {fboRows.length}</h2>
+      <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-[1.5fr_1fr]">
+        <DeskCard title="Airport details">
+          <div className="mt-4">
+            <AirportEditForm initial={airport} />
           </div>
-          <FboEditor airportId={airport.id} initial={fboRows} />
-        </section>
+        </DeskCard>
+
+        <DeskCard title={`FBOs · ${fboRows.length}`}>
+          <div className="mt-4">
+            <FboEditor airportId={airport.id} initial={fboRows} />
+          </div>
+        </DeskCard>
       </div>
-    </div>
+    </DeskPage>
   );
 }

@@ -7,9 +7,9 @@ import type { Airport } from "@/db/schema/airports";
 
 const CUSTOMS_OPTIONS = [
   { id: "none", label: "None — no customs" },
-  { id: "user_fee", label: "User fee — onboarded customs by appointment" },
-  { id: "aoe", label: "AOE — Airport of Entry" },
-  { id: "intl", label: "Intl — full international gateway" },
+  { id: "user_fee", label: "User fee — customs by appointment" },
+  { id: "aoe", label: "Airport of entry" },
+  { id: "intl", label: "International — full gateway" },
 ] as const;
 
 export function AirportEditForm({ initial }: { initial: Airport }) {
@@ -24,9 +24,9 @@ export function AirportEditForm({ initial }: { initial: Airport }) {
     startTransition(async () => {
       const result = await updateAirport(initial.id, data);
       if (result.ok) {
-        setMsg({ tone: "ok", text: "SAVED." });
+        setMsg({ tone: "ok", text: "Saved." });
       } else {
-        setMsg({ tone: "error", text: `BLOCKED — ${result.error.toUpperCase()}` });
+        setMsg({ tone: "error", text: result.error });
       }
     });
   }
@@ -45,7 +45,7 @@ export function AirportEditForm({ initial }: { initial: Airport }) {
       if (result.ok) {
         router.push("/admin/airports");
       } else {
-        setMsg({ tone: "error", text: `BLOCKED — ${result.error.toUpperCase()}` });
+        setMsg({ tone: "error", text: result.error });
       }
     });
   }
@@ -62,9 +62,7 @@ export function AirportEditForm({ initial }: { initial: Airport }) {
             defaultValue={initial.icao}
             required
             maxLength={4}
-            minLength={4}
-            style={{ textTransform: "uppercase" }}
-          />
+            minLength={4}          />
         </div>
         <div className="field-jn">
           <label htmlFor="ae-iata">IATA</label>
@@ -73,12 +71,10 @@ export function AirportEditForm({ initial }: { initial: Airport }) {
             name="iata"
             type="text"
             defaultValue={initial.iata ?? ""}
-            maxLength={3}
-            style={{ textTransform: "uppercase" }}
-          />
+            maxLength={3}          />
         </div>
         <div className="field-jn">
-          <label htmlFor="ae-country">Country (ISO-2)</label>
+          <label htmlFor="ae-country">Country (2-letter code)</label>
           <input
             id="ae-country"
             name="countryIso2"
@@ -86,9 +82,7 @@ export function AirportEditForm({ initial }: { initial: Airport }) {
             defaultValue={initial.countryIso2}
             required
             maxLength={2}
-            minLength={2}
-            style={{ textTransform: "uppercase" }}
-          />
+            minLength={2}          />
         </div>
       </div>
 
@@ -116,7 +110,7 @@ export function AirportEditForm({ initial }: { initial: Airport }) {
           />
         </div>
         <div className="field-jn">
-          <label htmlFor="ae-region">Region (state/canton)</label>
+          <label htmlFor="ae-region">Region (state / canton)</label>
           <input
             id="ae-region"
             name="region"
@@ -172,7 +166,7 @@ export function AirportEditForm({ initial }: { initial: Airport }) {
 
       <div className="grid grid-cols-1 gap-3 md:grid-cols-[1fr_1fr]">
         <div className="field-jn">
-          <label htmlFor="ae-tz">Timezone (IANA)</label>
+          <label htmlFor="ae-tz">Time zone (IANA)</label>
           <input
             id="ae-tz"
             name="tz"
@@ -189,7 +183,7 @@ export function AirportEditForm({ initial }: { initial: Airport }) {
             name="category"
             type="text"
             defaultValue={initial.category ?? ""}
-            placeholder="private / regional / intl"
+            placeholder="private / regional / international"
             maxLength={40}
           />
         </div>
@@ -207,7 +201,7 @@ export function AirportEditForm({ initial }: { initial: Airport }) {
       </div>
 
       <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-        <label className="flex cursor-pointer items-start gap-3 rounded-[2px] border border-ink-3 bg-ink p-4">
+        <label className="flex cursor-pointer items-start gap-3 rounded-control border border-line bg-surface-2 p-4">
           <input
             type="checkbox"
             name="slotControlled"
@@ -215,13 +209,13 @@ export function AirportEditForm({ initial }: { initial: Airport }) {
             className="mt-1 h-4 w-4 accent-clearance"
           />
           <div>
-            <div className="font-serif text-[14px] text-bone">Slot-controlled</div>
-            <div className="mt-1 text-[12px] leading-[1.5] text-bone-2">
-              Departure/arrival slot required (LHR, JFK at peak).
+            <div className="text-[15px] text-bone">Slot-controlled</div>
+            <div className="mt-1 text-[13px] leading-[1.5] text-steel">
+              A departure or arrival slot is required (LHR, JFK at peak).
             </div>
           </div>
         </label>
-        <label className="flex cursor-pointer items-start gap-3 rounded-[2px] border border-ink-3 bg-ink p-4">
+        <label className="flex cursor-pointer items-start gap-3 rounded-control border border-line bg-surface-2 p-4">
           <input
             type="checkbox"
             name="privateOnly"
@@ -229,23 +223,23 @@ export function AirportEditForm({ initial }: { initial: Airport }) {
             className="mt-1 h-4 w-4 accent-clearance"
           />
           <div>
-            <div className="font-serif text-[14px] text-bone">Private only</div>
-            <div className="mt-1 text-[12px] leading-[1.5] text-bone-2">
-              No scheduled commercial operations permitted.
+            <div className="text-[15px] text-bone">Private only</div>
+            <div className="mt-1 text-[13px] leading-[1.5] text-steel">
+              No scheduled commercial flights permitted.
             </div>
           </div>
         </label>
-        <label className="flex cursor-pointer items-start gap-3 rounded-[2px] border border-ink-3 bg-ink p-4">
+        <label className="flex cursor-pointer items-start gap-3 rounded-control border border-line bg-surface-2 p-4">
           <input
             type="checkbox"
             name="inactive"
             defaultChecked={!initial.active}
-            className="mt-1 h-4 w-4 accent-[var(--error)]"
+            className="mt-1 h-4 w-4 accent-danger"
           />
           <div>
-            <div className="font-serif text-[14px] text-bone">Inactive</div>
-            <div className="mt-1 text-[12px] leading-[1.5] text-bone-2">
-              Hide from selectors. Soft-delete alternative to hard remove.
+            <div className="text-[15px] text-bone">Inactive</div>
+            <div className="mt-1 text-[13px] leading-[1.5] text-steel">
+              Hidden from pickers. A softer alternative to deleting.
             </div>
           </div>
         </label>
@@ -258,28 +252,23 @@ export function AirportEditForm({ initial }: { initial: Airport }) {
           name="notes"
           defaultValue={initial.notes ?? ""}
           rows={3}
-          placeholder="Ops notes: noise abatement, prior-permission required, runway closures, etc."
+          placeholder="Ops notes: noise abatement, prior permission required, runway closures, etc."
           maxLength={800}
         />
       </div>
 
-      <div className="flex flex-wrap items-center justify-between gap-3 border-t border-ink-3 pt-5">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-t border-line pt-5">
         <button
           type="button"
           onClick={onDelete}
           disabled={pending}
-          className="font-mono text-[10px] uppercase tracking-[0.14em] text-bone-2 transition-colors hover:text-[var(--error)] disabled:cursor-wait disabled:opacity-50"
+          className="btn btn-secondary btn-sm text-danger disabled:cursor-wait disabled:opacity-50"
         >
-          Delete airport →
+          Delete airport
         </button>
         <div className="flex items-center gap-5">
           {msg ? (
-            <span
-              className={[
-                "font-mono text-[11px] uppercase tracking-[0.12em]",
-                msg.tone === "error" ? "text-[var(--error)]" : "text-[var(--success)]",
-              ].join(" ")}
-            >
+            <span className={`text-[14px] ${msg.tone === "error" ? "text-danger" : "text-success"}`}>
               {msg.text}
             </span>
           ) : null}

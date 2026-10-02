@@ -19,6 +19,7 @@ import {
   sendDispatchNewQuoteNotification,
   sendQuoteAcknowledgmentEmail,
 } from "@/lib/email";
+import { getReplyPromiseMinutes, recipientsFor } from "@/lib/desk-settings";
 
 export type SubmitResult =
   | { ok: true; ref: string; id: string; statusUrl: string; deduped?: true }
@@ -154,6 +155,12 @@ export async function submitQuote(draft: QuoteDraft): Promise<SubmitResult> {
     console.error("submitQuote auth lookup failed — treating as anon", err);
   }
 
+  // Reply-time promise from Settings › Notifications (default 30 minutes).
+  // Stamped here instead of the column default so the desk-wide setting
+  // applies the moment an owner changes it.
+  const replyPromiseMinutes = await getReplyPromiseMinutes();
+  const receivedAt = new Date();
+
   try {
     const inserted = await db.transaction(async (tx) => {
       const values: NewQuote = {
@@ -205,6 +212,9 @@ export async function submitQuote(draft: QuoteDraft): Promise<SubmitResult> {
 
           clientIdempotencyKey: idempotencyKey,
           statusToken,
+
+          receivedAt,
+          slaDeadlineAt: new Date(receivedAt.getTime() + replyPromiseMinutes * 60_000),
 
           status: isSmoke ? "cancelled" : "submitted",
       };
@@ -259,7 +269,7 @@ export async function submitQuote(draft: QuoteDraft): Promise<SubmitResult> {
     });
 
     // Bust any cached admin views so the new quote shows up on the desk.
-    revalidatePath("/admin/dispatch");
+    revalidatePath("/admin/requests");
 
     // Smoke-test submissions skip both ack + dispatch notification so
     // they don't generate noise in inboxes on every deploy. The DB row
@@ -276,7 +286,7 @@ export async function submitQuote(draft: QuoteDraft): Promise<SubmitResult> {
       const proto = hdrs.get("x-forwarded-proto") ?? (host.startsWith("localhost") ? "http" : "https");
       const baseUrl =
         process.env.NEXT_PUBLIC_SITE_URL ?? `${proto}://${host}`;
-      const workbenchUrl = `${baseUrl}/admin/quote/${inserted.id}`;
+      const workbenchUrl = `${baseUrl}/admin/requests/${inserted.id}`;
       const statusUrl = `${baseUrl}${statusPath(statusToken)}`;
 
       const legSummaries = draft.legs.map((l) => ({
@@ -284,6 +294,10 @@ export async function submitQuote(draft: QuoteDraft): Promise<SubmitResult> {
         toIata: l.toIata ?? null,
         date: l.date ?? null,
       }));
+
+      // Staff who turned on "A new request comes in" (Settings ›
+      // Notifications). Empty → the shared dispatch inbox.
+      const deskRecipients = await recipientsFor("newRequest");
 
       const [ack, notif] = await Promise.allSettled([
         sendQuoteAcknowledgmentEmail({
@@ -305,6 +319,7 @@ export async function submitQuote(draft: QuoteDraft): Promise<SubmitResult> {
           legs: legSummaries,
           paxCount: draft.pax,
           workbenchUrl,
+          to: deskRecipients,
         }),
       ]);
 

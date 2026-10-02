@@ -18,3 +18,4 @@ export * from "./contact";
 export * from "./sourced-option";
 export * from "./blog";
 export * from "./ai";
+export * from "./desk";

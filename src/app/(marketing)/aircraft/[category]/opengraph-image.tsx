@@ -28,7 +28,7 @@ export async function generateImageMetadata() {
   const { FLEET } = await import("@/lib/fleet");
   return FLEET.map((f) => ({
     id: f.slug,
-    alt: `JetNine ${f.name} — ${f.shortName}`,
+    alt: f.shortName && f.shortName !== f.name ? `JetNine ${f.name} — ${f.shortName}` : `JetNine ${f.name} private jets`,
     size,
     contentType,
   }));

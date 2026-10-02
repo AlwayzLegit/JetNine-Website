@@ -81,7 +81,7 @@ function sampleTrips() {
 const COST_FAQ: { q: string; a: string }[] = [
   {
     q: "How accurate is the estimate?",
-    a: "The calculator quotes an indicative range from live category rates and great-circle flight time. The exact number comes back from a senior dispatcher within 30 minutes during operating hours, priced against real airframes — and once you accept it, it's locked. The price you accept is the price you pay.",
+    a: "The calculator quotes an indicative range from live category rates and great-circle flight time. The exact number comes back from a senior dispatcher within 30 minutes during operating hours, priced against real aircraft — and once you accept it, it's locked. The price you accept is the price you pay.",
   },
   {
     q: "What's included in the price?",

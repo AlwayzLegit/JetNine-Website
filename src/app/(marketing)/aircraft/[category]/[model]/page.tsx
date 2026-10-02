@@ -101,7 +101,7 @@ export default async function ModelPage({ params }: RouteParams) {
     },
     {
       q: `Is the ${m.shortName} the right choice for my trip?`,
-      a: `${m.lead} If your mission runs past its range or seats, the ${entry.teaser.right.title.toLowerCase()} step-up usually answers; the quote wizard recommends a category per route automatically, and a dispatcher will tell you straight if a cheaper airframe does your trip just as well.`,
+      a: `${m.lead} If your mission runs past its range or seats, the ${entry.teaser.right.title.toLowerCase()} step-up usually answers; the quote wizard recommends a category per route automatically, and a dispatcher will tell you straight if a cheaper aircraft does your trip just as well.`,
     },
   ];
 

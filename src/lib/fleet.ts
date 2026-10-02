@@ -726,7 +726,7 @@ export const FLEET: FleetEntry[] = [
     shortName: "Ultra long range",
     cap: "— ULTRA, NIGHT TARMAC",
     blurb:
-      "Transpacific in a single leg. LA to Tokyo, NY to Singapore. The longest legs the industry flies.",
+      "Transpacific non-stop. LA to Tokyo, NY to Singapore. The longest legs the industry flies.",
     pax: 16,
     rangeNm: 7500,
     speedKt: 516,

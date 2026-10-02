@@ -16,7 +16,7 @@ const chapter = getGuideChapter("one-way-vs-round-trip")!;
 const FAQ = [
   {
     q: "Why isn't a one-way half the round-trip price?",
-    a: "Because the aircraft doesn't stay where you land. The operator either flies it home empty or repositions it toward its next charter, and that ferry time is a real cost someone pays. A one-way quote includes the operator's expected repositioning; a round trip amortizes the airframe over more billed hours.",
+    a: "Because the aircraft doesn't stay where you land. The operator either flies it home empty or repositions it toward its next charter, and that ferry time is a real cost someone pays. A one-way quote includes the operator's expected repositioning; a round trip amortizes the aircraft over more billed hours.",
   },
   {
     q: "When is one-way clearly the right call?",

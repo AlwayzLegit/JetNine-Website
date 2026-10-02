@@ -13,6 +13,7 @@ import { getMemberByUserId } from "@/lib/member";
 import { logAudit } from "@/lib/audit";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { sendContactAckEmail, sendDispatchContactNotification } from "@/lib/email";
+import { getReplyPromiseMinutes } from "@/lib/desk-settings";
 
 export type ContactResult =
   | { ok: true; message: string }
@@ -179,6 +180,7 @@ export async function submitContactInquiry(formData: FormData): Promise<ContactR
       paxText: paxText || null,
       notes: notes || null,
       inquiriesUrl: `${baseUrl}/admin/messages?tab=form`,
+      replyMinutes: await getReplyPromiseMinutes(),
     });
 
     await logAudit({
@@ -200,7 +202,7 @@ export async function submitContactInquiry(formData: FormData): Promise<ContactR
   // (smoke+*@jetnine.com doesn't exist; acking it would just farm bounces).
   if (!isSmoke) {
     try {
-      await sendContactAckEmail({ to: email, firstName });
+      await sendContactAckEmail({ to: email, firstName, replyMinutes: await getReplyPromiseMinutes() });
     } catch (err) {
       console.error("submitContactInquiry ack email failed (non-fatal)", err);
     }

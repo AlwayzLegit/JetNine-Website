@@ -898,6 +898,12 @@ export async function sendDispatchAlert(ctx: {
   headline: string;
   lines: string[];
   link?: { label: string; url: string };
+  /**
+   * Staff addresses from Settings › Notifications (`recipientsFor`). When
+   * empty or omitted the alert goes to the shared dispatch inbox, so a
+   * misread preference never silences a page.
+   */
+  to?: string[];
 }): Promise<SendResult> {
   const text = [ctx.headline, "", ...ctx.lines, "", ctx.link ? `${ctx.link.label}: ${ctx.link.url}` : null]
     .filter((l): l is string => l !== null)
@@ -910,7 +916,8 @@ export async function sendDispatchAlert(ctx: {
       ${ctx.link ? `<p style="margin:16px 0 0;font-size:14px;"><a href="${ctx.link.url}" style="color:#0F1115;font-weight:600;">${escapeHtml(ctx.link.label)} →</a></p>` : ""}
     `,
   );
-  return sendEmail({ to: DISPATCH_NOTIFY, subject: ctx.subject, html, text });
+  const to = ctx.to && ctx.to.length > 0 ? ctx.to : DISPATCH_NOTIFY;
+  return sendEmail({ to, subject: ctx.subject, html, text });
 }
 
 

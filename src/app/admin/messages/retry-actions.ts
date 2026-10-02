@@ -112,8 +112,8 @@ export async function retryMessageDelivery(messageId: string): Promise<RetryResu
       },
     });
 
-    revalidatePath("/admin/requests");
-    revalidatePath(`/admin/${m.subjectType}/${m.subjectId}`);
+    revalidatePath("/admin/messages");
+    revalidatePath(m.subjectType === "quote" ? `/admin/requests/${m.subjectId}` : `/admin/trips/${m.subjectId}`);
     return { ok: true, status: "sent", provider: result.provider };
   }
 
@@ -140,6 +140,6 @@ export async function retryMessageDelivery(messageId: string): Promise<RetryResu
     },
   });
 
-  revalidatePath("/admin/requests");
+  revalidatePath("/admin/messages");
   return { ok: true, status: "failed", error: result.error };
 }

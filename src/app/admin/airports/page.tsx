@@ -1,22 +1,23 @@
 import Link from "next/link";
-import { asc, eq, sql } from "drizzle-orm";
+import { asc, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { airports, fbos } from "@/db/schema/airports";
 import { AirportCreateForm } from "@/components/admin/airport-create-form";
+import { DeskEmpty, DeskHeader, DeskPage, DotSentence, NumberCard } from "@/components/admin/desk-ui";
 
 export const dynamic = "force-dynamic";
 
 const CUSTOMS_LABEL: Record<string, string> = {
   none: "—",
   user_fee: "User fee",
-  aoe: "AOE",
-  intl: "Intl",
+  aoe: "Airport of entry",
+  intl: "International",
 };
 
 const CUSTOMS_CLASS: Record<string, string> = {
   none: "text-steel",
   user_fee: "text-bone-2",
-  aoe: "text-[var(--warn)]",
+  aoe: "text-gold",
   intl: "text-clearance",
 };
 
@@ -75,142 +76,107 @@ export default async function AdminAirportsPage() {
   };
 
   return (
-    <div className="container-jn py-10">
-      <header className="mb-10 flex flex-wrap items-end justify-between gap-6">
-        <div>
-          <p className="caption mb-3">— Admin · airports</p>
-          <h1 className="font-serif text-[36px] font-light leading-tight tracking-tight text-bone">
-            {totals.airports} airports · {totalFbos} FBOs.
-          </h1>
-          <p className="mt-3 max-w-[64ch] text-[14px] leading-[1.55] text-bone-2">
-            Grouped by country, sorted by ICAO. Click into a row to edit fields, attach FBOs, or
-            mark inactive. Admin role required for any writes.
-          </p>
-        </div>
-        <dl className="flex flex-wrap gap-x-10 gap-y-3 text-right">
-          {[
-            ["AIRPORTS", String(totals.airports)],
-            ["ACTIVE", String(totals.active)],
-            ["INTL", String(totals.intl)],
-            ["COUNTRIES", String(totals.countries)],
-          ].map(([lbl, val]) => (
-            <div key={lbl} className="flex flex-col items-end">
-              <dt className="font-mono text-[10px] uppercase tracking-[0.14em] text-steel">{lbl}</dt>
-              <dd className="mt-1 font-serif text-[26px] font-light leading-none text-bone">
-                {val}
-              </dd>
-            </div>
-          ))}
-        </dl>
-      </header>
+    <DeskPage>
+      <DeskHeader
+        back={{ href: "/admin/settings/reference", label: "Reference data" }}
+        title="Airports & FBOs"
+        lead={`${totals.airports} airports and ${totalFbos} FBOs, grouped by country. Open an airport to edit its details, attach FBOs or mark it inactive; writes need the admin role.`}
+      />
 
-      <div className="mb-8">
+      <div className="mt-6 flex justify-end">
         <AirportCreateForm />
       </div>
 
+      <div className="mt-6 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <NumberCard label="Airports" value={totals.airports} />
+        <NumberCard label="Active" value={totals.active} />
+        <NumberCard label="International" value={totals.intl} />
+        <NumberCard label="Countries" value={totals.countries} />
+      </div>
+
       {rows.length === 0 ? (
-        <div className="rounded-[4px] border border-ink-3 bg-ink-2 p-12 text-center">
-          <p className="caption mb-3">— Empty catalog</p>
-          <p className="mx-auto mt-3 max-w-[48ch] text-[14px] leading-[1.55] text-bone-2">
-            Add your first airport above. The 43-airport seed migration should pre-populate this on
-            fresh installs — run <code className="font-mono text-clearance">pnpm db:migrate</code>{" "}
-            if you&rsquo;re looking at an empty list and have unapplied migrations.
-          </p>
-        </div>
+        <DeskEmpty
+          title="No airports yet."
+          body={
+            <>
+              Add your first airport above. The 43-airport seed migration should pre-populate this on fresh
+              installs — run <code>pnpm db:migrate</code> if you&rsquo;re looking at an empty list and have
+              unapplied migrations.
+            </>
+          }
+        />
       ) : (
-        <div className="flex flex-col gap-10">
+        <div className="mt-8 flex flex-col gap-8">
           {Array.from(byCountry.entries()).map(([country, list]) => (
             <section key={country}>
-              <div className="mb-4 flex items-baseline gap-4 border-b border-ink-3 pb-3">
-                <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-clearance">
-                  — {country}
+              <h2 className="label-jn mb-2.5 text-[13px]">
+                {country}
+                <span className="text-steel-dim">
+                  {" "}
+                  · {list.length} airport{list.length === 1 ? "" : "s"}
                 </span>
-                <span className="font-mono text-[10px] uppercase tracking-[0.08em] text-steel">
-                  {list.length} airport{list.length === 1 ? "" : "s"}
-                </span>
-              </div>
-              <div className="overflow-x-auto rounded-[4px] border border-ink-3 bg-ink-2">
-                <table className="w-full min-w-[900px] border-collapse text-left">
-                  <thead>
-                    <tr className="border-b border-ink-3">
-                      {["ICAO", "IATA", "Name", "City", "Customs", "FBOs", "Status", ""].map((h) => (
-                        <th
-                          key={h}
-                          className="px-4 py-3 font-mono text-[10px] uppercase tracking-[0.14em] text-bone-2"
-                        >
-                          {h}
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {list.map((r) => (
-                      <tr
-                        key={r.id}
-                        className={[
-                          "border-b border-ink-3 transition-colors hover:bg-ink",
-                          !r.active ? "opacity-50" : "",
-                        ].join(" ")}
-                      >
-                        <td className="px-4 py-4">
-                          <Link
-                            href={`/admin/airports/${r.id}`}
-                            className="font-mono text-[12px] tracking-[0.06em] text-clearance hover:underline"
-                          >
-                            {r.icao}
-                          </Link>
-                        </td>
-                        <td className="px-4 py-4 font-mono text-[11px] tracking-[0.04em] text-bone-2">
-                          {r.iata ?? "—"}
-                        </td>
-                        <td className="px-4 py-4 font-serif text-[14px] text-bone">{r.name}</td>
-                        <td className="px-4 py-4 text-[13px] text-bone-2">
-                          {r.city}
-                          {r.region ? (
-                            <span className="ml-2 font-mono text-[10px] text-steel">
-                              · {r.region}
-                            </span>
-                          ) : null}
-                        </td>
-                        <td
+              </h2>
+              <div className="card overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="table-jn min-w-[900px]">
+                    <thead>
+                      <tr>
+                        {["ICAO", "IATA", "Name", "City", "Customs", "FBOs", "Status", ""].map((h, i) => (
+                          <th key={h || i}>{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {list.map((r) => (
+                        <tr
+                          key={r.id}
                           className={[
-                            "px-4 py-4 font-mono text-[10px] uppercase tracking-[0.1em]",
-                            CUSTOMS_CLASS[r.customs] ?? "text-bone-2",
+                            "transition-colors hover:bg-surface-2/50",
+                            !r.active ? "opacity-50" : "",
                           ].join(" ")}
                         >
-                          {CUSTOMS_LABEL[r.customs] ?? r.customs}
-                        </td>
-                        <td className="px-4 py-4 font-mono text-[12px] tracking-[0.04em] text-bone">
-                          {r.fboCount}
-                        </td>
-                        <td className="px-4 py-4">
-                          {r.active ? (
-                            <span className="rounded-full border border-[var(--success)] px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.14em] text-[var(--success)]">
-                              Active
+                          <td>
+                            <Link
+                              href={`/admin/airports/${r.id}`}
+                              className="font-medium text-bone hover:underline"
+                            >
+                              {r.icao}
+                            </Link>
+                          </td>
+                          <td className="text-bone-2">{r.iata ?? "—"}</td>
+                          <td className="text-bone">{r.name}</td>
+                          <td className="text-bone-2">
+                            {r.city}
+                            {r.region ? <span className="text-steel"> · {r.region}</span> : null}
+                          </td>
+                          <td className={CUSTOMS_CLASS[r.customs] ?? "text-bone-2"}>
+                            {CUSTOMS_LABEL[r.customs] ?? r.customs}
+                          </td>
+                          <td className="text-bone">{r.fboCount}</td>
+                          <td>
+                            <span className="pill pill-outline">
+                              {r.active ? (
+                                <DotSentence tone="success">Active</DotSentence>
+                              ) : (
+                                <DotSentence tone="steel">Inactive</DotSentence>
+                              )}
                             </span>
-                          ) : (
-                            <span className="rounded-full border border-steel px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.14em] text-steel">
-                              Inactive
-                            </span>
-                          )}
-                        </td>
-                        <td className="px-4 py-4 text-right">
-                          <Link
-                            href={`/admin/airports/${r.id}`}
-                            className="font-mono text-[10px] uppercase tracking-[0.14em] text-bone-2 transition-colors hover:text-clearance"
-                          >
-                            Open →
-                          </Link>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                          </td>
+                          <td className="text-right">
+                            <Link href={`/admin/airports/${r.id}`} className="btn btn-secondary btn-sm">
+                              Open
+                            </Link>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             </section>
           ))}
         </div>
       )}
-    </div>
+    </DeskPage>
   );
 }

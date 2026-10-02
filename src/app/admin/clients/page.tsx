@@ -1,39 +1,63 @@
-import Link from "next/link";
-import { asc, eq, sql } from "drizzle-orm";
+import { and, asc, eq, ilike, inArray, or, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { members } from "@/db/schema/members";
 import { users } from "@/db/schema/users";
+import { memberships } from "@/db/schema/memberships";
+import { memberPreferences } from "@/db/schema/member-prefs";
+import { trips, tripLegs } from "@/db/schema/trips";
 import { formatUSD } from "@/lib/quote-pricing";
+import { formatDay } from "@/lib/request-page";
+import { isCardOrReserve, passengersWords, personName, tierWords } from "@/lib/desk-status";
+import { DeskEmpty, DeskHeader, DeskPage, DeskSearch, DeskTabs } from "@/components/admin/desk-ui";
 import { MemberInviteForm } from "@/components/admin/member-invite-form";
+import { ClientsTable, type ClientRow } from "@/components/admin/clients/clients-table";
+import {
+  flightsWords,
+  isReserveProgram,
+  monthYear,
+  prefsLine,
+  routeFromLegs,
+  shortDay,
+} from "@/components/admin/clients/client-words";
 
 export const dynamic = "force-dynamic";
 
-const TIER_LABEL: Record<string, string> = {
-  on_demand: "On-demand",
-  card_100: "Card · 100",
-  card_250: "Card · 250",
-  card_500: "Card · 500",
-  reserve_50: "Reserve · 50",
-  reserve_100: "Reserve · 100",
-  reserve_250: "Reserve · 250",
-  reserve_500_apply: "Reserve · 500 (apply)",
-};
+type Props = { searchParams: Promise<{ q?: string; tab?: string }> };
 
-const STATUS_CLASS: Record<string, string> = {
-  active: "border-[var(--success)] text-[var(--success)]",
-  paused: "border-[var(--warn)] text-[var(--warn)]",
-  closed: "border-steel text-steel",
-};
+const TABS = [
+  { key: "all", label: "All" },
+  { key: "recent", label: "Flew recently" },
+  { key: "card", label: "Card members" },
+  { key: "new", label: "New" },
+] as const;
 
-export default async function AdminMembersPage() {
-  // Single join with grouped aggregates for trip count + lifetime revenue.
+type TabKey = (typeof TABS)[number]["key"];
+
+function plural(n: number, one: string, many = `${one}s`): string {
+  return `${n} ${n === 1 ? one : many}`;
+}
+
+export default async function AdminClientsPage({ searchParams }: Props) {
+  const sp = await searchParams;
+  const q = (sp.q ?? "").trim();
+  const tab: TabKey = TABS.some((t) => t.key === sp.tab) ? (sp.tab as TabKey) : "all";
+
+  const now = new Date();
+  const today = now.toISOString().slice(0, 10);
+  const recentCutoff = new Date(now.getTime() - 90 * 86_400_000).toISOString().slice(0, 10);
+
+  // One join: profile + active membership + preferences, with the per-client
+  // aggregates the table and the preview need (trip count, lifetime revenue,
+  // last flown date, next trip, open requests, reserve balance).
+  const like = `%${q}%`;
   const rows = await db
     .select({
       id: members.id,
-      memberCode: members.memberCode,
       tier: members.tier,
       status: members.status,
       memberSince: members.memberSince,
+      tierSince: members.tierSince,
+      mobileE164: members.mobileE164,
       email: users.email,
       firstName: users.firstName,
       lastName: users.lastName,
@@ -45,133 +69,220 @@ export default async function AdminMembersPage() {
         select coalesce(sum(i.total_usd), 0)::int from public.invoices i
         where i.member_id = ${members.id} and i.status in ('paid','due','overdue')
       )`,
+      lastFlownOn: sql<string | null>`(
+        select max(l.depart_date)::text from public.trip_legs l
+        join public.trips t on t.id = l.trip_id
+        where t.member_id = ${members.id}
+          and l.depart_date < ${today}::date
+          and t.status not in ('draft','cancelled_wx','cancelled_other')
+      )`,
+      nextTripId: sql<string | null>`(
+        select t.id::text from public.trips t
+        join public.trip_legs l on l.trip_id = t.id
+        where t.member_id = ${members.id}
+          and l.depart_date >= ${today}::date
+          and t.status not in ('wheels_down','completed','cancelled_wx','cancelled_other')
+        order by l.depart_date asc limit 1
+      )`,
+      openRequests: sql<number>`(
+        select count(*)::int from public.quotes q
+        where q.member_id = ${members.id}
+          and q.status in ('submitted','triaged','sourcing','options_sent','held')
+      )`,
+      reserveUsd: sql<number>`(
+        select coalesce(sum(r.amount_usd), 0)::int from public.reserve_transactions r
+        where r.member_id = ${members.id}
+      )`,
+      program: memberships.program,
+      programSince: memberships.activatedOn,
+      programRenews: memberships.nextRenewalDate,
+      programEnds: memberships.expiresOn,
+      prefs: memberPreferences,
     })
     .from(members)
     .innerJoin(users, eq(users.id, members.userId))
+    .leftJoin(memberships, and(eq(memberships.memberId, members.id), eq(memberships.status, "active")))
+    .leftJoin(memberPreferences, eq(memberPreferences.memberId, members.id))
+    .where(
+      q
+        ? or(
+            ilike(users.firstName, like),
+            ilike(users.lastName, like),
+            ilike(users.email, like),
+            ilike(members.legalName, like),
+            ilike(members.preferredName, like),
+            ilike(members.companyName, like),
+          )
+        : undefined,
+    )
     .orderBy(asc(users.lastName), asc(users.firstName))
     .limit(200);
 
-  const totals = {
-    total: rows.length,
-    active: rows.filter((r) => r.status === "active").length,
-    flying: rows.filter((r) => r.tier !== "on_demand" && r.status === "active").length,
-    lifetimeRevenue: rows.reduce((sum, r) => sum + (r.lifetimeUsd ?? 0), 0),
+  // The next trip for everyone who has one: passengers + legs for the route.
+  const nextIds = rows.flatMap((r) => (r.nextTripId ? [r.nextTripId] : []));
+  const [nextTrips, nextLegs] = nextIds.length
+    ? await Promise.all([
+        db
+          .select({ id: trips.id, paxCount: trips.paxCount, status: trips.status })
+          .from(trips)
+          .where(inArray(trips.id, nextIds)),
+        db
+          .select({
+            tripId: tripLegs.tripId,
+            fromIata: tripLegs.fromIata,
+            fromCity: tripLegs.fromCity,
+            fromName: tripLegs.fromName,
+            toIata: tripLegs.toIata,
+            toCity: tripLegs.toCity,
+            toName: tripLegs.toName,
+            departDate: tripLegs.departDate,
+          })
+          .from(tripLegs)
+          .where(inArray(tripLegs.tripId, nextIds))
+          .orderBy(asc(tripLegs.legNumber)),
+      ])
+    : [[], []];
+  const nextById = new Map(nextTrips.map((t) => [t.id, t]));
+  const nextLegsById = new Map<string, typeof nextLegs>();
+  for (const l of nextLegs) nextLegsById.set(l.tripId, [...(nextLegsById.get(l.tripId) ?? []), l]);
+
+  const clients = rows.map((r) => {
+    const program = r.program ?? r.tier;
+    const isMember = isCardOrReserve(program);
+    const reserve = isReserveProgram(program);
+    const legs = r.nextTripId ? (nextLegsById.get(r.nextTripId) ?? []) : [];
+    const nextLeg = legs.find((l) => l.departDate != null && l.departDate >= today) ?? legs[0] ?? null;
+    const nextTrip = r.nextTripId ? nextById.get(r.nextTripId) : null;
+    const nextDate = nextLeg?.departDate ?? null;
+    const flewRecently = Boolean(r.lastFlownOn && r.lastFlownOn >= recentCutoff) || nextDate === today;
+
+    const flightNote = nextTrip
+      ? nextDate === today
+        ? "flying today"
+        : nextDate
+          ? `next: ${shortDay(nextDate, now)}`
+          : "next trip being set up"
+      : r.openRequests > 0
+        ? "request open"
+        : r.lastFlownOn
+          ? `last: ${shortDay(r.lastFlownOn, now)}`
+          : null;
+
+    const since = monthYear(r.programSince ?? r.tierSince);
+    const memberNote = !isMember
+      ? null
+      : reserve
+        ? `${formatUSD(r.reserveUsd)} left`
+        : since
+          ? `since ${since}`
+          : null;
+
+    const renews = monthYear(r.programRenews);
+    const ends = monthYear(r.programEnds);
+    const membership = isMember
+      ? [
+          tierWords(program),
+          reserve ? `${formatUSD(r.reserveUsd)} left` : null,
+          renews ? `renews ${renews}` : ends ? `until ${ends}` : since ? `since ${since}` : null,
+        ]
+          .filter(Boolean)
+          .join(" · ")
+      : "No membership";
+
+    const nextFlight = nextTrip
+      ? [
+          routeFromLegs(legs) ?? "Route being set up",
+          nextDate === today ? "today" : formatDay(nextDate),
+          passengersWords(nextTrip.paxCount),
+        ]
+          .filter(Boolean)
+          .join(" · ")
+      : r.openRequests > 0
+        ? `Nothing booked · ${plural(r.openRequests, "request")} open`
+        : "Nothing booked";
+
+    const row: ClientRow = {
+      id: r.id,
+      name: personName(r.firstName, r.lastName, r.email),
+      email: r.email,
+      phone: r.mobileE164 ?? r.phoneE164 ?? null,
+      flights: flightsWords(r.tripCount),
+      flightNote,
+      spent: r.lifetimeUsd ? formatUSD(r.lifetimeUsd) : "—",
+      member: isMember ? tierWords(program) : "None",
+      memberNote,
+      isMember,
+      nextFlight,
+      notes: prefsLine(r.prefs),
+      membership,
+    };
+    return { row, flewRecently, isMember, isNew: r.tripCount === 0 };
+  });
+
+  const counts: Record<TabKey, number> = {
+    all: clients.length,
+    recent: clients.filter((c) => c.flewRecently).length,
+    card: clients.filter((c) => c.isMember).length,
+    new: clients.filter((c) => c.isNew).length,
   };
+  const visible = clients
+    .filter((c) =>
+      tab === "recent" ? c.flewRecently : tab === "card" ? c.isMember : tab === "new" ? c.isNew : true,
+    )
+    .map((c) => c.row);
+
+  const lead = [
+    plural(counts.all, "client"),
+    `${counts.recent} flew in the last 90 days`,
+    `${counts.card} hold${counts.card === 1 ? "s" : ""} a JetNine Card or Reserve`,
+  ].join(" · ");
+
+  const header = (
+    <>
+      <DeskHeader
+        title="Clients"
+        lead={lead}
+        actions={
+          <>
+            <DeskSearch
+              width={220}
+              placeholder="Search a name or email"
+              defaultValue={q}
+              action="/admin/clients"
+              hidden={{ tab: tab === "all" ? undefined : tab }}
+            />
+            <MemberInviteForm />
+          </>
+        }
+      />
+      <DeskTabs
+        className="mt-6"
+        base="/admin/clients"
+        current={tab}
+        keep={{ q: q || undefined }}
+        items={TABS.map((t) => ({ key: t.key, label: t.label, count: counts[t.key] }))}
+      />
+    </>
+  );
+
+  // No clients at all (and no search narrowing things): the empty desk.
+  if (rows.length === 0 && !q) {
+    return (
+      <DeskPage>
+        <DeskHeader title="Clients" lead="0 clients" actions={<MemberInviteForm />} />
+        <DeskEmpty title="No clients yet." body="Invite the first one, or they appear when someone books." />
+      </DeskPage>
+    );
+  }
 
   return (
-    <div className="container-jn py-10">
-      <header className="mb-10 flex flex-wrap items-end justify-between gap-6">
-        <div>
-          <p className="caption mb-3">— Admin · members</p>
-          <h1 className="font-serif text-[36px] font-light leading-tight tracking-tight text-bone">
-            {totals.total} members on file.
-          </h1>
-          <p className="mt-3 max-w-[64ch] text-[14px] leading-[1.55] text-bone-2">
-            Sorted by last name. Click into a row for the 360° view — preferences, lanes,
-            companions, reserve ledger, trips.
-          </p>
-        </div>
-        <div className="flex flex-col items-end gap-4">
-          <dl className="flex flex-wrap gap-x-10 gap-y-3 text-right">
-            {[
-              ["TOTAL", String(totals.total)],
-              ["ACTIVE", String(totals.active)],
-              ["CARD / RESERVE", String(totals.flying)],
-              ["LIFETIME REV", formatUSD(totals.lifetimeRevenue)],
-            ].map(([lbl, val]) => (
-              <div key={lbl} className="flex flex-col items-end">
-                <dt className="font-mono text-[10px] uppercase tracking-[0.14em] text-steel">
-                  {lbl}
-                </dt>
-                <dd className="mt-1 font-serif text-[26px] font-light leading-none text-bone">
-                  {val}
-                </dd>
-              </div>
-            ))}
-          </dl>
-          <MemberInviteForm />
-        </div>
-      </header>
-
-      {rows.length === 0 ? (
-        <div className="rounded-[4px] border border-ink-3 bg-ink-2 p-12 text-center">
-          <p className="caption mb-3">— No members yet</p>
-          <h2 className="font-serif text-[24px] font-normal text-bone">
-            The roster is empty.
-          </h2>
-          <p className="mx-auto mt-3 max-w-[48ch] text-[14px] leading-[1.55] text-bone-2">
-            Members appear here when someone signs in with magic-link auth and a member profile is
-            created. The bootstrap admin GUC handles the first user; ops creates the rest.
-          </p>
-        </div>
-      ) : (
-        <div className="overflow-x-auto rounded-[4px] border border-ink-3 bg-ink-2">
-          <table className="w-full min-w-[1080px] border-collapse text-left">
-            <thead>
-              <tr className="border-b border-ink-3">
-                {["Member", "Code", "Tier", "Status", "Trips", "Lifetime", "Since", ""].map(
-                  (h, i) => (
-                    <th
-                      key={h || i}
-                      className="px-5 py-4 font-mono text-[10px] uppercase tracking-[0.14em] text-bone-2"
-                    >
-                      {h}
-                    </th>
-                  ),
-                )}
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((m) => {
-                const name = [m.firstName, m.lastName].filter(Boolean).join(" ") || m.email;
-                return (
-                  <tr key={m.id} className="border-b border-ink-3 transition-colors hover:bg-ink">
-                    <td className="px-5 py-5">
-                      <div className="text-[14px] text-bone">{name}</div>
-                      <div className="font-mono text-[10px] tracking-[0.04em] text-bone-2">
-                        {m.email}
-                      </div>
-                    </td>
-                    <td className="px-5 py-5 font-mono text-[11px] tracking-[0.04em] text-clearance">
-                      {m.memberCode}
-                    </td>
-                    <td className="px-5 py-5 font-mono text-[10px] uppercase tracking-[0.08em] text-bone">
-                      {TIER_LABEL[m.tier] ?? m.tier}
-                    </td>
-                    <td className="px-5 py-5">
-                      <span
-                        className={[
-                          "inline-block rounded-full border px-2.5 py-0.5 font-mono text-[9px] uppercase tracking-[0.14em]",
-                          STATUS_CLASS[m.status] ?? "border-ink-3 text-bone-2",
-                        ].join(" ")}
-                      >
-                        {m.status}
-                      </span>
-                    </td>
-                    <td className="px-5 py-5 font-mono text-[12px] tracking-[0.04em] text-bone">
-                      {m.tripCount}
-                    </td>
-                    <td className="px-5 py-5 font-mono text-[12px] tracking-[0.04em] text-bone">
-                      {m.lifetimeUsd ? formatUSD(m.lifetimeUsd) : "—"}
-                    </td>
-                    <td className="px-5 py-5 font-mono text-[10px] tracking-[0.04em] text-bone-2">
-                      {m.memberSince ? String(m.memberSince) : "—"}
-                    </td>
-                    <td className="px-5 py-5 text-right">
-                      <Link
-                        href={`/admin/clients/${m.id}`}
-                        className="font-mono text-[10px] uppercase tracking-[0.14em] text-bone-2 transition-colors hover:text-clearance"
-                      >
-                        Open →
-                      </Link>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </div>
+    <DeskPage>
+      <ClientsTable
+        rows={visible}
+        header={header}
+        emptyTitle={q ? "No one matches." : "Nobody here yet."}
+        emptyBody={q ? "Try another name or email, or clear the search." : "Clients land in this tab as they fly."}
+      />
+    </DeskPage>
   );
 }

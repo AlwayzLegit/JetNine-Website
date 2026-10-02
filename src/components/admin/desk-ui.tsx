@@ -325,14 +325,16 @@ export function DeskCard({
   children,
   className = "",
   actions,
+  id,
 }: {
   title?: ReactNode;
   children: ReactNode;
   className?: string;
   actions?: ReactNode;
+  id?: string;
 }) {
   return (
-    <section className={`card p-5 ${className}`}>
+    <section id={id} className={`card p-5 ${className}`}>
       {title || actions ? (
         <div className="flex flex-wrap items-center justify-between gap-3">
           {title ? <h2 className="label-jn text-[13px]">{title}</h2> : <span />}

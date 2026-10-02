@@ -17,6 +17,21 @@ const STATUSES = [
   "converted",
 ] as const;
 
+// The desk reads statuses as sentences; the enum stays in the database.
+const STATUS_WORDS: Record<(typeof STATUSES)[number], string> = {
+  draft: "Draft",
+  submitted: "Needs a reply",
+  triaged: "Working on it · triaged",
+  sourcing: "Working on it · sourcing aircraft",
+  options_sent: "Options sent",
+  held: "Options sent · aircraft held",
+  accepted: "Client picked an option",
+  declined: "Client went elsewhere",
+  expired: "Expired without a reply",
+  cancelled: "Cancelled",
+  converted: "Booked · now a trip",
+};
+
 export function StatusSelect({
   quoteId,
   current,
@@ -42,31 +57,22 @@ export function StatusSelect({
   }
 
   return (
-    <div className="inline-flex flex-col gap-1">
-      <label
-        htmlFor={`status-${quoteId}`}
-        className="font-mono text-[9px] uppercase tracking-[0.14em] text-steel"
-      >
-        — Status
-      </label>
+    <div className={`field-jn ${error ? "error" : ""}`}>
+      <label htmlFor={`status-${quoteId}`}>Status</label>
       <select
         id={`status-${quoteId}`}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         disabled={pending}
-        className="rounded-[2px] border border-ink-3 bg-ink-2 px-3 py-1.5 font-mono text-[11px] uppercase tracking-[0.08em] text-bone disabled:opacity-60"
+        className="disabled:opacity-60"
       >
         {STATUSES.map((s) => (
           <option key={s} value={s}>
-            {s.replace(/_/g, " ")}
+            {STATUS_WORDS[s]}
           </option>
         ))}
       </select>
-      {error ? (
-        <span className="font-mono text-[10px] uppercase tracking-[0.1em] text-[var(--error)]">
-          {error}
-        </span>
-      ) : null}
+      {error ? <p className="mt-1.5 text-[13px] text-danger">{error}</p> : null}
     </div>
   );
 }

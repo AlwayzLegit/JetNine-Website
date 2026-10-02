@@ -2,12 +2,26 @@
 
 import { useState, useTransition } from "react";
 import { updateTripStatus } from "@/app/admin/trips/[id]/actions";
-import { tripStatusEnum } from "@/db/schema/trips";
+import type { Trip } from "@/db/schema/trips";
 import { tripState } from "@/lib/desk-status";
 
-type Status = (typeof tripStatusEnum.enumValues)[number];
+type Status = Trip["status"];
 
-const STATUSES: readonly Status[] = tripStatusEnum.enumValues;
+// Mirrors `tripStatusEnum` (type-checked below) without pulling drizzle
+// into the client bundle. Order = the order a trip moves through them.
+const STATUSES = [
+  "draft",
+  "confirmed",
+  "crew_briefed",
+  "boarding",
+  "airborne",
+  "wheels_down",
+  "completed",
+  "diverted",
+  "irregular_ops",
+  "cancelled_wx",
+  "cancelled_other",
+] as const satisfies readonly Status[];
 
 /**
  * Trip status control on the trip sheet. Shows the desk's plain-words

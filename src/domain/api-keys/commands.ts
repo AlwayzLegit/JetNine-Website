@@ -217,3 +217,41 @@ export async function revokeKey(actor: Actor, id: unknown, reason: unknown): Pro
   });
   return ok({ name: row.name });
 }
+
+// ─── The old blog key ───────────────────────────────────────────────────
+
+export type LegacyKeyUsage = {
+  /** BLOG_ADMIN_API_KEY is set in the environment. */
+  configured: boolean;
+  lastUsedAt: Date | null;
+  calls7d: number;
+  calls30d: number;
+  /** True when the key may be removed: configured, and nothing has used it for 7 days. */
+  retirable: boolean;
+};
+
+/**
+ * How the old single env key is still being used, so the owner knows when it
+ * is safe to remove it from Vercel. Reads the per-call log (30-day
+ * retention); the key itself is never read here.
+ */
+export async function legacyKeyUsage(now = new Date()): Promise<LegacyKeyUsage> {
+  const configured = Boolean(process.env.BLOG_ADMIN_API_KEY);
+  const [row] = await db
+    .select({
+      lastUsedAt: sql<string | null>`max(${apiRequests.at})`,
+      calls7d: sql<number>`count(*) filter (where ${apiRequests.at} > now() - interval '7 days')::int`,
+      calls30d: sql<number>`count(*)::int`,
+    })
+    .from(apiRequests)
+    .where(eq(apiRequests.legacy, true));
+  const lastUsedAt = row?.lastUsedAt ? new Date(row.lastUsedAt) : null;
+  const calls7d = Number(row?.calls7d ?? 0);
+  return {
+    configured,
+    lastUsedAt,
+    calls7d,
+    calls30d: Number(row?.calls30d ?? 0),
+    retirable: configured && calls7d === 0 && (!lastUsedAt || now.getTime() - lastUsedAt.getTime() > 7 * 86_400_000),
+  };
+}

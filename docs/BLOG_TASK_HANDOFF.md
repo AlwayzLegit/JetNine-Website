@@ -1,5 +1,11 @@
 # Daily Blog Task — Hand-off (Cowork, API only)
 
+> **Superseded (API phase 8).** The daily task is now the desk assistant:
+> its prompt is in [AGENT_HANDOFF.md](AGENT_HANDOFF.md), its key comes
+> from Admin › Settings › API keys, and its instructions live in
+> Admin › Settings › Assistant. The cutover runbook is `DEPLOY.md §8g`.
+> This file stays for the record until the legacy routes are removed.
+
 One article a day on jetnine.com/blog, written and published entirely through
 the site's blog API (`BLOG_API.md`) — no MCP connectors, no repo checkout.
 Topic selection comes from the post inventory and the live sitemap; the hero

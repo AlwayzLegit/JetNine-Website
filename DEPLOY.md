@@ -188,6 +188,24 @@ return a 202 instead of running. People decide them in Messages › Needs
 your OK; the `api-maintenance` cron expires anything undecided after 7
 days. No new env vars.
 
+## 8g. Cutting the scheduled task over to the assistant (API phase 8)
+
+No schema or env changes. The runbook, in order:
+
+1. Admin › Settings › API keys → Create a key → template **Daily assistant**
+   (read, content, desk, assistant; asks before acting; 90 days). Copy it
+   once; it is never shown again.
+2. In Cowork, open the existing daily blog task. Disable it (do not delete
+   it yet) and create the new one with the prompt in `docs/AGENT_HANDOFF.md`,
+   the key pasted in, the Hugging Face connector on, Semrush optional.
+3. Run the new task once by hand. Admin › Settings › Assistant › Today shows
+   the run, its report and its items; Messages › Needs your OK shows anything
+   it proposed.
+4. Watch Settings › API keys for a week: the assistant key "used today" every
+   day, and **The old blog key** card showing no calls. When it reads
+   "Safe to remove", delete `BLOG_ADMIN_API_KEY` in Vercel, redeploy, and
+   delete the old task. The legacy `/api/admin/blog/*` routes go in phase 10.
+
 ## 9. Custom domain
 
 In Vercel → Domains → Add. Point your registrar's `A` record at Vercel's anycast IP (or `CNAME` for subdomain). Vercel issues a Let's Encrypt cert automatically.

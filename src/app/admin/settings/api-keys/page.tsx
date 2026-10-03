@@ -1,7 +1,7 @@
 import { requireAdmin } from "@/lib/auth";
 import { KEY_TEMPLATES, SCOPES, SCOPE_WORDS, maskedToken } from "@/lib/api-keys";
 import { relativeTime } from "@/lib/request-format";
-import { EXPIRY_CHOICES, listKeys, type KeyListRow } from "@/domain/api-keys/commands";
+import { EXPIRY_CHOICES, legacyKeyUsage, listKeys, type KeyListRow, type LegacyKeyUsage } from "@/domain/api-keys/commands";
 import { DeskRow, DotSentence } from "@/components/admin/desk-ui";
 import { ApiKeysHeader, RevokeKey } from "@/components/admin/settings/api-key-forms";
 
@@ -25,8 +25,8 @@ function scopeWords(scopes: KeyListRow["scopes"]): string {
 
 export default async function ApiKeysPage() {
   await requireAdmin();
-  const keys = await listKeys();
   const now = new Date();
+  const [keys, legacy] = await Promise.all([listKeys(), legacyKeyUsage(now)]);
   const working = keys.filter((k) => !k.revokedAt && !(k.expiresAt && k.expiresAt <= now));
   const past = keys.filter((k) => !working.includes(k));
 
@@ -60,6 +60,8 @@ export default async function ApiKeysPage() {
           </div>
         </details>
       ) : null}
+
+      <LegacyKeyCard usage={legacy} now={now} />
 
       <p className="mt-4 text-[14px] text-steel">
         A key acts as the owner who created it and can never do more than they can. Keys are shown once; we keep only a
@@ -103,5 +105,37 @@ function KeyRow({ k, now }: { k: KeyListRow; now: Date }) {
       </div>
       {live ? <RevokeKey id={k.id} name={k.name} /> : <span />}
     </DeskRow>
+  );
+}
+
+/**
+ * The old single blog key from the environment. Shown until it is removed,
+ * so the owner can see the day it stops being used and retire it.
+ */
+function LegacyKeyCard({ usage, now }: { usage: LegacyKeyUsage; now: Date }) {
+  if (!usage.configured && usage.calls30d === 0) return null;
+  const used = usage.lastUsedAt ? `last used ${relativeTime(usage.lastUsedAt, now).toLowerCase()}` : "never used in the last 30 days";
+  const calls = usage.calls7d ? `${usage.calls7d} ${usage.calls7d === 1 ? "call" : "calls"} in the last 7 days` : "no calls in the last 7 days";
+  return (
+    <div className="card mt-6 p-5">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="text-[16px] font-medium text-bone">The old blog key</div>
+          <div className="mt-1 text-[14px] text-bone-2">
+            <code className="text-bone-2">BLOG_ADMIN_API_KEY</code> in Vercel · {usage.configured ? "still set" : "removed"} · {used} · {calls}
+          </div>
+        </div>
+        <DotSentence tone={usage.retirable ? "success" : usage.configured ? "gold" : "steel"} className="text-[14px] text-bone">
+          {usage.retirable ? "Safe to remove" : usage.configured ? "Still in use" : "Gone"}
+        </DotSentence>
+      </div>
+      <p className="mt-3 text-[14px] text-steel">
+        {usage.retirable
+          ? "Nothing has used it for a week. Remove the variable in Vercel and delete the old Cowork task; the daily assistant runs on its own key."
+          : usage.configured
+            ? "The old Cowork task still posts with it. Once the daily assistant has run on its own key for a week and this shows no calls, remove the variable in Vercel."
+            : "The variable is gone. The last calls above are the tail of the old task's log and will age out after 30 days."}
+      </p>
+    </div>
   );
 }

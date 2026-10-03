@@ -171,8 +171,9 @@ the v1 blog endpoints take the same bodies and return the same objects inside
 
 The old `/api/admin/blog/*` endpoints still answer in their old shapes and
 accept both new keys (with `content`) and the old `BLOG_ADMIN_API_KEY`. They
-send `Deprecation: true` and a `Link` to the v1 successor; they will be
-removed once nothing calls them for a week.
+send `Deprecation: true` and a `Link` to the v1 successor. Settings › API
+keys shows when the old key was last used and says "Safe to remove" after a
+quiet week; the routes themselves are removed in the last phase.
 
 ## Changing the API
 

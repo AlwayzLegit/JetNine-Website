@@ -2,18 +2,46 @@ import { requestStage } from "@/lib/desk-status";
 import type { AnyOp } from "@/domain/ops";
 import { defineOp } from "@/domain/ops/registry";
 import {
+  addOption,
+  assignRequest,
+  chooseOption,
+  createHold,
   lifecycleEmailGoesOut,
+  linkRequestClient,
+  loadRequestForAssign,
+  loadRequestForHoldCreate,
+  loadRequestForHoldRelease,
+  loadRequestForLinkClient,
   loadRequestForMessage,
+  loadRequestForOptionAdd,
+  loadRequestForOptionChoose,
   loadRequestForSendOptions,
   loadRequestForStatus,
+  loadRequestOption,
   postRequestMessage,
+  releaseHold,
+  removeOption,
   sendRequestOptions,
   setRequestStatus,
+  updateOption,
+  type HoldCreateState,
+  type HoldReleaseState,
+  type OptionAddState,
+  type OptionState,
+  type RequestAssignState,
+  type RequestLinkClientState,
   type RequestMessageState,
   type RequestStatusState,
   type SendOptionsState,
 } from "./commands";
 import {
+  HoldCreateInput,
+  HoldReleaseInput,
+  OptionAddInput,
+  OptionRefInput,
+  OptionUpdateInput,
+  RequestAssignInput,
+  RequestLinkClientInput,
   RequestMessageInput,
   RequestStatusInput,
   SendOptionsInput,
@@ -124,4 +152,122 @@ export const requestSendOptionsOp = defineOp<SendOptionsInput, SendOptionsState>
   revalidate: (input) => [`/admin/requests/${input.id}`],
 });
 
-export const REQUEST_OPS: AnyOp[] = [requestStatusOp, requestMessageOp, requestSendOptionsOp];
+// ─── Desk-side changes: nobody needs to ask ──────────────────────────────
+// Assignment, client linkage, soft holds and the sourced options never
+// reach the client, so a supervised key runs them at once.
+
+export const requestAssignOp = defineOp<RequestAssignInput, RequestAssignState>({
+  id: "request.assign",
+  scope: "desk",
+  schema: RequestAssignInput,
+  load: loadRequestForAssign,
+  risk: () => null,
+  summary: (_input, state) =>
+    state.staff ? `Assign request ${state.quote.code} to ${state.staff.displayName}` : `Unassign request ${state.quote.code}`,
+  subject: (_input, state) => ({ type: "quote", id: state.quote.id, code: state.quote.code }),
+  run: assignRequest,
+  revalidate: (input) => ["/admin/requests", `/admin/requests/${input.id}`],
+});
+
+export const requestLinkClientOp = defineOp<RequestLinkClientInput, RequestLinkClientState>({
+  id: "request.linkClient",
+  scope: "clients",
+  schema: RequestLinkClientInput,
+  load: loadRequestForLinkClient,
+  risk: () => null,
+  summary: (_input, state) =>
+    state.member
+      ? `Link request ${state.quote.code} to client ${state.member.memberCode}`
+      : `Unlink request ${state.quote.code} from its client`,
+  subject: (_input, state) => ({ type: "quote", id: state.quote.id, code: state.quote.code }),
+  run: linkRequestClient,
+  revalidate: (input) => [`/admin/requests/${input.id}`, "/admin/requests"],
+});
+
+export const requestHoldCreateOp = defineOp<HoldCreateInput, HoldCreateState>({
+  id: "request.hold.create",
+  scope: "desk",
+  schema: HoldCreateInput,
+  load: loadRequestForHoldCreate,
+  risk: () => null,
+  summary: (_input, state) => `Hold ${state.aircraft.tailNumber} for request ${state.quote.code}`,
+  subject: (_input, state) => ({ type: "quote", id: state.quote.id, code: state.quote.code }),
+  run: createHold,
+  revalidate: (input) => [`/admin/requests/${input.id}`, "/admin/ops", `/admin/aircraft/${input.aircraftId}`],
+});
+
+export const requestHoldReleaseOp = defineOp<HoldReleaseInput, HoldReleaseState>({
+  id: "request.hold.release",
+  scope: "desk",
+  schema: HoldReleaseInput,
+  load: loadRequestForHoldRelease,
+  risk: () => null,
+  summary: (_input, state) =>
+    `Release the hold on ${state.block.tailNumber ?? "the aircraft"} for request ${state.quote.code}`,
+  subject: (_input, state) => ({ type: "quote", id: state.quote.id, code: state.quote.code }),
+  run: releaseHold,
+  revalidate: (input, state) => [`/admin/requests/${input.id}`, "/admin/ops", `/admin/aircraft/${state.block.aircraftId}`],
+});
+
+export const requestOptionAddOp = defineOp<OptionAddInput, OptionAddState>({
+  id: "request.option.add",
+  scope: "desk",
+  schema: OptionAddInput,
+  load: loadRequestForOptionAdd,
+  risk: () => null,
+  summary: (input, state) =>
+    `Add option ${state.optionNumber}${input.aircraftType ? ` (${input.aircraftType})` : ""} to request ${state.quote.code}`,
+  subject: (_input, state) => ({ type: "quote", id: state.quote.id, code: state.quote.code }),
+  run: addOption,
+  revalidate: (input) => [`/admin/requests/${input.id}`],
+});
+
+export const requestOptionUpdateOp = defineOp<OptionUpdateInput, OptionState>({
+  id: "request.option.update",
+  scope: "desk",
+  schema: OptionUpdateInput,
+  load: loadRequestOption,
+  risk: () => null,
+  summary: (_input, state) => `Update option ${state.option.optionNumber} on request ${state.quote.code}`,
+  subject: (_input, state) => ({ type: "quote", id: state.quote.id, code: state.quote.code }),
+  run: updateOption,
+  revalidate: (input) => [`/admin/requests/${input.id}`],
+});
+
+export const requestOptionChooseOp = defineOp<OptionRefInput, OptionState>({
+  id: "request.option.choose",
+  scope: "desk",
+  schema: OptionRefInput,
+  load: loadRequestForOptionChoose,
+  risk: () => null,
+  summary: (_input, state) => `Choose option ${state.option.optionNumber} for request ${state.quote.code}`,
+  subject: (_input, state) => ({ type: "quote", id: state.quote.id, code: state.quote.code }),
+  run: chooseOption,
+  revalidate: (input) => [`/admin/requests/${input.id}`],
+});
+
+export const requestOptionRemoveOp = defineOp<OptionRefInput, OptionState>({
+  id: "request.option.remove",
+  scope: "desk",
+  schema: OptionRefInput,
+  load: loadRequestOption,
+  risk: () => null,
+  summary: (_input, state) => `Remove option ${state.option.optionNumber} from request ${state.quote.code}`,
+  subject: (_input, state) => ({ type: "quote", id: state.quote.id, code: state.quote.code }),
+  run: removeOption,
+  revalidate: (input) => [`/admin/requests/${input.id}`],
+});
+
+export const REQUEST_OPS: AnyOp[] = [
+  requestStatusOp,
+  requestMessageOp,
+  requestSendOptionsOp,
+  requestAssignOp,
+  requestLinkClientOp,
+  requestHoldCreateOp,
+  requestHoldReleaseOp,
+  requestOptionAddOp,
+  requestOptionUpdateOp,
+  requestOptionChooseOp,
+  requestOptionRemoveOp,
+];

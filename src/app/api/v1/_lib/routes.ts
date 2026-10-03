@@ -16,6 +16,7 @@ import { HeroIngest, PostCreate, PostUpdate } from "@/domain/blog/schemas";
 import { err, ok } from "@/domain/result";
 import type { RouteDef } from "./handler";
 import { buildOpenApi } from "./openapi";
+import { AGENT_ROUTES } from "./routes/agent";
 import { CLIENT_ROUTES } from "./routes/clients";
 import { DESK_ROUTES } from "./routes/desk";
 import { EMPTY_LEG_ROUTES } from "./routes/empty-legs";
@@ -205,6 +206,7 @@ export const ROUTE = {
   ...REPORT_ROUTES,
   ...HISTORY_ROUTES,
   ...SETTINGS_ROUTES,
+  ...AGENT_ROUTES,
 } satisfies Record<string, RouteDef>;
 
 export const ROUTES: RouteDef[] = Object.values(ROUTE);

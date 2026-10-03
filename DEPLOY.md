@@ -171,6 +171,14 @@ audit rows with `subject_type = 'blog_post'`; without the enum values those
 rows are silently dropped (audit is best-effort) and `/api/v1` answers 503. No new env vars; `BLOG_ADMIN_API_KEY` keeps working on the legacy
 `/api/admin/blog/*` paths. API reference: `docs/API.md`.
 
+## 8e. Desk assistant tables (API phase 4)
+
+Schema: migration `0052_agent.sql` adds `agent_playbooks`, `agent_runs`,
+`agent_run_items` and `agent_memory` (all RLS on, no policies; server-only).
+Apply it before deploying — `/api/v1/agent/*` reads and writes them. No new
+env vars. The scheduled task moves to the bootstrap prompt in
+`docs/AGENT_HANDOFF.md` with a key from Settings › API keys.
+
 ## 9. Custom domain
 
 In Vercel → Domains → Add. Point your registrar's `A` record at Vercel's anycast IP (or `CNAME` for subdomain). Vercel issues a Let's Encrypt cert automatically.

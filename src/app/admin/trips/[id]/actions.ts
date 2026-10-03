@@ -544,21 +544,8 @@ export async function updateInvoice(
 }
 
 // ─── Messaging thread (subject_type='trip') ──────────────────────────────
-
-type Channel = (typeof messageChannelEnum.enumValues)[number];
-
-const ALLOWED_DISPATCHER_CHANNELS: readonly Channel[] = [
-  "inapp",
-  "email",
-  "sms",
-  "whatsapp",
-  "call",
-  "voicemail",
-] as const;
-
-function isAllowedChannel(v: string): v is Channel {
-  return (ALLOWED_DISPATCHER_CHANNELS as readonly string[]).includes(v);
-}
+// The work itself is the "trip.message" op (src/domain/trips), shared with
+// the API and the approval queue.
 
 export type PostTripMessageResult =
   | { ok: true; id: string }
@@ -568,140 +555,22 @@ export async function postTripMessage(
   tripId: string,
   formData: FormData,
 ): Promise<PostTripMessageResult> {
-  const actor = await requireStaff();
+  const session = await sessionActor();
+  if (!session.ok) return { ok: false, error: session.error };
 
-  if (!/^[0-9a-f-]{36}$/i.test(tripId)) {
-    return { ok: false, error: "Bad trip id" };
-  }
-
-  const channelRaw = ((formData.get("channel") as string | null) ?? "").trim();
-  if (!isAllowedChannel(channelRaw)) return { ok: false, error: "Pick a channel" };
+  const channel = ((formData.get("channel") as string | null) ?? "").trim();
+  if (!isDeskMessageChannel(channel)) return { ok: false, error: "Pick a channel" };
 
   const body = ((formData.get("body") as string | null) ?? "").trim();
   if (body.length < 1) return { ok: false, error: "Body required" };
   if (body.length > 4000) return { ok: false, error: "Body too long (4000 max)" };
 
-  const toAddress = ((formData.get("toAddress") as string | null) ?? "").trim() || null;
+  const toAddress = ((formData.get("toAddress") as string | null) ?? "").trim() || undefined;
 
-  // Look up the trip + its member's contact info for default to-address.
-  const [t] = await db
-    .select({
-      id: trips.id,
-      code: trips.tripCode,
-      memberId: trips.memberId,
-      memberUserId: members.userId,
-      memberEmail: users.email,
-      memberPhone: users.phoneE164,
-    })
-    .from(trips)
-    .innerJoin(members, eq(members.id, trips.memberId))
-    .innerJoin(users, eq(users.id, members.userId))
-    .where(eq(trips.id, tripId));
-  if (!t) return { ok: false, error: "Trip not found" };
-
-  const defaultTo =
-    channelRaw === "email"
-      ? t.memberEmail
-      : channelRaw === "sms" || channelRaw === "call" || channelRaw === "voicemail"
-        ? t.memberPhone
-        : null;
-
-  const preview = body.length > 140 ? `${body.slice(0, 139)}…` : body;
-  const finalTo = toAddress ?? defaultTo;
-
-  // SMS + WhatsApp now transmit via Twilio in addition to email. Other
-  // channels (inapp, call, voicemail) remain logged-only dispatcher notes.
-  const willTransmit =
-    (channelRaw === "email" || channelRaw === "sms" || channelRaw === "whatsapp") &&
-    Boolean(finalTo);
-  const initialStatus: "queued" | "skipped" = willTransmit ? "queued" : "skipped";
-
-  const values: NewMessage = {
-    subjectType: "trip",
-    subjectId: tripId,
-    channel: channelRaw,
-    direction: "out",
-    fromAddress: null,
-    toAddress: finalTo,
-    fromUserId: actor.id,
-    toUserId: t.memberUserId,
-    preview,
-    body,
-    isRead: false,
-    deliveryStatus: initialStatus,
-  };
-
-  let messageId: string;
-  try {
-    const [row] = await db
-      .insert(messages)
-      .values(values)
-      .returning({ id: messages.id });
-    messageId = row.id;
-  } catch (err) {
-    console.error("postTripMessage insert failed", err);
-    return { ok: false, error: "DB_INSERT_FAILED" };
-  }
-
-  let deliveryAudit: Record<string, unknown> = { status: initialStatus };
-  if (willTransmit && finalTo) {
-    const summary = preview.length > 60 ? `${preview.slice(0, 59)}…` : preview;
-    const result = await dispatchThreadMessage(channelRaw as ThreadChannel, {
-      to: finalTo,
-      subjectCode: t.code,
-      subjectSummary: summary,
-      body,
-    });
-    if (result.ok) {
-      await db
-        .update(messages)
-        .set({
-          // Honest status: logger mode means nothing left the building.
-          deliveryStatus: result.provider === "logger" ? "queued" : "sent",
-          deliveryProvider: result.provider,
-          deliveryMessageId: result.messageId ?? null,
-          deliveryError:
-            result.provider === "logger"
-              ? "channel not configured — logged only, not delivered"
-              : null,
-          deliveredAt: result.provider === "logger" ? null : new Date(),
-        })
-        .where(eq(messages.id, messageId));
-      deliveryAudit = {
-        status: result.provider === "logger" ? "queued" : "sent",
-        provider: result.provider,
-        messageId: result.messageId ?? null,
-      };
-    } else {
-      await db
-        .update(messages)
-        .set({
-          deliveryStatus: "failed",
-          deliveryError: result.error.slice(0, 500),
-        })
-        .where(eq(messages.id, messageId));
-      deliveryAudit = { status: "failed", error: result.error };
-    }
-  }
-
-  await logAudit({
-    actorUserId: actor.id,
-    actorRole: actor.role,
-    action: "trip.message.post",
-    subjectType: "trip",
-    subjectId: tripId,
-    subjectCode: t.code,
-    metadata: {
-      messageId,
-      channel: channelRaw,
-      toAddress: finalTo,
-      bodyLen: body.length,
-      delivery: deliveryAudit,
-    },
-  });
-
-  revalidatePath(`/admin/trips/${tripId}`);
-  return { ok: true, id: messageId };
+  const r = await runOp(tripMessageOp, session.value, { id: tripId, channel, body, toAddress });
+  if (!r.ok) return { ok: false, error: r.error };
+  if (r.value.kind === "pending") return { ok: false, error: "This was sent for approval." };
+  return { ok: true, id: (r.value.value as { id: string }).id };
 }
 
 /**

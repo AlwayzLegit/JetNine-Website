@@ -265,6 +265,8 @@ test.describe("api v1", () => {
   });
 
   test("writes are refused without a key", async ({ request }) => {
+    // Thirteen routes, each compiled on first hit by the production server.
+    test.slow();
     const id = "00000000-0000-4000-8000-000000000000";
     for (const path of [
       "/api/v1/blog/posts",

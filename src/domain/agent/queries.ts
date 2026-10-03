@@ -127,6 +127,46 @@ export async function listOpenFlags(): Promise<OpenFlag[]> {
   return flags.map((f) => ({ ...f, subjectNow: f.subjectId ? (now.get(f.subjectId) ?? null) : null }));
 }
 
+export type SubjectItem = Pick<AgentRunItem, "id" | "kind" | "title" | "bodyMd" | "url" | "status" | "createdAt" | "dismissedAt"> & {
+  /** YYYY-MM-DD of the run that produced the item. */
+  runDate: string;
+};
+
+/**
+ * What the assistant said about one request or trip, newest first, for the
+ * "Assistant notes" card on its page. Open items only unless asked.
+ */
+export async function itemsForSubject(
+  subjectType: string,
+  subjectId: string,
+  { includeDismissed = false }: { includeDismissed?: boolean } = {},
+): Promise<SubjectItem[]> {
+  if (!isUuid(subjectId)) return [];
+  return db
+    .select({
+      id: agentRunItems.id,
+      kind: agentRunItems.kind,
+      title: agentRunItems.title,
+      bodyMd: agentRunItems.bodyMd,
+      url: agentRunItems.url,
+      status: agentRunItems.status,
+      createdAt: agentRunItems.createdAt,
+      dismissedAt: agentRunItems.dismissedAt,
+      runDate: agentRuns.runDate,
+    })
+    .from(agentRunItems)
+    .innerJoin(agentRuns, eq(agentRuns.id, agentRunItems.runId))
+    .where(
+      and(
+        eq(agentRunItems.subjectType, subjectType),
+        eq(agentRunItems.subjectId, subjectId),
+        includeDismissed ? undefined : eq(agentRunItems.status, "open"),
+      ),
+    )
+    .orderBy(desc(agentRunItems.createdAt))
+    .limit(20);
+}
+
 export type AgentContext = {
   today: string;
   generatedAt: Date;
@@ -159,6 +199,22 @@ function trimRun(r: RunRow): AgentContext["recentRuns"][number] {
   return { id: r.id, runDate: r.runDate, status: r.status, summaryMd: r.summaryMd?.slice(0, 1500) ?? null, report, closedAt: r.closedAt };
 }
 
+/** Days in the last week (LA calendar) with no closed run: the assistant catches up quietly, the owner sees them on Today. */
+export async function missedRunDays(now: Date = new Date()): Promise<string[]> {
+  const weekAgo = dayKeyLA(new Date(now.getTime() - 7 * 86_400_000));
+  const closedDays = await db
+    .selectDistinct({ d: agentRuns.runDate })
+    .from(agentRuns)
+    .where(and(eq(agentRuns.status, "closed"), gte(agentRuns.runDate, weekAgo)));
+  const ran = new Set(closedDays.map((r) => r.d));
+  const missed: string[] = [];
+  for (let i = 1; i <= 7; i++) {
+    const d = dayKeyLA(new Date(now.getTime() - i * 86_400_000));
+    if (!ran.has(d)) missed.push(d);
+  }
+  return missed;
+}
+
 export async function agentContext(now: Date = new Date()): Promise<AgentContext> {
   const today = dayKeyLA(now);
   const since = new Date(now.getTime() - 30 * 86_400_000);
@@ -179,18 +235,7 @@ export async function agentContext(now: Date = new Date()): Promise<AgentContext
   const feedbackSince = lastClosed && lastClosed < weekBack ? lastClosed : weekBack;
   const feedback = await decidedSince(feedbackSince, { limit: 40 });
 
-  // Days in the last week with no closed run (the assistant should catch up quietly, not loudly).
-  const weekAgo = dayKeyLA(new Date(now.getTime() - 7 * 86_400_000));
-  const closedDays = await db
-    .selectDistinct({ d: agentRuns.runDate })
-    .from(agentRuns)
-    .where(and(eq(agentRuns.status, "closed"), gte(agentRuns.runDate, weekAgo)));
-  const ran = new Set(closedDays.map((r) => r.d));
-  const missedDays: string[] = [];
-  for (let i = 1; i <= 7; i++) {
-    const d = dayKeyLA(new Date(now.getTime() - i * 86_400_000));
-    if (!ran.has(d)) missedDays.push(d);
-  }
+  const missedDays = await missedRunDays(now);
 
   return {
     today,

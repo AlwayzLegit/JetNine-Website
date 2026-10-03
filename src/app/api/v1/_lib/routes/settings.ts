@@ -59,7 +59,8 @@ const updateDeskSettingsRoute: RouteDef = {
     if (hasPromise) return opRouteOutput(await runOp(replyPromiseOp, actor, { minutes: replyPromiseMinutes }, { reason }));
     if (toggles.length !== 1) return err("invalid", "Send `replyPromiseMinutes`, or `notifications` with exactly one toggle.");
     const [kind, on] = toggles[0];
-    return opRouteOutput(await runOp(notificationPrefOp, actor, { kind, on }, { reason }));
+    if (!actor.userId) return err("forbidden", "Notification settings belong to a person; this key does not act as one.");
+    return opRouteOutput(await runOp(notificationPrefOp, actor, { userId: actor.userId, kind, on }, { reason }));
   },
 };
 

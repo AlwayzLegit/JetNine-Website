@@ -1,7 +1,7 @@
 import { replyPromiseWords } from "@/lib/desk-status";
 import type { AnyOp } from "@/domain/ops";
 import { defineOp } from "@/domain/ops/registry";
-import {
+import { loadNotificationPref, type NotificationPrefState,
   loadNothing,
   loadReplyPromise,
   sendTestEmailTo,
@@ -38,13 +38,13 @@ export const replyPromiseOp = defineOp<ReplyPromiseInput, ReplyPromiseState>({
   revalidate: () => [NOTIFICATIONS_PATH, "/admin/requests"],
 });
 
-export const notificationPrefOp = defineOp<NotificationPrefInput, Nothing>({
+export const notificationPrefOp = defineOp<NotificationPrefInput, NotificationPrefState>({
   id: "settings.notificationPref",
   scope: "desk",
   schema: NotificationPrefInput,
-  load: loadNothing,
+  load: loadNotificationPref,
   risk: () => "settings",
-  summary: (input) => `Turn ${NOTIFICATION_WORDS[input.kind]} notifications ${input.on ? "on" : "off"} for yourself`,
+  summary: (input, state) => `Turn ${NOTIFICATION_WORDS[input.kind]} notifications ${input.on ? "on" : "off"} for ${state.name}`,
   subject: (input) => ({ type: "system", id: null, code: `notification:${input.kind}` }),
   run: (actor, input) => setNotificationPref(actor, input),
   revalidate: () => [NOTIFICATIONS_PATH],

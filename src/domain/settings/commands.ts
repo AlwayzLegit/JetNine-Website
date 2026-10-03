@@ -68,16 +68,38 @@ export async function loadNothing(): Promise<Result<Nothing>> {
   return ok({});
 }
 
-/** Acts on the actor's own preferences; a key acts as the person who made it. */
+export type NotificationPrefState = { name: string };
+
+/** The person whose toggle this is, for the approval card. */
+export async function loadNotificationPref(input: NotificationPrefInput): Promise<Result<NotificationPrefState>> {
+  const [row] = await db
+    .select({ email: users.email, firstName: users.firstName, lastName: users.lastName })
+    .from(users)
+    .where(eq(users.id, input.userId))
+    .limit(1);
+  if (!row) return err("not_found", "That person is not on the desk.");
+  const name = [row.firstName, row.lastName].filter(Boolean).join(" ") || row.email.split("@")[0];
+  return ok({ name });
+}
+
+/**
+ * A person's own toggle. The input names the person (always the caller,
+ * set by the route or Server Action); when a person approves a key's
+ * proposal, it is the key's person whose toggle changes, never the
+ * approver's.
+ */
 export async function setNotificationPref(
   actor: Actor,
   input: NotificationPrefInput,
 ): Promise<Result<{ kind: NotificationPrefInput["kind"]; on: boolean }>> {
   if (!actor.userId) return err("forbidden", "Notification settings belong to a person; this key does not act as one.");
+  if (actor.via !== "approval" && input.userId !== actor.userId) {
+    return err("forbidden", "You can only change your own notifications.");
+  }
 
   const { saveNotificationPrefs } = await import("@/lib/desk-settings");
   try {
-    await saveNotificationPrefs(actor.userId, { [input.kind]: Boolean(input.on) });
+    await saveNotificationPrefs(input.userId, { [input.kind]: Boolean(input.on) });
   } catch (e) {
     console.error("[settings/notifications] save failed", e);
     return err("unavailable", "Could not save. Try again.");

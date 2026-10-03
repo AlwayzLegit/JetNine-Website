@@ -34,6 +34,8 @@ export const ReplyPromiseInput = z.object({
 export type ReplyPromiseInput = z.infer<typeof ReplyPromiseInput>;
 
 export const NotificationPrefInput = z.object({
+  /** Whose toggle: always the caller (the key's creator), set by the route or action, never from a request body. */
+  userId: z.uuid(),
   kind: z.enum(NOTIFICATION_KINDS, { error: "Unknown setting" }),
   on: z.boolean(),
 });

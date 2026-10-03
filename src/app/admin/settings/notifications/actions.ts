@@ -16,7 +16,7 @@ export async function saveNotificationPref(kind: string, on: boolean): Promise<P
   const session = await sessionActor();
   if (!session.ok) return { ok: false, error: session.error };
 
-  const r = await runOp(notificationPrefOp, session.value, { kind, on: Boolean(on) });
+  const r = await runOp(notificationPrefOp, session.value, { userId: session.value.userId, kind, on: Boolean(on) });
   if (!r.ok) return { ok: false, error: r.code === "invalid" ? "Unknown setting" : r.error };
   if (r.value.kind === "pending") return { ok: false, error: "This was sent for approval." };
   return { ok: true };

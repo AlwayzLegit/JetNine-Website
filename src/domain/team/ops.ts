@@ -1,6 +1,7 @@
 import { DESK_ROLE_WORDS } from "@/lib/desk-status";
 import type { AnyOp } from "@/domain/ops";
 import { defineOp } from "@/domain/ops/registry";
+import { err, type Result } from "@/domain/result";
 import {
   inviteTeammate,
   loadForInvite,
@@ -34,11 +35,20 @@ export const teamInviteOp = defineOp<TeamInviteInput, Nothing>({
   revalidate: () => [TEAM_PATH],
 });
 
+/** The account owner is never changed or removed from here: refuse before anything queues. */
+function loadChangeableTeammate(words: string) {
+  return async (input: TeamRefInput): Promise<Result<TeammateState>> => {
+    const r = await loadTeammate(input);
+    if (r.ok && r.value.target.role === "superadmin") return err("forbidden", `This owner cannot be ${words} from here.`);
+    return r;
+  };
+}
+
 export const teamRoleOp = defineOp<TeamRoleInput, TeammateState>({
   id: "team.role",
   scope: "admin",
   schema: TeamRoleInput,
-  load: loadTeammate,
+  load: loadChangeableTeammate("changed"),
   risk: () => "access",
   summary: (input, state) =>
     input.role === "owner" ? `Make ${state.name} an Owner` : `Make ${state.name} part of the Team`,
@@ -51,7 +61,7 @@ export const teamRemoveOp = defineOp<TeamRefInput, TeammateState>({
   id: "team.remove",
   scope: "admin",
   schema: TeamRefInput,
-  load: loadTeammate,
+  load: loadChangeableTeammate("removed"),
   risk: () => "access",
   summary: (_input, state) => `Remove ${state.name} from the desk`,
   subject: (input, state) => ({ type: "user_role", id: input.id, code: state.target.email }),

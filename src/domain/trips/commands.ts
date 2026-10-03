@@ -671,7 +671,7 @@ export function resolvedInvoiceFigures(input: InvoiceUpdateInput, state: Invoice
     fetUsd: pick(input.fetUsd, inv.fetUsd),
     segmentFeeUsd: pick(input.segmentFeeUsd, inv.segmentFeeUsd),
     totalUsd: pick(input.totalUsd, inv.totalUsd),
-    notes: input.notes === undefined ? inv.notes : input.notes,
+    notes: input.notes === undefined ? inv.notes : input.notes || null,
   };
 }
 

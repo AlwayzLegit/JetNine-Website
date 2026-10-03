@@ -265,7 +265,7 @@ test.describe("api v1", () => {
   });
 
   test("writes are refused without a key", async ({ request }) => {
-    // Thirteen routes, each compiled on first hit by the production server.
+    // Many routes, each compiled on first hit by the production server.
     test.slow();
     const id = "00000000-0000-4000-8000-000000000000";
     for (const path of [
@@ -307,8 +307,10 @@ test.describe("api v1", () => {
       const response = await request.patch(path, { data: {} });
       expect(response.status(), path).toBe(401);
     }
-    const del = await request.delete(`/api/v1/reference/airports/${id}`);
-    expect(del.status()).toBe(401);
+    for (const path of [`/api/v1/reference/airports/${id}`, `/api/v1/team/${id}`]) {
+      const del = await request.delete(path);
+      expect(del.status(), path).toBe(401);
+    }
   });
 
   test("the approval queue needs a key", async ({ request }) => {

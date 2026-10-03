@@ -5,3 +5,4 @@ export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 export const GET = apiHandler(ROUTE.deskSettings);
+export const PATCH = apiHandler(ROUTE.updateDeskSettings);

@@ -59,7 +59,7 @@ export const testEmailOp = defineOp<TestEmailInput, Nothing>({
   risk: () => null,
   summary: () => "Send a test email to yourself",
   subject: () => ({ type: "system", id: null, code: "email" }),
-  run: (actor, input) => sendTestEmailTo(actor, input),
+  run: (actor) => sendTestEmailTo(actor),
 });
 
 export const SETTINGS_OPS: AnyOp[] = [replyPromiseOp, notificationPrefOp, testEmailOp];

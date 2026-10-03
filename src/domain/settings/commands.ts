@@ -6,7 +6,7 @@ import { sendEmail } from "@/lib/email";
 import { auditFields, type Actor } from "@/domain/actor";
 import { err, ok, type Result } from "@/domain/result";
 import { replyPromiseMinutes } from "./queries";
-import type { NotificationPrefInput, ReplyPromiseInput, TestEmailInput } from "./schemas";
+import type { NotificationPrefInput, ReplyPromiseInput } from "./schemas";
 
 /**
  * Settings commands, shared by the admin's Server Actions, the API and the
@@ -97,7 +97,6 @@ function escape(s: string): string {
  */
 export async function sendTestEmailTo(
   actor: Actor,
-  _input: TestEmailInput,
 ): Promise<Result<{ ok: boolean; provider: "resend" | "postmark" | "logger" | null; to: string }>> {
   if (!actor.userId) return err("forbidden", "A test email goes to a person; this key does not act as one.");
 

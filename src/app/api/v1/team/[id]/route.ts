@@ -4,5 +4,5 @@ import { ROUTE } from "@/app/api/v1/_lib/routes";
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
-export const GET = apiHandler(ROUTE.listTeam);
-export const POST = apiHandler(ROUTE.inviteTeammate);
+export const PATCH = apiHandler(ROUTE.setTeammateRole);
+export const DELETE = apiHandler(ROUTE.removeTeammate);

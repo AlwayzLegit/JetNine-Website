@@ -1,19 +1,11 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
-import { and, eq } from "drizzle-orm";
-import { db } from "@/db";
-import { trips, tripStatusEnum } from "@/db/schema/trips";
-import { invoices } from "@/db/schema/invoices";
-import { members } from "@/db/schema/members";
-import { users } from "@/db/schema/users";
-import { requireStaff } from "@/lib/auth";
-import { logAudit } from "@/lib/audit";
-import { sendInvoiceIssuedEmail } from "@/lib/email";
+import { tripStatusEnum } from "@/db/schema/trips";
 import { sessionActor } from "@/domain/actor";
 import { runOp } from "@/domain/ops/registry";
 import { isDeskMessageChannel } from "@/domain/requests/schemas";
-import { tripMessageOp, tripStatusOp } from "@/domain/trips/ops";
+import { invoiceUpdateOp, tripMessageOp, tripStatusOp } from "@/domain/trips/ops";
+import { MAX_INVOICE_USD } from "@/domain/trips/schemas";
 
 type Status = (typeof tripStatusEnum.enumValues)[number];
 
@@ -45,16 +37,15 @@ export async function updateTripStatus(
 // flips it straight to `paid`); a draft has no member-facing Pay button
 // until a dispatcher reviews the figures and finalizes it to `due`. This
 // action backs the editor on the trip sheet: edit the money fields + due
-// date, then either Save (stay draft) or Finalize (→ due). Editing is
-// locked once the invoice leaves `draft`.
+// date, then either Save (stay draft) or Finalize (→ due). The work itself
+// is the "invoice.update" op (src/domain/trips): the draft lock, the
+// concurrency guard, the audit and the issued email live there; runOp
+// revalidates the pages. This wrapper turns the form into the op's input
+// with the desk's wording for a bad field.
 
 export type InvoiceUpdateResult =
   | { ok: true; status: "draft" | "due" }
   | { ok: false; error: string };
-
-// Stripe's per-line-item ceiling is 99,999,999 cents; our amounts are
-// whole USD, so the same number is a safe upper bound in dollars too.
-const MAX_INVOICE_USD = 99_999_999;
 
 // Parse a money field: empty → null (unknown), otherwise a rounded
 // integer. Returns NaN as an invalid-input sentinel the caller rejects.
@@ -71,7 +62,8 @@ export async function updateInvoice(
   invoiceId: string,
   formData: FormData,
 ): Promise<InvoiceUpdateResult> {
-  const actor = await requireStaff();
+  const session = await sessionActor();
+  if (!session.ok) return { ok: false, error: session.error };
 
   if (!/^[0-9a-f-]{36}$/i.test(invoiceId)) {
     return { ok: false, error: "Bad invoice id" };
@@ -80,12 +72,6 @@ export async function updateInvoice(
   const intent = String(formData.get("intent") ?? "save");
   if (intent !== "save" && intent !== "finalize") {
     return { ok: false, error: "Bad intent" };
-  }
-
-  const [inv] = await db.select().from(invoices).where(eq(invoices.id, invoiceId));
-  if (!inv) return { ok: false, error: "Invoice not found" };
-  if (inv.status !== "draft") {
-    return { ok: false, error: `Invoice is ${inv.status} — only drafts are editable` };
   }
 
   const subtotalUsd = parseUsdField(formData.get("subtotalUsd"));
@@ -119,103 +105,20 @@ export async function updateInvoice(
     dueOn = dueOnRaw;
   }
 
-  if (intent === "finalize" && (totalUsd === null || totalUsd <= 0)) {
-    return { ok: false, error: "Total must be greater than zero to finalize" };
-  }
-
-  const patch: Partial<typeof invoices.$inferInsert> = {
+  // Every field is passed, so the op rewrites the figures the way the form always did.
+  const r = await runOp(invoiceUpdateOp, session.value, {
+    id: invoiceId,
+    intent,
     subtotalUsd,
     fetUsd,
     segmentFeeUsd,
     totalUsd,
     notes,
-    updatedAt: new Date(),
-  };
-  if (dueOn !== null) patch.dueOn = dueOn;
-
-  if (intent === "finalize") {
-    patch.status = "due";
-    // A due invoice should carry a due date; default to +7 days when the
-    // dispatcher didn't set one and the row doesn't already have one.
-    if (dueOn === null && !inv.dueOn) {
-      const d = new Date();
-      d.setUTCDate(d.getUTCDate() + 7);
-      patch.dueOn = d.toISOString().slice(0, 10);
-    }
-  }
-
-  // Constrain to status='draft' so a concurrent finalize can't be
-  // double-applied; empty result means someone else moved it first.
-  const updated = await db
-    .update(invoices)
-    .set(patch)
-    .where(and(eq(invoices.id, invoiceId), eq(invoices.status, "draft")))
-    .returning({ id: invoices.id });
-
-  if (updated.length === 0) {
-    return { ok: false, error: "Invoice changed under you — reload the sheet" };
-  }
-
-  const diff: Record<string, unknown> = {
-    subtotalUsd: { before: inv.subtotalUsd, after: subtotalUsd },
-    fetUsd: { before: inv.fetUsd, after: fetUsd },
-    segmentFeeUsd: { before: inv.segmentFeeUsd, after: segmentFeeUsd },
-    totalUsd: { before: inv.totalUsd, after: totalUsd },
-  };
-  if (intent === "finalize") {
-    diff.status = { before: "draft", after: "due" };
-  }
-
-  await logAudit({
-    actorUserId: actor.id,
-    actorRole: actor.role,
-    action: intent === "finalize" ? "invoice.finalize" : "invoice.draft.update",
-    subjectType: "invoice",
-    subjectId: invoiceId,
-    subjectCode: inv.invoiceCode,
-    diff,
-    metadata: { intent, dueOn: patch.dueOn ?? inv.dueOn ?? null },
+    dueOn,
   });
-
-  // Finalizing puts money on the table — tell the member rather than let
-  // them discover the invoice by browsing /account/invoices. Best-effort.
-  if (intent === "finalize" && inv.memberId && totalUsd !== null) {
-    try {
-      const [m] = await db
-        .select({ email: users.email, firstName: users.firstName })
-        .from(members)
-        .innerJoin(users, eq(users.id, members.userId))
-        .where(eq(members.id, inv.memberId));
-      if (m?.email) {
-        let tripCode: string | null = null;
-        if (inv.tripId) {
-          const [t] = await db
-            .select({ tripCode: trips.tripCode })
-            .from(trips)
-            .where(eq(trips.id, inv.tripId));
-          tripCode = t?.tripCode ?? null;
-        }
-        await sendInvoiceIssuedEmail({
-          to: m.email,
-          firstName: m.firstName || "Hello",
-          invoiceCode: inv.invoiceCode,
-          tripCode,
-          totalUsd,
-          dueOn: (patch.dueOn ?? inv.dueOn ?? null) as string | null,
-        });
-      }
-    } catch (err) {
-      console.error("invoice-issued email failed (non-fatal)", err);
-    }
-  }
-
-  if (inv.tripId) {
-    revalidatePath(`/admin/trips/${inv.tripId}`);
-  }
-  revalidatePath("/admin/trips");
-  revalidatePath("/account/invoices");
-
-  return { ok: true, status: intent === "finalize" ? "due" : "draft" };
+  if (!r.ok) return { ok: false, error: r.error };
+  if (r.value.kind === "pending") return { ok: false, error: "This was sent for approval." };
+  return { ok: true, status: (r.value.value as { status: "draft" | "due" }).status };
 }
 
 // ─── Messaging thread (subject_type='trip') ──────────────────────────────

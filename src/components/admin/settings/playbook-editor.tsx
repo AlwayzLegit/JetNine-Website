@@ -55,18 +55,10 @@ function rowsFor(text: string, min: number, max = 40): number {
   return Math.min(max, Math.max(min, text.split("\n").length + 1));
 }
 
-export function PlaybookEditor({
-  initial,
-  starter,
-  isStarter,
-}: {
-  initial: EditorPlaybook;
-  starter: EditorPlaybook;
-  /** True while nothing has been saved yet (version 0): the slugs stay editable. */
-  isStarter: boolean;
-}) {
+export function PlaybookEditor({ initial, starter }: { initial: EditorPlaybook; starter: EditorPlaybook }) {
   const [generalMd, setGeneralMd] = useState(initial.generalMd);
-  const [jobs, setJobs] = useState<Draft[]>(() => toDrafts(initial.jobs, !isStarter));
+  // Jobs that arrive with a slug keep it (reports and run items refer to it); new jobs take theirs from the name.
+  const [jobs, setJobs] = useState<Draft[]>(() => toDrafts(initial.jobs, true));
   const [note, setNote] = useState("");
   const [msg, setMsg] = useState<{ tone: "ok" | "error"; text: string } | null>(null);
   const [pending, start] = useTransition();
@@ -83,7 +75,7 @@ export function PlaybookEditor({
     setJobs((list) => list.filter((j) => j.key !== key));
   }
 
-  function useStarter() {
+  function fillFromStarter() {
     setGeneralMd(starter.generalMd);
     setJobs(toDrafts(starter.jobs, true));
     setMsg(null);
@@ -134,7 +126,7 @@ export function PlaybookEditor({
       <section className="card p-5 md:p-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h2 className="label-jn text-[13px]">General instructions</h2>
-          <button type="button" className="text-link text-[14px]" onClick={useStarter} disabled={pending}>
+          <button type="button" className="text-link text-[14px]" onClick={fillFromStarter} disabled={pending}>
             Start from the starter instructions
           </button>
         </div>

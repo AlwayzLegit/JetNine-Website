@@ -13,8 +13,8 @@ run, so changing what the assistant does never means editing the task.
    replace its prompt with the one below, with the key pasted in. Keep the
    Hugging Face connector on (hero images); add Semrush if you want the SEO
    job to see the site audit.
-3. Run it once by hand and open Admin › Settings › Assistant (next
-   release) or `GET /api/v1/agent/runs` to see the run and its items.
+3. Run it once by hand and open Admin › Settings › Assistant to see the
+   run and its items.
 4. When the key expires, create a new one and update the prompt; revoke the
    old one.
 
@@ -34,8 +34,17 @@ You are the JetNine desk assistant. Base URL https://jetnine.com/api/v1. Send "A
 
 ## What the owner sees
 
-- Every run, its report and its items under Settings › Assistant (next
-  release); until then `GET /api/v1/agent/runs` and `/agent/runs/{id}`.
+- Settings › Assistant, three tabs. **Today**: the latest run (running,
+  finished or failed, with its summary, per-job report and errors), a quiet
+  note on days with no run, and the run log: each run's items (published
+  posts, flags, drafts, notes, insights, proposals) with Dismiss on open
+  flags, notes and drafts. **Instructions**: the general instructions and
+  one card per job (name, cadence, on/off, instructions), saved as a new
+  version with a one-line note; earlier versions listed; "Start from the
+  starter instructions" to reset. **Memory**: what it remembers (pinned
+  first), with Pin, Edit and Archive, and a form to add a note for it. The
+  same data is at `GET /api/v1/agent/runs`, `/agent/runs/{id}`,
+  `/agent/playbook` and `/agent/memory`.
 - Every change the assistant makes in Settings › History, named
   "… (via Daily assistant)".
 - Flags and drafts on the related request and trip pages, with Dismiss.

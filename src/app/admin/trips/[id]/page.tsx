@@ -1,18 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { and, asc, desc, eq } from "drizzle-orm";
-import { db } from "@/db";
-import { trips, tripLegs } from "@/db/schema/trips";
-import { invoices } from "@/db/schema/invoices";
-import { members } from "@/db/schema/members";
-import { users } from "@/db/schema/users";
-import { quotes } from "@/db/schema/quotes";
-import { aircraft } from "@/db/schema/aircraft";
-import { operators } from "@/db/schema/operators";
-import { sourcedOptions } from "@/db/schema/sourced-option";
-import { messages } from "@/db/schema/audit";
 import { TripStatusSelect } from "@/components/admin/trip-status-select";
-import { MessageThread, type ThreadMessage } from "@/components/admin/message-thread";
+import { MessageThread } from "@/components/admin/message-thread";
 import { MarkThreadRead } from "@/components/admin/mark-thread-read";
 import { postTripMessage } from "@/app/admin/trips/[id]/actions";
 import { InvoiceFinalizeForm } from "@/components/admin/invoice-finalize-form";
@@ -31,6 +20,7 @@ import {
   legSentence,
   missionWords,
 } from "@/components/admin/trips/trip-words";
+import { getTrip } from "@/domain/trips/queries";
 
 export const dynamic = "force-dynamic";
 
@@ -53,119 +43,19 @@ export default async function AdminTripDetailPage({ params }: Props) {
   const { id } = await params;
   const now = new Date();
 
-  const [trip] = await db.select().from(trips).where(eq(trips.id, id));
-  if (!trip) notFound();
-
-  const legs = await db
-    .select()
-    .from(tripLegs)
-    .where(eq(tripLegs.tripId, id))
-    .orderBy(asc(tripLegs.legNumber));
-
-  const [memberRow] = await db
-    .select({
-      id: members.id,
-      memberCode: members.memberCode,
-      tier: members.tier,
-      preferredName: members.preferredName,
-      legalName: members.legalName,
-      email: users.email,
-      firstName: users.firstName,
-      lastName: users.lastName,
-      phoneE164: users.phoneE164,
-    })
-    .from(members)
-    .innerJoin(users, eq(users.id, members.userId))
-    .where(eq(members.id, trip.memberId));
-
-  const [tripInvoice] = await db
-    .select()
-    .from(invoices)
-    .where(eq(invoices.tripId, id));
-
-  const [originatingQuote] = trip.quoteId
-    ? await db
-        .select({
-          id: quotes.id,
-          quoteCode: quotes.quoteCode,
-          status: quotes.status,
-          groundOption: quotes.groundOption,
-        })
-        .from(quotes)
-        .where(eq(quotes.id, trip.quoteId))
-    : [];
-
-  const [acRow] = trip.aircraftId
-    ? await db
-        .select({
-          tailNumber: aircraft.tailNumber,
-          makeModel: aircraft.makeModel,
-          yearManufactured: aircraft.yearManufactured,
-          operatorId: aircraft.operatorId,
-        })
-        .from(aircraft)
-        .where(eq(aircraft.id, trip.aircraftId))
-    : [];
-
-  const [opRow] = trip.operatorId
-    ? await db
-        .select({ id: operators.id, name: operators.name, certNumber: operators.certNumber })
-        .from(operators)
-        .where(eq(operators.id, trip.operatorId))
-    : [];
-
-  // The option the client picked on the request fills in the aircraft when
-  // the trip row has no aircraft of its own yet.
-  const [chosenOption] =
-    trip.quoteId && !acRow
-      ? await db
-          .select({
-            aircraftType: sourcedOptions.aircraftType,
-            tailNumber: sourcedOptions.tailNumber,
-            operatorNameRaw: sourcedOptions.operatorNameRaw,
-            totalFlightTimeMin: sourcedOptions.totalFlightTimeMin,
-          })
-          .from(sourcedOptions)
-          .where(eq(sourcedOptions.quoteId, trip.quoteId))
-          .orderBy(desc(sourcedOptions.isChosen), asc(sourcedOptions.optionNumber))
-          .limit(1)
-      : [];
-
-  // ── Messages thread (subject_type='trip') ──
-  const messageRows = await db
-    .select({
-      id: messages.id,
-      channel: messages.channel,
-      direction: messages.direction,
-      fromAddress: messages.fromAddress,
-      toAddress: messages.toAddress,
-      preview: messages.preview,
-      body: messages.body,
-      occurredAt: messages.occurredAt,
-      fromUserFirstName: users.firstName,
-      fromUserEmail: users.email,
-      deliveryStatus: messages.deliveryStatus,
-      deliveryProvider: messages.deliveryProvider,
-      deliveryError: messages.deliveryError,
-    })
-    .from(messages)
-    .leftJoin(users, eq(users.id, messages.fromUserId))
-    .where(and(eq(messages.subjectType, "trip"), eq(messages.subjectId, id)))
-    .orderBy(asc(messages.occurredAt));
-
-  const thread: ThreadMessage[] = messageRows.map((m) => ({
-    id: m.id,
-    channel: m.channel,
-    direction: m.direction,
-    fromLabel: m.fromUserFirstName || m.fromUserEmail || m.fromAddress || null,
-    toAddress: m.toAddress,
-    preview: m.preview,
-    body: m.body,
-    occurredAt: m.occurredAt,
-    deliveryStatus: m.deliveryStatus,
-    deliveryProvider: m.deliveryProvider,
-    deliveryError: m.deliveryError,
-  }));
+  const bundle = await getTrip(id, now);
+  if (!bundle) notFound();
+  const {
+    trip,
+    legs,
+    member: memberRow,
+    invoice: tripInvoice,
+    quote: originatingQuote,
+    aircraft: acRow,
+    operator: opRow,
+    chosenOption,
+    messages: thread,
+  } = bundle;
 
   // ── Words ──
   const clientName = personName(

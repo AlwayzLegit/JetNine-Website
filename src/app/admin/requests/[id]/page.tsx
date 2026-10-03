@@ -1,27 +1,16 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { and, asc, desc, eq, gte, ne, notInArray, sql } from "drizzle-orm";
-import { db } from "@/db";
-import { quotes, quoteLegs } from "@/db/schema/quotes";
-import { staff } from "@/db/schema/staff";
-import { users } from "@/db/schema/users";
-import { aircraft } from "@/db/schema/aircraft";
-import { operators } from "@/db/schema/operators";
-import { messages } from "@/db/schema/audit";
-import { members } from "@/db/schema/members";
-import { trips } from "@/db/schema/trips";
-import { aircraftScheduleBlocks } from "@/db/schema/schedule-blocks";
-import { sourcedOptions } from "@/db/schema/sourced-option";
+import type { QuoteLeg } from "@/db/schema/quotes";
 import { ContactButtons, DeskCard, DeskHeader, DeskPage, StatusPill } from "@/components/admin/desk-ui";
 import { StatusSelect } from "@/components/admin/status-select";
 import { MemberAttach, type MemberOption } from "@/components/admin/member-attach";
 import { DispatcherAssign } from "@/components/admin/dispatcher-assign";
 import { ConvertQuoteButton } from "@/components/admin/convert-quote-button";
-import { MessageThread, type ThreadMessage } from "@/components/admin/message-thread";
+import { MessageThread } from "@/components/admin/message-thread";
 import { MarkThreadRead } from "@/components/admin/mark-thread-read";
 import { SoftHoldButton } from "@/components/admin/soft-hold-button";
-import { SoftHoldList, type HeldAircraft } from "@/components/admin/soft-hold-list";
-import { SourcedOptions, type SourcedOptionRow } from "@/components/admin/sourced-options";
+import { SoftHoldList } from "@/components/admin/soft-hold-list";
+import { SourcedOptions } from "@/components/admin/sourced-options";
 import { postQuoteMessage } from "@/app/admin/requests/[id]/actions";
 import { DEFAULT_MARKUP_PCT } from "@/lib/constants";
 import { statusPath } from "@/lib/request-status";
@@ -48,6 +37,7 @@ import {
   toWords,
   tripLeadWords,
 } from "@/components/admin/requests/words";
+import { getRequest } from "@/domain/requests/queries";
 
 export const dynamic = "force-dynamic";
 
@@ -86,68 +76,27 @@ export default async function RequestPage({ params }: Props) {
   const { id } = await params;
   const now = new Date();
 
-  const [quote] = await db.select().from(quotes).where(eq(quotes.id, id));
-  if (!quote) notFound();
-
-  // Member linkage — roster for the link control plus the currently linked
-  // row (kept separate from the active-only options so a paused member
-  // still displays on an old request).
-  const memberRows = await db
-    .select({
-      id: members.id,
-      memberCode: members.memberCode,
-      preferredName: members.preferredName,
-      legalName: members.legalName,
-      status: members.status,
-      tier: members.tier,
-    })
-    .from(members)
-    .orderBy(asc(members.memberCode));
-  const toOption = (m: (typeof memberRows)[number]): MemberOption => ({
-    id: m.id,
-    memberCode: m.memberCode,
-    label: m.preferredName ?? m.legalName ?? "—",
-  });
-  const memberOptions = memberRows.filter((m) => m.status === "active").map(toOption);
-  const linkedMemberRow = quote.memberId ? memberRows.find((m) => m.id === quote.memberId) : undefined;
-  const linkedMember = linkedMemberRow ? toOption(linkedMemberRow) : null;
-
-  const legs = await db
-    .select()
-    .from(quoteLegs)
-    .where(eq(quoteLegs.quoteId, id))
-    .orderBy(asc(quoteLegs.legNumber));
-
-  // Dispatcher options + current assignment.
-  const dispatchers = await db
-    .select({ id: staff.id, displayName: staff.displayName })
-    .from(staff)
-    .innerJoin(users, eq(users.id, staff.userId))
-    .where(eq(users.role, "dispatcher"));
-
-  let assigned: { id: string; displayName: string } | null = null;
-  if (quote.assignedDispatcherId) {
-    const [row] = await db
-      .select({ id: staff.id, displayName: staff.displayName })
-      .from(staff)
-      .where(eq(staff.id, quote.assignedDispatcherId));
-    assigned = row ?? null;
-  }
-
-  // How many times a linked client has flown with us.
-  let flownCount: number | null = null;
-  if (quote.memberId) {
-    const [row] = await db
-      .select({ n: sql<number>`count(*)::int` })
-      .from(trips)
-      .where(
-        and(
-          eq(trips.memberId, quote.memberId),
-          notInArray(trips.status, ["draft", "cancelled_wx", "cancelled_other"]),
-        ),
-      );
-    flownCount = row?.n ?? 0;
-  }
+  const bundle = await getRequest(id, now);
+  if (!bundle) notFound();
+  const {
+    quote,
+    legs,
+    member: linkedMemberRow,
+    memberRoster: memberOptions,
+    dispatchers,
+    assignee: assigned,
+    timesFlown: flownCount,
+    messages: thread,
+    holds: heldAircraft,
+    otherHolds: otherHoldsByAircraft,
+    candidates,
+    sourcedOptions: sourced,
+    totalDistanceNm: totalDistance,
+  } = bundle;
+  const linkedMember: MemberOption | null = linkedMemberRow
+    ? { id: linkedMemberRow.id, memberCode: linkedMemberRow.memberCode, label: linkedMemberRow.label }
+    : null;
+  const heldIds = new Set(heldAircraft.map((h) => h.aircraftId));
 
   const cabinFlags = (quote.cabinPrefs ?? {}) as Record<string, boolean>;
   const activeCabin = Object.entries(cabinFlags)
@@ -164,171 +113,6 @@ export default async function RequestPage({ params }: Props) {
       : (toE164(contact.phoneE164, contact.phoneCountry) ?? `${contact.phoneCountry ?? ""}${contact.phoneE164}`)
     : null;
   const email = contact?.email?.trim() || null;
-
-  const totalDistance = legs.reduce((sum, l) => sum + (l.distanceNm ?? 0), 0);
-  const longestLeg = legs.reduce((max, l) => Math.max(max, l.distanceNm ?? 0), 0);
-
-  // ── Messages thread (subject_type='quote') ──
-  const messageRows = await db
-    .select({
-      id: messages.id,
-      channel: messages.channel,
-      direction: messages.direction,
-      fromAddress: messages.fromAddress,
-      toAddress: messages.toAddress,
-      preview: messages.preview,
-      body: messages.body,
-      occurredAt: messages.occurredAt,
-      fromUserFirstName: users.firstName,
-      fromUserEmail: users.email,
-      deliveryStatus: messages.deliveryStatus,
-      deliveryProvider: messages.deliveryProvider,
-      deliveryError: messages.deliveryError,
-    })
-    .from(messages)
-    .leftJoin(users, eq(users.id, messages.fromUserId))
-    .where(and(eq(messages.subjectType, "quote"), eq(messages.subjectId, id)))
-    .orderBy(asc(messages.occurredAt));
-
-  const thread: ThreadMessage[] = messageRows.map((m) => ({
-    id: m.id,
-    channel: m.channel,
-    direction: m.direction,
-    fromLabel: m.fromUserFirstName || m.fromUserEmail || m.fromAddress || null,
-    toAddress: m.toAddress,
-    preview: m.preview,
-    body: m.body,
-    occurredAt: m.occurredAt,
-    deliveryStatus: m.deliveryStatus,
-    deliveryProvider: m.deliveryProvider,
-    deliveryError: m.deliveryError,
-  }));
-
-  // ── Active soft holds for this request ──
-  const heldRows = await db
-    .select({
-      blockId: aircraftScheduleBlocks.id,
-      aircraftId: aircraftScheduleBlocks.aircraftId,
-      startAt: aircraftScheduleBlocks.startAt,
-      endAt: aircraftScheduleBlocks.endAt,
-      tailNumber: aircraft.tailNumber,
-      makeModel: aircraft.makeModel,
-    })
-    .from(aircraftScheduleBlocks)
-    .innerJoin(aircraft, eq(aircraft.id, aircraftScheduleBlocks.aircraftId))
-    .where(and(eq(aircraftScheduleBlocks.relatedQuoteId, id), eq(aircraftScheduleBlocks.kind, "hold")))
-    .orderBy(asc(aircraftScheduleBlocks.startAt));
-
-  const heldAircraft: HeldAircraft[] = heldRows.map((h) => ({
-    blockId: h.blockId,
-    aircraftId: h.aircraftId,
-    tailNumber: h.tailNumber,
-    makeModel: h.makeModel,
-    startAt: h.startAt,
-    endAt: h.endAt,
-  }));
-  const heldIds = new Set(heldAircraft.map((h) => h.aircraftId));
-
-  // ── Active soft holds on candidates by OTHER requests ──
-  const conflictRows = await db
-    .select({
-      aircraftId: aircraftScheduleBlocks.aircraftId,
-      relatedQuoteId: aircraftScheduleBlocks.relatedQuoteId,
-      quoteCode: quotes.quoteCode,
-    })
-    .from(aircraftScheduleBlocks)
-    .innerJoin(quotes, eq(quotes.id, aircraftScheduleBlocks.relatedQuoteId))
-    .where(eq(aircraftScheduleBlocks.kind, "hold"));
-
-  const otherHoldsByAircraft = new Map<string, string[]>();
-  for (const c of conflictRows) {
-    if (c.relatedQuoteId === id) continue;
-    const arr = otherHoldsByAircraft.get(c.aircraftId) ?? [];
-    arr.push(c.quoteCode);
-    otherHoldsByAircraft.set(c.aircraftId, arr);
-  }
-
-  // ── Candidate aircraft in our own network ──
-  // Match by requested category + enough seats + enough range. Operator must
-  // not be suspended/banned/on hold. Preferred partners first, then ARG/US
-  // tier, then Wyvern. Cap at 8.
-  const candidates = quote.requestedCategory
-    ? await db
-        .select({
-          id: aircraft.id,
-          tailNumber: aircraft.tailNumber,
-          makeModel: aircraft.makeModel,
-          yearManufactured: aircraft.yearManufactured,
-          seats: aircraft.seats,
-          rangeNm: aircraft.rangeNm,
-          speedKt: aircraft.speedKt,
-          wifiType: aircraft.wifiType,
-          baseIcao: aircraft.baseIcao,
-          status: aircraft.status,
-          operatorId: aircraft.operatorId,
-          operatorName: operators.name,
-          isPreferred: operators.isPreferred,
-          argusRating: operators.argusRating,
-          wyvernWingman: operators.wyvernWingman,
-        })
-        .from(aircraft)
-        .innerJoin(operators, eq(operators.id, aircraft.operatorId))
-        .where(
-          and(
-            eq(aircraft.category, quote.requestedCategory),
-            eq(aircraft.status, "available"),
-            gte(aircraft.seats, quote.paxCount),
-            gte(aircraft.rangeNm, longestLeg),
-            ne(operators.status, "suspended"),
-            ne(operators.status, "banned"),
-            ne(operators.status, "hold"),
-          ),
-        )
-        .orderBy(
-          desc(operators.isPreferred),
-          sql`case ${operators.argusRating}
-            when 'platinum' then 0
-            when 'gold' then 1
-            when 'silver' then 2
-            else 3 end`,
-          desc(operators.wyvernWingman),
-          asc(aircraft.tailNumber),
-        )
-        .limit(8)
-    : [];
-
-  // ── Sourced options (Avinode paste-ins) ──
-  const sourcedRows = await db
-    .select({
-      id: sourcedOptions.id,
-      optionNumber: sourcedOptions.optionNumber,
-      avinodeRef: sourcedOptions.avinodeRef,
-      aircraftType: sourcedOptions.aircraftType,
-      tailNumber: sourcedOptions.tailNumber,
-      isFloatingFleet: sourcedOptions.isFloatingFleet,
-      yearOfMake: sourcedOptions.yearOfMake,
-      category: sourcedOptions.category,
-      paxCapacity: sourcedOptions.paxCapacity,
-      refurbInteriorYear: sourcedOptions.refurbInteriorYear,
-      refurbExteriorYear: sourcedOptions.refurbExteriorYear,
-      operatorNameRaw: sourcedOptions.operatorNameRaw,
-      operatorMatched: sourcedOptions.operatorMatched,
-      safetyFloorPassed: sourcedOptions.safetyFloorPassed,
-      positioningTimeMin: sourcedOptions.positioningTimeMin,
-      positioningAirport: sourcedOptions.positioningAirport,
-      totalFlightTimeMin: sourcedOptions.totalFlightTimeMin,
-      operatorCostUsd: sourcedOptions.operatorCostUsd,
-      markupType: sourcedOptions.markupType,
-      markupValue: sourcedOptions.markupValue,
-      clientPriceUsd: sourcedOptions.clientPriceUsd,
-      isChosen: sourcedOptions.isChosen,
-      status: sourcedOptions.status,
-      dispatcherNotes: sourcedOptions.dispatcherNotes,
-    })
-    .from(sourcedOptions)
-    .where(eq(sourcedOptions.quoteId, id))
-    .orderBy(asc(sourcedOptions.optionNumber));
-  const sourced: SourcedOptionRow[] = sourcedRows;
 
   // ── Words ──
   const stage = requestStage(quote.status);
@@ -615,7 +399,7 @@ export default async function RequestPage({ params }: Props) {
                   <ul className="mt-2.5 flex flex-col gap-2">
                     {candidates.map((c) => {
                       const held = heldIds.has(c.id);
-                      const racing = otherHoldsByAircraft.get(c.id);
+                      const racing = otherHoldsByAircraft[c.id];
                       const facts = [
                         c.operatorName,
                         c.argusRating && c.argusRating !== "none" ? ARGUS_WORDS[c.argusRating] ?? null : null,
@@ -746,7 +530,7 @@ function whenWords(date: string | null, time: string | null): string {
 }
 
 /** One multi-leg row: "Leg 2 · City → City, Fri Oct 3, morning" */
-function LegRows({ leg }: { leg: typeof quoteLegs.$inferSelect }) {
+function LegRows({ leg }: { leg: QuoteLeg }) {
   return (
     <>
       <dt>Leg {leg.legNumber}</dt>

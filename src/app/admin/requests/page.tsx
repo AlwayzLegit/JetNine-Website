@@ -1,10 +1,4 @@
 import Link from "next/link";
-import { and, asc, desc, eq, inArray, or, sql } from "drizzle-orm";
-import { db } from "@/db";
-import { quotes, quoteLegs } from "@/db/schema/quotes";
-import { members } from "@/db/schema/members";
-import { staff } from "@/db/schema/staff";
-import { sourcedOptions } from "@/db/schema/sourced-option";
 import {
   DeskEmpty,
   DeskGroup,
@@ -13,180 +7,20 @@ import {
   DeskRow,
   DeskSearch,
   DeskTabs,
-  type DeskTab,
 } from "@/components/admin/desk-ui";
-import {
-  OPEN_REQUEST_STATUSES,
-  REQUEST_TABS,
-  onItWords,
-  passengersWords,
-  personName,
-  replyDueLine,
-  requestStage,
-  type RequestStageKey,
-} from "@/lib/desk-status";
+import { onItWords, passengersWords, personName, replyDueLine, requestStage } from "@/lib/desk-status";
 import { relativeTime } from "@/lib/request-page";
 import { membershipShort, namelessWords, tripSentence } from "@/components/admin/requests/words";
+import { listRequests, type RequestListItem, type RequestListLeg } from "@/domain/requests/queries";
 
 export const dynamic = "force-dynamic";
 
 type Props = { searchParams: Promise<{ tab?: string; q?: string }> };
 
-const STAGE_ORDER: RequestStageKey[] = ["reply", "working", "sent", "booked", "closed"];
-const BOOKED_WINDOW_DAYS = 14;
-const CLOSED_WINDOW_DAYS = 30;
-const ROW_LIMIT = 200;
-
-// Post-deploy smoke tests submit real quotes flagged by a "[SMOKE]" first
-// name and a "smoke+…" email (see src/app/quote/actions.ts). Postgres LIKE
-// treats "[" literally, so the pattern matches the prefix as typed.
-const NOT_SMOKE = sql`not (
-  ${quotes.contactSnapshot}->>'firstName' ilike '[SMOKE]%'
-  or ${quotes.contactSnapshot}->>'email' ilike 'smoke+%'
-)`;
-
-type LegRow = Pick<
-  typeof quoteLegs.$inferSelect,
-  | "quoteId"
-  | "legNumber"
-  | "fromIata"
-  | "fromCity"
-  | "fromName"
-  | "toIata"
-  | "toCity"
-  | "toName"
-  | "departDate"
-  | "departTime"
->;
-
 export default async function RequestsPage({ searchParams }: Props) {
   const sp = await searchParams;
   const now = new Date();
-  const q = (sp.q ?? "").trim().slice(0, 80);
-  const tabKeys = new Set<string>([...REQUEST_TABS.map((t) => t.key), "closed", "all"]);
-  const tab = sp.tab && tabKeys.has(sp.tab) ? sp.tab : "reply";
-
-  const bookedSince = new Date(now.getTime() - BOOKED_WINDOW_DAYS * 86_400_000);
-  const closedSince = new Date(now.getTime() - CLOSED_WINDOW_DAYS * 86_400_000);
-  const openOrRecentlyBooked = or(
-    inArray(quotes.status, [...OPEN_REQUEST_STATUSES]),
-    and(
-      inArray(quotes.status, ["accepted", "converted"]),
-      // ISO strings, not Dates: raw sql params skip the column's serializer,
-      // and the postgres-js driver rejects a Date object.
-      sql`coalesce(${quotes.acceptedAt}, ${quotes.updatedAt}) >= ${bookedSince.toISOString()}::timestamptz`,
-    ),
-    // Closed (declined / expired / cancelled) stays findable for a month.
-    and(inArray(quotes.status, ["declined", "expired", "cancelled"]), sql`${quotes.updatedAt} >= ${closedSince.toISOString()}::timestamptz`),
-  );
-
-  // Search: contact name / email, or any leg's city, airport name or code.
-  const pattern = q ? `%${q.replace(/[%_]/g, "\\$&")}%` : null;
-  const search = pattern
-    ? or(
-        sql`${quotes.contactSnapshot}->>'firstName' ilike ${pattern}`,
-        sql`${quotes.contactSnapshot}->>'lastName' ilike ${pattern}`,
-        sql`(${quotes.contactSnapshot}->>'firstName' || ' ' || ${quotes.contactSnapshot}->>'lastName') ilike ${pattern}`,
-        sql`${quotes.contactSnapshot}->>'email' ilike ${pattern}`,
-        sql`exists (
-          select 1 from ${quoteLegs}
-          where ${quoteLegs.quoteId} = ${quotes.id}
-            and (
-              ${quoteLegs.fromCity} ilike ${pattern} or ${quoteLegs.toCity} ilike ${pattern}
-              or ${quoteLegs.fromName} ilike ${pattern} or ${quoteLegs.toName} ilike ${pattern}
-              or ${quoteLegs.fromIata} ilike ${pattern} or ${quoteLegs.toIata} ilike ${pattern}
-            )
-        )`,
-      )
-    : undefined;
-
-  const rows = await db
-    .select({
-      id: quotes.id,
-      status: quotes.status,
-      source: quotes.source,
-      tripType: quotes.tripType,
-      paxCount: quotes.paxCount,
-      notes: quotes.notes,
-      contactSnapshot: quotes.contactSnapshot,
-      memberId: quotes.memberId,
-      memberTier: members.tier,
-      receivedAt: quotes.receivedAt,
-      slaDeadlineAt: quotes.slaDeadlineAt,
-      respondedAt: quotes.respondedAt,
-      acceptedAt: quotes.acceptedAt,
-      updatedAt: quotes.updatedAt,
-      convertedTripId: quotes.convertedTripId,
-      dispatcherName: staff.displayName,
-    })
-    .from(quotes)
-    .leftJoin(members, eq(members.id, quotes.memberId))
-    .leftJoin(staff, eq(staff.id, quotes.assignedDispatcherId))
-    .where(and(NOT_SMOKE, openOrRecentlyBooked, search))
-    .orderBy(desc(quotes.receivedAt))
-    .limit(ROW_LIMIT);
-
-  const ids = rows.map((r) => r.id);
-
-  // Legs + option counts for every row in two queries (no N+1).
-  const [legRows, optionRows] = ids.length
-    ? await Promise.all([
-        db
-          .select({
-            quoteId: quoteLegs.quoteId,
-            legNumber: quoteLegs.legNumber,
-            fromIata: quoteLegs.fromIata,
-            fromCity: quoteLegs.fromCity,
-            fromName: quoteLegs.fromName,
-            toIata: quoteLegs.toIata,
-            toCity: quoteLegs.toCity,
-            toName: quoteLegs.toName,
-            departDate: quoteLegs.departDate,
-            departTime: quoteLegs.departTime,
-          })
-          .from(quoteLegs)
-          .where(inArray(quoteLegs.quoteId, ids))
-          .orderBy(asc(quoteLegs.legNumber)),
-        db
-          .select({
-            quoteId: sourcedOptions.quoteId,
-            total: sql<number>`count(*)::int`,
-            sent: sql<number>`count(*) filter (where ${sourcedOptions.status} in ('sent_to_client', 'accepted'))::int`,
-          })
-          .from(sourcedOptions)
-          .where(inArray(sourcedOptions.quoteId, ids))
-          .groupBy(sourcedOptions.quoteId),
-      ])
-    : [[] as LegRow[], [] as { quoteId: string; total: number; sent: number }[]];
-
-  const legsByQuote = new Map<string, LegRow[]>();
-  for (const l of legRows) {
-    const arr = legsByQuote.get(l.quoteId) ?? [];
-    arr.push(l);
-    legsByQuote.set(l.quoteId, arr);
-  }
-  const optionsByQuote = new Map(optionRows.map((o) => [o.quoteId, o]));
-
-  // Group by stage, in stage order. Needs-a-reply sorts by deadline so the
-  // most overdue row is on top; every other group reads newest first.
-  const byStage = new Map<RequestStageKey, typeof rows>();
-  for (const r of rows) {
-    const key = requestStage(r.status).key;
-    const arr = byStage.get(key) ?? [];
-    arr.push(r);
-    byStage.set(key, arr);
-  }
-  byStage.get("reply")?.sort((a, b) => a.slaDeadlineAt.getTime() - b.slaDeadlineAt.getTime());
-
-  const tabs: DeskTab[] = [
-    ...REQUEST_TABS.map((t) => ({ ...t, count: byStage.get(t.key)?.length ?? 0 })),
-    { key: "closed", label: "Closed", count: byStage.get("closed")?.length ?? 0 },
-    { key: "all", label: "All" },
-  ];
-
-  const visibleStages = STAGE_ORDER.filter(
-    (k) => (tab === "all" ? k !== "closed" : k === tab) && (byStage.get(k)?.length ?? 0) > 0,
-  );
+  const { tab, q, groups, tabs, visibleStages } = await listRequests({ tab: sp.tab, q: sp.q, now });
 
   return (
     <DeskPage>
@@ -215,46 +49,20 @@ export default async function RequestsPage({ searchParams }: Props) {
           <DeskEmpty title="All caught up." body="No requests need attention right now." />
         )
       ) : (
-        visibleStages.map((stageKey) => {
-          const group = byStage.get(stageKey) ?? [];
-          const title = requestStage(group[0].status).group;
-          return (
-            <DeskGroup key={stageKey} title={title} count={group.length}>
-              {group.map((r) => (
-                <RequestRow
-                  key={r.id}
-                  row={r}
-                  legs={legsByQuote.get(r.id) ?? []}
-                  options={optionsByQuote.get(r.id) ?? { total: 0, sent: 0 }}
-                  now={now}
-                />
-              ))}
-            </DeskGroup>
-          );
-        })
+        groups.map((group) => (
+          <DeskGroup key={group.key} title={group.title} count={group.items.length}>
+            {group.items.map((r) => (
+              <RequestRow key={r.id} row={r} legs={r.legs} options={r.options} now={now} />
+            ))}
+          </DeskGroup>
+        ))
       )}
     </DeskPage>
   );
 }
 
-type Row = {
-  id: string;
-  status: string;
-  source: string;
-  tripType: "one_way" | "round" | "multi_leg";
-  paxCount: number;
-  notes: string | null;
-  contactSnapshot: { firstName?: string; lastName?: string } | null;
-  memberId: string | null;
-  memberTier: string | null;
-  receivedAt: Date;
-  slaDeadlineAt: Date;
-  respondedAt: Date | null;
-  acceptedAt: Date | null;
-  updatedAt: Date;
-  convertedTripId: string | null;
-  dispatcherName: string | null;
-};
+type Row = RequestListItem;
+type LegRow = RequestListLeg;
 
 function RequestRow({
   row: r,

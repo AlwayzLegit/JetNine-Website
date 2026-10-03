@@ -14,6 +14,8 @@ export type ThreadRowProps = {
   when: string;
   unread?: boolean;
   tone?: "default" | "danger";
+  /** Small outlined word after the name ("Client", "Money") for proposals. */
+  tag?: string;
 };
 
 /**
@@ -21,7 +23,7 @@ export type ThreadRowProps = {
  * unread), context and preview truncated, time on the right, gold dot for
  * unread. Rows are links so the selection lives in the URL.
  */
-export function ThreadRow({ href, selected, initial, name, context, preview, when, unread = false, tone = "default" }: ThreadRowProps) {
+export function ThreadRow({ href, selected, initial, name, context, preview, when, unread = false, tone = "default", tag }: ThreadRowProps) {
   return (
     <Link
       href={href}
@@ -43,6 +45,7 @@ export function ThreadRow({ href, selected, initial, name, context, preview, whe
         <span className="flex items-center gap-2">
           <span className={`truncate text-[16px] ${unread ? "font-semibold text-bone" : "font-medium text-bone"}`}>{name}</span>
           {unread ? <span className="dot dot-gold" aria-label="Unread" /> : null}
+          {tag ? <span className="pill pill-outline h-5 flex-none px-2 text-[11px] text-bone-2">{tag}</span> : null}
         </span>
         {context ? <span className="block truncate text-[14px] text-steel">{context}</span> : null}
         {preview ? (

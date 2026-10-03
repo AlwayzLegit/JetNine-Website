@@ -54,6 +54,9 @@ const SUBJECT_HREF: Partial<Record<string, (id: string | null) => string | null>
   contact_inquiry: () => "/admin/messages",
   system: () => "/admin/settings/notifications",
   api_key: () => "/admin/settings/api-keys",
+  // Mirrors approvalUrl() in src/domain/ops/registry.ts, kept inline so this
+  // helper stays free of database imports.
+  approval: (id) => (id ? `/admin/messages?tab=approvals&t=approval:${id}` : "/admin/messages?tab=approvals"),
 };
 
 const SUBJECT_WORDS: Record<string, string> = {
@@ -75,6 +78,7 @@ const SUBJECT_WORDS: Record<string, string> = {
   system: "the desk settings",
   blog_post: "a blog post",
   api_key: "an API key",
+  approval: "a proposal",
 };
 
 export function subjectHref(subjectType: string, subjectId: string | null): string | null {
@@ -250,6 +254,17 @@ const VERBS: Record<string, Entry> = {
   // API keys
   "api_key.create": (c) => [`${c.actor} created the API key `, keyName(c)],
   "api_key.revoke": (c) => [`${c.actor} revoked the API key `, keyName(c)],
+  // Proposals from a supervised key ("Needs your OK"). The summary links to the Messages tab.
+  "approval.request": (c) => [`${c.actor} proposed: `, proposal(c)],
+  "approval.approve": (c) => {
+    const key = str(c.meta?.keyName);
+    return [key ? `${c.actor} approved what ${key} proposed: ` : `${c.actor} approved: `, proposal(c)];
+  },
+  "approval.approve_failed": (c) => [`${c.actor} approved: `, proposal(c), ", but it did not go through"],
+  "approval.reject": (c) => {
+    const note = str(c.meta?.note);
+    return [`${c.actor} said no to: `, proposal(c), note ? ` — “${note}”` : ""];
+  },
   // AI
   "ai_provider.key.create": (c) => [`${c.actor} stored a key for `, "the phone answering AI"],
   "ai_provider.key.replace": (c) => [`${c.actor} replaced a key for `, "the phone answering AI"],
@@ -259,18 +274,32 @@ const VERBS: Record<string, Entry> = {
   "ai_route.update": (c) => [`${c.actor} changed which model answers `, "the phone"],
 };
 
-/** "Alex (via Daily assistant)" for API calls; the key's name when no person is behind it. */
+/**
+ * "Alex (via Daily assistant)" for API calls, "Alex (approving Daily
+ * assistant)" when a person carried out what the key proposed; the key's
+ * name when no person is behind it.
+ */
 function actorWithKey(row: AuditSentenceRow): string {
-  const keyName = row.metadata?.via === "api" ? str(row.metadata?.keyName) : null;
+  const via = row.metadata?.via;
+  const keyName = via === "api" || via === "approval" ? str(row.metadata?.keyName) : null;
   const person = row.actorFirstName || row.actorLastName || row.actorEmail ? actorName(row) : null;
   if (!keyName) return actorName(row);
   if (row.metadata?.legacyKey) return "The blog posting key";
+  if (via === "approval") return person ? `${person} (approving ${keyName})` : keyName;
   return person ? `${person} (via ${keyName})` : keyName;
 }
 
 function keyName(c: Ctx): string {
   const name = str(c.meta?.name);
   return name ? `“${name}”` : "a key";
+}
+
+/** The proposal's one-line summary, lowercased first letter so it reads mid-sentence. */
+function proposal(c: Ctx): string {
+  const s = str(c.meta?.summary);
+  if (!s) return "a change";
+  // Keep acronyms and codes ("JN-123 …", "SMS …") as they are.
+  return /^[A-Z][a-z]/.test(s) ? s[0].toLowerCase() + s.slice(1) : s;
 }
 
 function postTitle(c: Ctx): string {

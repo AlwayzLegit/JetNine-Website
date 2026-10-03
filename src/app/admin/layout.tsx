@@ -8,9 +8,10 @@ export const dynamic = "force-dynamic";
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const user = await requireStaff();
 
-  // Sidebar pills: requests that need a reply (gold) and unread inbound
-  // messages (outlined). Both are conveniences — never block the desk on them.
-  let counts: DeskCounts = { needsReply: 0, unread: 0 };
+  // Sidebar pills: requests that need a reply (gold), proposals waiting for
+  // a decision (gold on Messages) and unread inbound messages (outlined).
+  // All are conveniences — never block the desk on them.
+  let counts: DeskCounts = { needsReply: 0, unread: 0, approvals: 0 };
   try {
     counts = await deskCounts();
   } catch {

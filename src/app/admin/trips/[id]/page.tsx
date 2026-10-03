@@ -21,6 +21,8 @@ import {
   missionWords,
 } from "@/components/admin/trips/trip-words";
 import { getTrip } from "@/domain/trips/queries";
+import { pendingForSubject } from "@/domain/approvals/queries";
+import { PendingApprovalsCard } from "@/components/admin/approvals/pending-approvals-card";
 
 export const dynamic = "force-dynamic";
 
@@ -43,7 +45,7 @@ export default async function AdminTripDetailPage({ params }: Props) {
   const { id } = await params;
   const now = new Date();
 
-  const bundle = await getTrip(id, now);
+  const [bundle, waitingOnYou] = await Promise.all([getTrip(id, now), pendingForSubject("trip", id)]);
   if (!bundle) notFound();
   const {
     trip,
@@ -244,6 +246,8 @@ export default async function AdminTripDetailPage({ params }: Props) {
             ) : null}
           </DeskCard>
           </div>
+
+          <PendingApprovalsCard items={waitingOnYou} now={now} />
 
           <div id="conversation" className="scroll-mt-6">
           <DeskCard

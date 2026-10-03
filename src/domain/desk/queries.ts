@@ -7,6 +7,7 @@ import { invoices } from "@/db/schema/invoices";
 import { emptyLegs } from "@/db/schema/empty-legs";
 import { REPLY_PROMISE_DEFAULT, REPLY_PROMISE_KEY, deskSettings } from "@/db/schema/desk";
 import { NOT_SMOKE, isoParam } from "@/domain/common";
+import { countPending } from "@/domain/approvals/queries";
 import { listTrips } from "@/domain/trips/queries";
 
 /**
@@ -20,10 +21,12 @@ export type DeskCounts = {
   needsReply: number;
   /** Unread inbound messages. */
   unread: number;
+  /** Proposals from the assistant waiting for someone to decide. */
+  approvals: number;
 };
 
 export async function deskCounts(): Promise<DeskCounts> {
-  const [[reply], [unread]] = await Promise.all([
+  const [[reply], [unread], approvals] = await Promise.all([
     db
       .select({ n: count() })
       .from(quotes)
@@ -32,8 +35,9 @@ export async function deskCounts(): Promise<DeskCounts> {
       .select({ n: count() })
       .from(messages)
       .where(and(eq(messages.direction, "in"), eq(messages.isRead, false))),
+    countPending(),
   ]);
-  return { needsReply: reply?.n ?? 0, unread: unread?.n ?? 0 };
+  return { needsReply: reply?.n ?? 0, unread: unread?.n ?? 0, approvals };
 }
 
 export type DeskSnapshot = {
@@ -52,6 +56,8 @@ export type DeskSnapshot = {
   newInquiries: number;
   /** Outbound messages the provider failed to deliver in the last 7 days. */
   failedDeliveries7Days: number;
+  /** Proposals from a supervised key waiting for a person to approve or reject. */
+  pendingApprovals: number;
   /** Upcoming trips in the next 30 days (the trips page's "Next 30 days" group). */
   upcomingTrips30Days: number;
   /** Trips flying today, LA calendar (boarding/airborne or first leg today). */
@@ -86,7 +92,7 @@ export async function deskSnapshot(now: Date = new Date()): Promise<DeskSnapshot
   const since7 = new Date(now.getTime() - 7 * DAY_MS);
   const nowIso = isoParam(now);
 
-  const [[q], [m], [inq], [inv], [el], tripList, promise] = await Promise.all([
+  const [[q], [m], [inq], [inv], [el], tripList, promise, pendingApprovals] = await Promise.all([
     db
       .select({
         needsReply: sql<number>`count(*) filter (where ${quotes.status} = 'submitted')::int`,
@@ -122,6 +128,7 @@ export async function deskSnapshot(now: Date = new Date()): Promise<DeskSnapshot
     db.select({ n: count() }).from(emptyLegs).where(eq(emptyLegs.status, "live")),
     listTrips({ tab: "upcoming", now }),
     replyPromiseMinutes(),
+    countPending(),
   ]);
 
   return {
@@ -133,6 +140,7 @@ export async function deskSnapshot(now: Date = new Date()): Promise<DeskSnapshot
     unreadMessages: m?.unread ?? 0,
     newInquiries: inq?.n ?? 0,
     failedDeliveries7Days: m?.failed ?? 0,
+    pendingApprovals,
     upcomingTrips30Days: tripList.groups.find((g) => g.key === "soon")?.items.length ?? 0,
     flyingToday: tripList.flyingToday.length,
     overdueInvoices: inv?.n ?? 0,

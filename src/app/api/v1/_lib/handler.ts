@@ -7,8 +7,9 @@ import { authenticateApiKey, clientIp } from "@/lib/api-auth";
 import type { Scope } from "@/lib/api-keys";
 import type { Actor } from "@/domain/actor";
 import { runIsOpenForKey } from "@/domain/agent/queries";
+import type { PendingInfo } from "@/domain/ops/registry";
 import { err, type Result } from "@/domain/result";
-import { failure, success } from "./envelope";
+import { failure, pending, success } from "./envelope";
 
 export type Method = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
 
@@ -21,7 +22,13 @@ export type RouteContext = {
 };
 
 /** What a route returns: data, plus an optional status (201, 202) and meta. */
-export type RouteOutput = { data: unknown; status?: number; meta?: Record<string, unknown> };
+export type RouteOutput = {
+  data: unknown;
+  status?: number;
+  meta?: Record<string, unknown>;
+  /** Set when a supervised key's call was queued for approval (202). */
+  pending?: PendingInfo;
+};
 
 export type RouteDef = {
   method: Method;
@@ -126,15 +133,6 @@ export function apiHandler(def: RouteDef) {
       return finish(failure(requestId, err("forbidden", `This key does not have the "${def.scope}" permission.`)));
     }
 
-    // Supervised keys (the assistant) must ask a person first. Until the
-    // approval queue exists, "always" routes are refused for them outright.
-    if (def.approval === "always" && actor.key?.supervised) {
-      errorCode = "forbidden";
-      return finish(
-        failure(requestId, err("forbidden", "This key asks before acting, and this action needs a person's OK. Ask the desk to do it.")),
-      );
-    }
-
     const params = ((await ctx.params) ?? {}) as Record<string, string>;
 
     let query: Record<string, unknown> = {};
@@ -184,6 +182,7 @@ export function apiHandler(def: RouteDef) {
         errorCode = out.code;
         return finish(failure(requestId, out));
       }
+      if (out.value.pending) return finish(pending(requestId, out.value.pending));
       return finish(success(requestId, out.value.data, out.value.status ?? def.successStatus ?? 200, out.value.meta));
     } catch (e) {
       console.error(`[api] ${def.operationId} failed`, e);

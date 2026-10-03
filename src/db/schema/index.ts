@@ -21,3 +21,4 @@ export * from "./ai";
 export * from "./desk";
 export * from "./api";
 export * from "./agent";
+export * from "./approvals";

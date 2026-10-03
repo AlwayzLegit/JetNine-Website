@@ -35,6 +35,25 @@ const SUCCESS_ENVELOPE = {
   properties: { ok: { const: true }, data: {}, meta: { type: "object" } },
 } as const;
 
+const PENDING_ENVELOPE = {
+  type: "object",
+  required: ["ok", "status", "data"],
+  properties: {
+    ok: { const: true },
+    status: { const: "pending_approval" },
+    data: {
+      type: "object",
+      required: ["approvalId", "summary", "url", "risk"],
+      properties: {
+        approvalId: { type: "string" },
+        summary: { type: "string" },
+        url: { type: "string" },
+        risk: { type: "string", enum: ["client", "money", "settings", "access", "content"] },
+      },
+    },
+  },
+} as const;
+
 function jsonSchema(schema: z.ZodType, io: "input" | "output" = "input") {
   return z.toJSONSchema(schema, { io, unrepresentable: "any" });
 }
@@ -76,12 +95,12 @@ export function buildOpenApi(routes: RouteDef[], serverUrl: string) {
           description: "Success",
           content: { "application/json": { schema: { $ref: "#/components/schemas/Success" } } },
         },
-        // No approval queue yet: keys that ask before acting are refused.
-        ...(r.approval === "always"
+        ...(r.approval && r.approval !== "never"
           ? {
-              "403": {
-                description: "Refused for keys that ask before acting; a person must do this.",
-                content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } },
+              "202": {
+                description:
+                  "Queued for a person's OK (keys that ask before acting). `data` holds approvalId, summary, url and risk; nothing has happened yet.",
+                content: { "application/json": { schema: { $ref: "#/components/schemas/Pending" } } },
               },
             }
           : {}),
@@ -119,7 +138,7 @@ export function buildOpenApi(routes: RouteDef[], serverUrl: string) {
     security: [{ bearer: [] }],
     components: {
       securitySchemes: { bearer: { type: "http", scheme: "bearer", description: "jn_live_… key" } },
-      schemas: { Success: SUCCESS_ENVELOPE, Error: ERROR_ENVELOPE },
+      schemas: { Success: SUCCESS_ENVELOPE, Error: ERROR_ENVELOPE, Pending: PENDING_ENVELOPE },
     },
     paths,
   };

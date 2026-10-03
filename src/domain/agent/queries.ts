@@ -172,7 +172,12 @@ export async function agentContext(now: Date = new Date()): Promise<AgentContext
   ]);
 
   // Days in the last week with no closed run (the assistant should catch up quietly, not loudly).
-  const ran = new Set(runs.filter((r) => r.status === "closed").map((r) => r.runDate));
+  const weekAgo = dayKeyLA(new Date(now.getTime() - 7 * 86_400_000));
+  const closedDays = await db
+    .selectDistinct({ d: agentRuns.runDate })
+    .from(agentRuns)
+    .where(and(eq(agentRuns.status, "closed"), gte(agentRuns.runDate, weekAgo)));
+  const ran = new Set(closedDays.map((r) => r.d));
   const missedDays: string[] = [];
   for (let i = 1; i <= 7; i++) {
     const d = dayKeyLA(new Date(now.getTime() - i * 86_400_000));
@@ -190,7 +195,7 @@ export async function agentContext(now: Date = new Date()): Promise<AgentContext
     feedback: [],
     openFlags,
     recentPosts: posts
-      .filter((p) => (p.publishedAt ?? p.createdAt) >= since)
+      .filter((p) => p.status === "published" && (p.publishedAt ?? p.createdAt) >= since)
       .map((p) => ({ slug: p.slug, title: p.title, tags: p.tags, publishedAt: p.publishedAt })),
     desk,
     health,
@@ -198,10 +203,20 @@ export async function agentContext(now: Date = new Date()): Promise<AgentContext
 }
 
 /** Memory rows written by the assistant during one run (for the per-run cap). */
-export async function memoryAddedInRun(runId: string): Promise<number> {
-  const [row] = await db
+export async function memoryAddedInRun(runId: string, tx: Pick<typeof db, "select"> = db): Promise<number> {
+  const [row] = await tx
     .select({ n: sql<number>`count(*)::int` })
     .from(agentMemory)
-    .where(and(eq(agentMemory.sourceRunId, runId), eq(agentMemory.author, "agent"), gte(agentMemory.createdAt, new Date(0))));
+    .where(and(eq(agentMemory.sourceRunId, runId), eq(agentMemory.author, "agent")));
   return Number(row?.n ?? 0);
+}
+
+/** True when the run exists, is open and belongs to the key (used to trust X-Agent-Run). */
+export async function runIsOpenForKey(runId: string, keyId: string): Promise<boolean> {
+  const [row] = await db
+    .select({ id: agentRuns.id })
+    .from(agentRuns)
+    .where(and(eq(agentRuns.id, runId), eq(agentRuns.keyId, keyId), eq(agentRuns.status, "open")))
+    .limit(1);
+  return Boolean(row);
 }

@@ -59,10 +59,19 @@ export async function openRun(actor: Actor, input: z.infer<typeof OpenRun>): Pro
   }
 
   const playbook = await currentPlaybook();
-  const [run] = await db
-    .insert(agentRuns)
-    .values({ runDate: input.runDate ?? dayKeyLA(now), keyId, playbookVersion: playbook.version })
-    .returning();
+  // A key always runs "today"; only a person may backfill a date.
+  const runDate = actor.via === "session" && input.runDate ? input.runDate : dayKeyLA(now);
+  let run: AgentRun;
+  try {
+    [run] = await db.insert(agentRuns).values({ runDate, keyId, playbookVersion: playbook.version }).returning();
+  } catch (e) {
+    // Two opens raced past the check above; the partial unique index won.
+    if ((e as { code?: string }).code === "23505" && keyId) {
+      const open = await openRunForKey(keyId);
+      return err("conflict", "This key already has an open run.", open ? { runId: open.id } : undefined);
+    }
+    throw e;
+  }
 
   const a = auditFields(actor);
   await logAudit({
@@ -144,40 +153,46 @@ export async function addRunItem(actor: Actor, runId: unknown, input: z.infer<ty
     return err("invalid", "A subject needs both a type and an id (or code).");
   }
 
-  const [{ n }] = await db.select({ n: count() }).from(agentRunItems).where(eq(agentRunItems.runId, run.id));
-  if (n >= MAX_ITEMS_PER_RUN) return err("conflict", `A run holds at most ${MAX_ITEMS_PER_RUN} items.`);
+  // Count, dedupe and insert under one lock so parallel calls can't pass the caps.
+  const result = await db.transaction(async (tx): Promise<Result<AgentRunItem>> => {
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${"agent_run_items:" + run.id}))`);
+    const [{ n }] = await tx.select({ n: count() }).from(agentRunItems).where(eq(agentRunItems.runId, run.id));
+    if (n >= MAX_ITEMS_PER_RUN) return err("conflict", `A run holds at most ${MAX_ITEMS_PER_RUN} items.`);
 
-  // One open flag per subject across runs: the context already lists it.
-  if (input.kind === "flag" && input.subjectType && input.subjectId) {
-    const [dupe] = await db
-      .select({ id: agentRunItems.id })
-      .from(agentRunItems)
-      .where(
-        and(
-          eq(agentRunItems.kind, "flag"),
-          eq(agentRunItems.status, "open"),
-          eq(agentRunItems.subjectType, input.subjectType),
-          eq(agentRunItems.subjectId, input.subjectId),
-        ),
-      )
-      .limit(1);
-    if (dupe) return err("conflict", "That subject already has an open flag.", { itemId: dupe.id });
-  }
+    // One open flag per subject across runs: the context already lists it.
+    if (input.kind === "flag" && input.subjectType && input.subjectId) {
+      await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${"agent_flag:" + input.subjectType + ":" + input.subjectId}))`);
+      const [dupe] = await tx
+        .select({ id: agentRunItems.id })
+        .from(agentRunItems)
+        .where(
+          and(
+            eq(agentRunItems.kind, "flag"),
+            eq(agentRunItems.status, "open"),
+            eq(agentRunItems.subjectType, input.subjectType),
+            eq(agentRunItems.subjectId, input.subjectId),
+          ),
+        )
+        .limit(1);
+      if (dupe) return err("conflict", "That subject already has an open flag.", { itemId: dupe.id });
+    }
 
-  const [item] = await db
-    .insert(agentRunItems)
-    .values({
-      runId: run.id,
-      kind: input.kind,
-      subjectType: input.subjectType ?? null,
-      subjectId: input.subjectId ?? null,
-      subjectCode: input.subjectCode ?? null,
-      title: input.title,
-      bodyMd: input.bodyMd ?? null,
-      url: input.url ?? null,
-    })
-    .returning();
-  return ok(item);
+    const [item] = await tx
+      .insert(agentRunItems)
+      .values({
+        runId: run.id,
+        kind: input.kind,
+        subjectType: input.subjectType ?? null,
+        subjectId: input.subjectId ?? null,
+        subjectCode: input.subjectCode ?? null,
+        title: input.title,
+        bodyMd: input.bodyMd ?? null,
+        url: input.url ?? null,
+      })
+      .returning();
+    return ok(item);
+  });
+  return result;
 }
 
 /** Owners and team dismiss flags and drafts from the request/trip pages. Session only. */
@@ -199,29 +214,35 @@ export async function addMemory(actor: Actor, input: z.infer<typeof MemoryInput>
   const author = actor.via === "session" ? "owner" : "agent";
   if (author === "owner" && !isOwner(actor)) return err("forbidden", "Only an owner edits the assistant's memory.");
 
-  const [{ active }] = await db.select({ active: count() }).from(agentMemory).where(isNull(agentMemory.archivedAt));
-  if (active >= MEMORY_CAP) return err("conflict", `Memory is full (${MEMORY_CAP} items). Archive something first.`);
-
   if (author === "agent") {
     if (!actor.runId) return err("invalid", "Send the X-Agent-Run header: memory is written during a run.");
     const run = await loadRun(actor.runId);
     if (!run || !canUseRun(actor, run) || run.status !== "open") return err("conflict", "That run is not open for this key.");
-    if ((await memoryAddedInRun(run.id)) >= MAX_MEMORY_PER_RUN) {
-      return err("conflict", `At most ${MAX_MEMORY_PER_RUN} memory items per run. Make them count.`);
-    }
   }
 
-  const [row] = await db
-    .insert(agentMemory)
-    .values({
-      kind: input.kind,
-      body: input.body.trim(),
-      pinned: author === "owner" ? Boolean(input.pinned) : false,
-      author,
-      sourceRunId: author === "agent" ? (actor.runId ?? null) : null,
-      createdBy: actor.userId,
-    })
-    .returning();
+  // Both caps are checked and the row written under one lock.
+  const inserted = await db.transaction(async (tx): Promise<Result<AgentMemory>> => {
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtext('agent_memory'))`);
+    const [{ active }] = await tx.select({ active: count() }).from(agentMemory).where(isNull(agentMemory.archivedAt));
+    if (active >= MEMORY_CAP) return err("conflict", `Memory is full (${MEMORY_CAP} items). Archive something first.`);
+    if (author === "agent" && (await memoryAddedInRun(actor.runId!, tx)) >= MAX_MEMORY_PER_RUN) {
+      return err("conflict", `At most ${MAX_MEMORY_PER_RUN} memory items per run. Make them count.`);
+    }
+    const [row] = await tx
+      .insert(agentMemory)
+      .values({
+        kind: input.kind,
+        body: input.body.trim(),
+        pinned: author === "owner" ? Boolean(input.pinned) : false,
+        author,
+        sourceRunId: author === "agent" ? (actor.runId ?? null) : null,
+        createdBy: actor.userId,
+      })
+      .returning();
+    return ok(row);
+  });
+  if (!inserted.ok) return inserted;
+  const row = inserted.value;
 
   const a = auditFields(actor);
   await logAudit({
@@ -242,9 +263,14 @@ export async function updateMemory(actor: Actor, id: unknown, patch: z.infer<typ
 
   const owner = isOwner(actor);
   if (!owner) {
-    // The assistant may edit or archive only what it wrote, and may not pin.
+    // The assistant may edit or archive only what it wrote, never a pinned
+    // item (an owner pinned it on purpose), and only during an open run.
     if (existing.author !== "agent") return err("forbidden", "Only an owner changes that item.");
+    if (existing.pinned) return err("forbidden", "An owner pinned that item; only an owner changes it.");
     if (patch.pinned !== undefined) return err("forbidden", "Only an owner pins memory.");
+    if (!actor.runId) return err("invalid", "Send the X-Agent-Run header: memory is changed during a run.");
+    const run = await loadRun(actor.runId);
+    if (!run || !canUseRun(actor, run) || run.status !== "open") return err("conflict", "That run is not open for this key.");
   }
 
   const [row] = await db

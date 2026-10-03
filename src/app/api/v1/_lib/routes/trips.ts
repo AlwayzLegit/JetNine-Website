@@ -1,14 +1,20 @@
 import { z } from "zod";
-import { TRIP_LIST_TABS, getTrip, listTrips, withoutTripMoney } from "@/domain/trips/queries";
+import { runOp } from "@/domain/ops/registry";
 import { err, ok } from "@/domain/result";
+import { tripMessageOp } from "@/domain/trips/ops";
+import { TRIP_LIST_TABS, getTrip, listTrips, withoutTripMoney } from "@/domain/trips/queries";
+import { TripMessageBody } from "@/domain/trips/schemas";
 import type { RouteDef } from "../handler";
+import { opRouteOutput } from "../ops";
 import { hideAmounts, omit, redactInvoice, redactMessages } from "../redact";
 
 /**
  * Trips (booked flights) for the assistant. Client names, notes and
- * messages are client-written text, so both routes are marked untrusted.
+ * messages are client-written text, so the reads are marked untrusted.
  * What JetNine makes on a trip (revenue, operator cost, margin, card fees)
- * needs the `money` permission.
+ * needs the `money` permission. Posting a message goes through the ops
+ * registry: a key that asks before acting gets a 202 when the client
+ * would see it.
  */
 export const TRIP_ROUTES = {
   listTrips: {
@@ -64,6 +70,23 @@ export const TRIP_ROUTES = {
         },
         meta: { money },
       });
+    },
+  },
+  postTripMessage: {
+    method: "POST",
+    path: "/trips/{id}/messages",
+    operationId: "postTripMessage",
+    summary: "Post a message on a trip",
+    description:
+      "Adds an outbound message to the trip's thread. `channel` is email, sms or whatsapp (sent to the client), inapp (shown to the client in their account), or call / voicemail (the desk's own note of a conversation; never sent and never needs approval). `toAddress` defaults to the client's email or phone for the channel. `body` is plain text, at most 4000 characters. A key that asks before acting gets a 202 for anything the client would see; a person may edit the text before approving. `reason` is an optional line for the approver. Returns the message id.",
+    tag: "Trips",
+    scope: "desk",
+    approval: "conditional",
+    body: TripMessageBody,
+    successStatus: 201,
+    run: async ({ actor, params, body }) => {
+      const { reason, ...input } = body as z.infer<typeof TripMessageBody>;
+      return opRouteOutput(await runOp(tripMessageOp, actor, { id: params.id, ...input }, { reason }), 201);
     },
   },
 } satisfies Record<string, RouteDef>;

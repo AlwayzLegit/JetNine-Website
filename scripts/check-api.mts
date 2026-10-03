@@ -216,9 +216,9 @@ function check(name: string, cond: boolean, detail?: unknown) {
       check(`${method} ${path}: x-scope`, typeof op["x-scope"] === "string");
       check(`${method} ${path}: x-approval`, typeof op["x-approval"] === "string");
       const responses = op.responses as Record<string, unknown>;
-      // Until the approval queue exists, nothing may promise a 202.
-      check(`${method} ${path}: no 202 before the approval queue`, !("202" in responses));
-      if (op["x-approval"] === "always") check(`${method} ${path}: documents the 403 refusal`, "403" in responses);
+      // Ops that may be queued for a person's OK document the 202; nothing else promises one.
+      const mayQueue = op["x-approval"] === "conditional" || op["x-approval"] === "always";
+      check(`${method} ${path}: 202 documented iff the route may queue`, mayQueue === "202" in responses);
     }
   }
   check("one OpenAPI operation per route", count === ROUTES.length, { count, routes: ROUTES.length });

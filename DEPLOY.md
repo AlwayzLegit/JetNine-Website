@@ -179,6 +179,15 @@ Apply it before deploying — `/api/v1/agent/*` reads and writes them. No new
 env vars. The scheduled task moves to the bootstrap prompt in
 `docs/AGENT_HANDOFF.md` with a key from Settings › API keys.
 
+## 8f. Approval queue (API phase 5)
+
+Schema: migration `0053_approvals.sql` adds `approvals` (RLS on, no
+policies; server-only). Apply it before deploying — client-facing desk
+writes called by a key that "asks before acting" are stored there and
+return a 202 instead of running. People decide them in Messages › Needs
+your OK; the `api-maintenance` cron expires anything undecided after 7
+days. No new env vars.
+
 ## 9. Custom domain
 
 In Vercel → Domains → Add. Point your registrar's `A` record at Vercel's anycast IP (or `CNAME` for subdomain). Vercel issues a Let's Encrypt cert automatically.

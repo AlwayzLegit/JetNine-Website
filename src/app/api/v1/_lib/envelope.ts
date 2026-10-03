@@ -25,6 +25,11 @@ export function success(requestId: string, data: unknown, status = 200, meta?: R
   });
 }
 
+/** 202: the op was queued for a person's OK. */
+export function pending(requestId: string, data: unknown): NextResponse {
+  return NextResponse.json({ ok: true, status: "pending_approval", data }, { status: 202, headers: baseHeaders(requestId) });
+}
+
 export function failure(requestId: string, e: Err, statusOverride?: number): NextResponse {
   const details = e.details as Record<string, unknown> | undefined;
   const fromDetails = typeof details?.status === "number" && details.status >= 400 && details.status < 600 ? details.status : undefined;

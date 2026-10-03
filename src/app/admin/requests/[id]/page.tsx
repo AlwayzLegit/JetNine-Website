@@ -38,6 +38,8 @@ import {
   tripLeadWords,
 } from "@/components/admin/requests/words";
 import { getRequest } from "@/domain/requests/queries";
+import { pendingForSubject } from "@/domain/approvals/queries";
+import { PendingApprovalsCard } from "@/components/admin/approvals/pending-approvals-card";
 
 export const dynamic = "force-dynamic";
 
@@ -76,7 +78,7 @@ export default async function RequestPage({ params }: Props) {
   const { id } = await params;
   const now = new Date();
 
-  const bundle = await getRequest(id, now);
+  const [bundle, waitingOnYou] = await Promise.all([getRequest(id, now), pendingForSubject("quote", id)]);
   if (!bundle) notFound();
   const {
     quote,
@@ -460,7 +462,8 @@ export default async function RequestPage({ params }: Props) {
         </SourcedOptions>
 
         {/* ─── Conversation ─── */}
-        <div id="conversation" className="min-w-0 scroll-mt-6">
+        <div id="conversation" className="flex min-w-0 flex-col gap-5 scroll-mt-6">
+          <PendingApprovalsCard items={waitingOnYou} now={now} />
           <DeskCard title="Conversation">
             <div className="mt-3">
               <MarkThreadRead subjectType="quote" subjectId={quote.id} />

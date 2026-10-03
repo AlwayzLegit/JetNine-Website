@@ -5,18 +5,21 @@ import { SCOPE_WORDS } from "@/lib/api-keys";
 import {
   HERO_LIBRARY,
   createPost,
-  deletePost,
   getPost,
   ingestHero,
   listPosts,
   siteBase,
   updatePost,
 } from "@/domain/blog/commands";
+import { blogDeleteOp } from "@/domain/blog/ops";
 import { HeroIngest, PostCreate, PostUpdate } from "@/domain/blog/schemas";
+import { runOp } from "@/domain/ops/registry";
 import { err, ok } from "@/domain/result";
 import type { RouteDef } from "./handler";
 import { buildOpenApi } from "./openapi";
+import { opRouteOutput } from "./ops";
 import { AGENT_ROUTES } from "./routes/agent";
+import { APPROVAL_ROUTES } from "./routes/approvals";
 import { CLIENT_ROUTES } from "./routes/clients";
 import { DESK_ROUTES } from "./routes/desk";
 import { EMPTY_LEG_ROUTES } from "./routes/empty-legs";
@@ -146,14 +149,11 @@ const deleteBlogPost: RouteDef = {
   path: "/blog/posts/{slug}",
   operationId: "deleteBlogPost",
   summary: "Delete a blog post",
-  description: "Permanent. Keys that ask before acting cannot delete; unpublish instead.",
+  description: "Permanent. A key that asks before acting gets a 202 and a person decides in Messages › Needs your OK.",
   tag: "Blog",
   scope: "content",
   approval: "always",
-  run: async ({ actor, params }) => {
-    const r = await deletePost(actor, params.slug);
-    return r.ok ? ok({ data: r.value }) : r;
-  },
+  run: async ({ actor, params }) => opRouteOutput(await runOp(blogDeleteOp, actor, { slug: params.slug })),
 };
 
 const createBlogImage: RouteDef = {
@@ -207,6 +207,7 @@ export const ROUTE = {
   ...HISTORY_ROUTES,
   ...SETTINGS_ROUTES,
   ...AGENT_ROUTES,
+  ...APPROVAL_ROUTES,
 } satisfies Record<string, RouteDef>;
 
 export const ROUTES: RouteDef[] = Object.values(ROUTE);

@@ -1,9 +1,9 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { and, asc, eq, ilike, inArray, sql } from "drizzle-orm";
+import { and, asc, eq, ilike, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { quotes, quoteLegs, quoteStatusEnum } from "@/db/schema/quotes";
+import { quotes, quoteLegs } from "@/db/schema/quotes";
 import { trips, tripLegs, type NewTrip, type NewTripLeg } from "@/db/schema/trips";
 import { invoices, type NewInvoice } from "@/db/schema/invoices";
 import { members } from "@/db/schema/members";
@@ -17,102 +17,30 @@ import {
   aircraftScheduleBlocks,
   type NewAircraftScheduleBlock,
 } from "@/db/schema/schedule-blocks";
-import {
-  messageChannelEnum,
-  messages,
-  type NewMessage,
-} from "@/db/schema/audit";
+import { messages } from "@/db/schema/audit";
 import { users } from "@/db/schema/users";
 import { requireStaff } from "@/lib/auth";
 import { logAudit } from "@/lib/audit";
-import { statusUrl } from "@/lib/request-status";
-import {
-  sendBookingConfirmationEmail,
-  sendQuoteLifecycleEmail,
-  sendQuoteOptionsEmail,
-  type QuoteOptionEmailItem,
-} from "@/lib/email";
+import { sendBookingConfirmationEmail } from "@/lib/email";
 import { attemptInvoiceDrawdown, type DrawdownOutcome } from "@/lib/membership-balance";
-import { dispatchThreadMessage, type ThreadChannel } from "@/lib/message-delivery";
-import { isE164, toE164 } from "@/lib/phone";
+import { sessionActor } from "@/domain/actor";
+import { runOp } from "@/domain/ops/registry";
+import { requestMessageOp, requestSendOptionsOp, requestStatusOp } from "@/domain/requests/ops";
+import { isDeskMessageChannel } from "@/domain/requests/schemas";
 
-type Status = (typeof quoteStatusEnum.enumValues)[number];
-
-function isStatus(v: string): v is Status {
-  return (quoteStatusEnum.enumValues as readonly string[]).includes(v);
-}
-
+// The work itself is the "request.status" op (src/domain/requests), shared
+// with the API and the approval queue; runOp revalidates the pages.
 export async function updateQuoteStatus(
   quoteId: string,
   status: string,
 ): Promise<{ ok: true } | { ok: false; error: string }> {
-  const actor = await requireStaff();
-  if (!isStatus(status)) return { ok: false, error: "Invalid status" };
-
-  const [before] = await db
-    .select({
-      status: quotes.status,
-      code: quotes.quoteCode,
-      memberId: quotes.memberId,
-      contactSnapshot: quotes.contactSnapshot,
-    })
-    .from(quotes)
-    .where(eq(quotes.id, quoteId));
-
-  await db
-    .update(quotes)
-    .set({ status, respondedAt: respondedAtPatch(status) })
-    .where(eq(quotes.id, quoteId));
-
-  await logAudit({
-    actorUserId: actor.id,
-    actorRole: actor.role,
-    action: "quote.status.update",
-    subjectType: "quote",
-    subjectId: quoteId,
-    subjectCode: before?.code ?? null,
-    diff: { status: { before: before?.status ?? null, after: status } },
-  });
-
-  // Lifecycle emails on the transitions a customer cares about: an
-  // aircraft placed on hold for them, or their quote aging out. Declined
-  // is the customer's own action; the rest stay desk-internal.
-  if (before && before.status !== status && (status === "held" || status === "expired")) {
-    try {
-      let to = before.contactSnapshot?.email?.trim() || null;
-      if (!to && before.memberId) {
-        const [m] = await db
-          .select({ email: users.email })
-          .from(members)
-          .innerJoin(users, eq(users.id, members.userId))
-          .where(eq(members.id, before.memberId));
-        to = m?.email ?? null;
-      }
-      const isSmoke =
-        (before.contactSnapshot?.firstName ?? "").toUpperCase().startsWith("[SMOKE]") ||
-        (to ?? "").startsWith("smoke+");
-      if (to && !isSmoke) {
-        await sendQuoteLifecycleEmail({
-          to,
-          firstName: before.contactSnapshot?.firstName?.trim() || "Hello",
-          quoteCode: before.code ?? "",
-          kind: status,
-        });
-      }
-    } catch (err) {
-      console.error("quote lifecycle email failed (non-fatal)", err);
-    }
-  }
-
-  revalidatePath("/admin/requests");
-  revalidatePath(`/admin/requests/${quoteId}`);
+  const session = await sessionActor();
+  if (!session.ok) return { ok: false, error: session.error };
+  if (!UUID_RE.test(quoteId)) return { ok: false, error: "Bad quote id" };
+  const r = await runOp(requestStatusOp, session.value, { id: quoteId, status });
+  if (!r.ok) return { ok: false, error: r.code === "invalid" ? "Invalid status" : r.code === "not_found" ? "Quote not found" : r.error };
+  if (r.value.kind === "pending") return { ok: false, error: "This was sent for approval." };
   return { ok: true };
-}
-
-function respondedAtPatch(status: Status): Date | undefined {
-  // First time we hit options_sent or held, stamp responded_at.
-  if (status === "options_sent" || status === "held") return new Date();
-  return undefined;
 }
 
 export async function assignDispatcher(
@@ -603,21 +531,7 @@ export async function convertQuoteToTrip(
 // Posts a dispatcher-authored message on a quote thread. Direction is always
 // "out" — inbound messages arrive via webhook (Twilio / Postmark) which is
 // not wired yet. Channel "system" is reserved for status-change auto-notes.
-
-type Channel = (typeof messageChannelEnum.enumValues)[number];
-
-const ALLOWED_DISPATCHER_CHANNELS: readonly Channel[] = [
-  "inapp",
-  "email",
-  "sms",
-  "whatsapp",
-  "call",
-  "voicemail",
-] as const;
-
-function isAllowedChannel(v: string): v is Channel {
-  return (ALLOWED_DISPATCHER_CHANNELS as readonly string[]).includes(v);
-}
+// The work itself is the "request.message" op (src/domain/requests).
 
 export type PostQuoteMessageResult =
   | { ok: true; id: string }
@@ -627,14 +541,11 @@ export async function postQuoteMessage(
   quoteId: string,
   formData: FormData,
 ): Promise<PostQuoteMessageResult> {
-  const actor = await requireStaff();
+  const session = await sessionActor();
+  if (!session.ok) return { ok: false, error: session.error };
 
-  if (!/^[0-9a-f-]{36}$/i.test(quoteId)) {
-    return { ok: false, error: "Bad quote id" };
-  }
-
-  const channelRaw = ((formData.get("channel") as string | null) ?? "").trim();
-  if (!isAllowedChannel(channelRaw)) {
+  const channel = ((formData.get("channel") as string | null) ?? "").trim();
+  if (!isDeskMessageChannel(channel)) {
     return { ok: false, error: "Pick a channel" };
   }
 
@@ -642,150 +553,12 @@ export async function postQuoteMessage(
   if (body.length < 1) return { ok: false, error: "Body required" };
   if (body.length > 4000) return { ok: false, error: "Body too long (4000 max)" };
 
-  const toAddress = ((formData.get("toAddress") as string | null) ?? "").trim() || null;
+  const toAddress = ((formData.get("toAddress") as string | null) ?? "").trim() || undefined;
 
-  // Confirm the quote exists + grab the contact snapshot for default to-address.
-  const [q] = await db
-    .select({
-      id: quotes.id,
-      code: quotes.quoteCode,
-      memberId: quotes.memberId,
-      contactSnapshot: quotes.contactSnapshot,
-    })
-    .from(quotes)
-    .where(eq(quotes.id, quoteId));
-  if (!q) return { ok: false, error: "Quote not found" };
-
-  // Default to-address per channel: email → contact.email; phone channels
-  // → contact phone normalized to E.164. Post-launch quotes are stored
-  // already-normalized via toE164 at intake; for legacy rows still in
-  // "(818) 800-5678" form, re-normalize here so Twilio doesn't 21211.
-  const contactPhoneE164 = q.contactSnapshot?.phoneE164 ?? null;
-  const contactPhoneCC = q.contactSnapshot?.phoneCountry ?? null;
-  const normalizedPhone = isE164(contactPhoneE164)
-    ? contactPhoneE164
-    : toE164(contactPhoneE164, contactPhoneCC);
-
-  const defaultTo =
-    channelRaw === "email"
-      ? q.contactSnapshot?.email ?? null
-      : channelRaw === "sms" ||
-          channelRaw === "whatsapp" ||
-          channelRaw === "call" ||
-          channelRaw === "voicemail"
-        ? normalizedPhone
-        : null;
-
-  // Map member.user_id → toUserId so the member's inbox query joins cleanly.
-  let toUserId: string | null = null;
-  if (q.memberId) {
-    const [m] = await db
-      .select({ userId: members.userId })
-      .from(members)
-      .where(eq(members.id, q.memberId));
-    toUserId = m?.userId ?? null;
-  }
-
-  const preview = body.length > 140 ? `${body.slice(0, 139)}…` : body;
-  const finalTo = toAddress ?? defaultTo;
-
-  // Email + SMS + WhatsApp all transmit. The others (inapp, call,
-  // voicemail) remain dispatcher-side records of out-of-band contact;
-  // marked 'skipped' on insert.
-  const willTransmit =
-    (channelRaw === "email" || channelRaw === "sms" || channelRaw === "whatsapp") &&
-    Boolean(finalTo);
-  const initialStatus: "queued" | "skipped" = willTransmit ? "queued" : "skipped";
-
-  const values: NewMessage = {
-    subjectType: "quote",
-    subjectId: quoteId,
-    channel: channelRaw,
-    direction: "out",
-    fromAddress: null,
-    toAddress: finalTo,
-    fromUserId: actor.id,
-    toUserId,
-    preview,
-    body,
-    isRead: false,
-    deliveryStatus: initialStatus,
-  };
-
-  let messageId: string;
-  try {
-    const [row] = await db
-      .insert(messages)
-      .values(values)
-      .returning({ id: messages.id });
-    messageId = row.id;
-  } catch (err) {
-    console.error("postQuoteMessage insert failed", err);
-    return { ok: false, error: "DB_INSERT_FAILED" };
-  }
-
-  // Best-effort transmission. We always log the audit row regardless of
-  // delivery outcome — the DB record is the source of truth; delivery
-  // status is a sidecar visible in the thread UI.
-  let deliveryAudit: Record<string, unknown> = { status: initialStatus };
-  if (willTransmit && finalTo) {
-    const summary = preview.length > 60 ? `${preview.slice(0, 59)}…` : preview;
-    const result = await dispatchThreadMessage(channelRaw as ThreadChannel, {
-      to: finalTo,
-      subjectCode: q.code,
-      subjectSummary: summary,
-      body,
-    });
-    if (result.ok) {
-      await db
-        .update(messages)
-        .set({
-          // Honest status: logger mode means nothing left the building.
-          deliveryStatus: result.provider === "logger" ? "queued" : "sent",
-          deliveryProvider: result.provider,
-          deliveryMessageId: result.messageId ?? null,
-          deliveryError:
-            result.provider === "logger"
-              ? "channel not configured — logged only, not delivered"
-              : null,
-          deliveredAt: result.provider === "logger" ? null : new Date(),
-        })
-        .where(eq(messages.id, messageId));
-      deliveryAudit = {
-        status: result.provider === "logger" ? "queued" : "sent",
-        provider: result.provider,
-        messageId: result.messageId ?? null,
-      };
-    } else {
-      await db
-        .update(messages)
-        .set({
-          deliveryStatus: "failed",
-          deliveryError: result.error.slice(0, 500),
-        })
-        .where(eq(messages.id, messageId));
-      deliveryAudit = { status: "failed", error: result.error };
-    }
-  }
-
-  await logAudit({
-    actorUserId: actor.id,
-    actorRole: actor.role,
-    action: "quote.message.post",
-    subjectType: "quote",
-    subjectId: quoteId,
-    subjectCode: q.code,
-    metadata: {
-      messageId,
-      channel: channelRaw,
-      toAddress: finalTo,
-      bodyLen: body.length,
-      delivery: deliveryAudit,
-    },
-  });
-
-  revalidatePath(`/admin/requests/${quoteId}`);
-  return { ok: true, id: messageId };
+  const r = await runOp(requestMessageOp, session.value, { id: quoteId, channel, body, toAddress });
+  if (!r.ok) return { ok: false, error: r.code === "not_found" ? "Quote not found" : r.error };
+  if (r.value.kind === "pending") return { ok: false, error: "This was sent for approval." };
+  return { ok: true, id: (r.value.value as { id: string }).id };
 }
 
 // ─── Soft holds ───────────────────────────────────────────────────────
@@ -1256,177 +1029,20 @@ export async function deleteSourcedOption(optionId: string): Promise<SourcedOpti
 }
 
 // ─── Send options to the client ───────────────────────────────────────────
-// The action that closes the funnel: emails every sendable sourced option
-// (safety floor passed + priced) to the client as a branded quote sheet,
-// records the send on the message thread with an HONEST delivery status
-// (a dark email channel records `queued`, not a false `sent`), flips the
-// sent options to `sent_to_client`, and advances the quote to
-// `options_sent` when it's still in an earlier state.
-
-const CATEGORY_EMAIL_LABEL: Record<string, string> = {
-  turboprop: "Turboprop",
-  light: "Light jet",
-  midsize: "Midsize jet",
-  supermid: "Super-midsize jet",
-  heavy: "Heavy jet",
-  ulr: "Ultra long range",
-};
-
-const ARGUS_LABEL: Record<string, string> = {
-  platinum: "ARG/US Platinum",
-  gold: "ARG/US Gold",
-  silver: "ARG/US Silver",
-};
+// The action that closes the funnel. The work itself is the
+// "request.sendOptions" op (src/domain/requests), shared with the API.
 
 export type SendOptionsResult =
   | { ok: true; count: number; to: string; delivery: "sent" | "queued" }
   | { ok: false; error: string };
 
 export async function sendOptionsToClient(quoteId: string): Promise<SendOptionsResult> {
-  const actor = await requireStaff();
-  if (!/^[0-9a-f-]{36}$/i.test(quoteId)) return { ok: false, error: "Bad quote id" };
-
-  const [q] = await db
-    .select({
-      id: quotes.id,
-      code: quotes.quoteCode,
-      status: quotes.status,
-      paxCount: quotes.paxCount,
-      memberId: quotes.memberId,
-      contactSnapshot: quotes.contactSnapshot,
-      statusToken: quotes.statusToken,
-    })
-    .from(quotes)
-    .where(eq(quotes.id, quoteId));
-  if (!q) return { ok: false, error: "Quote not found" };
-
-  // Recipient: contact snapshot first, member's account email as fallback.
-  let toEmail = q.contactSnapshot?.email?.trim() || null;
-  let toUserId: string | null = null;
-  if (q.memberId) {
-    const [m] = await db
-      .select({ userId: members.userId, email: users.email })
-      .from(members)
-      .innerJoin(users, eq(users.id, members.userId))
-      .where(eq(members.id, q.memberId));
-    toUserId = m?.userId ?? null;
-    if (!toEmail) toEmail = m?.email ?? null;
-  }
-  if (!toEmail) return { ok: false, error: "No client email on this quote" };
-
-  // Sendable = vetted operator + priced. Blocked/unmatched options never
-  // reach the client by construction.
-  const opts = await db
-    .select()
-    .from(sourcedOptions)
-    .where(and(eq(sourcedOptions.quoteId, quoteId), eq(sourcedOptions.safetyFloorPassed, true)))
-    .orderBy(asc(sourcedOptions.optionNumber));
-  const sendable = opts.filter((o) => o.clientPriceUsd != null && o.clientPriceUsd > 0);
-  if (sendable.length === 0) {
-    return { ok: false, error: "No sendable options — need vetted + priced" };
-  }
-
-  const legs = await db
-    .select({ fromIata: quoteLegs.fromIata, toIata: quoteLegs.toIata })
-    .from(quoteLegs)
-    .where(eq(quoteLegs.quoteId, quoteId))
-    .orderBy(asc(quoteLegs.legNumber));
-  const route =
-    legs.map((l) => `${l.fromIata ?? "—"} → ${l.toIata ?? "—"}`).join(" · ") || "your route";
-
-  const items: QuoteOptionEmailItem[] = sendable.map((o) => {
-    const vetting = [
-      o.argusRating && o.argusRating !== "none" ? ARGUS_LABEL[o.argusRating] : null,
-      o.wyvernWingman ? "Wyvern Wingman" : null,
-    ]
-      .filter(Boolean)
-      .join(" · ");
-    return {
-      optionNumber: o.optionNumber,
-      aircraftType: o.aircraftType,
-      yearOfMake: o.yearOfMake,
-      paxCapacity: o.paxCapacity,
-      categoryLabel: o.category ? (CATEGORY_EMAIL_LABEL[o.category] ?? o.category) : null,
-      vetting: vetting || null,
-      clientPriceUsd: o.clientPriceUsd!,
-    };
-  });
-
-  const firstName = q.contactSnapshot?.firstName?.trim() || "Hello";
-  const result = await sendQuoteOptionsEmail({
-    quoteCode: q.code,
-    firstName,
-    to: toEmail,
-    route,
-    paxCount: q.paxCount,
-    options: items,
-    statusUrl: q.statusToken ? statusUrl(q.statusToken) : undefined,
-  });
-  if (!result.ok) {
-    return { ok: false, error: `Email failed: ${result.error.slice(0, 120)}` };
-  }
-
-  // Honest status: logger mode means nothing actually left the building.
-  const delivery: "sent" | "queued" = result.provider === "logger" ? "queued" : "sent";
-  const summary = `Options sheet — ${sendable.length} airframe${sendable.length === 1 ? "" : "s"}: ${sendable
-    .map((o) => `${o.aircraftType ?? "aircraft"} ${formatUSDShort(o.clientPriceUsd!)}`)
-    .join(", ")}`;
-  const preview = summary.length > 140 ? `${summary.slice(0, 139)}…` : summary;
-
-  await db.insert(messages).values({
-    subjectType: "quote",
-    subjectId: quoteId,
-    channel: "email",
-    direction: "out",
-    fromAddress: null,
-    toAddress: toEmail,
-    fromUserId: actor.id,
-    toUserId,
-    preview,
-    body: summary,
-    isRead: false,
-    deliveryStatus: delivery,
-    deliveryProvider: result.provider,
-    deliveryMessageId: result.messageId ?? null,
-    deliveryError:
-      delivery === "queued" ? "email channel not configured — logged only, not delivered" : null,
-    deliveredAt: delivery === "sent" ? new Date() : null,
-  });
-
-  // Flip the sent options + advance the quote (never regress a later state).
-  await db
-    .update(sourcedOptions)
-    .set({ status: "sent_to_client", updatedAt: new Date() })
-    .where(
-      and(
-        eq(sourcedOptions.quoteId, quoteId),
-        inArray(
-          sourcedOptions.id,
-          sendable.map((o) => o.id),
-        ),
-      ),
-    );
-  if (["submitted", "triaged", "sourcing"].includes(q.status)) {
-    await db
-      .update(quotes)
-      .set({ status: "options_sent", respondedAt: new Date(), updatedAt: new Date() })
-      .where(eq(quotes.id, quoteId));
-  }
-
-  await logAudit({
-    actorUserId: actor.id,
-    actorRole: actor.role,
-    action: "quote.options.send",
-    subjectType: "quote",
-    subjectId: quoteId,
-    subjectCode: q.code,
-    metadata: { count: sendable.length, to: toEmail, provider: result.provider, delivery },
-  });
-
-  revalidatePath(`/admin/requests/${quoteId}`);
-  return { ok: true, count: sendable.length, to: toEmail, delivery };
-}
-
-function formatUSDShort(n: number): string {
-  return `$${Math.round(n / 1000)}k`;
+  const session = await sessionActor();
+  if (!session.ok) return { ok: false, error: session.error };
+  if (!UUID_RE.test(quoteId)) return { ok: false, error: "Bad quote id" };
+  const r = await runOp(requestSendOptionsOp, session.value, { id: quoteId });
+  if (!r.ok) return { ok: false, error: r.code === "not_found" ? "Quote not found" : r.error };
+  if (r.value.kind === "pending") return { ok: false, error: "This was sent for approval." };
+  const { count, to, delivery } = r.value.value as { count: number; to: string; delivery: "sent" | "queued" };
+  return { ok: true, count, to, delivery };
 }

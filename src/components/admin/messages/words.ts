@@ -148,3 +148,29 @@ export function shortAddress(address: string | null | undefined): string {
   const digits = address.replace(/\s+/g, "");
   return digits.length > 6 ? `${digits.slice(0, 6)}…` : digits;
 }
+
+/** One-word pill for what an assistant's proposal touches ("Needs your OK"). */
+export const RISK_PILL_WORDS: Record<string, string> = {
+  client: "Client",
+  money: "Money",
+  settings: "Settings",
+  access: "Access",
+  content: "Content",
+};
+
+export function riskPillWord(risk: string): string {
+  return RISK_PILL_WORDS[risk] ?? "Change";
+}
+
+/** Label over the textarea when a person edits a proposal before approving. */
+export function editableFieldLabel(field: string): string {
+  const words: Record<string, string> = {
+    body: "The message",
+    subject: "The subject line",
+    note: "The note",
+    title: "The title",
+    excerpt: "The summary",
+    content: "The text",
+  };
+  return words[field] ?? field.replace(/[_-]+/g, " ").replace(/^./, (c) => c.toUpperCase());
+}

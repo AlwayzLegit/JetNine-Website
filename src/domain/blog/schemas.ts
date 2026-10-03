@@ -32,3 +32,9 @@ export const HeroIngest = z
     sourceUrl: z.string().max(2000).optional().describe("Public https image to ingest (private networks refused)."),
     prompt: z.string().min(10).max(1200).optional().describe("Generate with the Hugging Face router (needs HF_TOKEN)."),
   });
+
+/** Input for the "blog.delete" operation; the slug comes from the path. */
+export const BlogDeleteInput = z.object({
+  slug: z.string().min(1).max(200),
+});
+export type BlogDeleteInput = z.infer<typeof BlogDeleteInput>;

@@ -25,19 +25,24 @@ import {
   type ThreadSubject,
   type VoiceCallRow,
 } from "@/domain/messages/queries";
+import { getApproval, listApprovals, type ApprovalRow } from "@/domain/approvals/queries";
+import { getCurrentUser } from "@/lib/auth";
+import { ApprovalCard } from "@/components/admin/approval-card";
+import { approvalCardData, proposerName } from "@/components/admin/approvals/shape";
+import { riskPillWord } from "@/components/admin/messages/words";
 import { postThreadMessage } from "./actions";
 import { setInquiryStatus } from "./inquiry-actions";
 
 export const dynamic = "force-dynamic";
 
 const BASE = "/admin/messages";
-const TABS = ["all", "unread", "calls", "form", "problems"] as const;
+const TABS = ["all", "unread", "approvals", "calls", "form", "problems"] as const;
 type Tab = (typeof TABS)[number];
 const UUID_RE = /^[0-9a-f-]{36}$/i;
 
 type Props = { searchParams: Promise<{ tab?: string; q?: string; t?: string; show?: string }> };
 
-type Selection = { kind: ThreadSubject | "call" | "form"; id: string } | null;
+type Selection = { kind: ThreadSubject | "call" | "form" | "approval"; id: string } | null;
 
 function parseSelection(t: string | undefined): Selection {
   if (!t) return null;
@@ -46,7 +51,7 @@ function parseSelection(t: string | undefined): Selection {
   const kind = t.slice(0, i);
   const id = t.slice(i + 1);
   if (!UUID_RE.test(id)) return null;
-  if (kind === "quote" || kind === "trip" || kind === "member" || kind === "call" || kind === "form") {
+  if (kind === "quote" || kind === "trip" || kind === "member" || kind === "call" || kind === "form" || kind === "approval") {
     return { kind, id };
   }
   return null;
@@ -67,12 +72,17 @@ export default async function MessagesPage({ searchParams }: Props) {
   const showHandled = sp.show === "all";
   const keep = { q: q || undefined, show: showHandled ? "all" : undefined };
 
-  const [{ threads, unread: unreadTotal }, calls, inquiries, failed] = await Promise.all([
+  const [{ threads, unread: unreadTotal }, calls, inquiries, failed, pendingApprovals, decidedApprovals, user] = await Promise.all([
     listThreads({ q }),
     listCallNotes(),
     listInquiries({ show: sp.show }),
     listFailedDeliveries(now),
+    listApprovals({ status: ["pending"], limit: 200 }),
+    // The quiet "Decided recently" group only loads on its own tab.
+    tab === "approvals" ? listApprovals({ status: ["executed", "failed", "rejected", "expired"], limit: 20 }) : Promise.resolve([] as ApprovalRow[]),
+    getCurrentUser(),
   ]);
+  const role = user?.role ?? "";
 
   // ── Search + tab filter ──
   const visibleThreads = threads; // listThreads already applied the search
@@ -82,10 +92,14 @@ export default async function MessagesPage({ searchParams }: Props) {
     matchesSearch(q, `${i.firstName} ${i.lastName}`, i.email, i.fromText, i.toText),
   );
   const visibleFailed = failed.filter((f) => matchesSearch(q, f.name, f.toAddress));
+  const approvalMatches = (a: ApprovalRow) => matchesSearch(q, a.summary, a.requestedByName, a.subjectCode);
+  const visiblePending = pendingApprovals.filter(approvalMatches);
+  const visibleDecided = decidedApprovals.filter(approvalMatches);
 
   const tabs = [
     { key: "all", label: "All" },
     { key: "unread", label: "Unread", count: unreadTotal },
+    { key: "approvals", label: "Needs your OK", count: pendingApprovals.length },
     { key: "calls", label: "Call notes", count: calls.length },
     { key: "form", label: "Website form", count: inquiries.filter((i) => i.status === "new").length },
     { key: "problems", label: "Problems", count: failed.length },
@@ -98,14 +112,35 @@ export default async function MessagesPage({ searchParams }: Props) {
     else if (tab === "unread" && unreadThreads[0]) selection = { kind: unreadThreads[0].subjectType, id: unreadThreads[0].subjectId };
     else if (tab === "calls" && visibleCalls[0]) selection = { kind: "call", id: visibleCalls[0].id };
     else if (tab === "form" && visibleInquiries[0]) selection = { kind: "form", id: visibleInquiries[0].id };
+    else if (tab === "approvals" && visiblePending[0]) selection = { kind: "approval", id: visiblePending[0].id };
   }
   const selKey = selection ? `${selection.kind}:${selection.id}` : null;
   const rowHref = (key: string) => href({ tab: tab === "all" ? undefined : tab, ...keep, t: key });
 
   // ── Left list rows ──
   let rows: ThreadRowProps[] = [];
+  let decidedRows: ThreadRowProps[] = [];
   let emptyWords = "Nothing here yet.";
-  if (tab === "all" || tab === "unread") {
+  const approvalRow = (a: ApprovalRow): ThreadRowProps => {
+    const key = `approval:${a.id}`;
+    const who = proposerName(a);
+    return {
+      href: rowHref(key),
+      selected: key === selKey,
+      initial: initialOf(who),
+      name: a.summary,
+      context: `Proposed by ${who}`,
+      preview: a.status === "pending" ? a.reason?.replace(/\s+/g, " ").trim() || null : decidedWords(a),
+      when: relativeTime(a.status === "pending" ? a.createdAt : a.decidedAt ?? a.createdAt, now),
+      unread: a.status === "pending",
+      tag: riskPillWord(a.risk),
+    };
+  };
+  if (tab === "approvals") {
+    rows = visiblePending.map(approvalRow);
+    decidedRows = visibleDecided.map(approvalRow);
+    emptyWords = q ? `Nothing matches “${q}”.` : "Nothing waiting on you.";
+  } else if (tab === "all" || tab === "unread") {
     const list = tab === "all" ? visibleThreads : unreadThreads;
     rows = list.map((t) => {
       const key = `${t.subjectType}:${t.subjectId}`;
@@ -174,11 +209,15 @@ export default async function MessagesPage({ searchParams }: Props) {
 
   // ── Right pane data ──
   const selectedThread =
-    selection && selection.kind !== "call" && selection.kind !== "form"
+    selection && selection.kind !== "call" && selection.kind !== "form" && selection.kind !== "approval"
       ? threads.find((t) => t.subjectType === selection!.kind && t.subjectId === selection!.id) ?? null
       : null;
   const selectedCall = selection?.kind === "call" ? calls.find((c) => c.id === selection!.id) ?? null : null;
   const selectedInquiry = selection?.kind === "form" ? inquiries.find((i) => i.id === selection!.id) ?? null : null;
+  const selectedApproval =
+    selection?.kind === "approval"
+      ? [...pendingApprovals, ...decidedApprovals].find((a) => a.id === selection!.id) ?? (await getApproval(selection.id))
+      : null;
 
   const thread: ThreadMessage[] = selectedThread
     ? ((await getThread(selectedThread.subjectType, selectedThread.subjectId))?.messages ?? [])
@@ -209,6 +248,14 @@ export default async function MessagesPage({ searchParams }: Props) {
           ) : (
             rows.map((r, i) => <ThreadRow key={`${r.href}#${i}`} {...r} />)
           )}
+          {decidedRows.length > 0 ? (
+            <>
+              <h2 className="label-jn mt-5 px-3 pb-1.5 text-[13px]">Decided recently</h2>
+              {decidedRows.map((r, i) => (
+                <ThreadRow key={`${r.href}#d${i}`} {...r} />
+              ))}
+            </>
+          ) : null}
         </div>
       </section>
 
@@ -257,6 +304,23 @@ export default async function MessagesPage({ searchParams }: Props) {
           <CallPane call={selectedCall} now={now} />
         ) : selectedInquiry ? (
           <InquiryPane inquiry={selectedInquiry} now={now} />
+        ) : selectedApproval ? (
+          <div className="min-h-0 flex-1 overflow-y-auto px-5 py-6 md:px-8">
+            <div className="max-w-[720px]">
+              <ApprovalCard key={`${selectedApproval.id}:${selectedApproval.status}`} data={approvalCardData(selectedApproval, { now, role })} />
+              <p className="mt-4 text-[13px] leading-[1.5] text-steel">
+                The assistant asked before acting. Approve and it goes ahead as you; reject with a note and it learns for next time.
+              </p>
+            </div>
+          </div>
+        ) : tab === "approvals" ? (
+          <div className="flex flex-1 items-center justify-center p-8">
+            <DeskEmpty
+              title="Nothing waiting on you."
+              body="When the assistant wants to contact a client or change something that matters, it asks here first."
+              className="w-full max-w-[440px]"
+            />
+          </div>
         ) : tab === "problems" ? (
           <div className="min-h-0 flex-1 overflow-y-auto px-5 py-6 md:px-8">
             <h2 className="text-[20px] font-medium text-bone">Problems</h2>
@@ -276,6 +340,22 @@ export default async function MessagesPage({ searchParams }: Props) {
 }
 
 // ─── Panes ────────────────────────────────────────────────────────────────
+
+/** One line under a decided proposal in the list. */
+function decidedWords(a: ApprovalRow): string {
+  switch (a.status) {
+    case "executed":
+      return `Approved${a.decidedByName ? ` by ${a.decidedByName}` : ""} and done`;
+    case "failed":
+      return "Approved but it did not go through";
+    case "rejected":
+      return `Rejected${a.decidedByName ? ` by ${a.decidedByName}` : ""}${a.decisionNote ? `: ${a.decisionNote}` : ""}`;
+    case "expired":
+      return "Expired before anyone decided";
+    default:
+      return "Being carried out now";
+  }
+}
 
 function CallPane({ call, now }: { call: VoiceCallRow; now: Date }) {
   const startedAt = new Date(call.started_at);

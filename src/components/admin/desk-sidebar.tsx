@@ -9,6 +9,8 @@ export type DeskCounts = {
   needsReply: number;
   /** Unread inbound messages (outlined pill). */
   unread: number;
+  /** Proposals from the assistant waiting for a decision (gold pill on Messages). */
+  approvals: number;
 };
 
 export const DESK_NAV = [
@@ -55,6 +57,10 @@ export function DeskSidebar({
             n.href === "/admin/requests" && counts.needsReply > 0 ? (
               <span className="pill pill-clearance h-[22px] min-w-[22px] px-[7px] text-[12px] font-semibold !bg-gold">
                 {counts.needsReply > 99 ? "99+" : counts.needsReply}
+              </span>
+            ) : n.href === "/admin/messages" && counts.approvals > 0 ? (
+              <span className="pill pill-clearance h-[22px] min-w-[22px] px-[7px] text-[12px] font-semibold !bg-gold">
+                {counts.approvals > 99 ? "99+" : counts.approvals}
               </span>
             ) : n.href === "/admin/messages" && counts.unread > 0 ? (
               <span className="pill pill-outline h-[22px] min-w-[22px] px-[7px] text-[12px] text-bone">
@@ -129,6 +135,10 @@ export function DeskTabBar({ counts }: { counts: DeskCounts }) {
             {n.href === "/admin/requests" && counts.needsReply > 0 ? (
               <span className="absolute right-2.5 top-0.5 flex h-4 min-w-4 items-center justify-center rounded-pill bg-gold px-1 text-[10px] font-semibold text-ink">
                 {counts.needsReply > 99 ? "99+" : counts.needsReply}
+              </span>
+            ) : n.href === "/admin/messages" && counts.approvals > 0 ? (
+              <span className="absolute right-2.5 top-0.5 flex h-4 min-w-4 items-center justify-center rounded-pill bg-gold px-1 text-[10px] font-semibold text-ink">
+                {counts.approvals > 99 ? "99+" : counts.approvals}
               </span>
             ) : null}
           </Link>

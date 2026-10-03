@@ -1,37 +1,8 @@
-import { sql } from "drizzle-orm";
-import { db } from "@/db";
 import { requireStaff } from "@/lib/auth";
 import { DeskHeader, DeskRow } from "@/components/admin/desk-ui";
+import { referenceCounts } from "@/domain/reference/queries";
 
 export const dynamic = "force-dynamic";
-
-type Counts = {
-  operators: number;
-  aircraft: number;
-  airports: number;
-  fbos: number;
-  empty_legs: number;
-  ai_providers: number;
-};
-
-async function getCounts(): Promise<Partial<Counts>> {
-  try {
-    const [row] = await db.execute<Counts>(sql`
-      select
-        (select count(*)::int from public.operators)                                       as operators,
-        (select count(*)::int from public.aircraft)                                        as aircraft,
-        (select count(*)::int from public.airports)                                        as airports,
-        (select count(*)::int from public.fbos)                                            as fbos,
-        (select count(*)::int from public.empty_legs where status in ('scheduled','live')) as empty_legs,
-        (select count(*)::int from public.ai_providers where enabled)                      as ai_providers
-    `);
-    return row ?? {};
-  } catch {
-    // A missing table (e.g. ai_providers before migration 0047) must not
-    // take the whole page down — the links still work.
-    return {};
-  }
-}
 
 function countWords(n: number | undefined, one: string, many = `${one}s`): string | null {
   if (typeof n !== "number") return null;
@@ -40,7 +11,7 @@ function countWords(n: number | undefined, one: string, many = `${one}s`): strin
 
 export default async function ReferenceDataPage() {
   await requireStaff();
-  const c = await getCounts();
+  const c = await referenceCounts();
 
   const items: { href: string; title: string; desc: string; count: string | null }[] = [
     {

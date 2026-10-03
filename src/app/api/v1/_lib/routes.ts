@@ -16,7 +16,11 @@ import { HeroIngest, PostCreate, PostUpdate } from "@/domain/blog/schemas";
 import { err, ok } from "@/domain/result";
 import type { RouteDef } from "./handler";
 import { buildOpenApi } from "./openapi";
+import { CLIENT_ROUTES } from "./routes/clients";
 import { DESK_ROUTES } from "./routes/desk";
+import { EMPTY_LEG_ROUTES } from "./routes/empty-legs";
+import { MESSAGE_ROUTES } from "./routes/messages";
+import { REFERENCE_ROUTES } from "./routes/reference";
 import { HISTORY_ROUTES } from "./routes/history";
 import { REQUEST_ROUTES } from "./routes/requests";
 import { TRIP_ROUTES } from "./routes/trips";
@@ -194,6 +198,10 @@ export const ROUTE = {
   ...DESK_ROUTES,
   ...REQUEST_ROUTES,
   ...TRIP_ROUTES,
+  ...CLIENT_ROUTES,
+  ...MESSAGE_ROUTES,
+  ...EMPTY_LEG_ROUTES,
+  ...REFERENCE_ROUTES,
   ...REPORT_ROUTES,
   ...HISTORY_ROUTES,
   ...SETTINGS_ROUTES,

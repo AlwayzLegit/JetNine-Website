@@ -1,9 +1,7 @@
 import Link from "next/link";
-import { asc, sql } from "drizzle-orm";
-import { db } from "@/db";
-import { airports, fbos } from "@/db/schema/airports";
 import { AirportCreateForm } from "@/components/admin/airport-create-form";
 import { DeskEmpty, DeskHeader, DeskPage, DotSentence, NumberCard } from "@/components/admin/desk-ui";
+import { listAirports, type AirportListItem as Row } from "@/domain/reference/queries";
 
 export const dynamic = "force-dynamic";
 
@@ -21,45 +19,9 @@ const CUSTOMS_CLASS: Record<string, string> = {
   intl: "text-clearance",
 };
 
-type Row = {
-  id: string;
-  icao: string;
-  iata: string | null;
-  name: string;
-  city: string;
-  region: string | null;
-  countryIso2: string;
-  category: string | null;
-  customs: string;
-  active: boolean;
-  fboCount: number;
-};
-
 export default async function AdminAirportsPage() {
-  // Single grouped query — much cheaper than per-row fan-out for FBO counts.
-  const rows = await db
-    .select({
-      id: airports.id,
-      icao: airports.icao,
-      iata: airports.iata,
-      name: airports.name,
-      city: airports.city,
-      region: airports.region,
-      countryIso2: airports.countryIso2,
-      category: airports.category,
-      customs: airports.customs,
-      active: airports.active,
-      fboCount: sql<number>`(
-        select count(*)::int from public.fbos f where f.airport_id = ${airports.id}
-      )`,
-    })
-    .from(airports)
-    .orderBy(asc(airports.countryIso2), asc(airports.icao));
-
-  const totalFbos = await db
-    .select({ n: sql<number>`count(*)::int` })
-    .from(fbos)
-    .then((r) => r[0]?.n ?? 0);
+  const { airports: rows, totals } = await listAirports();
+  const totalFbos = totals.fbos;
 
   const byCountry = new Map<string, Row[]>();
   for (const r of rows) {
@@ -67,13 +29,6 @@ export default async function AdminAirportsPage() {
     arr.push(r);
     byCountry.set(r.countryIso2, arr);
   }
-
-  const totals = {
-    airports: rows.length,
-    active: rows.filter((r) => r.active).length,
-    intl: rows.filter((r) => r.customs === "intl").length,
-    countries: byCountry.size,
-  };
 
   return (
     <DeskPage>

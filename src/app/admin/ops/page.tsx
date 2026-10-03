@@ -1,12 +1,7 @@
 import Link from "next/link";
-import { and, asc, eq, gt, lt } from "drizzle-orm";
-import { db } from "@/db";
-import { aircraft } from "@/db/schema/aircraft";
-import { operators } from "@/db/schema/operators";
-import { aircraftScheduleBlocks } from "@/db/schema/schedule-blocks";
-import { trips } from "@/db/schema/trips";
 import { ScheduleBlockForm } from "@/components/admin/schedule-block-form";
 import { DeskEmpty, DeskHeader, DeskPage, NumberCard } from "@/components/admin/desk-ui";
+import { addDays, listScheduleBlocks, startOfUtcDay } from "@/domain/reference/queries";
 
 export const dynamic = "force-dynamic";
 
@@ -38,18 +33,6 @@ const CATEGORY_LABEL: Record<string, string> = {
   ulr: "Ultra long range",
 };
 
-// Truncate a Date to the start of its UTC day. The planner is grid-based so
-// we don't show sub-day blocks; everything snaps to the day column.
-function startOfUtcDay(d: Date): Date {
-  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
-}
-
-function addDays(d: Date, n: number): Date {
-  const next = new Date(d);
-  next.setUTCDate(next.getUTCDate() + n);
-  return next;
-}
-
 function fmtDay(d: Date): { dow: string; mday: string } {
   return {
     dow: d.toLocaleDateString("en-US", { weekday: "short", timeZone: "UTC" }),
@@ -58,47 +41,7 @@ function fmtDay(d: Date): { dow: string; mday: string } {
 }
 
 export default async function AdminOpsPage() {
-  const today = startOfUtcDay(new Date());
-  const horizonEnd = addDays(today, HORIZON_DAYS);
-
-  // ── Pull fleet ──
-  const fleet = await db
-    .select({
-      id: aircraft.id,
-      tailNumber: aircraft.tailNumber,
-      makeModel: aircraft.makeModel,
-      category: aircraft.category,
-      seats: aircraft.seats,
-      status: aircraft.status,
-      operatorName: operators.name,
-      isPreferred: operators.isPreferred,
-    })
-    .from(aircraft)
-    .innerJoin(operators, eq(operators.id, aircraft.operatorId))
-    .orderBy(asc(aircraft.category), asc(aircraft.tailNumber));
-
-  // ── Pull schedule blocks that overlap the horizon ──
-  const blocks = await db
-    .select({
-      id: aircraftScheduleBlocks.id,
-      aircraftId: aircraftScheduleBlocks.aircraftId,
-      kind: aircraftScheduleBlocks.kind,
-      startAt: aircraftScheduleBlocks.startAt,
-      endAt: aircraftScheduleBlocks.endAt,
-      relatedTripId: aircraftScheduleBlocks.relatedTripId,
-      relatedQuoteId: aircraftScheduleBlocks.relatedQuoteId,
-      notes: aircraftScheduleBlocks.notes,
-      tripCode: trips.tripCode,
-    })
-    .from(aircraftScheduleBlocks)
-    .leftJoin(trips, eq(trips.id, aircraftScheduleBlocks.relatedTripId))
-    .where(
-      and(
-        lt(aircraftScheduleBlocks.startAt, horizonEnd),
-        gt(aircraftScheduleBlocks.endAt, today),
-      ),
-    )
-    .orderBy(asc(aircraftScheduleBlocks.aircraftId), asc(aircraftScheduleBlocks.startAt));
+  const { from: today, fleet, blocks, utilizationPct: utilization } = await listScheduleBlocks(new Date(), HORIZON_DAYS);
 
   // Group blocks per aircraft.
   const blocksByTail = new Map<string, typeof blocks>();
@@ -109,21 +52,6 @@ export default async function AdminOpsPage() {
   }
 
   const dayHeaders = Array.from({ length: HORIZON_DAYS }, (_, i) => addDays(today, i));
-
-  // Quick utilization line — % of (tail × day) cells with at least one block.
-  const totalCells = fleet.length * HORIZON_DAYS;
-  let busyCells = 0;
-  for (const ac of fleet) {
-    for (let i = 0; i < HORIZON_DAYS; i++) {
-      const dayStart = addDays(today, i);
-      const dayEnd = addDays(today, i + 1);
-      const hit = (blocksByTail.get(ac.id) ?? []).some(
-        (b) => b.startAt < dayEnd && b.endAt > dayStart,
-      );
-      if (hit) busyCells++;
-    }
-  }
-  const utilization = totalCells > 0 ? Math.round((busyCells / totalCells) * 100) : 0;
 
   return (
     <DeskPage>

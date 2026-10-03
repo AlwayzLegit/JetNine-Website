@@ -1,12 +1,8 @@
-import { asc, desc, eq } from "drizzle-orm";
-import { db } from "@/db";
-import { aircraft } from "@/db/schema/aircraft";
-import { operators } from "@/db/schema/operators";
-import { emptyLegs } from "@/db/schema/empty-legs";
 import { NewEmptyLegForm } from "./new-leg-form";
 import { EmptyLegStatusSelect } from "@/components/admin/empty-leg-status-select";
 import { formatUSD } from "@/lib/quote-pricing";
 import { DeskCard, DeskEmpty, DeskHeader, DeskPage, NumberCard } from "@/components/admin/desk-ui";
+import { listAvailableAircraft, listEmptyLegs } from "@/domain/empty-legs/queries";
 
 export const dynamic = "force-dynamic";
 
@@ -20,43 +16,7 @@ const WHEELS_UP_FMT = new Intl.DateTimeFormat("en-US", {
 });
 
 export default async function AdminEmptyLegPage() {
-  const tails = await db
-    .select({
-      tail: aircraft.tailNumber,
-      makeModel: aircraft.makeModel,
-      operator: operators.name,
-    })
-    .from(aircraft)
-    .innerJoin(operators, eq(operators.id, aircraft.operatorId))
-    .where(eq(aircraft.status, "available"))
-    .orderBy(asc(operators.name), asc(aircraft.tailNumber));
-
-  const rows = await db
-    .select({
-      id: emptyLegs.id,
-      code: emptyLegs.code,
-      status: emptyLegs.status,
-      fromIata: emptyLegs.fromIata,
-      fromIcao: emptyLegs.fromIcao,
-      toIata: emptyLegs.toIata,
-      toIcao: emptyLegs.toIcao,
-      wheelsUpAt: emptyLegs.wheelsUpAt,
-      seatsAvailable: emptyLegs.seatsAvailable,
-      listedPriceUsd: emptyLegs.listedPriceUsd,
-      discountPct: emptyLegs.discountPct,
-      operatorName: operators.name,
-    })
-    .from(emptyLegs)
-    .innerJoin(operators, eq(operators.id, emptyLegs.operatorId))
-    .orderBy(desc(emptyLegs.wheelsUpAt))
-    .limit(50);
-
-  const totals = {
-    live: rows.filter((r) => r.status === "live").length,
-    scheduled: rows.filter((r) => r.status === "scheduled").length,
-    draft: rows.filter((r) => r.status === "draft").length,
-    sold: rows.filter((r) => r.status === "sold").length,
-  };
+  const [tails, { legs: rows, totals }] = await Promise.all([listAvailableAircraft(), listEmptyLegs()]);
 
   return (
     <DeskPage>

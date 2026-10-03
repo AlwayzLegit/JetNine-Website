@@ -1,10 +1,7 @@
 import Link from "next/link";
-import { desc, asc, count } from "drizzle-orm";
-import { db } from "@/db";
-import { operators } from "@/db/schema/operators";
-import { aircraft } from "@/db/schema/aircraft";
 import { OperatorCreateForm } from "@/components/admin/operator-create-form";
 import { DeskEmpty, DeskHeader, DeskPage, DotSentence, NumberCard } from "@/components/admin/desk-ui";
+import { listOperators } from "@/domain/reference/queries";
 
 export const dynamic = "force-dynamic";
 
@@ -46,41 +43,7 @@ function formatDate(date: Date | string | null): string {
 
 export default async function OperatorsPage() {
   const now = new Date();
-  const rows = await db
-    .select({
-      id: operators.id,
-      name: operators.name,
-      certNumber: operators.certNumber,
-      homeAirportIcao: operators.homeAirportIcao,
-      yearsPartner: operators.yearsPartner,
-      isPreferred: operators.isPreferred,
-      status: operators.status,
-      argusRating: operators.argusRating,
-      wyvernWingman: operators.wyvernWingman,
-      isbaoStage: operators.isbaoStage,
-      nextAuditOn: operators.nextAuditOn,
-      insuranceRenewsOn: operators.insuranceRenewsOn,
-      suspendedReason: operators.suspendedReason,
-    })
-    .from(operators)
-    .orderBy(desc(operators.isPreferred), asc(operators.name));
-
-  // Aircraft counts per operator in one query.
-  const counts = await db
-    .select({
-      operatorId: aircraft.operatorId,
-      n: count(),
-    })
-    .from(aircraft)
-    .groupBy(aircraft.operatorId);
-  const fleetByOperator = new Map(counts.map((c) => [c.operatorId, c.n]));
-
-  const totals = {
-    operators: rows.length,
-    active: rows.filter((r) => r.status === "active").length,
-    auditDue: rows.filter((r) => r.status === "audit_due").length,
-    suspended: rows.filter((r) => r.status === "suspended" || r.status === "hold").length,
-  };
+  const { operators: rows, totals } = await listOperators();
 
   return (
     <DeskPage>
@@ -196,7 +159,7 @@ export default async function OperatorsPage() {
                           <span className="text-steel">—</span>
                         )}
                       </td>
-                      <td className="text-bone">{fleetByOperator.get(r.id) ?? 0}</td>
+                      <td className="text-bone">{r.fleetCount}</td>
                       <td className="text-right">
                         <Link href={`/admin/operators/${r.id}`} className="btn btn-secondary btn-sm">
                           Open

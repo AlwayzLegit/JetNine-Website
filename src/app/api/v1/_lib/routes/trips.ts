@@ -2,6 +2,7 @@ import { z } from "zod";
 import { TRIP_LIST_TABS, getTrip, listTrips, withoutTripMoney } from "@/domain/trips/queries";
 import { err, ok } from "@/domain/result";
 import type { RouteDef } from "../handler";
+import { hideAmounts, omit, redactInvoice, redactMessages } from "../redact";
 
 /**
  * Trips (booked flights) for the assistant. Client names, notes and
@@ -24,13 +25,16 @@ export const TRIP_ROUTES = {
       tab: z.enum(TRIP_LIST_TABS).optional(),
       q: z.string().max(80).optional(),
     }),
-    run: async ({ query }) => {
+    run: async ({ actor, query }) => {
       const list = await listTrips({ tab: query.tab as string | undefined, q: query.q as string | undefined });
+      const money = actor.scopes.has("money");
+      const scrub = <T extends { todo: string; invoice: { totalUsd: number | null } | null }>(it: T): T =>
+        money ? it : { ...it, todo: hideAmounts(it.todo), invoice: it.invoice ? omit(it.invoice, ["totalUsd"]) : null };
       return ok({
         data: {
           today: list.today,
-          groups: list.groups,
-          flyingToday: list.flyingToday,
+          groups: list.groups.map((g) => ({ ...g, items: g.items.map(scrub) })),
+          flyingToday: list.flyingToday.map(scrub),
           counts: list.counts,
         },
         meta: { tab: list.tab, q: list.q, total: list.items.length },
@@ -52,7 +56,12 @@ export const TRIP_ROUTES = {
       if (!t) return err("not_found", "No trip with that id.");
       const money = actor.scopes.has("money");
       return ok({
-        data: { ...t, trip: money ? t.trip : withoutTripMoney(t.trip) },
+        data: {
+          ...t,
+          trip: money ? t.trip : withoutTripMoney(t.trip),
+          invoice: t.invoice ? redactInvoice(t.invoice, money) : null,
+          messages: redactMessages(t.messages),
+        },
         meta: { money },
       });
     },

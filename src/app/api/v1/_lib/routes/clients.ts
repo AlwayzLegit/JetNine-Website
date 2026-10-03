@@ -2,6 +2,7 @@ import { z } from "zod";
 import { CLIENT_TABS, getClient, listClients } from "@/domain/clients/queries";
 import { err, ok } from "@/domain/result";
 import type { RouteDef } from "../handler";
+import { dropMoney, hideAmounts, omit, redactInvoice, redactMembership } from "../redact";
 
 /**
  * Clients (members). Money (lifetime billing, trip revenue, invoice totals)
@@ -26,7 +27,12 @@ const listClientsRoute: RouteDef = {
     const list = await listClients({ tab: query.tab as string | undefined, q: query.q as string | undefined });
     const money = actor.scopes.has("money");
     const data = list.clients.map(({ row, ...facts }) =>
-      money ? { ...facts, row } : { ...facts, lifetimeUsd: null, row: { ...row, spent: "—" } },
+      money
+        ? { ...facts, row }
+        : {
+            ...dropMoney(facts),
+            row: { ...row, spent: "—", memberNote: hideAmounts(row.memberNote), membership: hideAmounts(row.membership) },
+          },
     );
     return ok({ data, meta: { tab: list.tab, q: list.q, total: list.total, counts: list.counts } });
   },
@@ -45,23 +51,25 @@ const getClientRoute: RouteDef = {
   run: async ({ actor, params }) => {
     const client = await getClient(params.id);
     if (!client) return err("not_found", "No client with that id.");
-    if (actor.scopes.has("money")) return ok({ data: client });
+    const money = actor.scopes.has("money");
+    const base = {
+      ...client,
+      programs: client.programs.map((m) => redactMembership(m, money)),
+      activeProgram: client.activeProgram ? redactMembership(client.activeProgram, money) : null,
+      invoices: client.invoices.map((i) => redactInvoice(i, money)),
+    };
+    if (money) return ok({ data: base });
     return ok({
       data: {
-        ...omit(client, ["lifetimeInvoiced"]),
-        trips: client.trips.map((t) => omit(t, ["revenueUsd"])),
-        upcoming: client.upcoming ? omit(client.upcoming, ["revenueUsd"]) : null,
-        invoices: client.invoices.map((i) => omit(i, ["totalUsd"])),
+        ...omit(base, ["lifetimeInvoiced", "balance"]),
+        trips: base.trips.map(dropMoney),
+        upcoming: base.upcoming ? dropMoney(base.upcoming) : null,
+        ledger: base.ledger.map(dropMoney),
       },
     });
   },
 };
 
-function omit<T extends object, K extends keyof T>(obj: T, keys: K[]): Omit<T, K> {
-  const out = { ...obj };
-  for (const k of keys) delete out[k];
-  return out;
-}
 
 export const CLIENT_ROUTES = {
   listClients: listClientsRoute,

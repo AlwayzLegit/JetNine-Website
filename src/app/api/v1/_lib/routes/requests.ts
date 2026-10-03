@@ -7,6 +7,7 @@ import {
 } from "@/domain/requests/queries";
 import { err, ok } from "@/domain/result";
 import type { RouteDef } from "../handler";
+import { redactMessages, redactQuote } from "../redact";
 
 /**
  * Requests (quotes) for the assistant. Contact details, notes and messages
@@ -53,12 +54,12 @@ export const REQUEST_ROUTES = {
       const money = actor.scopes.has("money");
       return ok({
         data: {
-          quote: r.quote,
+          quote: redactQuote(r.quote, money),
           legs: r.legs,
           member: r.member,
           assignee: r.assignee,
           timesFlown: r.timesFlown,
-          messages: r.messages,
+          messages: redactMessages(r.messages),
           holds: r.holds,
           otherHolds: r.otherHolds,
           options: money ? r.sourcedOptions : r.sourcedOptions.map(withoutOptionMoney),

@@ -1,5 +1,8 @@
-import { and, asc, desc, eq, gte, inArray, ne, notInArray, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gt, gte, inArray, ne, notInArray, or, sql } from "drizzle-orm";
 import { db } from "@/db";
+
+/** A thread longer than this keeps its newest messages. */
+export const THREAD_LIMIT = 500;
 import { quotes, quoteLegs, type Quote, type QuoteLeg } from "@/db/schema/quotes";
 import { members } from "@/db/schema/members";
 import { staff } from "@/db/schema/staff";
@@ -288,7 +291,9 @@ export async function loadThread(subjectType: "quote" | "trip", subjectId: strin
     .from(messages)
     .leftJoin(users, eq(users.id, messages.fromUserId))
     .where(and(eq(messages.subjectType, subjectType), eq(messages.subjectId, subjectId)))
-    .orderBy(asc(messages.occurredAt));
+    .orderBy(desc(messages.occurredAt))
+    .limit(THREAD_LIMIT);
+  rows.reverse(); // oldest first, newest THREAD_LIMIT kept
 
   return rows.map((m) => ({
     id: m.id,
@@ -421,7 +426,8 @@ export async function getRequest(id: string, now: Date = new Date()): Promise<Re
         })
         .from(aircraftScheduleBlocks)
         .innerJoin(quotes, eq(quotes.id, aircraftScheduleBlocks.relatedQuoteId))
-        .where(eq(aircraftScheduleBlocks.kind, "hold")),
+        // Only holds still in force; a request's old holds are no longer a conflict.
+        .where(and(eq(aircraftScheduleBlocks.kind, "hold"), gt(aircraftScheduleBlocks.endAt, now))),
       db
         .select({
           id: sourcedOptions.id,

@@ -8,6 +8,7 @@ import {
 } from "@/domain/messages/queries";
 import { err, ok } from "@/domain/result";
 import type { RouteDef } from "../handler";
+import { omit, redactMessages } from "../redact";
 
 /**
  * Messages: texts, emails, notes and call logs, one thread per request,
@@ -43,7 +44,9 @@ const getThreadRoute: RouteDef = {
   untrusted: true,
   run: async ({ params }) => {
     const thread = await getThread(params.kind, params.id);
-    return thread ? ok({ data: thread }) : err("not_found", "No thread for that kind and id.");
+    return thread
+      ? ok({ data: { ...thread, messages: redactMessages(thread.messages) } })
+      : err("not_found", "No thread for that kind and id.");
   },
 };
 
@@ -58,7 +61,11 @@ const listInquiriesRoute: RouteDef = {
   scope: "read",
   untrusted: true,
   query: z.object({ show: z.enum(["open", "all"]).optional() }),
-  run: async ({ query }) => ok({ data: await listInquiries({ show: query.show as string | undefined }) }),
+  run: async ({ query }) => {
+    const rows = await listInquiries({ show: query.show as string | undefined });
+    // Who handled it stays a name; teammates' email addresses do not leave.
+    return ok({ data: rows.map((r) => ({ ...omit(r, ["handledByEmail"]), handledBy: r.handledByEmail ? "Desk" : null })) });
+  },
 };
 
 const listFailedDeliveriesRoute: RouteDef = {
@@ -83,7 +90,7 @@ const listCallNotesRoute: RouteDef = {
   tag: "Messages",
   scope: "read",
   untrusted: true,
-  run: async () => ok({ data: await listCallNotes() }),
+  run: async () => ok({ data: (await listCallNotes()).map((c) => omit(c, ["recording_url"])) }),
 };
 
 export const MESSAGE_ROUTES = {

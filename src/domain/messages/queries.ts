@@ -1,5 +1,6 @@
 import { and, asc, desc, eq, gte, inArray, sql as dsql } from "drizzle-orm";
 import { db, sql } from "@/db";
+import { THREAD_LIMIT } from "@/domain/requests/queries";
 import { messages } from "@/db/schema/audit";
 import { contactInquiries } from "@/db/schema/contact";
 import { members } from "@/db/schema/members";
@@ -350,8 +351,10 @@ export async function getThread(kind: string, id: string): Promise<Thread | null
     .from(messages)
     .leftJoin(users, eq(users.id, messages.fromUserId))
     .where(and(eq(messages.subjectType, kind), eq(messages.subjectId, id)))
-    .orderBy(asc(messages.occurredAt));
+    .orderBy(desc(messages.occurredAt))
+    .limit(THREAD_LIMIT);
   if (rows.length === 0) return null;
+  rows.reverse(); // oldest first, newest THREAD_LIMIT kept
   return {
     subjectType: kind,
     subjectId: id,

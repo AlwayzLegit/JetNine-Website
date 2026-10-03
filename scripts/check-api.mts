@@ -189,6 +189,23 @@ function check(name: string, cond: boolean, detail?: unknown) {
   }
 }
 
+// ─── API redaction ───────────────────────────────────────────────────────
+{
+  const r = await import("../src/app/api/v1/_lib/redact.ts");
+  const quote = { id: "q", statusToken: "tok", clientIdempotencyKey: "k", slaAlertedAt: new Date(), marginPct: "12", finalPriceUsd: 5, status: "held" };
+  const noMoney = r.redactQuote(quote, false) as Record<string, unknown>;
+  const withMoney = r.redactQuote(quote, true) as Record<string, unknown>;
+  for (const k of ["statusToken", "clientIdempotencyKey", "slaAlertedAt"]) {
+    check(`redactQuote always drops ${k}`, !(k in noMoney) && !(k in withMoney));
+  }
+  check("redactQuote drops money without the scope", !("marginPct" in noMoney) && !("finalPriceUsd" in noMoney));
+  check("redactQuote keeps money with the scope", withMoney.finalPriceUsd === 5 && withMoney.status === "held");
+  const inv = r.redactInvoice({ id: "i", totalUsd: 1, stripePaymentIntentId: "pi", notes: "n", status: "paid" }, false) as Record<string, unknown>;
+  check("redactInvoice", !("totalUsd" in inv) && !("stripePaymentIntentId" in inv) && !("notes" in inv) && inv.status === "paid");
+  check("hideAmounts", r.hideAmounts("Paid · $12,000.50 and $5") === "Paid · — and —" && r.hideAmounts(null) === null);
+  check("deskLabel hides emails", r.deskLabel("alex@jetnine.com") === "Desk" && r.deskLabel("Alex") === "Alex");
+}
+
 // ─── OpenAPI ─────────────────────────────────────────────────────────────
 {
   const doc = buildOpenApi(ROUTES, "https://jetnine.com");

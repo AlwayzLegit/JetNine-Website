@@ -35,7 +35,7 @@ function runDayWords(runDate: string): string {
 function Title({ title, url }: { title: string; url: string | null }) {
   const cls = "text-[15px] leading-[1.45] text-bone";
   if (!url) return <span className={cls}>{title}</span>;
-  if (url.startsWith("/")) {
+  if (url.startsWith("/") && !url.startsWith("//") && !url.startsWith("/\\")) {
     return (
       <Link href={url} className={`${cls} text-link`}>
         {title}

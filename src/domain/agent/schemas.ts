@@ -44,7 +44,7 @@ export const RunItemInput = z.object({
   url: z
     .string()
     .max(600)
-    .regex(/^(https:\/\/|\/)/, "Must be https:// or a site path.")
+    .regex(/^(https:\/\/|\/(?![/\\]))/, "Must be https:// or a site path.")
     .optional(),
 });
 

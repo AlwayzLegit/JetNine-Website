@@ -199,6 +199,22 @@ function trimRun(r: RunRow): AgentContext["recentRuns"][number] {
   return { id: r.id, runDate: r.runDate, status: r.status, summaryMd: r.summaryMd?.slice(0, 1500) ?? null, report, closedAt: r.closedAt };
 }
 
+/** Days in the last week (LA calendar) with no closed run: the assistant catches up quietly, the owner sees them on Today. */
+export async function missedRunDays(now: Date = new Date()): Promise<string[]> {
+  const weekAgo = dayKeyLA(new Date(now.getTime() - 7 * 86_400_000));
+  const closedDays = await db
+    .selectDistinct({ d: agentRuns.runDate })
+    .from(agentRuns)
+    .where(and(eq(agentRuns.status, "closed"), gte(agentRuns.runDate, weekAgo)));
+  const ran = new Set(closedDays.map((r) => r.d));
+  const missed: string[] = [];
+  for (let i = 1; i <= 7; i++) {
+    const d = dayKeyLA(new Date(now.getTime() - i * 86_400_000));
+    if (!ran.has(d)) missed.push(d);
+  }
+  return missed;
+}
+
 export async function agentContext(now: Date = new Date()): Promise<AgentContext> {
   const today = dayKeyLA(now);
   const since = new Date(now.getTime() - 30 * 86_400_000);
@@ -219,18 +235,7 @@ export async function agentContext(now: Date = new Date()): Promise<AgentContext
   const feedbackSince = lastClosed && lastClosed < weekBack ? lastClosed : weekBack;
   const feedback = await decidedSince(feedbackSince, { limit: 40 });
 
-  // Days in the last week with no closed run (the assistant should catch up quietly, not loudly).
-  const weekAgo = dayKeyLA(new Date(now.getTime() - 7 * 86_400_000));
-  const closedDays = await db
-    .selectDistinct({ d: agentRuns.runDate })
-    .from(agentRuns)
-    .where(and(eq(agentRuns.status, "closed"), gte(agentRuns.runDate, weekAgo)));
-  const ran = new Set(closedDays.map((r) => r.d));
-  const missedDays: string[] = [];
-  for (let i = 1; i <= 7; i++) {
-    const d = dayKeyLA(new Date(now.getTime() - i * 86_400_000));
-    if (!ran.has(d)) missedDays.push(d);
-  }
+  const missedDays = await missedRunDays(now);
 
   return {
     today,

@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { requireAdmin } from "@/lib/auth";
 import { whenWords } from "@/lib/desk-history";
 import { MEMORY_CAP, type AgentRunItem, type PlaybookJob, type RunItemKind } from "@/db/schema/agent";
@@ -8,6 +9,7 @@ import {
   listMemory,
   listPlaybookVersions,
   listRuns,
+  missedRunDays,
   type RunRow,
 } from "@/domain/agent/queries";
 import { STARTER_GENERAL_MD, STARTER_JOBS } from "@/domain/agent/starter-playbook";
@@ -138,13 +140,8 @@ async function TodayTab({ selectedRun }: { selectedRun?: string }) {
   const names = new Map(team.map((t) => [t.id, t.name]));
   const jobNames = new Map(playbook.jobs.map((j) => [j.slug, j.name]));
 
-  // Days in the last week with no finished run.
-  const ran = new Set(runs.filter((r) => r.status === "closed").map((r) => r.runDate));
-  const missed: string[] = [];
-  for (let i = 1; i <= 7; i++) {
-    const key = dayKeyLA(new Date(now.getTime() - i * 86_400_000));
-    if (!ran.has(key)) missed.push(dayWords(key, today));
-  }
+  // Days in the last week with no finished run (from the database, not just the rows shown).
+  const missed = (await missedRunDays(now)).map((key) => dayWords(key, today));
 
   return (
     <>
@@ -311,12 +308,12 @@ function RunItems({ items, names }: { items: AgentRunItem[]; names: Map<string, 
               <li key={it.id} className="rounded-control border border-line-faint px-4 py-3">
                 <div className="flex flex-wrap items-start justify-between gap-2">
                   <div className="min-w-0 text-[15px] font-medium text-bone">
-                    {it.url ? (
-                      <a
-                        href={it.url}
-                        className="text-link-strong"
-                        {...(it.url.startsWith("https://") ? { target: "_blank", rel: "noopener noreferrer" } : {})}
-                      >
+                    {it.url && it.url.startsWith("/") && !it.url.startsWith("//") && !it.url.startsWith("/\\") ? (
+                      <Link href={it.url} className="text-link-strong">
+                        {it.title}
+                      </Link>
+                    ) : it.url?.startsWith("https://") ? (
+                      <a href={it.url} className="text-link-strong" target="_blank" rel="noopener noreferrer">
                         {it.title}
                       </a>
                     ) : (

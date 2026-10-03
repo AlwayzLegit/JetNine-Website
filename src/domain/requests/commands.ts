@@ -2,16 +2,20 @@ import { and, asc, eq, ilike, inArray, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { aircraft } from "@/db/schema/aircraft";
 import { messages, type NewMessage } from "@/db/schema/audit";
+import { invoices, type NewInvoice } from "@/db/schema/invoices";
 import { members } from "@/db/schema/members";
 import { operators } from "@/db/schema/operators";
 import { quoteLegs, quotes, quoteStatusEnum, type Quote } from "@/db/schema/quotes";
 import { aircraftScheduleBlocks, type NewAircraftScheduleBlock } from "@/db/schema/schedule-blocks";
 import { sourcedOptions, type NewSourcedOption, type SourcedOption } from "@/db/schema/sourced-option";
 import { staff } from "@/db/schema/staff";
+import { tripLegs, trips, type NewTrip, type NewTripLeg } from "@/db/schema/trips";
 import { users } from "@/db/schema/users";
 import { logAudit } from "@/lib/audit";
 import { DEFAULT_MARKUP_PCT } from "@/lib/constants";
-import { sendQuoteLifecycleEmail, sendQuoteOptionsEmail, type QuoteOptionEmailItem } from "@/lib/email";
+import { personName } from "@/lib/desk-status";
+import { sendBookingConfirmationEmail, sendQuoteLifecycleEmail, sendQuoteOptionsEmail, type QuoteOptionEmailItem } from "@/lib/email";
+import { attemptInvoiceDrawdown, type DrawdownOutcome } from "@/lib/membership-balance";
 import type { ThreadChannel } from "@/lib/message-delivery";
 import { isSourcingEligible, normalizeCategory } from "@/lib/operator-eligibility";
 import { isE164, toE164 } from "@/lib/phone";
@@ -30,6 +34,7 @@ import {
   type OptionRefInput,
   type OptionUpdateInput,
   type RequestAssignInput,
+  type RequestConvertInput,
   type RequestLinkClientInput,
   type RequestMessageInput,
   type RequestStatusInput,
@@ -1174,4 +1179,413 @@ export async function removeOption(
     metadata: { ...a.metadata, optionId: option.id },
   });
   return ok({ optionId: option.id });
+}
+
+// ─── Convert to a trip ───────────────────────────────────────────────────
+// Promotes an accepted request into a real trip + a draft invoice. Idempotent
+// against the request (won't double-convert if already linked).
+
+const SEGMENT_FEE_USD = 5.2; // IRS 2026 rate
+
+/**
+ * ICAO prefixes that indicate the airport is OUTSIDE the United States
+ * (and US territories) for customs / APIS purposes. The previous
+ * `!startsWith("K")` heuristic wrongly flagged P** (Hawaii, Alaska,
+ * Guam — PHNL, PANC, PGUM) and T** (PR, USVI — TJSJ, TIST) as
+ * international, triggering eAPIS / customs paperwork on what are
+ * actually domestic-territory flights. Correct rule: K** (CONUS) and
+ * the territory P** / T** prefixes below are domestic; everything
+ * else (CY**, EG**, M**, LF**, RJ**, etc.) is international.
+ *
+ * Source: ICAO Doc 7910 region-code allocations. Hawaii=PH, Alaska=PA,
+ * Guam=PG, Puerto Rico=TJ, USVI=TI. American Samoa (NSTU) and Northern
+ * Mariana Islands (PG**) round out the territories — NSTU is N**
+ * which would otherwise be flagged, so listed explicitly.
+ */
+const US_DOMESTIC_ICAO_PREFIXES = ["K", "PH", "PA", "PG", "TJ", "TI"] as const;
+const US_DOMESTIC_FULL_ICAO = new Set(["NSTU"]); // American Samoa, lone N** territory
+
+export function isInternationalIcao(icao: string | null): boolean {
+  if (!icao) return false;
+  if (US_DOMESTIC_FULL_ICAO.has(icao)) return false;
+  return !US_DOMESTIC_ICAO_PREFIXES.some((p) => icao.startsWith(p));
+}
+
+export type RequestConvertState = {
+  quote: Quote;
+  /** The request's client: the row exists (the load refuses otherwise). */
+  memberId: string;
+  /** Who the trip is for, for the approval card. */
+  clientName: string;
+  legs: (typeof quoteLegs.$inferSelect)[];
+  /** The chosen sourced option, when the desk picked one. */
+  chosen: SourcedOption | null;
+  pricing: {
+    subtotal: number | null;
+    fet: number | null;
+    seg: number;
+    total: number | null;
+    operatorCostUsd: number | null;
+    marginPct: string | null;
+  };
+  tripOperatorId: string | null;
+  tripAircraftId: string | null;
+};
+
+export async function loadRequestForConvert(input: RequestConvertInput): Promise<Result<RequestConvertState>> {
+  if (!isUuid(input.id)) return err("not_found", NOT_FOUND);
+  const [quote] = await db.select().from(quotes).where(eq(quotes.id, input.id));
+  if (!quote) return err("not_found", NOT_FOUND);
+  if (quote.convertedTripId) return err("conflict", `Already converted to ${quote.convertedTripId}`);
+  if (quote.status === "cancelled" || quote.status === "expired" || quote.status === "declined") {
+    return err("conflict", `Quote is ${quote.status}`);
+  }
+
+  // Resolve member: quote must already have an explicit memberId. The
+  // previous auto-bind-by-contactSnapshot.email was an IDOR — the contact
+  // form is unauthenticated, so an attacker could submit a quote with a
+  // victim's email and convert-time would attach the trip + invoice to
+  // (and auto-draw from the reserve of) the unrelated victim's account.
+  // Member linkage now requires either (a) the customer signed in before
+  // submitting, or (b) a dispatcher explicitly attached a member at
+  // /admin/requests/[id] before clicking Convert.
+  const memberId = quote.memberId;
+  if (!memberId) {
+    return err(
+      "invalid",
+      "Attach a member to this quote first (the customer must sign in, or you must link a member from the quote workbench).",
+    );
+  }
+
+  const legs = await db.select().from(quoteLegs).where(eq(quoteLegs.quoteId, quote.id)).orderBy(asc(quoteLegs.legNumber));
+  if (legs.length === 0) return err("invalid", "Quote has no legs");
+
+  // Pricing — if a sourced option has been chosen, its client price +
+  // operator cost drive the trip/invoice; otherwise fall back to the
+  // indicative midpoint (backward compatible with pre-Avinode quotes).
+  const [chosen] = await db
+    .select()
+    .from(sourcedOptions)
+    .where(and(eq(sourcedOptions.quoteId, quote.id), eq(sourcedOptions.isChosen, true)))
+    .limit(1);
+
+  const subtotal =
+    chosen?.clientPriceUsd != null
+      ? chosen.clientPriceUsd
+      : quote.indicativeLowUsd && quote.indicativeHighUsd
+        ? Math.round((quote.indicativeLowUsd + quote.indicativeHighUsd) / 2)
+        : null;
+  // FET is 7.5% of subtotal. Use null-check (not truthy) so a $0
+  // subtotal correctly produces fet=0 instead of fet=null — the
+  // downstream `fetUsd is known iff subtotalUsd is known` invariant
+  // matters for revenue reports.
+  const fet = subtotal !== null ? Math.round(subtotal * 0.075) : null;
+  const seg = Math.round(SEGMENT_FEE_USD * quote.paxCount * legs.length);
+  const total = subtotal !== null ? subtotal + (fet ?? 0) + seg : null;
+
+  // Operator cost + true margin + tail/operator linkage from the chosen
+  // option (all null when converting without a sourced option).
+  const operatorCostUsd = chosen?.operatorCostUsd ?? null;
+  const marginPct =
+    chosen && subtotal && subtotal > 0 && operatorCostUsd != null
+      ? String(Math.round(((subtotal - operatorCostUsd) / subtotal) * 10000) / 100)
+      : null;
+  const tripOperatorId = chosen?.operatorId ?? null;
+  let tripAircraftId: string | null = null;
+  if (chosen?.tailNumber) {
+    const [ac] = await db.select({ id: aircraft.id }).from(aircraft).where(eq(aircraft.tailNumber, chosen.tailNumber)).limit(1);
+    tripAircraftId = ac?.id ?? null;
+  }
+
+  // The client's name for the approval card: the contact as they wrote it,
+  // else the account's name.
+  let clientName = personName(quote.contactSnapshot?.firstName, quote.contactSnapshot?.lastName, "");
+  if (!clientName) {
+    const [m] = await db
+      .select({ firstName: users.firstName, lastName: users.lastName, email: users.email })
+      .from(members)
+      .innerJoin(users, eq(users.id, members.userId))
+      .where(eq(members.id, memberId));
+    clientName = personName(m?.firstName, m?.lastName, m?.email ?? "the client");
+  }
+
+  return ok({
+    quote,
+    memberId,
+    clientName,
+    legs,
+    chosen: chosen ?? null,
+    pricing: { subtotal, fet, seg, total, operatorCostUsd, marginPct },
+    tripOperatorId,
+    tripAircraftId,
+  });
+}
+
+/**
+ * Book the request: insert the trip and its legs, open the invoice (and
+ * draw it from the client's reserve when they have one with the balance),
+ * release the request's soft holds and mark it converted — all in one
+ * transaction — then audit and email the booking confirmation.
+ */
+export async function convertRequestToTrip(
+  actor: Actor,
+  input: RequestConvertInput,
+  state: RequestConvertState,
+): Promise<Result<{ tripId: string; tripCode: string; invoiceId: string }>> {
+  const { quote, memberId, legs, pricing, tripOperatorId, tripAircraftId } = state;
+  const quoteId = quote.id;
+  const { subtotal, fet, seg, total, operatorCostUsd, marginPct } = pricing;
+  const a = auditFields(actor);
+
+  let inserted: {
+    trip: { id: string; tripCode: string };
+    invoice: { id: string };
+    drawdown: DrawdownOutcome | null;
+  };
+  try {
+    inserted = await db.transaction(async (tx) => {
+      const tripValues: NewTrip = {
+        memberId,
+        quoteId,
+        assignedDispatcherId: quote.assignedDispatcherId ?? null,
+        missionType: quote.tripType === "round" ? "round" : quote.tripType === "one_way" ? "one_way" : "multi_leg",
+        paxCount: quote.paxCount,
+        crewCount: 2,
+        isInternational: legs.some((l) => isInternationalIcao(l.fromIcao) || isInternationalIcao(l.toIcao)),
+        status: "confirmed",
+        revenueUsd: subtotal,
+        operatorCostUsd,
+        marginPct,
+        aircraftId: tripAircraftId,
+        operatorId: tripOperatorId,
+      };
+      // Insert the trip first — the partial unique index
+      // `trips_quote_id_uniq` (migration 0032) makes this the
+      // serialization point against concurrent conversions of the same
+      // quote (dispatcher double-click, two-tab race). The second caller
+      // bounces here with SQLSTATE 23505 and we surface "already
+      // converted" to the caller below.
+      const [tripRow] = await tx.insert(trips).values(tripValues).returning({ id: trips.id, tripCode: trips.tripCode });
+
+      const tripLegRows: NewTripLeg[] = legs.map((l) => ({
+        tripId: tripRow.id,
+        legNumber: l.legNumber,
+        fromIcao: l.fromIcao,
+        fromIata: l.fromIata,
+        fromCity: l.fromCity,
+        fromName: l.fromName,
+        toIcao: l.toIcao,
+        toIata: l.toIata,
+        toCity: l.toCity,
+        toName: l.toName,
+        departDate: l.departDate,
+        departTime: l.departTime,
+        departTz: l.departTz,
+        distanceNm: l.distanceNm,
+      }));
+      await tx.insert(tripLegs).values(tripLegRows);
+
+      // If the member has an active Card / Reserve with sufficient balance,
+      // the invoice opens as 'due' so attemptInvoiceDrawdown can immediately
+      // flip it to 'paid' from the reserve. Otherwise it stays 'draft' for
+      // the dispatcher to review + finalize manually (current default).
+      const memberHasCardBalance = total !== null && total > 0;
+      const invoiceValues: NewInvoice = {
+        memberId,
+        tripId: tripRow.id,
+        kind: "charter",
+        // 'due' lets the drawdown helper short-circuit to 'paid' atomically.
+        // If the draw fails (no card or insufficient balance), we revert to
+        // 'draft' below so the existing review-then-finalize workflow holds.
+        status: memberHasCardBalance ? "due" : "draft",
+        subtotalUsd: subtotal,
+        fetUsd: fet,
+        segmentFeeUsd: seg,
+        totalUsd: total,
+      };
+      const [invRow] = await tx.insert(invoices).values(invoiceValues).returning({ id: invoices.id });
+
+      // Atomic drawdown: if the member has a Card/Reserve with balance
+      // covering the full total, draw it down and flip the invoice to
+      // 'paid' inside this same transaction.
+      let drawdown: DrawdownOutcome | null = null;
+      if (memberHasCardBalance) {
+        drawdown = await attemptInvoiceDrawdown(tx, {
+          invoiceId: invRow.id,
+          memberId,
+          tripId: tripRow.id,
+          totalUsd: total,
+        });
+        // Drawdown didn't fire — revert the optimistic 'due' status to
+        // 'draft' so it doesn't accidentally route the customer to Stripe
+        // for an invoice the dispatcher meant to review first.
+        if (!drawdown.drew) {
+          await tx.update(invoices).set({ status: "draft", updatedAt: new Date() }).where(eq(invoices.id, invRow.id));
+        }
+      }
+
+      // Release any soft holds this quote had on aircraft. Without this,
+      // the holds linger forever — /admin/ops shows phantom blocks on the
+      // tail, and the manual deleteScheduleBlock path refuses to remove
+      // rows with relatedQuoteId set ("cancel the trip or release the
+      // hold instead"). Doing the delete inside the convert tx keeps the
+      // ops calendar consistent with the trip's new confirmed state.
+      await tx
+        .delete(aircraftScheduleBlocks)
+        .where(and(eq(aircraftScheduleBlocks.relatedQuoteId, quoteId), eq(aircraftScheduleBlocks.kind, "hold")));
+
+      await tx
+        .update(quotes)
+        .set({
+          status: "converted",
+          acceptedAt: new Date(),
+          convertedTripId: tripRow.id,
+        })
+        .where(eq(quotes.id, quoteId));
+
+      return { trip: tripRow, invoice: invRow, drawdown };
+    });
+  } catch (e) {
+    // Race: a parallel conversion already won. The unique index on
+    // trips(quote_id) returns SQLSTATE 23505. Re-read the quote and
+    // surface the existing trip rather than dropping the user into a
+    // generic error.
+    if (isUniqueViolation(e)) {
+      const [requoted] = await db
+        .select({ convertedTripId: quotes.convertedTripId, quoteCode: quotes.quoteCode })
+        .from(quotes)
+        .where(eq(quotes.id, quoteId));
+      return err(
+        "conflict",
+        requoted?.convertedTripId
+          ? `Already converted to trip ${requoted.convertedTripId}`
+          : "Convert raced with another writer — refresh and try again.",
+      );
+    }
+    throw e;
+  }
+
+  await logAudit({
+    actorUserId: a.actorUserId,
+    actorRole: a.actorRole,
+    action: "quote.convert.trip",
+    subjectType: "quote",
+    subjectId: quoteId,
+    subjectCode: quote.quoteCode,
+    diff: {
+      status: { before: quote.status, after: "converted" },
+      convertedTripId: { before: null, after: inserted.trip.id },
+    },
+    metadata: {
+      ...a.metadata,
+      tripCode: inserted.trip.tripCode,
+      invoiceId: inserted.invoice.id,
+      memberId,
+      subtotalUsd: subtotal,
+      fetUsd: fet,
+      segmentFeeUsd: seg,
+      totalUsd: total,
+      drawdown: inserted.drawdown,
+    },
+  });
+  // Also log on the trip subject so trip-scoped queries see the conversion.
+  await logAudit({
+    actorUserId: a.actorUserId,
+    actorRole: a.actorRole,
+    action: "trip.create.from_quote",
+    subjectType: "trip",
+    subjectId: inserted.trip.id,
+    subjectCode: inserted.trip.tripCode,
+    metadata: { ...a.metadata, quoteId, quoteCode: quote.quoteCode },
+  });
+
+  // Separate audit row for the membership drawdown so the membership
+  // subject_type history reads as a clean ledger: top-ups + draws +
+  // adjustments only.
+  if (inserted.drawdown?.drew) {
+    await logAudit({
+      actorUserId: a.actorUserId,
+      actorRole: a.actorRole,
+      action: "membership.charter_draw",
+      subjectType: "membership",
+      subjectId: null, // membershipId — we don't have it in scope here without an extra query
+      metadata: {
+        ...a.metadata,
+        invoiceId: inserted.invoice.id,
+        tripId: inserted.trip.id,
+        tripCode: inserted.trip.tripCode,
+        amountUsd: inserted.drawdown.amountUsd,
+        reserveTxId: inserted.drawdown.reserveTxId,
+        remainingBalanceUsd: inserted.drawdown.remainingBalanceUsd,
+      },
+    });
+  }
+
+  // Booking confirmation — until this existed, a customer who just
+  // committed to a five-figure trip heard nothing (trips are inserted as
+  // 'confirmed', bypassing the status-transition notifier). Best-effort:
+  // a failed email never rolls back the conversion.
+  try {
+    let confirmTo = quote.contactSnapshot?.email?.trim() || null;
+    if (!confirmTo && memberId) {
+      const [m] = await db
+        .select({ email: users.email })
+        .from(members)
+        .innerJoin(users, eq(users.id, members.userId))
+        .where(eq(members.id, memberId));
+      confirmTo = m?.email ?? null;
+    }
+    if (confirmTo) {
+      const emailLegs = await db
+        .select({ fromIata: quoteLegs.fromIata, toIata: quoteLegs.toIata, departDate: quoteLegs.departDate })
+        .from(quoteLegs)
+        .where(eq(quoteLegs.quoteId, quoteId))
+        .orderBy(asc(quoteLegs.legNumber));
+      const itineraryLines = emailLegs.map((l) => `${l.fromIata ?? "—"} → ${l.toIata ?? "—"} · ${l.departDate ?? "date TBD"}`);
+      const result = await sendBookingConfirmationEmail({
+        to: confirmTo,
+        firstName: quote.contactSnapshot?.firstName?.trim() || "Hello",
+        tripCode: inserted.trip.tripCode,
+        quoteCode: quote.quoteCode,
+        itineraryLines,
+        paxCount: quote.paxCount,
+        totalUsd: total,
+        // The convert tx reverts the invoice to 'draft' whenever the reserve
+        // didn't cover it (dispatcher reviews before the customer pays), and
+        // the drawdown branch below handles the covered case — so the "pay
+        // now" line is never right at convert time.
+        invoiceIsDue: false,
+        drawdown: inserted.drawdown?.drew
+          ? {
+              amountUsd: inserted.drawdown.amountUsd ?? 0,
+              remainingBalanceUsd: inserted.drawdown.remainingBalanceUsd ?? 0,
+            }
+          : null,
+      });
+      await db.insert(messages).values({
+        subjectType: "trip",
+        subjectId: inserted.trip.id,
+        channel: "email",
+        direction: "out",
+        toAddress: confirmTo,
+        fromUserId: actor.userId,
+        preview: `Booking confirmation — ${inserted.trip.tripCode}`,
+        body: `Booking confirmation email for ${inserted.trip.tripCode} (from ${quote.quoteCode}).`,
+        isRead: false,
+        deliveryStatus: result.ok ? (result.provider === "logger" ? "queued" : "sent") : "failed",
+        deliveryProvider: result.ok ? result.provider : null,
+        deliveryMessageId: result.ok ? (result.messageId ?? null) : null,
+        deliveryError: result.ok
+          ? result.provider === "logger"
+            ? "email channel not configured — logged only, not delivered"
+            : null
+          : result.error.slice(0, 500),
+        deliveredAt: result.ok && result.provider !== "logger" ? new Date() : null,
+      });
+    }
+  } catch (e) {
+    console.error("booking confirmation email failed (non-fatal)", e);
+  }
+
+  return ok({ tripId: inserted.trip.id, tripCode: inserted.trip.tripCode, invoiceId: inserted.invoice.id });
 }

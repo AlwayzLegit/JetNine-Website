@@ -2,6 +2,7 @@ import { z } from "zod";
 import { runOp } from "@/domain/ops/registry";
 import {
   requestAssignOp,
+  requestConvertOp,
   requestHoldCreateOp,
   requestHoldReleaseOp,
   requestLinkClientOp,
@@ -25,6 +26,7 @@ import {
   OptionRefBody,
   OptionUpdateBody,
   RequestAssignBody,
+  RequestConvertBody,
   RequestLinkClientBody,
   RequestMessageBody,
   RequestStatusBody,
@@ -42,6 +44,7 @@ import { redactMessages, redactQuote } from "../redact";
  * permission. The writes go through the ops registry: a key that asks
  * before acting gets a 202 whenever the client would hear about it;
  * desk-side changes (assignment, client link, holds, options) run at once.
+ * Booking a request (convert) moves money and needs the `money` permission.
  */
 export const REQUEST_ROUTES = {
   listRequests: {
@@ -273,5 +276,22 @@ export const REQUEST_ROUTES = {
     approval: "never",
     run: async ({ actor, params }) =>
       opRouteOutput(await runOp(requestOptionRemoveOp, actor, { id: params.id, optionId: params.optionId })),
+  },
+  convertRequest: {
+    method: "POST",
+    path: "/requests/{id}/convert",
+    operationId: "convertRequest",
+    summary: "Book a request as a trip",
+    description:
+      "Converts the request into a confirmed trip with its legs and opens the invoice, priced from the chosen option (or the indicative midpoint when none is chosen) plus 7.5% FET and the segment fee. When the client holds a Card or Reserve with enough balance the invoice is drawn from it at once and marked paid; otherwise it stays a draft for the desk to review and finalize. Releases the request's soft holds, marks it converted and emails the client a booking confirmation. Needs the `money` permission. 409 when the request is already converted or is cancelled, expired or declined; 422 when no client is linked or the request has no legs. Always goes to an owner first for a key that asks before acting. `reason` is an optional line for the approver. Returns the trip id and code and the invoice id.",
+    tag: "Requests",
+    scope: "money",
+    approval: "always",
+    body: RequestConvertBody,
+    successStatus: 201,
+    run: async ({ actor, params, body }) => {
+      const { reason } = (body ?? {}) as z.infer<typeof RequestConvertBody>;
+      return opRouteOutput(await runOp(requestConvertOp, actor, { id: params.id }, { reason }), 201);
+    },
   },
 } satisfies Record<string, RouteDef>;

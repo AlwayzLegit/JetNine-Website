@@ -122,3 +122,12 @@ export type OptionRefInput = z.infer<typeof OptionRefInput>;
 export const OptionAddBody = OptionFields.extend({ reason });
 export const OptionUpdateBody = OptionFields.extend({ reason });
 export const OptionRefBody = z.object({ reason });
+
+// ─── Convert to a trip ───────────────────────────────────────────────────
+
+export const RequestConvertInput = z.object({
+  id: z.uuid(),
+});
+export type RequestConvertInput = z.infer<typeof RequestConvertInput>;
+
+export const RequestConvertBody = z.object({ reason });

@@ -1,57 +1,32 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
-import { requireAdmin, requireStaff } from "@/lib/auth";
-import { logAudit } from "@/lib/audit";
-import {
-  getReplyPromiseMinutes,
-  isNotificationKind,
-  isReplyPromiseChoice,
-  saveNotificationPrefs,
-  setReplyPromiseMinutes,
-} from "@/lib/desk-settings";
+import { sessionActor } from "@/domain/actor";
+import { runOp } from "@/domain/ops/registry";
+import { notificationPrefOp, replyPromiseOp } from "@/domain/settings/ops";
 
-// Settings › Notifications. The four toggles are per user (any staff);
-// the reply-time promise is desk-wide and owner-only.
-
-const PATH = "/admin/settings/notifications";
+// Settings › Notifications. The work itself is the settings.* ops
+// (src/domain/settings), shared with the API and the approval queue; runOp
+// checks the permission and revalidates the pages. The four toggles are per
+// user (any staff); the reply-time promise is desk-wide and owner-only
+// (the `settings` permission).
 
 export type PrefResult = { ok: true } | { ok: false; error: string };
 
 export async function saveNotificationPref(kind: string, on: boolean): Promise<PrefResult> {
-  const user = await requireStaff();
-  if (!isNotificationKind(kind)) return { ok: false, error: "Unknown setting" };
-  try {
-    await saveNotificationPrefs(user.id, { [kind]: Boolean(on) });
-  } catch (err) {
-    console.error("[settings/notifications] save failed", err);
-    return { ok: false, error: "Could not save. Try again." };
-  }
-  revalidatePath(PATH);
+  const session = await sessionActor();
+  if (!session.ok) return { ok: false, error: session.error };
+
+  const r = await runOp(notificationPrefOp, session.value, { kind, on: Boolean(on) });
+  if (!r.ok) return { ok: false, error: r.code === "invalid" ? "Unknown setting" : r.error };
+  if (r.value.kind === "pending") return { ok: false, error: "This was sent for approval." };
   return { ok: true };
 }
 
 export async function saveReplyPromise(formData: FormData): Promise<void> {
-  const actor = await requireAdmin();
+  const session = await sessionActor();
+  if (!session.ok) return;
   const minutes = Number(formData.get("minutes"));
-  if (!isReplyPromiseChoice(minutes)) return;
-  const before = await getReplyPromiseMinutes();
-  if (before === minutes) return;
-  try {
-    await setReplyPromiseMinutes(minutes, actor.id);
-  } catch (err) {
-    // Migration 0050 not applied yet: keep the page up; the default holds.
-    console.error("[settings/notifications] reply promise save failed", err);
-    return;
-  }
-  await logAudit({
-    actorUserId: actor.id,
-    actorRole: actor.role,
-    action: "system.reply_promise.update",
-    subjectType: "system",
-    subjectCode: "reply_promise_minutes",
-    diff: { minutes: { before, after: minutes } },
-  });
-  revalidatePath(PATH);
-  revalidatePath("/admin/requests");
+  // Not one of the choices, no change, or a save that failed: the page
+  // stays as it was, as before.
+  await runOp(replyPromiseOp, session.value, { minutes });
 }

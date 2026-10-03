@@ -1,32 +1,55 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { and, asc, eq, ilike, sql } from "drizzle-orm";
+import { and, asc, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { quotes, quoteLegs } from "@/db/schema/quotes";
 import { trips, tripLegs, type NewTrip, type NewTripLeg } from "@/db/schema/trips";
 import { invoices, type NewInvoice } from "@/db/schema/invoices";
 import { members } from "@/db/schema/members";
-import { staff } from "@/db/schema/staff";
 import { aircraft } from "@/db/schema/aircraft";
-import { operators } from "@/db/schema/operators";
-import { sourcedOptions, type NewSourcedOption } from "@/db/schema/sourced-option";
-import { DEFAULT_MARKUP_PCT } from "@/lib/constants";
-import { isSourcingEligible, normalizeCategory } from "@/lib/operator-eligibility";
-import {
-  aircraftScheduleBlocks,
-  type NewAircraftScheduleBlock,
-} from "@/db/schema/schedule-blocks";
+import { sourcedOptions } from "@/db/schema/sourced-option";
+import { aircraftScheduleBlocks } from "@/db/schema/schedule-blocks";
 import { messages } from "@/db/schema/audit";
 import { users } from "@/db/schema/users";
 import { requireStaff } from "@/lib/auth";
 import { logAudit } from "@/lib/audit";
+import { DEFAULT_MARKUP_PCT } from "@/lib/constants";
 import { sendBookingConfirmationEmail } from "@/lib/email";
 import { attemptInvoiceDrawdown, type DrawdownOutcome } from "@/lib/membership-balance";
 import { sessionActor } from "@/domain/actor";
 import { runOp } from "@/domain/ops/registry";
-import { requestMessageOp, requestSendOptionsOp, requestStatusOp } from "@/domain/requests/ops";
-import { isDeskMessageChannel } from "@/domain/requests/schemas";
+import { REQUEST_NOT_FOUND, isUniqueViolation } from "@/domain/requests/commands";
+import {
+  requestAssignOp,
+  requestHoldCreateOp,
+  requestHoldReleaseOp,
+  requestLinkClientOp,
+  requestMessageOp,
+  requestOptionAddOp,
+  requestOptionChooseOp,
+  requestOptionRemoveOp,
+  requestOptionUpdateOp,
+  requestSendOptionsOp,
+  requestStatusOp,
+} from "@/domain/requests/ops";
+import { isDeskMessageChannel, type OptionFields } from "@/domain/requests/schemas";
+import { issueWords, type Err } from "@/domain/result";
+
+const UUID_RE = /^[0-9a-f-]{36}$/i;
+const PENDING = "This was sent for approval.";
+
+/**
+ * The desk's wording for an op error: the shared "no request" sentence
+ * becomes "Quote not found", a validation failure names the field, and the
+ * rest already reads the way the desk did.
+ */
+function deskError(r: Err): string {
+  if (r.code === "not_found" && r.error === REQUEST_NOT_FOUND) return "Quote not found";
+  if (r.code === "invalid") return issueWords(r) ?? r.error;
+  return r.error;
+}
+
 
 // The work itself is the "request.status" op (src/domain/requests), shared
 // with the API and the approval queue; runOp revalidates the pages.
@@ -43,110 +66,39 @@ export async function updateQuoteStatus(
   return { ok: true };
 }
 
+// The work itself is the "request.assign" op (src/domain/requests).
 export async function assignDispatcher(
   quoteId: string,
   staffId: string | null,
 ): Promise<{ ok: true } | { ok: false; error: string }> {
-  const actor = await requireStaff();
-
-  if (staffId) {
-    const [exists] = await db
-      .select({ id: staff.id })
-      .from(staff)
-      .where(eq(staff.id, staffId));
-    if (!exists) return { ok: false, error: "Unknown dispatcher" };
-  }
-
-  const [before] = await db
-    .select({
-      assignedDispatcherId: quotes.assignedDispatcherId,
-      code: quotes.quoteCode,
-    })
-    .from(quotes)
-    .where(eq(quotes.id, quoteId));
-
-  await db
-    .update(quotes)
-    .set({ assignedDispatcherId: staffId })
-    .where(eq(quotes.id, quoteId));
-
-  await logAudit({
-    actorUserId: actor.id,
-    actorRole: actor.role,
-    action: "quote.dispatcher.assign",
-    subjectType: "quote",
-    subjectId: quoteId,
-    subjectCode: before?.code ?? null,
-    diff: {
-      assignedDispatcherId: { before: before?.assignedDispatcherId ?? null, after: staffId },
-    },
-  });
-
-  revalidatePath("/admin/requests");
-  revalidatePath(`/admin/requests/${quoteId}`);
+  const session = await sessionActor();
+  if (!session.ok) return { ok: false, error: session.error };
+  if (!UUID_RE.test(quoteId)) return { ok: false, error: "Bad quote id" };
+  if (staffId !== null && !UUID_RE.test(staffId)) return { ok: false, error: "Unknown dispatcher" };
+  const r = await runOp(requestAssignOp, session.value, { id: quoteId, staffId });
+  if (!r.ok) return { ok: false, error: r.code === "invalid" ? "Unknown dispatcher" : deskError(r) };
+  if (r.value.kind === "pending") return { ok: false, error: PENDING };
   return { ok: true };
 }
 
 // ─── attachMemberToQuote ──────────────────────────────────────────
 // The dispatcher-side half of member linkage (the customer-side half is
-// the signed-in auto-link in submitQuote). Pass null to detach. Locked
-// once the quote is converted — the trip + invoice already carry the
-// member, so a late re-link would desync the chain.
+// the signed-in auto-link in submitQuote). Pass null to detach. The work
+// itself is the "request.linkClient" op (src/domain/requests), which also
+// holds the converted lock.
 
 export async function attachMemberToQuote(
   quoteId: string,
   memberId: string | null,
 ): Promise<{ ok: true; memberCode: string | null } | { ok: false; error: string }> {
-  const actor = await requireStaff();
-
+  const session = await sessionActor();
+  if (!session.ok) return { ok: false, error: session.error };
   if (!UUID_RE.test(quoteId)) return { ok: false, error: "Bad quote id" };
-  if (memberId !== null && !UUID_RE.test(memberId)) {
-    return { ok: false, error: "Bad member id" };
-  }
-
-  const [q] = await db
-    .select({
-      id: quotes.id,
-      code: quotes.quoteCode,
-      memberId: quotes.memberId,
-      convertedTripId: quotes.convertedTripId,
-    })
-    .from(quotes)
-    .where(eq(quotes.id, quoteId));
-  if (!q) return { ok: false, error: "Quote not found" };
-  if (q.convertedTripId) {
-    return { ok: false, error: "Quote already converted — member is locked to the trip" };
-  }
-
-  let memberCode: string | null = null;
-  if (memberId) {
-    const [m] = await db
-      .select({ id: members.id, memberCode: members.memberCode })
-      .from(members)
-      .where(eq(members.id, memberId));
-    if (!m) return { ok: false, error: "Member not found" };
-    memberCode = m.memberCode;
-  }
-
-  await db
-    .update(quotes)
-    .set({ memberId, updatedAt: new Date() })
-    .where(eq(quotes.id, quoteId));
-
-  await logAudit({
-    actorUserId: actor.id,
-    actorRole: actor.role,
-    action: memberId ? "quote.member.attach" : "quote.member.detach",
-    subjectType: "quote",
-    subjectId: quoteId,
-    subjectCode: q.code,
-    diff: { memberId: { before: q.memberId, after: memberId } },
-    metadata: { memberCode },
-  });
-
-  revalidatePath(`/admin/requests/${quoteId}`);
-  revalidatePath("/admin/requests");
-  return { ok: true, memberCode };
+  if (memberId !== null && !UUID_RE.test(memberId)) return { ok: false, error: "Bad member id" };
+  const r = await runOp(requestLinkClientOp, session.value, { id: quoteId, memberId });
+  if (!r.ok) return { ok: false, error: r.code === "invalid" ? "Member not found" : deskError(r) };
+  if (r.value.kind === "pending") return { ok: false, error: PENDING };
+  return { ok: true, memberCode: (r.value.value as { memberCode: string | null }).memberCode };
 }
 
 // ─── convertQuoteToTrip ───────────────────────────────────────────
@@ -562,14 +514,9 @@ export async function postQuoteMessage(
 }
 
 // ─── Soft holds ───────────────────────────────────────────────────────
-// A soft hold puts a `kind='hold'` row on aircraft_schedule_blocks linked back
-// to this quote. Different dispatchers can hold the same airframe for
-// different quotes; conflict resolution is human until one is promoted to
-// a confirmed trip. The hold window is derived from the quote's legs:
-// earliest depart → latest depart + a 4-hour buffer for flight + ground.
-
-const UUID_RE = /^[0-9a-f-]{36}$/i;
-const DEFAULT_HOLD_BUFFER_HOURS = 4;
+// The work itself is the "request.hold.create" / "request.hold.release"
+// ops (src/domain/requests): window derivation, dedupe and the race guard
+// all live there.
 
 export type CreateSoftHoldResult =
   | { ok: true; blockId: string; expiresAt: string }
@@ -579,168 +526,29 @@ export async function createSoftHold(
   quoteId: string,
   aircraftId: string,
 ): Promise<CreateSoftHoldResult> {
-  const actor = await requireStaff();
-
+  const session = await sessionActor();
+  if (!session.ok) return { ok: false, error: session.error };
   if (!UUID_RE.test(quoteId)) return { ok: false, error: "Bad quote id" };
   if (!UUID_RE.test(aircraftId)) return { ok: false, error: "Bad aircraft id" };
-
-  const [q] = await db
-    .select({ id: quotes.id, code: quotes.quoteCode, status: quotes.status })
-    .from(quotes)
-    .where(eq(quotes.id, quoteId));
-  if (!q) return { ok: false, error: "Quote not found" };
-  if (["accepted", "declined", "expired", "cancelled", "converted"].includes(q.status)) {
-    return { ok: false, error: `Quote is ${q.status} — can't soft-hold` };
-  }
-
-  const [ac] = await db
-    .select({ id: aircraft.id, tailNumber: aircraft.tailNumber, status: aircraft.status })
-    .from(aircraft)
-    .where(eq(aircraft.id, aircraftId));
-  if (!ac) return { ok: false, error: "Aircraft not found" };
-  if (ac.status === "sold") return { ok: false, error: "Aircraft is sold" };
-
-  // Derive window from quote legs.
-  const legs = await db
-    .select({
-      departDate: quoteLegs.departDate,
-      departTime: quoteLegs.departTime,
-    })
-    .from(quoteLegs)
-    .where(eq(quoteLegs.quoteId, quoteId))
-    .orderBy(asc(quoteLegs.departDate), asc(quoteLegs.departTime));
-  if (legs.length === 0) return { ok: false, error: "Quote has no legs" };
-
-  function legAt(d: string | null, t: string | null): Date | null {
-    if (!d) return null;
-    const time = t || "00:00";
-    // Treat the value as UTC — there's no per-leg tz on the soft-hold path.
-    const iso = `${d}T${time.length === 5 ? `${time}:00` : time}Z`;
-    const dd = new Date(iso);
-    return Number.isNaN(dd.getTime()) ? null : dd;
-  }
-
-  const startAt = legAt(legs[0].departDate, legs[0].departTime);
-  const lastLegStart = legAt(legs[legs.length - 1].departDate, legs[legs.length - 1].departTime);
-  if (!startAt || !lastLegStart) return { ok: false, error: "Quote legs lack a usable date" };
-
-  const endAt = new Date(
-    lastLegStart.getTime() + DEFAULT_HOLD_BUFFER_HOURS * 60 * 60 * 1000,
-  );
-  if (endAt <= startAt) {
-    return { ok: false, error: "Computed hold window is degenerate" };
-  }
-
-  // Reject if THIS quote already holds THIS airframe — soft holds are
-  // idempotent against (quote, aircraft).
-  const [dup] = await db
-    .select({ id: aircraftScheduleBlocks.id })
-    .from(aircraftScheduleBlocks)
-    .where(
-      and(
-        eq(aircraftScheduleBlocks.aircraftId, aircraftId),
-        eq(aircraftScheduleBlocks.relatedQuoteId, quoteId),
-        eq(aircraftScheduleBlocks.kind, "hold"),
-      ),
-    );
-  if (dup) return { ok: false, error: "Already holding this aircraft for this quote" };
-
-  const values: NewAircraftScheduleBlock = {
-    aircraftId,
-    kind: "hold",
-    startAt,
-    endAt,
-    relatedQuoteId: quoteId,
-    notes: q.code,
-    createdByUserId: actor.id,
-  };
-
-  try {
-    const [row] = await db
-      .insert(aircraftScheduleBlocks)
-      .values(values)
-      .returning({ id: aircraftScheduleBlocks.id });
-
-    await logAudit({
-      actorUserId: actor.id,
-      actorRole: actor.role,
-      action: "quote.soft_hold.create",
-      subjectType: "quote",
-      subjectId: quoteId,
-      subjectCode: q.code,
-      metadata: {
-        blockId: row.id,
-        aircraftId,
-        tailNumber: ac.tailNumber,
-        startAt: startAt.toISOString(),
-        endAt: endAt.toISOString(),
-      },
-    });
-
-    revalidatePath(`/admin/requests/${quoteId}`);
-    revalidatePath("/admin/ops");
-    revalidatePath(`/admin/aircraft/${aircraftId}`);
-    return { ok: true, blockId: row.id, expiresAt: endAt.toISOString() };
-  } catch (err) {
-    // The new partial unique index (migration 0032) catches the TOCTOU
-    // race where two dispatchers both passed the dup-check above and
-    // both try to insert. Surface the same friendly message the app
-    // check would have.
-    if (isUniqueViolation(err)) {
-      return { ok: false, error: "Already holding this aircraft for this quote" };
-    }
-    console.error("createSoftHold failed", err);
-    return { ok: false, error: "DB_INSERT_FAILED" };
-  }
+  const r = await runOp(requestHoldCreateOp, session.value, { id: quoteId, aircraftId });
+  if (!r.ok) return { ok: false, error: deskError(r) };
+  if (r.value.kind === "pending") return { ok: false, error: PENDING };
+  const { blockId, expiresAt } = r.value.value as { blockId: string; expiresAt: string };
+  return { ok: true, blockId, expiresAt };
 }
 
 export async function releaseSoftHold(
   quoteId: string,
   blockId: string,
 ): Promise<{ ok: true } | { ok: false; error: string }> {
-  const actor = await requireStaff();
-
+  const session = await sessionActor();
+  if (!session.ok) return { ok: false, error: session.error };
   if (!UUID_RE.test(quoteId)) return { ok: false, error: "Bad quote id" };
   if (!UUID_RE.test(blockId)) return { ok: false, error: "Bad block id" };
-
-  const [target] = await db
-    .select({
-      id: aircraftScheduleBlocks.id,
-      kind: aircraftScheduleBlocks.kind,
-      relatedQuoteId: aircraftScheduleBlocks.relatedQuoteId,
-      aircraftId: aircraftScheduleBlocks.aircraftId,
-    })
-    .from(aircraftScheduleBlocks)
-    .where(eq(aircraftScheduleBlocks.id, blockId));
-  if (!target) return { ok: false, error: "Hold not found" };
-  if (target.relatedQuoteId !== quoteId || target.kind !== "hold") {
-    return { ok: false, error: "Not a soft hold on this quote" };
-  }
-
-  await db
-    .delete(aircraftScheduleBlocks)
-    .where(eq(aircraftScheduleBlocks.id, target.id));
-
-  await logAudit({
-    actorUserId: actor.id,
-    actorRole: actor.role,
-    action: "quote.soft_hold.release",
-    subjectType: "quote",
-    subjectId: quoteId,
-    metadata: { blockId: target.id, aircraftId: target.aircraftId },
-  });
-
-  revalidatePath(`/admin/requests/${quoteId}`);
-  revalidatePath("/admin/ops");
-  revalidatePath(`/admin/aircraft/${target.aircraftId}`);
+  const r = await runOp(requestHoldReleaseOp, session.value, { id: quoteId, blockId });
+  if (!r.ok) return { ok: false, error: deskError(r) };
+  if (r.value.kind === "pending") return { ok: false, error: PENDING };
   return { ok: true };
-}
-
-// Postgres unique-violation SQLSTATE. Drizzle bubbles the underlying
-// postgres-js error which exposes `.code` as the SQLSTATE.
-function isUniqueViolation(err: unknown): boolean {
-  if (!err || typeof err !== "object") return false;
-  return (err as { code?: string }).code === "23505";
 }
 
 /**
@@ -769,10 +577,9 @@ function isInternationalIcao(icao: string | null): boolean {
 
 // ─── Sourced options (Avinode paste-in) ────────────────────────────────────
 // Airframes a dispatcher pastes from Avinode during a quote's `sourcing`
-// state. On save we reconcile the pasted seller name against the operators
-// table, snapshot its vetting, enforce the safety floor, and apply markup to
-// turn operator cost into client price. The chosen option drives trip +
-// invoice pricing at convert (see convertQuoteToTrip above).
+// state. The work itself is the "request.option.*" ops (src/domain/requests):
+// operator reconciliation, the safety floor and the markup pricing live
+// there. These wrappers turn the form into the op's input.
 
 export type SourcedOptionResult =
   | { ok: true; optionId: string }
@@ -793,238 +600,97 @@ function soBool(v: FormDataEntryValue | null): boolean {
   return s === "on" || s === "true" || s === "1";
 }
 
-function computeClientPrice(
-  costUsd: number | null,
-  markupType: "percent" | "flat",
-  markupValue: number,
-): number | null {
-  if (costUsd == null) return null;
-  return markupType === "flat"
-    ? costUsd + Math.round(markupValue)
-    : Math.round(costUsd * (1 + markupValue / 100));
-}
-
-type MatchedOperator = {
-  id: string;
-  name: string;
-  status: string;
-  argusRating: (typeof operators.$inferSelect)["argusRating"];
-  wyvernWingman: boolean;
-  isbaoStage: number | null;
-  insuranceRenewsOn: string | null;
-  nextAuditOn: string | null;
-};
-
-// Fuzzy-match a pasted Avinode seller name against the operators table: try
-// a full contains-match, then fall back to the first token.
-async function reconcileOperator(nameRaw: string | null): Promise<MatchedOperator | null> {
-  const q = nameRaw?.trim();
-  if (!q || q.length < 2) return null;
-  const cols = {
-    id: operators.id,
-    name: operators.name,
-    status: operators.status,
-    argusRating: operators.argusRating,
-    wyvernWingman: operators.wyvernWingman,
-    isbaoStage: operators.isbaoStage,
-    insuranceRenewsOn: operators.insuranceRenewsOn,
-    nextAuditOn: operators.nextAuditOn,
-  };
-  const [full] = await db.select(cols).from(operators).where(ilike(operators.name, `%${q}%`)).limit(1);
-  if (full) return full;
-  const first = q.split(/\s+/)[0];
-  if (first.length >= 3) {
-    const [tok] = await db.select(cols).from(operators).where(ilike(operators.name, `%${first}%`)).limit(1);
-    if (tok) return tok;
-  }
-  return null;
-}
-
-// Shared field extraction + reconciliation + pricing for add/update.
-async function buildOptionValues(
-  formData: FormData,
-): Promise<
-  | { fields: Partial<NewSourcedOption>; meta: { operatorMatched: boolean; safetyFloorPassed: boolean } }
-  | { error: string }
-> {
-  const operatorCostUsd = soInt(formData.get("operatorCostUsd"));
-  const markupType: "percent" | "flat" =
-    String(formData.get("markupType") ?? "percent") === "flat" ? "flat" : "percent";
+/** The form's fields as the op's input; every field is set, so the op rewrites the whole row the way the form always did. */
+function optionFieldsFromForm(formData: FormData): { fields: OptionFields } | { error: string } {
   const rawMarkup = soStr(formData.get("markupValue"));
   const markupValue = rawMarkup === null ? DEFAULT_MARKUP_PCT : Number(rawMarkup);
   if (!Number.isFinite(markupValue) || markupValue < 0) {
     return { error: "Markup must be a non-negative number" };
   }
-
-  const operatorNameRaw = soStr(formData.get("operatorNameRaw"));
-  const op = await reconcileOperator(operatorNameRaw);
-  const operatorMatched = op !== null;
-  const eligibility = op ? isSourcingEligible(op) : null;
-  // Safety floor passes only for a matched, eligible operator. An unmatched
-  // seller stays false → the UI shows "screen before send" and choose blocks.
-  const safetyFloorPassed = operatorMatched && eligibility!.eligible;
-
-  const fields: Partial<NewSourcedOption> = {
-    avinodeRef: soStr(formData.get("avinodeRef")),
-    aircraftType: soStr(formData.get("aircraftType")),
-    tailNumber: soStr(formData.get("tailNumber")),
-    isFloatingFleet: soBool(formData.get("isFloatingFleet")),
-    yearOfMake: soInt(formData.get("yearOfMake")),
-    category: normalizeCategory(soStr(formData.get("category"))),
-    paxCapacity: soInt(formData.get("paxCapacity")),
-    refurbInteriorYear: soInt(formData.get("refurbInteriorYear")),
-    refurbExteriorYear: soInt(formData.get("refurbExteriorYear")),
-    operatorNameRaw,
-    operatorId: op?.id ?? null,
-    operatorMatched,
-    argusRating: op?.argusRating ?? null,
-    wyvernWingman: op?.wyvernWingman ?? null,
-    isbaoStage: op?.isbaoStage ?? null,
-    safetyFloorPassed,
-    positioningTimeMin: soInt(formData.get("positioningTimeMin")),
-    positioningAirport: soStr(formData.get("positioningAirport")),
-    totalFlightTimeMin: soInt(formData.get("totalFlightTimeMin")),
-    operatorCostUsd,
-    markupType,
-    markupValue: String(markupValue),
-    clientPriceUsd: computeClientPrice(operatorCostUsd, markupType, markupValue),
-    dispatcherNotes: soStr(formData.get("dispatcherNotes")),
+  return {
+    fields: {
+      avinodeRef: soStr(formData.get("avinodeRef")),
+      aircraftType: soStr(formData.get("aircraftType")),
+      tailNumber: soStr(formData.get("tailNumber")),
+      isFloatingFleet: soBool(formData.get("isFloatingFleet")),
+      yearOfMake: soInt(formData.get("yearOfMake")),
+      category: soStr(formData.get("category")),
+      paxCapacity: soInt(formData.get("paxCapacity")),
+      refurbInteriorYear: soInt(formData.get("refurbInteriorYear")),
+      refurbExteriorYear: soInt(formData.get("refurbExteriorYear")),
+      operatorNameRaw: soStr(formData.get("operatorNameRaw")),
+      positioningTimeMin: soInt(formData.get("positioningTimeMin")),
+      positioningAirport: soStr(formData.get("positioningAirport")),
+      totalFlightTimeMin: soInt(formData.get("totalFlightTimeMin")),
+      operatorCostUsd: soInt(formData.get("operatorCostUsd")),
+      markupType: String(formData.get("markupType") ?? "percent") === "flat" ? "flat" : "percent",
+      markupValue,
+      dispatcherNotes: soStr(formData.get("dispatcherNotes")),
+    },
   };
-  return { fields, meta: { operatorMatched, safetyFloorPassed } };
+}
+
+/** The option's request, so the op can check the option belongs to it. */
+async function quoteIdForOption(optionId: string): Promise<{ quoteId: string } | { error: string }> {
+  if (!UUID_RE.test(optionId)) return { error: "Bad option id" };
+  const [opt] = await db
+    .select({ quoteId: sourcedOptions.quoteId })
+    .from(sourcedOptions)
+    .where(eq(sourcedOptions.id, optionId))
+    .limit(1);
+  return opt ? { quoteId: opt.quoteId } : { error: "Option not found" };
 }
 
 export async function addSourcedOption(
   quoteId: string,
   formData: FormData,
 ): Promise<SourcedOptionResult> {
-  const actor = await requireStaff();
-  if (!/^[0-9a-f-]{36}$/i.test(quoteId)) return { ok: false, error: "Bad quote id" };
-  const [quote] = await db
-    .select({ id: quotes.id, code: quotes.quoteCode })
-    .from(quotes)
-    .where(eq(quotes.id, quoteId));
-  if (!quote) return { ok: false, error: "Quote not found" };
-
-  const built = await buildOptionValues(formData);
+  const session = await sessionActor();
+  if (!session.ok) return { ok: false, error: session.error };
+  if (!UUID_RE.test(quoteId)) return { ok: false, error: "Bad quote id" };
+  const built = optionFieldsFromForm(formData);
   if ("error" in built) return { ok: false, error: built.error };
-
-  const [{ maxNum }] = await db
-    .select({ maxNum: sql<number>`coalesce(max(${sourcedOptions.optionNumber}), 0)` })
-    .from(sourcedOptions)
-    .where(eq(sourcedOptions.quoteId, quoteId));
-  const optionNumber = Number(maxNum) + 1;
-
-  const [row] = await db
-    .insert(sourcedOptions)
-    .values({ quoteId, optionNumber, ...built.fields })
-    .returning({ id: sourcedOptions.id });
-
-  await logAudit({
-    actorUserId: actor.id,
-    actorRole: actor.role,
-    action: "quote.option.add",
-    subjectType: "quote",
-    subjectId: quoteId,
-    subjectCode: quote.code,
-    metadata: {
-      optionId: row.id,
-      optionNumber,
-      ...built.meta,
-      operatorCostUsd: built.fields.operatorCostUsd,
-      clientPriceUsd: built.fields.clientPriceUsd,
-    },
-  });
-  revalidatePath(`/admin/requests/${quoteId}`);
-  return { ok: true, optionId: row.id };
+  const r = await runOp(requestOptionAddOp, session.value, { id: quoteId, ...built.fields });
+  if (!r.ok) return { ok: false, error: deskError(r) };
+  if (r.value.kind === "pending") return { ok: false, error: PENDING };
+  return { ok: true, optionId: (r.value.value as { optionId: string }).optionId };
 }
 
 export async function updateSourcedOption(
   optionId: string,
   formData: FormData,
 ): Promise<SourcedOptionResult> {
-  const actor = await requireStaff();
-  if (!/^[0-9a-f-]{36}$/i.test(optionId)) return { ok: false, error: "Bad option id" };
-  const [opt] = await db
-    .select({ id: sourcedOptions.id, quoteId: sourcedOptions.quoteId })
-    .from(sourcedOptions)
-    .where(eq(sourcedOptions.id, optionId));
-  if (!opt) return { ok: false, error: "Option not found" };
-
-  const built = await buildOptionValues(formData);
+  const session = await sessionActor();
+  if (!session.ok) return { ok: false, error: session.error };
+  const ref = await quoteIdForOption(optionId);
+  if ("error" in ref) return { ok: false, error: ref.error };
+  const built = optionFieldsFromForm(formData);
   if ("error" in built) return { ok: false, error: built.error };
-
-  await db
-    .update(sourcedOptions)
-    .set({ ...built.fields, updatedAt: new Date() })
-    .where(eq(sourcedOptions.id, optionId));
-  await logAudit({
-    actorUserId: actor.id,
-    actorRole: actor.role,
-    action: "quote.option.update",
-    subjectType: "quote",
-    subjectId: opt.quoteId,
-    metadata: { optionId, ...built.meta },
-  });
-  revalidatePath(`/admin/requests/${opt.quoteId}`);
+  const r = await runOp(requestOptionUpdateOp, session.value, { id: ref.quoteId, optionId, ...built.fields });
+  if (!r.ok) return { ok: false, error: deskError(r) };
+  if (r.value.kind === "pending") return { ok: false, error: PENDING };
   return { ok: true, optionId };
 }
 
 export async function chooseSourcedOption(optionId: string): Promise<SourcedOptionResult> {
-  const actor = await requireStaff();
-  if (!/^[0-9a-f-]{36}$/i.test(optionId)) return { ok: false, error: "Bad option id" };
-  const [opt] = await db.select().from(sourcedOptions).where(eq(sourcedOptions.id, optionId));
-  if (!opt) return { ok: false, error: "Option not found" };
-  if (!opt.safetyFloorPassed) {
-    return {
-      ok: false,
-      error: opt.operatorMatched
-        ? "Operator fails the safety floor — cannot choose"
-        : "Operator unmatched — screen + match before choosing",
-    };
-  }
-  if (opt.clientPriceUsd == null || opt.clientPriceUsd <= 0) {
-    return { ok: false, error: "Set operator cost + markup before choosing" };
-  }
-  await db.transaction(async (tx) => {
-    await tx
-      .update(sourcedOptions)
-      .set({ isChosen: false, updatedAt: new Date() })
-      .where(eq(sourcedOptions.quoteId, opt.quoteId));
-    await tx
-      .update(sourcedOptions)
-      .set({ isChosen: true, status: "shortlisted", updatedAt: new Date() })
-      .where(eq(sourcedOptions.id, optionId));
-  });
-  await logAudit({
-    actorUserId: actor.id,
-    actorRole: actor.role,
-    action: "quote.option.choose",
-    subjectType: "quote",
-    subjectId: opt.quoteId,
-    metadata: { optionId, clientPriceUsd: opt.clientPriceUsd, operatorCostUsd: opt.operatorCostUsd },
-  });
-  revalidatePath(`/admin/requests/${opt.quoteId}`);
+  const session = await sessionActor();
+  if (!session.ok) return { ok: false, error: session.error };
+  const ref = await quoteIdForOption(optionId);
+  if ("error" in ref) return { ok: false, error: ref.error };
+  const r = await runOp(requestOptionChooseOp, session.value, { id: ref.quoteId, optionId });
+  if (!r.ok) return { ok: false, error: deskError(r) };
+  if (r.value.kind === "pending") return { ok: false, error: PENDING };
   return { ok: true, optionId };
 }
 
 export async function deleteSourcedOption(optionId: string): Promise<SourcedOptionResult> {
-  const actor = await requireStaff();
-  if (!/^[0-9a-f-]{36}$/i.test(optionId)) return { ok: false, error: "Bad option id" };
-  const [opt] = await db
-    .select({ id: sourcedOptions.id, quoteId: sourcedOptions.quoteId })
-    .from(sourcedOptions)
-    .where(eq(sourcedOptions.id, optionId));
-  if (!opt) return { ok: false, error: "Option not found" };
-  await db.delete(sourcedOptions).where(eq(sourcedOptions.id, optionId));
-  await logAudit({
-    actorUserId: actor.id,
-    actorRole: actor.role,
-    action: "quote.option.remove",
-    subjectType: "quote",
-    subjectId: opt.quoteId,
-    metadata: { optionId },
-  });
-  revalidatePath(`/admin/requests/${opt.quoteId}`);
+  const session = await sessionActor();
+  if (!session.ok) return { ok: false, error: session.error };
+  const ref = await quoteIdForOption(optionId);
+  if ("error" in ref) return { ok: false, error: ref.error };
+  const r = await runOp(requestOptionRemoveOp, session.value, { id: ref.quoteId, optionId });
+  if (!r.ok) return { ok: false, error: deskError(r) };
+  if (r.value.kind === "pending") return { ok: false, error: PENDING };
   return { ok: true, optionId };
 }
 

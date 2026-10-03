@@ -1,13 +1,35 @@
 import { z } from "zod";
 import { runOp } from "@/domain/ops/registry";
-import { requestMessageOp, requestSendOptionsOp, requestStatusOp } from "@/domain/requests/ops";
+import {
+  requestAssignOp,
+  requestHoldCreateOp,
+  requestHoldReleaseOp,
+  requestLinkClientOp,
+  requestMessageOp,
+  requestOptionAddOp,
+  requestOptionChooseOp,
+  requestOptionRemoveOp,
+  requestOptionUpdateOp,
+  requestSendOptionsOp,
+  requestStatusOp,
+} from "@/domain/requests/ops";
 import {
   REQUEST_LIST_TABS,
   getRequest,
   listRequests,
   withoutOptionMoney,
 } from "@/domain/requests/queries";
-import { RequestMessageBody, RequestStatusBody, SendOptionsBody } from "@/domain/requests/schemas";
+import {
+  HoldCreateBody,
+  OptionAddBody,
+  OptionRefBody,
+  OptionUpdateBody,
+  RequestAssignBody,
+  RequestLinkClientBody,
+  RequestMessageBody,
+  RequestStatusBody,
+  SendOptionsBody,
+} from "@/domain/requests/schemas";
 import { err, ok } from "@/domain/result";
 import type { RouteDef } from "../handler";
 import { opRouteOutput } from "../ops";
@@ -18,7 +40,8 @@ import { redactMessages, redactQuote } from "../redact";
  * are client-written text, so the reads are marked untrusted. Operator
  * cost, markup and dispatcher notes on sourced options need the `money`
  * permission. The writes go through the ops registry: a key that asks
- * before acting gets a 202 whenever the client would hear about it.
+ * before acting gets a 202 whenever the client would hear about it;
+ * desk-side changes (assignment, client link, holds, options) run at once.
  */
 export const REQUEST_ROUTES = {
   listRequests: {
@@ -125,5 +148,130 @@ export const REQUEST_ROUTES = {
       const { reason } = body as z.infer<typeof SendOptionsBody>;
       return opRouteOutput(await runOp(requestSendOptionsOp, actor, { id: params.id }, { reason }));
     },
+  },
+  assignRequest: {
+    method: "PATCH",
+    path: "/requests/{id}/assignee",
+    operationId: "assignRequest",
+    summary: "Assign a request to a dispatcher",
+    description:
+      "Sets who on the desk owns the request. `staffId` is a dispatcher's staff id (see the request's `assignee`, or the team list), or null to leave it unassigned. 422 when no dispatcher has that id. Nothing reaches the client, so this never waits for approval.",
+    tag: "Requests",
+    scope: "desk",
+    approval: "never",
+    body: RequestAssignBody,
+    run: async ({ actor, params, body }) => {
+      const { reason, ...input } = body as z.infer<typeof RequestAssignBody>;
+      return opRouteOutput(await runOp(requestAssignOp, actor, { id: params.id, ...input }, { reason }));
+    },
+  },
+  linkRequestClient: {
+    method: "PATCH",
+    path: "/requests/{id}/client",
+    operationId: "linkRequestClient",
+    summary: "Link a request to a client",
+    description:
+      "Links the request to a client account (`memberId`), or unlinks it with null. Needs the `clients` permission. 409 once the request has been converted to a trip: the trip and invoice already carry the client. 422 when no client has that id. Returns the client's member code. Nothing reaches the client, so this never waits for approval.",
+    tag: "Requests",
+    scope: "clients",
+    approval: "never",
+    body: RequestLinkClientBody,
+    run: async ({ actor, params, body }) => {
+      const { reason, ...input } = body as z.infer<typeof RequestLinkClientBody>;
+      return opRouteOutput(await runOp(requestLinkClientOp, actor, { id: params.id, ...input }, { reason }));
+    },
+  },
+  createRequestHold: {
+    method: "POST",
+    path: "/requests/{id}/holds",
+    operationId: "createRequestHold",
+    summary: "Soft-hold an aircraft for a request",
+    description:
+      "Puts a soft hold on `aircraftId` for this request, from the first leg's departure to four hours after the last leg's. Several requests may hold the same aircraft; a person resolves the conflict when one is booked. 409 when the request is already accepted, declined, expired, cancelled or converted, when the aircraft is sold, when the legs have no usable date, or when this request already holds this aircraft. Returns the hold's `blockId` and when it ends. Never waits for approval.",
+    tag: "Requests",
+    scope: "desk",
+    approval: "never",
+    body: HoldCreateBody,
+    successStatus: 201,
+    run: async ({ actor, params, body }) => {
+      const { reason, ...input } = body as z.infer<typeof HoldCreateBody>;
+      return opRouteOutput(await runOp(requestHoldCreateOp, actor, { id: params.id, ...input }, { reason }), 201);
+    },
+  },
+  releaseRequestHold: {
+    method: "DELETE",
+    path: "/requests/{id}/holds/{blockId}",
+    operationId: "releaseRequestHold",
+    summary: "Release a soft hold",
+    description:
+      "Removes one of this request's soft holds (`blockId` from the request's `holds`). 404 when the hold does not exist; 409 when the block is not a soft hold on this request. Never waits for approval.",
+    tag: "Requests",
+    scope: "desk",
+    approval: "never",
+    run: async ({ actor, params }) =>
+      opRouteOutput(await runOp(requestHoldReleaseOp, actor, { id: params.id, blockId: params.blockId })),
+  },
+  addRequestOption: {
+    method: "POST",
+    path: "/requests/{id}/options",
+    operationId: "addRequestOption",
+    summary: "Add a sourced option",
+    description:
+      "Adds an airframe option to the request, numbered after the last one. Every field is optional. `operatorNameRaw` is matched against the operators list: a matched, vetted operator passes the safety floor; an unmatched or ineligible one leaves the option unsendable until a person screens it. `operatorCostUsd`, `markupType`, `markupValue` and `dispatcherNotes` need the `money` permission (403 otherwise); the client price is cost plus markup (percent, default 12, or flat dollars). Returns the option id and number. Never waits for approval; the client only hears about options through send-options.",
+    tag: "Requests",
+    scope: "desk",
+    approval: "never",
+    body: OptionAddBody,
+    successStatus: 201,
+    run: async ({ actor, params, body }) => {
+      const { reason, ...input } = body as z.infer<typeof OptionAddBody>;
+      return opRouteOutput(await runOp(requestOptionAddOp, actor, { id: params.id, ...input }, { reason }), 201);
+    },
+  },
+  updateRequestOption: {
+    method: "PATCH",
+    path: "/requests/{id}/options/{optionId}",
+    operationId: "updateRequestOption",
+    summary: "Update a sourced option",
+    description:
+      "Changes an option on this request; fields left out keep their value, and the operator match, safety floor and client price are worked out again from the result. `operatorCostUsd`, `markupType`, `markupValue` and `dispatcherNotes` need the `money` permission (403 otherwise). 404 when the option is not on this request. Never waits for approval.",
+    tag: "Requests",
+    scope: "desk",
+    approval: "never",
+    body: OptionUpdateBody,
+    run: async ({ actor, params, body }) => {
+      const { reason, ...input } = body as z.infer<typeof OptionUpdateBody>;
+      return opRouteOutput(
+        await runOp(requestOptionUpdateOp, actor, { id: params.id, optionId: params.optionId, ...input }, { reason }),
+      );
+    },
+  },
+  chooseRequestOption: {
+    method: "POST",
+    path: "/requests/{id}/options/{optionId}/choose",
+    operationId: "chooseRequestOption",
+    summary: "Choose the option the client is taking",
+    description:
+      "Marks one option as the chosen one (any other choice on the request is cleared) and shortlists it; the chosen option prices the trip and invoice when the request is converted. 409 when the operator is unmatched or fails the safety floor, or when the option has no client price yet. 404 when the option is not on this request. Never waits for approval.",
+    tag: "Requests",
+    scope: "desk",
+    approval: "never",
+    body: OptionRefBody,
+    run: async ({ actor, params, body }) => {
+      const { reason } = (body ?? {}) as z.infer<typeof OptionRefBody>;
+      return opRouteOutput(await runOp(requestOptionChooseOp, actor, { id: params.id, optionId: params.optionId }, { reason }));
+    },
+  },
+  removeRequestOption: {
+    method: "DELETE",
+    path: "/requests/{id}/options/{optionId}",
+    operationId: "removeRequestOption",
+    summary: "Remove a sourced option",
+    description: "Deletes an option from this request. 404 when the option is not on this request. Never waits for approval.",
+    tag: "Requests",
+    scope: "desk",
+    approval: "never",
+    run: async ({ actor, params }) =>
+      opRouteOutput(await runOp(requestOptionRemoveOp, actor, { id: params.id, optionId: params.optionId })),
   },
 } satisfies Record<string, RouteDef>;

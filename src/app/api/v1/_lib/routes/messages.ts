@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { inquiryStatusOp, markThreadReadOp, messageRetryOp } from "@/domain/messages/ops";
 import {
   getThread,
   listCallNotes,
@@ -6,13 +7,18 @@ import {
   listInquiries,
   listThreads,
 } from "@/domain/messages/queries";
+import { InquiryStatusBody, MessageRetryBody } from "@/domain/messages/schemas";
+import { runOp } from "@/domain/ops/registry";
 import { err, ok } from "@/domain/result";
 import type { RouteDef } from "../handler";
+import { opRouteOutput } from "../ops";
 import { omit, redactMessages } from "../redact";
 
 /**
  * Messages: texts, emails, notes and call logs, one thread per request,
- * trip or client. Everything here carries client-written text.
+ * trip or client. Everything here carries client-written text. The writes
+ * go through the ops registry: resending a message reaches the client, so
+ * a key that asks before acting always gets a 202 for it.
  */
 
 const listThreadsRoute: RouteDef = {
@@ -93,10 +99,60 @@ const listCallNotesRoute: RouteDef = {
   run: async () => ok({ data: (await listCallNotes()).map((c) => omit(c, ["recording_url"])) }),
 };
 
+const retryMessageRoute: RouteDef = {
+  method: "POST",
+  path: "/messages/{id}/retry",
+  operationId: "retryMessage",
+  summary: "Resend a message that didn't send",
+  description:
+    "Sends a failed outbound email, text or WhatsApp message again to the same address and records the new outcome on the message. 409 when the message is inbound, on another channel, has no address or body, or did not fail. Always goes to a person first for a key that asks before acting. `reason` is an optional line for the approver. Returns `status` (sent or failed) with the provider or the provider's error.",
+  tag: "Messages",
+  scope: "desk",
+  approval: "always",
+  body: MessageRetryBody,
+  run: async ({ actor, params, body }) => {
+    const { reason } = body as z.infer<typeof MessageRetryBody>;
+    return opRouteOutput(await runOp(messageRetryOp, actor, { id: params.id }, { reason }));
+  },
+};
+
+const markThreadReadRoute: RouteDef = {
+  method: "POST",
+  path: "/messages/threads/{kind}/{id}/read",
+  operationId: "markThreadRead",
+  summary: "Mark a thread read",
+  description:
+    "Marks every inbound message on the thread read, which clears it from the Unread tab and the sidebar count. `kind` is quote, trip or member and `id` is that record's id. A thread with nothing unread is a no-op. Returns how many messages changed.",
+  tag: "Messages",
+  scope: "desk",
+  approval: "never",
+  run: async ({ actor, params }) => opRouteOutput(await runOp(markThreadReadOp, actor, { kind: params.kind, id: params.id })),
+};
+
+const setInquiryStatusRoute: RouteDef = {
+  method: "POST",
+  path: "/messages/inquiries/{id}/status",
+  operationId: "setInquiryStatus",
+  summary: "Handle or reopen a website message",
+  description:
+    "`status` handled marks the contact-form inquiry done and records who handled it and when; `status` new reopens it and clears both.",
+  tag: "Messages",
+  scope: "desk",
+  approval: "never",
+  body: InquiryStatusBody,
+  run: async ({ actor, params, body }) => {
+    const input = body as z.infer<typeof InquiryStatusBody>;
+    return opRouteOutput(await runOp(inquiryStatusOp, actor, { id: params.id, ...input }));
+  },
+};
+
 export const MESSAGE_ROUTES = {
   listThreads: listThreadsRoute,
   getThread: getThreadRoute,
   listInquiries: listInquiriesRoute,
   listFailedDeliveries: listFailedDeliveriesRoute,
   listCallNotes: listCallNotesRoute,
+  retryMessage: retryMessageRoute,
+  markThreadRead: markThreadReadRoute,
+  setInquiryStatus: setInquiryStatusRoute,
 } satisfies Record<string, RouteDef>;

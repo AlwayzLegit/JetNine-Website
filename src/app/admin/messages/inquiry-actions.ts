@@ -1,50 +1,28 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
-import { eq } from "drizzle-orm";
-import { db } from "@/db";
-import { contactInquiries } from "@/db/schema/contact";
-import { requireStaff } from "@/lib/auth";
-import { logAudit } from "@/lib/audit";
+import { sessionActor } from "@/domain/actor";
+import { inquiryStatusOp } from "@/domain/messages/ops";
+import { runOp } from "@/domain/ops/registry";
 
 export type InquiryActionResult = { ok: true } | { ok: false; error: string };
 
 /**
- * Toggle an inquiry between new ↔ handled. Handled stamps who + when;
- * reopening clears both so the row reads honestly on the board.
+ * Toggle an inquiry between new ↔ handled. The work itself is the
+ * "inquiry.status" op (src/domain/messages), shared with the API; runOp
+ * revalidates the Messages page.
  */
 export async function setInquiryStatus(formData: FormData): Promise<InquiryActionResult> {
-  const user = await requireStaff();
+  const session = await sessionActor();
+  if (!session.ok) return { ok: false, error: session.error };
 
   const id = ((formData.get("id") as string | null) ?? "").trim();
   const status = ((formData.get("status") as string | null) ?? "").trim();
   if (!id) return { ok: false, error: "MISSING_ID" };
   if (status !== "new" && status !== "handled") return { ok: false, error: "BAD_STATUS" };
 
-  try {
-    const [row] = await db
-      .update(contactInquiries)
-      .set(
-        status === "handled"
-          ? { status: "handled", handledByUserId: user.id, handledAt: new Date() }
-          : { status: "new", handledByUserId: null, handledAt: null },
-      )
-      .where(eq(contactInquiries.id, id))
-      .returning({ id: contactInquiries.id });
-    if (!row) return { ok: false, error: "NOT_FOUND" };
-  } catch (err) {
-    console.error("setInquiryStatus failed", err);
-    return { ok: false, error: "DB_UPDATE_FAILED" };
-  }
-
-  await logAudit({
-    actorUserId: user.id,
-    actorRole: user.role,
-    action: `contact_inquiry.${status === "handled" ? "handle" : "reopen"}`,
-    subjectType: "contact_inquiry",
-    subjectId: id,
-  });
-
-  revalidatePath("/admin/messages");
+  const r = await runOp(inquiryStatusOp, session.value, { id, status });
+  // The status is checked above, so a schema failure can only be the id.
+  if (!r.ok) return { ok: false, error: r.code === "invalid" ? "NOT_FOUND" : r.error };
+  if (r.value.kind === "pending") return { ok: false, error: "This was sent for approval." };
   return { ok: true };
 }

@@ -31,3 +31,16 @@ export const HTTP_STATUS: Record<ErrorCode, number> = {
   unavailable: 503,
   internal: 500,
 };
+
+/**
+ * The first validation issue as a desk sentence, e.g.
+ * "Year of make: Too big: expected number to be <=2100". Null when the
+ * error carries no issues.
+ */
+export function issueWords(r: Err): string | null {
+  const issue = (r.details as { path?: PropertyKey[]; message?: string }[] | undefined)?.[0];
+  if (!issue?.message) return null;
+  const field = issue.path?.filter((k): k is string => typeof k === "string").join(".");
+  const words = field ? field.replace(/([a-z])([A-Z])/g, "$1 $2").replace(/^./, (c) => c.toUpperCase()) : null;
+  return words ? `${words}: ${issue.message}` : issue.message;
+}

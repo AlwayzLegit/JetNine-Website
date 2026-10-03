@@ -265,6 +265,8 @@ test.describe("api v1", () => {
   });
 
   test("writes are refused without a key", async ({ request }) => {
+    // Thirteen routes, each compiled on first hit by the production server.
+    test.slow();
     const id = "00000000-0000-4000-8000-000000000000";
     for (const path of [
       "/api/v1/blog/posts",
@@ -272,11 +274,29 @@ test.describe("api v1", () => {
       `/api/v1/requests/${id}/messages`,
       `/api/v1/requests/${id}/send-options`,
       `/api/v1/trips/${id}/messages`,
+      `/api/v1/requests/${id}/holds`,
+      `/api/v1/requests/${id}/options`,
+      `/api/v1/trips/${id}/status`,
+      `/api/v1/messages/${id}/retry`,
+      "/api/v1/empty-legs",
+      "/api/v1/schedule/blocks",
+      "/api/v1/reference/operators",
+      "/api/v1/reference/airports",
     ]) {
       const response = await request.post(path, { data: { title: "x" } });
       expect(response.status(), path).toBe(401);
       expect((await response.json()).error?.code, path).toBe("unauthorized");
     }
+  });
+
+  test("reference and assignment changes are refused without a key", async ({ request }) => {
+    const id = "00000000-0000-4000-8000-000000000000";
+    for (const path of [`/api/v1/requests/${id}/assignee`, `/api/v1/requests/${id}/client`, `/api/v1/reference/aircraft/${id}`]) {
+      const response = await request.patch(path, { data: {} });
+      expect(response.status(), path).toBe(401);
+    }
+    const del = await request.delete(`/api/v1/reference/airports/${id}`);
+    expect(del.status()).toBe(401);
   });
 
   test("the approval queue needs a key", async ({ request }) => {

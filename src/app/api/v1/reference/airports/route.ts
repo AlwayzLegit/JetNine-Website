@@ -5,3 +5,4 @@ export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 export const GET = apiHandler(ROUTE.listAirports);
+export const POST = apiHandler(ROUTE.createAirport);

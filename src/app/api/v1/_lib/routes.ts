@@ -27,6 +27,7 @@ import { MESSAGE_ROUTES } from "./routes/messages";
 import { REFERENCE_ROUTES } from "./routes/reference";
 import { HISTORY_ROUTES } from "./routes/history";
 import { REQUEST_ROUTES } from "./routes/requests";
+import { SCHEDULE_ROUTES } from "./routes/schedule";
 import { TRIP_ROUTES } from "./routes/trips";
 import { REPORT_ROUTES } from "./routes/reports";
 import { SETTINGS_ROUTES } from "./routes/settings";
@@ -203,6 +204,7 @@ export const ROUTE = {
   ...MESSAGE_ROUTES,
   ...EMPTY_LEG_ROUTES,
   ...REFERENCE_ROUTES,
+  ...SCHEDULE_ROUTES,
   ...REPORT_ROUTES,
   ...HISTORY_ROUTES,
   ...SETTINGS_ROUTES,

@@ -1,5 +1,6 @@
 import { asc, eq, inArray, sql } from "drizzle-orm";
 import { db } from "@/db";
+import { legacyKeyUsage, type LegacyKeyUsage } from "@/domain/api-keys/commands";
 import {
   NOTIFICATION_DEFAULTS,
   REPLY_PROMISE_CHOICES,
@@ -113,6 +114,8 @@ export async function listTeam(): Promise<TeamMember[]> {
 export type HealthReport = HealthSnapshot & {
   /** Outbound emails marked sent today (Los Angeles day); null when the messages table is unreadable. */
   emailsSentToday: number | null;
+  /** The old BLOG_ADMIN_API_KEY: still set, when it was last used, and whether it can go. */
+  legacyBlogKey: LegacyKeyUsage;
 };
 
 export async function emailsSentToday(): Promise<number | null> {
@@ -131,6 +134,6 @@ export async function emailsSentToday(): Promise<number | null> {
 }
 
 export async function healthSnapshot(): Promise<HealthReport> {
-  const [snap, sent] = await Promise.all([snapshot(), emailsSentToday()]);
-  return { ...snap, emailsSentToday: sent };
+  const [snap, sent, legacyBlogKey] = await Promise.all([snapshot(), emailsSentToday(), legacyKeyUsage()]);
+  return { ...snap, emailsSentToday: sent, legacyBlogKey };
 }

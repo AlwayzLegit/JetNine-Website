@@ -1,7 +1,7 @@
 import { and, asc, eq, inArray, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { messages, type NewMessage } from "@/db/schema/audit";
-import { invoices } from "@/db/schema/invoices";
+import { invoices, type Invoice } from "@/db/schema/invoices";
 import { memberPreferences } from "@/db/schema/member-prefs";
 import { members } from "@/db/schema/members";
 import { reserveTransactions, type NewReserveTransaction } from "@/db/schema/memberships";
@@ -11,6 +11,7 @@ import { logAudit } from "@/lib/audit";
 import {
   isNotifiableTripStatus,
   sendDispatchAlert,
+  sendInvoiceIssuedEmail,
   sendRefundIssuedEmail,
   sendTripStatusEmail,
   type TripNotifyStatus,
@@ -19,7 +20,7 @@ import { auditFields, type Actor } from "@/domain/actor";
 import { isUuid } from "@/domain/common";
 import { postThreadMessage } from "@/domain/requests/commands";
 import { err, ok, type Result } from "@/domain/result";
-import type { TripMessageInput, TripStatusInput } from "./schemas";
+import type { InvoiceUpdateInput, TripMessageInput, TripStatusInput } from "./schemas";
 
 /**
  * Trip commands behind the ops in ./ops.ts. Same shape as the request
@@ -643,4 +644,153 @@ async function refundCardPaymentsForTrip(args: {
   }
 
   return { refunded, failed, totalUsd };
+}
+
+// ─── Invoice editor (draft → due) ────────────────────────────────────────
+//
+// convertRequestToTrip creates the invoice as `draft` (unless an immediate
+// reserve drawdown flips it straight to `paid`); a draft has no
+// member-facing Pay button until a dispatcher reviews the figures and
+// finalizes it to `due`. Save keeps it a draft; Finalize moves it to due
+// and emails the client. Editing is locked once the invoice leaves `draft`.
+
+export const INVOICE_NOT_FOUND = "Invoice not found";
+
+export type InvoiceUpdateState = {
+  invoice: Invoice;
+  /** The trip the invoice bills, when it has one. */
+  trip: { id: string; code: string } | null;
+};
+
+/** The figures the row will carry after the update: a field left out keeps its value, null clears it. */
+export function resolvedInvoiceFigures(input: InvoiceUpdateInput, state: InvoiceUpdateState) {
+  const inv = state.invoice;
+  const pick = (next: number | null | undefined, cur: number | null) => (next === undefined ? cur : next);
+  return {
+    subtotalUsd: pick(input.subtotalUsd, inv.subtotalUsd),
+    fetUsd: pick(input.fetUsd, inv.fetUsd),
+    segmentFeeUsd: pick(input.segmentFeeUsd, inv.segmentFeeUsd),
+    totalUsd: pick(input.totalUsd, inv.totalUsd),
+    notes: input.notes === undefined ? inv.notes : input.notes || null,
+  };
+}
+
+export async function loadInvoiceForUpdate(input: InvoiceUpdateInput): Promise<Result<InvoiceUpdateState>> {
+  if (!isUuid(input.id)) return err("not_found", INVOICE_NOT_FOUND);
+  const [inv] = await db.select().from(invoices).where(eq(invoices.id, input.id));
+  if (!inv) return err("not_found", INVOICE_NOT_FOUND);
+  if (inv.status !== "draft") return err("conflict", `Invoice is ${inv.status} — only drafts are editable`);
+
+  let trip: InvoiceUpdateState["trip"] = null;
+  if (inv.tripId) {
+    const [t] = await db.select({ id: trips.id, code: trips.tripCode }).from(trips).where(eq(trips.id, inv.tripId));
+    trip = t ?? null;
+  }
+  const state = { invoice: inv, trip };
+
+  if (input.intent === "finalize") {
+    const { totalUsd } = resolvedInvoiceFigures(input, state);
+    if (totalUsd === null || totalUsd <= 0) return err("invalid", "Total must be greater than zero to finalize");
+  }
+  return ok(state);
+}
+
+/**
+ * Write the figures (and due date) to a draft invoice; `finalize` also moves
+ * it to due and tells the client. The update is constrained to
+ * status='draft' so a concurrent finalize can't be double-applied.
+ */
+export async function updateInvoice(
+  actor: Actor,
+  input: InvoiceUpdateInput,
+  state: InvoiceUpdateState,
+): Promise<Result<{ id: string; status: "draft" | "due" }>> {
+  const inv = state.invoice;
+  const { intent } = input;
+  const { subtotalUsd, fetUsd, segmentFeeUsd, totalUsd, notes } = resolvedInvoiceFigures(input, state);
+  const dueOn = input.dueOn ?? null;
+  const a = auditFields(actor);
+
+  const patch: Partial<typeof invoices.$inferInsert> = {
+    subtotalUsd,
+    fetUsd,
+    segmentFeeUsd,
+    totalUsd,
+    notes,
+    updatedAt: new Date(),
+  };
+  if (dueOn !== null) patch.dueOn = dueOn;
+
+  if (intent === "finalize") {
+    patch.status = "due";
+    // A due invoice should carry a due date; default to +7 days when the
+    // dispatcher didn't set one and the row doesn't already have one.
+    if (dueOn === null && !inv.dueOn) {
+      const d = new Date();
+      d.setUTCDate(d.getUTCDate() + 7);
+      patch.dueOn = d.toISOString().slice(0, 10);
+    }
+  }
+
+  // Constrain to status='draft' so a concurrent finalize can't be
+  // double-applied; empty result means someone else moved it first.
+  const updated = await db
+    .update(invoices)
+    .set(patch)
+    .where(and(eq(invoices.id, inv.id), eq(invoices.status, "draft")))
+    .returning({ id: invoices.id });
+
+  if (updated.length === 0) return err("conflict", "Invoice changed under you — reload the sheet");
+
+  const diff: Record<string, unknown> = {
+    subtotalUsd: { before: inv.subtotalUsd, after: subtotalUsd },
+    fetUsd: { before: inv.fetUsd, after: fetUsd },
+    segmentFeeUsd: { before: inv.segmentFeeUsd, after: segmentFeeUsd },
+    totalUsd: { before: inv.totalUsd, after: totalUsd },
+  };
+  if (intent === "finalize") {
+    diff.status = { before: "draft", after: "due" };
+  }
+
+  await logAudit({
+    actorUserId: a.actorUserId,
+    actorRole: a.actorRole,
+    action: intent === "finalize" ? "invoice.finalize" : "invoice.draft.update",
+    subjectType: "invoice",
+    subjectId: inv.id,
+    subjectCode: inv.invoiceCode,
+    diff,
+    metadata: { ...a.metadata, intent, dueOn: patch.dueOn ?? inv.dueOn ?? null },
+  });
+
+  // Finalizing puts money on the table — tell the member rather than let
+  // them discover the invoice by browsing /account/invoices. Best-effort.
+  if (intent === "finalize" && inv.memberId && totalUsd !== null) {
+    try {
+      const [m] = await db
+        .select({ email: users.email, firstName: users.firstName })
+        .from(members)
+        .innerJoin(users, eq(users.id, members.userId))
+        .where(eq(members.id, inv.memberId));
+      if (m?.email) {
+        let tripCode: string | null = null;
+        if (inv.tripId) {
+          const [t] = await db.select({ tripCode: trips.tripCode }).from(trips).where(eq(trips.id, inv.tripId));
+          tripCode = t?.tripCode ?? null;
+        }
+        await sendInvoiceIssuedEmail({
+          to: m.email,
+          firstName: m.firstName || "Hello",
+          invoiceCode: inv.invoiceCode,
+          tripCode,
+          totalUsd,
+          dueOn: (patch.dueOn ?? inv.dueOn ?? null) as string | null,
+        });
+      }
+    } catch (e) {
+      console.error("invoice-issued email failed (non-fatal)", e);
+    }
+  }
+
+  return ok({ id: inv.id, status: intent === "finalize" ? "due" : "draft" });
 }

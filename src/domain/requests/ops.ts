@@ -5,10 +5,12 @@ import {
   addOption,
   assignRequest,
   chooseOption,
+  convertRequestToTrip,
   createHold,
   lifecycleEmailGoesOut,
   linkRequestClient,
   loadRequestForAssign,
+  loadRequestForConvert,
   loadRequestForHoldCreate,
   loadRequestForHoldRelease,
   loadRequestForLinkClient,
@@ -29,6 +31,7 @@ import {
   type OptionAddState,
   type OptionState,
   type RequestAssignState,
+  type RequestConvertState,
   type RequestLinkClientState,
   type RequestMessageState,
   type RequestStatusState,
@@ -41,6 +44,7 @@ import {
   OptionRefInput,
   OptionUpdateInput,
   RequestAssignInput,
+  RequestConvertInput,
   RequestLinkClientInput,
   RequestMessageInput,
   RequestStatusInput,
@@ -258,6 +262,37 @@ export const requestOptionRemoveOp = defineOp<OptionRefInput, OptionState>({
   revalidate: (input) => [`/admin/requests/${input.id}`],
 });
 
+// ─── Booking: money moves ────────────────────────────────────────────────
+
+/** "LAX → TEB · 2026-11-02" per leg, one line each, for the approval card. */
+function convertRoutePreview(state: RequestConvertState): string {
+  return state.legs
+    .map((l) => `${l.fromIata ?? l.fromIcao ?? "—"} → ${l.toIata ?? l.toIcao ?? "—"} · ${l.departDate ?? "date TBD"}`)
+    .join("\n");
+}
+
+export const requestConvertOp = defineOp<RequestConvertInput, RequestConvertState>({
+  id: "request.convert",
+  scope: "money",
+  schema: RequestConvertInput,
+  load: loadRequestForConvert,
+  // Opens an invoice and may draw the client's reserve: always an owner's call.
+  risk: () => "money",
+  summary: (_input, state) => {
+    const base = `Book request ${state.quote.quoteCode} as a trip for ${state.clientName}`;
+    return state.pricing.total !== null ? `${base} at ${usd.format(state.pricing.total)}` : base;
+  },
+  preview: (_input, state) =>
+    [
+      convertRoutePreview(state),
+      state.pricing.total !== null ? `Total ${usd.format(state.pricing.total)}` : "No total yet: the invoice opens without figures.",
+      "Issues the invoice and draws from the client's reserve when they have one; emails the booking confirmation.",
+    ].join("\n"),
+  subject: (_input, state) => ({ type: "quote", id: state.quote.id, code: state.quote.quoteCode }),
+  run: convertRequestToTrip,
+  revalidate: (input) => ["/admin/requests", `/admin/requests/${input.id}`, "/admin/trips", "/account/trips", "/account/invoices"],
+});
+
 export const REQUEST_OPS: AnyOp[] = [
   requestStatusOp,
   requestMessageOp,
@@ -270,4 +305,5 @@ export const REQUEST_OPS: AnyOp[] = [
   requestOptionUpdateOp,
   requestOptionChooseOp,
   requestOptionRemoveOp,
+  requestConvertOp,
 ];

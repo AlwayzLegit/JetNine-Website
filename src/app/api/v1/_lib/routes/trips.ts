@@ -1,9 +1,9 @@
 import { z } from "zod";
 import { runOp } from "@/domain/ops/registry";
 import { err, ok } from "@/domain/result";
-import { tripMessageOp, tripStatusOp } from "@/domain/trips/ops";
+import { invoiceUpdateOp, tripMessageOp, tripStatusOp } from "@/domain/trips/ops";
 import { TRIP_LIST_TABS, getTrip, listTrips, withoutTripMoney } from "@/domain/trips/queries";
-import { TripMessageBody, TripStatusBody } from "@/domain/trips/schemas";
+import { InvoiceUpdateBody, TripMessageBody, TripStatusBody } from "@/domain/trips/schemas";
 import type { RouteDef } from "../handler";
 import { opRouteOutput } from "../ops";
 import { hideAmounts, omit, redactInvoice, redactMessages } from "../redact";
@@ -14,7 +14,7 @@ import { hideAmounts, omit, redactInvoice, redactMessages } from "../redact";
  * What JetNine makes on a trip (revenue, operator cost, margin, card fees)
  * needs the `money` permission. The writes go through the ops registry:
  * a key that asks before acting gets a 202 when the client would see it
- * or money would move.
+ * or money would move. The invoice editor needs the `money` permission.
  */
 export const TRIP_ROUTES = {
   listTrips: {
@@ -103,6 +103,22 @@ export const TRIP_ROUTES = {
     run: async ({ actor, params, body }) => {
       const { reason, ...input } = body as z.infer<typeof TripStatusBody>;
       return opRouteOutput(await runOp(tripStatusOp, actor, { id: params.id, ...input }, { reason }));
+    },
+  },
+  updateInvoice: {
+    method: "PATCH",
+    path: "/invoices/{id}",
+    operationId: "updateInvoice",
+    summary: "Edit or finalize a draft invoice",
+    description:
+      "Edits a draft invoice's figures (`subtotalUsd`, `fetUsd`, `segmentFeeUsd`, `totalUsd`, whole dollars), internal `notes` and `dueOn` (YYYY-MM-DD); a field left out keeps its value, null clears it. `intent` is save (stays a draft) or finalize (moves it to due, defaults the due date to a week out when none is set, and emails the client their invoice). Needs the `money` permission. 404 when no invoice has that id; 409 once the invoice has left draft, or when it changed under you; 422 when finalizing without a total above zero. Always goes to an owner first for a key that asks before acting. `reason` is an optional line for the approver. Returns the invoice id and its status.",
+    tag: "Trips",
+    scope: "money",
+    approval: "always",
+    body: InvoiceUpdateBody,
+    run: async ({ actor, params, body }) => {
+      const { reason, ...input } = body as z.infer<typeof InvoiceUpdateBody>;
+      return opRouteOutput(await runOp(invoiceUpdateOp, actor, { id: params.id, ...input }, { reason }));
     },
   },
 } satisfies Record<string, RouteDef>;

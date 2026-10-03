@@ -284,7 +284,7 @@ export type FboFlag = (typeof FBO_FLAGS)[number];
 
 export const FboToggleInput = FboRefInput.extend({
   field: z.enum(FBO_FLAGS),
-  value: z.boolean().optional().describe("The new value; left out, the flag flips."),
+  value: z.boolean().describe("The new value. Required, so an approval card always says exactly what will change."),
 });
 export type FboToggleInput = z.infer<typeof FboToggleInput>;
 

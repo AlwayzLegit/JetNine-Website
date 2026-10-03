@@ -668,9 +668,9 @@ export async function deleteFbo(actor: Actor, input: FboRefInput, state: FboStat
   return ok({ id: fbo.id });
 }
 
-/** The value the toggle will write: the one asked for, or the flip of today's. */
-export function fboToggleTarget(input: FboToggleInput, state: FboState): boolean {
-  return input.value ?? !state.fbo[input.field];
+/** The value the toggle will write (always given, so the approval card is exact). */
+export function fboToggleTarget(input: FboToggleInput, _state: FboState): boolean {
+  return input.value;
 }
 
 export async function toggleFboFlag(

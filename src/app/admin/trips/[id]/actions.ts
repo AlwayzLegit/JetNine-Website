@@ -31,6 +31,7 @@ export async function updateTripStatus(
   const session = await sessionActor();
   if (!session.ok) return { ok: false, error: session.error };
   if (!isStatus(status)) return { ok: false, error: "Invalid status" };
+  if (!/^[0-9a-f-]{36}$/i.test(tripId)) return { ok: false, error: "Bad trip id" };
   const r = await runOp(tripStatusOp, session.value, { id: tripId, status });
   if (!r.ok) return { ok: false, error: r.code === "invalid" ? "Invalid status" : r.code === "not_found" ? "Trip not found" : r.error };
   if (r.value.kind === "pending") return { ok: false, error: "This was sent for approval." };

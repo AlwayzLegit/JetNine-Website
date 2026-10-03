@@ -16,7 +16,7 @@ const createScheduleBlockRoute: RouteDef = {
   operationId: "createScheduleBlock",
   summary: "Block an aircraft",
   description:
-    "Takes an aircraft off the line for a window: `kind` is maintenance, repositioning, crew_rest, owner or unavailable (trip and hold blocks are written by the trip and request lifecycles and are refused with a 422). `startAt` and `endAt` are ISO 8601; the window must be at least a minute and at most a year. `fromIcao` / `toIcao` suit repositioning; `notes` is free text. Returns the block id.",
+    "Takes an aircraft off the line for a window: `kind` is maintenance, repositioning, crew_rest, owner or unavailable (trip and hold blocks are written by the trip and request lifecycles and are refused with a 422). `startAt` and `endAt` are ISO 8601; the end must be after the start and the window at most a year. `fromIcao` / `toIcao` suit repositioning; `notes` is free text. Returns the block id.",
   tag: "Reference data",
   scope: "desk",
   approval: "never",

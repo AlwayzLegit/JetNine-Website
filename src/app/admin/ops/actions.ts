@@ -1,5 +1,7 @@
 "use server";
 
+import { issueWords } from "@/domain/result";
+
 import { scheduleBlockKindEnum } from "@/db/schema/schedule-blocks";
 import { sessionActor } from "@/domain/actor";
 import { runOp } from "@/domain/ops/registry";
@@ -57,7 +59,7 @@ export async function createScheduleBlock(
     toIcao: ((formData.get("toIcao") as string | null) ?? "").trim().toUpperCase(),
     notes: ((formData.get("notes") as string | null) ?? "").trim(),
   });
-  if (!r.ok) return { ok: false, error: r.error };
+  if (!r.ok) return { ok: false, error: (r.code === "invalid" && issueWords(r)) || r.error };
   if (r.value.kind === "pending") return { ok: false, error: PENDING };
   return { ok: true, id: (r.value.value as { id: string }).id };
 }

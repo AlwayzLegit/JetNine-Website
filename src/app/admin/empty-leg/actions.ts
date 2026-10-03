@@ -1,5 +1,7 @@
 "use server";
 
+import { issueWords } from "@/domain/result";
+
 import { sessionActor } from "@/domain/actor";
 import { emptyLegCreateOp, emptyLegStatusOp } from "@/domain/empty-legs/ops";
 import { isEmptyLegStatus, type EmptyLegCreateInput } from "@/domain/empty-legs/schemas";
@@ -67,7 +69,7 @@ export async function createEmptyLeg(formData: FormData): Promise<CreateEmptyLeg
   };
 
   const r = await runOp(emptyLegCreateOp, session.value, input);
-  if (!r.ok) return { ok: false, error: r.error };
+  if (!r.ok) return { ok: false, error: (r.code === "invalid" && issueWords(r)) || r.error };
   if (r.value.kind === "pending") return { ok: false, error: PENDING };
   const { id, code } = r.value.value as { id: string; code: string };
   return { ok: true, id, code };

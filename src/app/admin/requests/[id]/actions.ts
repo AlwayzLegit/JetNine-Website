@@ -34,15 +34,22 @@ import {
   requestStatusOp,
 } from "@/domain/requests/ops";
 import { isDeskMessageChannel, type OptionFields } from "@/domain/requests/schemas";
-import type { Err } from "@/domain/result";
+import { issueWords, type Err } from "@/domain/result";
 
 const UUID_RE = /^[0-9a-f-]{36}$/i;
 const PENDING = "This was sent for approval.";
 
-/** The desk's wording for an op error: the shared "no request" sentence becomes "Quote not found"; the rest already reads the way the desk did. */
+/**
+ * The desk's wording for an op error: the shared "no request" sentence
+ * becomes "Quote not found", a validation failure names the field, and the
+ * rest already reads the way the desk did.
+ */
 function deskError(r: Err): string {
-  return r.code === "not_found" && r.error === REQUEST_NOT_FOUND ? "Quote not found" : r.error;
+  if (r.code === "not_found" && r.error === REQUEST_NOT_FOUND) return "Quote not found";
+  if (r.code === "invalid") return issueWords(r) ?? r.error;
+  return r.error;
 }
+
 
 // The work itself is the "request.status" op (src/domain/requests), shared
 // with the API and the approval queue; runOp revalidates the pages.

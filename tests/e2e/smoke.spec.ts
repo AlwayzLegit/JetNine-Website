@@ -190,7 +190,7 @@ test.describe("auth surface", () => {
   });
 
   test("desk sections redirect to sign-in when signed out", async ({ page }) => {
-    for (const path of ["/admin", "/admin/requests", "/admin/messages", "/admin/settings", "/admin/settings/api-keys"]) {
+    for (const path of ["/admin", "/admin/requests", "/admin/messages", "/admin/messages?tab=approvals", "/admin/settings", "/admin/settings/api-keys"]) {
       const response = await page.goto(path);
       expect(response?.status(), path).toBeLessThan(500);
       expect(page.url(), path).toMatch(/sign-in/);
@@ -265,7 +265,22 @@ test.describe("api v1", () => {
   });
 
   test("writes are refused without a key", async ({ request }) => {
-    const response = await request.post("/api/v1/blog/posts", { data: { title: "x" } });
+    const id = "00000000-0000-4000-8000-000000000000";
+    for (const path of [
+      "/api/v1/blog/posts",
+      `/api/v1/requests/${id}/status`,
+      `/api/v1/requests/${id}/messages`,
+      `/api/v1/requests/${id}/send-options`,
+      `/api/v1/trips/${id}/messages`,
+    ]) {
+      const response = await request.post(path, { data: { title: "x" } });
+      expect(response.status(), path).toBe(401);
+      expect((await response.json()).error?.code, path).toBe("unauthorized");
+    }
+  });
+
+  test("the approval queue needs a key", async ({ request }) => {
+    const response = await request.get("/api/v1/approvals");
     expect(response.status()).toBe(401);
   });
 

@@ -15,6 +15,7 @@ import { quotes } from "@/db/schema/quotes";
 import { trips } from "@/db/schema/trips";
 import { requestStage, tripState } from "@/lib/desk-status";
 import { listPosts } from "@/domain/blog/commands";
+import { decidedSince, type Feedback } from "@/domain/approvals/queries";
 import { isUuid } from "@/domain/common";
 import { deskSnapshot } from "@/domain/desk/queries";
 import { healthSnapshot } from "@/domain/settings/queries";
@@ -134,8 +135,8 @@ export type AgentContext = {
   recentRuns: Pick<AgentRun, "id" | "runDate" | "status" | "summaryMd" | "report" | "closedAt">[];
   missedDays: string[];
   memory: Pick<AgentMemory, "id" | "kind" | "body" | "pinned" | "author" | "updatedAt">[];
-  /** Approvals decided since the last run, with rejection notes. Filled in once the queue exists. */
-  feedback: unknown[];
+  /** What people decided about the assistant's proposals since its last closed run (or the last 7 days), rejection notes included. */
+  feedback: Feedback[];
   openFlags: OpenFlag[];
   recentPosts: { slug: string; title: string; tags: string[]; publishedAt: Date | null }[];
   desk: Awaited<ReturnType<typeof deskSnapshot>>;
@@ -171,6 +172,13 @@ export async function agentContext(now: Date = new Date()): Promise<AgentContext
     healthSnapshot(),
   ]);
 
+  // Feedback covers everything decided since the last closed run, so a
+  // skipped day still surfaces its decisions; never less than a week back.
+  const weekBack = new Date(now.getTime() - 7 * 86_400_000);
+  const lastClosed = runs.find((r) => r.status === "closed")?.closedAt ?? null;
+  const feedbackSince = lastClosed && lastClosed < weekBack ? lastClosed : weekBack;
+  const feedback = await decidedSince(feedbackSince, { limit: 40 });
+
   // Days in the last week with no closed run (the assistant should catch up quietly, not loudly).
   const weekAgo = dayKeyLA(new Date(now.getTime() - 7 * 86_400_000));
   const closedDays = await db
@@ -192,7 +200,7 @@ export async function agentContext(now: Date = new Date()): Promise<AgentContext
     recentRuns: runs.map(trimRun),
     missedDays,
     memory: memory.slice(0, 60).map((m) => ({ id: m.id, kind: m.kind, body: m.body, pinned: m.pinned, author: m.author, updatedAt: m.updatedAt })),
-    feedback: [],
+    feedback,
     openFlags,
     recentPosts: posts
       .filter((p) => p.status === "published" && (p.publishedAt ?? p.createdAt) >= since)

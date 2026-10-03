@@ -102,7 +102,7 @@ const OperatorFields = z.object({
     .default(null)
     .describe("A number as text, e.g. \"5\" or \"2.5\"."),
   rateLock: z.boolean().default(false),
-  notes: text(4000),
+  notes: text(10_000),
   suspendedReason: text(1000).describe("Required when status is suspended."),
 });
 
@@ -230,7 +230,7 @@ const AirportFields = z.object({
   elevationFt: optionalInt,
   longestRunwayFt: optionalInt,
   category: text(40).describe("intl, domestic, private or regional."),
-  notes: text(4000),
+  notes: text(10_000),
   slotControlled: z.boolean().default(false),
   privateOnly: z.boolean().default(false),
   active: z.boolean().default(true),
@@ -267,7 +267,7 @@ const FboFields = z.object({
   isPrimary: z.boolean().default(false),
   isPreferred: z.boolean().default(false),
   customs24h: z.boolean().default(false),
-  notes: text(4000),
+  notes: text(10_000),
 });
 
 export const FboCreateInput = FboFields.extend({ id: z.uuid().describe("The airport.") });

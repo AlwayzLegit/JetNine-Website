@@ -1,31 +1,31 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
-import { eq } from "drizzle-orm";
-import { db } from "@/db";
-import { aircraft } from "@/db/schema/aircraft";
-import {
-  emptyLegs,
-  emptyLegStatusEnum,
-  type NewEmptyLeg,
-} from "@/db/schema/empty-legs";
-import { requireStaff } from "@/lib/auth";
-import { logAudit } from "@/lib/audit";
+import { sessionActor } from "@/domain/actor";
+import { emptyLegCreateOp, emptyLegStatusOp } from "@/domain/empty-legs/ops";
+import { isEmptyLegStatus, type EmptyLegCreateInput } from "@/domain/empty-legs/schemas";
+import { runOp } from "@/domain/ops/registry";
 
 export type CreateEmptyLegResult =
   | { ok: true; code: string; id: string }
   | { ok: false; error: string };
 
-export async function createEmptyLeg(formData: FormData): Promise<CreateEmptyLegResult> {
-  const user = await requireStaff();
+const PENDING = "This was sent for approval.";
 
-  const tail = ((formData.get("aircraftTail") as string | null) ?? "").trim().toUpperCase();
-  const fromIcao = ((formData.get("fromIcao") as string | null) ?? "").trim().toUpperCase();
-  const fromIata = ((formData.get("fromIata") as string | null) ?? "").trim().toUpperCase();
-  const fromCity = (formData.get("fromCity") as string | null)?.trim() ?? null;
-  const toIcao = ((formData.get("toIcao") as string | null) ?? "").trim().toUpperCase();
-  const toIata = ((formData.get("toIata") as string | null) ?? "").trim().toUpperCase();
-  const toCity = (formData.get("toCity") as string | null)?.trim() ?? null;
+/**
+ * Post an empty leg from the new-leg form. The form-shape checks (blank
+ * fields, an unparseable date) stay here with their wording; the rest of
+ * the validation, the insert and the audit row are the "emptyLeg.create"
+ * op (src/domain/empty-legs), shared with the API and the approval
+ * queue. runOp revalidates the admin list and the public board.
+ */
+export async function createEmptyLeg(formData: FormData): Promise<CreateEmptyLegResult> {
+  const session = await sessionActor();
+  if (!session.ok) return { ok: false, error: session.error };
+
+  const text = (name: string) => ((formData.get(name) as string | null) ?? "").trim();
+  const tail = text("aircraftTail").toUpperCase();
+  const fromIcao = text("fromIcao").toUpperCase();
+  const toIcao = text("toIcao").toUpperCase();
 
   if (!tail) return { ok: false, error: "Aircraft tail required" };
   if (!fromIcao || !toIcao) return { ok: false, error: "ICAO codes required" };
@@ -35,150 +35,62 @@ export async function createEmptyLeg(formData: FormData): Promise<CreateEmptyLeg
   const wheelsUpAt = new Date(wheelsUpAtRaw);
   if (Number.isNaN(wheelsUpAt.getTime())) return { ok: false, error: "Invalid wheels-up date" };
 
-  const seats = Number(formData.get("seats") ?? 0);
-  const fullCharter = Number(formData.get("fullCharterRefUsd") ?? 0);
-  const listed = Number(formData.get("listedPriceUsd") ?? 0);
-
-  if (seats < 1 || seats > 19) return { ok: false, error: "Seats 1–19" };
-  if (fullCharter < 1000) return { ok: false, error: "Full charter ref looks too low" };
-  if (listed < 500) return { ok: false, error: "Listed price looks too low" };
-  if (listed >= fullCharter) return { ok: false, error: "Listed must be less than full charter" };
-
-  const discountPct = Math.round(((fullCharter - listed) / fullCharter) * 100);
-  if (discountPct < 5) {
-    return { ok: false, error: "Discount under 5% — operator margin floor blocks publish." };
-  }
-
-  // Look up the aircraft + operator + category by tail.
-  const [ac] = await db
-    .select({
-      id: aircraft.id,
-      operatorId: aircraft.operatorId,
-      category: aircraft.category,
-    })
-    .from(aircraft)
-    .where(eq(aircraft.tailNumber, tail));
-  if (!ac) return { ok: false, error: `Unknown tail ${tail}` };
-
+  // Anything that is not a known status posts as a draft, as the form always did.
   const statusRaw = (formData.get("status") as string | null) ?? "draft";
-  const status = (emptyLegStatusEnum.enumValues as readonly string[]).includes(statusRaw)
-    ? (statusRaw as NewEmptyLeg["status"])
-    : "draft";
+  const status = isEmptyLegStatus(statusRaw) ? statusRaw : "draft";
 
-  const flightMinutes = Number(formData.get("flightMinutes") ?? 0) || null;
-  const distanceNm = Number(formData.get("distanceNm") ?? 0) || null;
-  const minDiscountPct = Math.max(0, Math.min(80, Number(formData.get("minDiscountPct") ?? 30)));
-
-  const values: NewEmptyLeg = {
-    aircraftId: ac.id,
-    operatorId: ac.operatorId,
-    category: ac.category,
+  const input: EmptyLegCreateInput = {
+    aircraftTail: tail,
     fromIcao,
-    fromIata: fromIata || null,
-    fromCity,
+    fromIata: text("fromIata").toUpperCase(),
+    fromCity: (formData.get("fromCity") as string | null)?.trim() ?? null,
     toIcao,
-    toIata: toIata || null,
-    toCity,
-    wheelsUpAt,
-    flightMinutes,
-    distanceNm,
-    seatsAvailable: seats,
-    fullCharterRefUsd: fullCharter,
-    listedPriceUsd: listed,
-    discountPct,
+    toIata: text("toIata").toUpperCase(),
+    toCity: (formData.get("toCity") as string | null)?.trim() ?? null,
+    wheelsUpAt: wheelsUpAt.toISOString(),
+    seats: Number(formData.get("seats") ?? 0),
+    fullCharterRefUsd: Number(formData.get("fullCharterRefUsd") ?? 0),
+    listedPriceUsd: Number(formData.get("listedPriceUsd") ?? 0),
+    status,
+    flightMinutes: Number(formData.get("flightMinutes") ?? 0) || null,
+    distanceNm: Number(formData.get("distanceNm") ?? 0) || null,
     autoPriceDecay: formData.get("autoPriceDecay") === "on",
-    minDiscountPct,
-    reserveLockMinutes: 30,
+    minDiscountPct: Number(formData.get("minDiscountPct") ?? 30),
     petFriendly: formData.get("petFriendly") === "on",
     headline: (formData.get("headline") as string | null) || null,
     bodyCopy: (formData.get("bodyCopy") as string | null) || null,
-    visibilityFlags: {
+    visibility: {
       publicBoard: formData.get("visPublic") === "on",
       memberMatch: formData.get("visMemberMatch") === "on",
       weeklyDigest: formData.get("visWeekly") === "on",
-      affiliateFeed: false,
     },
-    status,
-    createdByUserId: user.id,
-    boardGoLiveAt: status === "live" ? new Date() : null,
-    expiresAt: wheelsUpAt,
   };
 
-  try {
-    const [row] = await db
-      .insert(emptyLegs)
-      .values(values)
-      .returning({ id: emptyLegs.id, code: emptyLegs.code });
-
-    await logAudit({
-      actorUserId: user.id,
-      actorRole: user.role,
-      action: "empty_leg.create",
-      subjectType: "empty_leg",
-      subjectId: row.id,
-      subjectCode: row.code,
-      metadata: {
-        route: `${fromIcao}→${toIcao}`,
-        wheelsUpAt: wheelsUpAt.toISOString(),
-        seats,
-        listed,
-        fullCharter,
-        discountPct,
-        status,
-      },
-    });
-
-    revalidatePath("/admin/empty-leg");
-    revalidatePath("/empty-legs");
-    return { ok: true, id: row.id, code: row.code };
-  } catch (err) {
-    console.error("createEmptyLeg failed", err);
-    return { ok: false, error: "DB_INSERT_FAILED" };
-  }
+  const r = await runOp(emptyLegCreateOp, session.value, input);
+  if (!r.ok) return { ok: false, error: r.error };
+  if (r.value.kind === "pending") return { ok: false, error: PENDING };
+  const { id, code } = r.value.value as { id: string; code: string };
+  return { ok: true, id, code };
 }
 
 // ─── updateEmptyLegStatus ─────────────────────────────────────────
-// The board was create-only at launch: a sold or stale leg had no way off
-// the public /empty-legs page. Status drives public visibility (the board
-// only lists 'live'), so this is also the unlist control.
-
-type EmptyLegStatus = (typeof emptyLegStatusEnum.enumValues)[number];
-
-function isEmptyLegStatus(v: string): v is EmptyLegStatus {
-  return (emptyLegStatusEnum.enumValues as readonly string[]).includes(v);
-}
+// Status drives public visibility (the board only lists 'live'), so this
+// is also the unlist control. The work itself is the "emptyLeg.status" op
+// (src/domain/empty-legs), shared with the API and the approval queue.
 
 export async function updateEmptyLegStatus(
   legId: string,
   status: string,
 ): Promise<{ ok: true } | { ok: false; error: string }> {
-  const user = await requireStaff();
+  const session = await sessionActor();
+  if (!session.ok) return { ok: false, error: session.error };
 
   if (!/^[0-9a-f-]{36}$/i.test(legId)) return { ok: false, error: "Bad leg id" };
   if (!isEmptyLegStatus(status)) return { ok: false, error: "Invalid status" };
 
-  const [before] = await db
-    .select({ id: emptyLegs.id, code: emptyLegs.code, status: emptyLegs.status })
-    .from(emptyLegs)
-    .where(eq(emptyLegs.id, legId));
-  if (!before) return { ok: false, error: "Empty leg not found" };
-
-  await db
-    .update(emptyLegs)
-    .set({ status, updatedAt: new Date() })
-    .where(eq(emptyLegs.id, legId));
-
-  await logAudit({
-    actorUserId: user.id,
-    actorRole: user.role,
-    action: "empty_leg.status.update",
-    subjectType: "empty_leg",
-    subjectId: legId,
-    subjectCode: before.code,
-    diff: { status: { before: before.status, after: status } },
-  });
-
-  revalidatePath("/admin/empty-leg");
-  revalidatePath("/empty-legs");
+  const r = await runOp(emptyLegStatusOp, session.value, { id: legId, status });
+  // The status is checked above, so a schema failure can only be the id.
+  if (!r.ok) return { ok: false, error: r.code === "invalid" ? "Bad leg id" : r.error };
+  if (r.value.kind === "pending") return { ok: false, error: PENDING };
   return { ok: true };
 }

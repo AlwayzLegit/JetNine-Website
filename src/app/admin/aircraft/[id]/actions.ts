@@ -1,25 +1,22 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
-import { and, eq, ne } from "drizzle-orm";
-import { db } from "@/db";
-import {
-  aircraft,
-  aircraftStatusEnum,
-  aircraftWifiEnum,
-  type NewAircraft,
-} from "@/db/schema/aircraft";
-import { aircraftCategoryEnum } from "@/db/schema/enums";
-import { operators } from "@/db/schema/operators";
-import { requireAdmin } from "@/lib/auth";
-import { logAudit } from "@/lib/audit";
+import type { z } from "zod";
+import { sessionActor } from "@/domain/actor";
+import { runOp } from "@/domain/ops/registry";
+import { NO_OPERATOR } from "@/domain/reference/commands";
+import { aircraftCreateOp, aircraftUpdateOp } from "@/domain/reference/ops";
+import type { Err } from "@/domain/result";
+
+/**
+ * The work itself is the aircraft.* ops (src/domain/reference), shared
+ * with the API and the approval queue; runOp checks the `settings`
+ * permission (owners) and revalidates the pages. These wrappers turn the
+ * form into the op's input and the outcome back into the shape the form
+ * expects.
+ */
 
 const UUID_RE = /^[0-9a-f-]{36}$/i;
-const TAIL_RE = /^[A-Z0-9-]{3,16}$/;
-const ICAO_RE = /^[A-Z0-9]{4}$/;
-const STATUSES = aircraftStatusEnum.enumValues as readonly string[];
-const WIFIS = aircraftWifiEnum.enumValues as readonly string[];
-const CATS = aircraftCategoryEnum.enumValues as readonly string[];
+const PENDING = "This was sent for approval.";
 
 function pickString(form: FormData, name: string): string {
   return ((form.get(name) as string | null) ?? "").trim();
@@ -43,76 +40,35 @@ function pickDate(form: FormData, name: string): string | null {
   return raw;
 }
 
-function aircraftValuesFromForm(formData: FormData): {
-  ok: true;
-  values: NewAircraft;
-} | { ok: false; error: string } {
-  const tail = pickString(formData, "tailNumber").toUpperCase();
-  if (!TAIL_RE.test(tail)) return { ok: false, error: "Tail must be 3–16 chars (A-Z, 0-9, -)" };
+/** The form's own wording for a failed op: the first validation message, or the op's sentence. */
+function failure(r: Err): string {
+  if (r.code === "invalid") return (r.details as z.ZodIssue[] | undefined)?.[0]?.message ?? r.error;
+  if (r.code === "not_found") return r.error === NO_OPERATOR ? "Operator not found" : "Not found";
+  return r.error;
+}
 
-  const operatorId = pickString(formData, "operatorId");
-  if (!UUID_RE.test(operatorId)) return { ok: false, error: "Pick an operator" };
-
-  const category = pickString(formData, "category");
-  if (!CATS.includes(category)) return { ok: false, error: "Invalid category" };
-
-  const makeModel = pickString(formData, "makeModel");
-  if (makeModel.length < 2) return { ok: false, error: "Make/model required" };
-  if (makeModel.length > 100) return { ok: false, error: "Make/model too long" };
-
-  const seats = pickInt(formData, "seats");
-  if (seats === null || seats < 1 || seats > 19) {
-    return { ok: false, error: "Seats 1–19" };
-  }
-
-  const rangeNm = pickInt(formData, "rangeNm");
-  if (rangeNm === null || rangeNm < 100 || rangeNm > 10000) {
-    return { ok: false, error: "Range 100–10000 NM" };
-  }
-
-  const speedKt = pickInt(formData, "speedKt");
-  if (speedKt === null || speedKt < 100 || speedKt > 700) {
-    return { ok: false, error: "Speed 100–700 kt" };
-  }
-
-  const yearManufactured = pickInt(formData, "yearManufactured");
-  if (yearManufactured !== null && (yearManufactured < 1960 || yearManufactured > 2100)) {
-    return { ok: false, error: "Year of manufacture looks wrong" };
-  }
-
-  const baseIcao = pickString(formData, "baseIcao").toUpperCase() || null;
-  if (baseIcao && !ICAO_RE.test(baseIcao)) {
-    return { ok: false, error: "Base ICAO must be 4 chars" };
-  }
-
-  const wifiType = pickString(formData, "wifiType") || "none";
-  if (!WIFIS.includes(wifiType)) return { ok: false, error: "Invalid Wi-Fi type" };
-
-  const statusRaw = pickString(formData, "status") || "available";
-  if (!STATUSES.includes(statusRaw)) return { ok: false, error: "Invalid status" };
-
-  const values: NewAircraft = {
-    tailNumber: tail,
-    operatorId,
-    category: category as NewAircraft["category"],
-    makeModel,
-    yearManufactured,
-    seats,
-    rangeNm,
-    speedKt,
-    wifiType: wifiType as NewAircraft["wifiType"],
+function aircraftInput(formData: FormData): Record<string, unknown> {
+  return {
+    tailNumber: pickString(formData, "tailNumber"),
+    operatorId: pickString(formData, "operatorId"),
+    category: pickString(formData, "category"),
+    makeModel: pickString(formData, "makeModel"),
+    seats: pickInt(formData, "seats"),
+    rangeNm: pickInt(formData, "rangeNm"),
+    speedKt: pickInt(formData, "speedKt"),
+    yearManufactured: pickInt(formData, "yearManufactured"),
+    baseIcao: pickString(formData, "baseIcao"),
+    wifiType: pickString(formData, "wifiType") || undefined,
+    status: pickString(formData, "status") || undefined,
     cabinHeightIn: pickInt(formData, "cabinHeightIn"),
     standupCabin: pickBool(formData, "standupCabin"),
     lavatoryEnclosed: pickBool(formData, "lavatoryEnclosed"),
     lieflatCapable: pickBool(formData, "lieflatCapable"),
     petFriendly: pickBool(formData, "petFriendly"),
     flightAttendantStandard: pickBool(formData, "flightAttendantStandard"),
-    baseIcao,
     totalHours: pickInt(formData, "totalHours"),
     lastCCheckOn: pickDate(formData, "lastCCheckOn"),
-    status: statusRaw as NewAircraft["status"],
   };
-  return { ok: true, values };
 }
 
 export type CreateAircraftResult =
@@ -120,122 +76,26 @@ export type CreateAircraftResult =
   | { ok: false; error: string };
 
 export async function createAircraft(formData: FormData): Promise<CreateAircraftResult> {
-  const actor = await requireAdmin();
+  const session = await sessionActor();
+  if (!session.ok) return { ok: false, error: session.error };
 
-  const parsed = aircraftValuesFromForm(formData);
-  if (!parsed.ok) return parsed;
-
-  // Verify operator exists.
-  const [op] = await db
-    .select({ id: operators.id, name: operators.name })
-    .from(operators)
-    .where(eq(operators.id, parsed.values.operatorId));
-  if (!op) return { ok: false, error: "Operator not found" };
-
-  // Tail uniqueness pre-check.
-  const [conflict] = await db
-    .select({ id: aircraft.id })
-    .from(aircraft)
-    .where(eq(aircraft.tailNumber, parsed.values.tailNumber));
-  if (conflict) return { ok: false, error: `Tail ${parsed.values.tailNumber} already on file` };
-
-  try {
-    const [row] = await db
-      .insert(aircraft)
-      .values(parsed.values)
-      .returning({ id: aircraft.id, tailNumber: aircraft.tailNumber });
-
-    await logAudit({
-      actorUserId: actor.id,
-      actorRole: actor.role,
-      action: "aircraft.create",
-      subjectType: "aircraft",
-      subjectId: row.id,
-      subjectCode: row.tailNumber,
-      metadata: {
-        operatorId: parsed.values.operatorId,
-        operatorName: op.name,
-        category: parsed.values.category,
-        makeModel: parsed.values.makeModel,
-        seats: parsed.values.seats,
-      },
-    });
-
-    revalidatePath("/admin/aircraft");
-    revalidatePath("/admin/ops");
-    revalidatePath(`/admin/operators/${parsed.values.operatorId}`);
-    return { ok: true, id: row.id, tailNumber: row.tailNumber };
-  } catch (err) {
-    console.error("createAircraft failed", err);
-    return { ok: false, error: "DB_INSERT_FAILED" };
-  }
+  const r = await runOp(aircraftCreateOp, session.value, aircraftInput(formData));
+  if (!r.ok) return { ok: false, error: failure(r) };
+  if (r.value.kind === "pending") return { ok: false, error: PENDING };
+  const row = r.value.value as { id: string; tailNumber: string };
+  return { ok: true, id: row.id, tailNumber: row.tailNumber };
 }
 
 export async function updateAircraft(
   aircraftId: string,
   formData: FormData,
 ): Promise<{ ok: true } | { ok: false; error: string }> {
-  const actor = await requireAdmin();
+  const session = await sessionActor();
+  if (!session.ok) return { ok: false, error: session.error };
   if (!UUID_RE.test(aircraftId)) return { ok: false, error: "Bad aircraft id" };
 
-  const [before] = await db.select().from(aircraft).where(eq(aircraft.id, aircraftId));
-  if (!before) return { ok: false, error: "Not found" };
-
-  const parsed = aircraftValuesFromForm(formData);
-  if (!parsed.ok) return parsed;
-
-  // Tail collision (exclude self).
-  if (parsed.values.tailNumber !== before.tailNumber) {
-    const [conflict] = await db
-      .select({ id: aircraft.id })
-      .from(aircraft)
-      .where(
-        and(
-          eq(aircraft.tailNumber, parsed.values.tailNumber),
-          ne(aircraft.id, aircraftId),
-        ),
-      );
-    if (conflict) {
-      return { ok: false, error: `Another aircraft already uses ${parsed.values.tailNumber}` };
-    }
-  }
-
-  // Operator existence check on change.
-  if (parsed.values.operatorId !== before.operatorId) {
-    const [op] = await db
-      .select({ id: operators.id })
-      .from(operators)
-      .where(eq(operators.id, parsed.values.operatorId));
-    if (!op) return { ok: false, error: "Operator not found" };
-  }
-
-  await db.update(aircraft).set(parsed.values).where(eq(aircraft.id, aircraftId));
-
-  const diff: Record<string, { before: unknown; after: unknown }> = {};
-  for (const k of Object.keys(parsed.values) as (keyof NewAircraft)[]) {
-    const a = (before as Record<string, unknown>)[k];
-    const b = (parsed.values as Record<string, unknown>)[k];
-    if (a !== b && JSON.stringify(a) !== JSON.stringify(b)) {
-      diff[k] = { before: a, after: b };
-    }
-  }
-
-  await logAudit({
-    actorUserId: actor.id,
-    actorRole: actor.role,
-    action: "aircraft.update",
-    subjectType: "aircraft",
-    subjectId: aircraftId,
-    subjectCode: parsed.values.tailNumber,
-    diff: Object.keys(diff).length ? diff : null,
-  });
-
-  revalidatePath("/admin/aircraft");
-  revalidatePath(`/admin/aircraft/${aircraftId}`);
-  revalidatePath("/admin/ops");
-  if (before.operatorId !== parsed.values.operatorId) {
-    revalidatePath(`/admin/operators/${before.operatorId}`);
-    revalidatePath(`/admin/operators/${parsed.values.operatorId}`);
-  }
+  const r = await runOp(aircraftUpdateOp, session.value, { id: aircraftId, ...aircraftInput(formData) });
+  if (!r.ok) return { ok: false, error: failure(r) };
+  if (r.value.kind === "pending") return { ok: false, error: PENDING };
   return { ok: true };
 }

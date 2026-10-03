@@ -208,11 +208,7 @@ export async function loadThreadForMarkRead(input: MarkThreadReadInput): Promise
  * inbound insert and read by the sidebar count and the Unread tab. A
  * thread with nothing unread (or no messages at all) is a no-op success.
  */
-export async function markThreadRead(
-  _actor: Actor,
-  input: MarkThreadReadInput,
-  _state: MarkThreadReadState,
-): Promise<Result<{ updated: number }>> {
+export async function markThreadRead(_actor: Actor, input: MarkThreadReadInput): Promise<Result<{ updated: number }>> {
   const updated = await db
     .update(messages)
     .set({ isRead: true })

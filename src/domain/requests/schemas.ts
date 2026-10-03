@@ -73,7 +73,6 @@ export type HoldReleaseInput = z.infer<typeof HoldReleaseInput>;
 export const RequestAssignBody = RequestAssignInput.omit({ id: true }).extend({ reason });
 export const RequestLinkClientBody = RequestLinkClientInput.omit({ id: true }).extend({ reason });
 export const HoldCreateBody = HoldCreateInput.omit({ id: true }).extend({ reason });
-export const HoldReleaseBody = z.object({ reason });
 
 // ─── Sourced options ─────────────────────────────────────────────────────
 

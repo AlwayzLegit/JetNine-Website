@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { tripStatusEnum } from "@/db/schema/trips";
 import { DESK_MESSAGE_CHANNELS } from "@/domain/requests/schemas";
 
 /**
@@ -18,3 +19,11 @@ export const TripMessageInput = z.object({
 export type TripMessageInput = z.infer<typeof TripMessageInput>;
 
 export const TripMessageBody = TripMessageInput.omit({ id: true }).extend({ reason });
+
+export const TripStatusInput = z.object({
+  id: z.uuid(),
+  status: z.enum(tripStatusEnum.enumValues),
+});
+export type TripStatusInput = z.infer<typeof TripStatusInput>;
+
+export const TripStatusBody = TripStatusInput.omit({ id: true }).extend({ reason });

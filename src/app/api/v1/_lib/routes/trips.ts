@@ -1,9 +1,9 @@
 import { z } from "zod";
 import { runOp } from "@/domain/ops/registry";
 import { err, ok } from "@/domain/result";
-import { tripMessageOp } from "@/domain/trips/ops";
+import { tripMessageOp, tripStatusOp } from "@/domain/trips/ops";
 import { TRIP_LIST_TABS, getTrip, listTrips, withoutTripMoney } from "@/domain/trips/queries";
-import { TripMessageBody } from "@/domain/trips/schemas";
+import { TripMessageBody, TripStatusBody } from "@/domain/trips/schemas";
 import type { RouteDef } from "../handler";
 import { opRouteOutput } from "../ops";
 import { hideAmounts, omit, redactInvoice, redactMessages } from "../redact";
@@ -12,9 +12,9 @@ import { hideAmounts, omit, redactInvoice, redactMessages } from "../redact";
  * Trips (booked flights) for the assistant. Client names, notes and
  * messages are client-written text, so the reads are marked untrusted.
  * What JetNine makes on a trip (revenue, operator cost, margin, card fees)
- * needs the `money` permission. Posting a message goes through the ops
- * registry: a key that asks before acting gets a 202 when the client
- * would see it.
+ * needs the `money` permission. The writes go through the ops registry:
+ * a key that asks before acting gets a 202 when the client would see it
+ * or money would move.
  */
 export const TRIP_ROUTES = {
   listTrips: {
@@ -87,6 +87,22 @@ export const TRIP_ROUTES = {
     run: async ({ actor, params, body }) => {
       const { reason, ...input } = body as z.infer<typeof TripMessageBody>;
       return opRouteOutput(await runOp(tripMessageOp, actor, { id: params.id, ...input }, { reason }), 201);
+    },
+  },
+  setTripStatus: {
+    method: "POST",
+    path: "/trips/{id}/status",
+    operationId: "setTripStatus",
+    summary: "Change a trip's status",
+    description:
+      "Moves the trip to `status` (draft, confirmed, crew_briefed, boarding, airborne, wheels_down, completed, cancelled_wx, cancelled_other, diverted, irregular_ops). Airborne stamps wheels-up; wheels_down and completed stamp wheels-down. Cancelling (cancelled_wx or cancelled_other) refunds the client — every reserve draw and card payment on the trip — and emails them; confirmed, boarding, completed, diverted and irregular_ops email the client (and text them if they opted in). So a key that asks before acting gets a 202 for a cancellation (an owner decides) or a client-facing milestone (anyone on the desk decides) when the status actually changes; the other statuses, and a repeat of the current one, change at once. `reason` is an optional line for the approver.",
+    tag: "Trips",
+    scope: "desk",
+    approval: "conditional",
+    body: TripStatusBody,
+    run: async ({ actor, params, body }) => {
+      const { reason, ...input } = body as z.infer<typeof TripStatusBody>;
+      return opRouteOutput(await runOp(tripStatusOp, actor, { id: params.id, ...input }, { reason }));
     },
   },
 } satisfies Record<string, RouteDef>;

@@ -16,6 +16,9 @@ import { HeroIngest, PostCreate, PostUpdate } from "@/domain/blog/schemas";
 import { err, ok } from "@/domain/result";
 import type { RouteDef } from "./handler";
 import { buildOpenApi } from "./openapi";
+import { HISTORY_ROUTES } from "./routes/history";
+import { REPORT_ROUTES } from "./routes/reports";
+import { SETTINGS_ROUTES } from "./routes/settings";
 
 /**
  * Every /api/v1 operation. The route.ts files are one-liners that export
@@ -185,6 +188,9 @@ export const ROUTE = {
   deleteBlogPost,
   createBlogImage,
   listBlogLibrary,
+  ...REPORT_ROUTES,
+  ...HISTORY_ROUTES,
+  ...SETTINGS_ROUTES,
 } satisfies Record<string, RouteDef>;
 
 export const ROUTES: RouteDef[] = Object.values(ROUTE);

@@ -1,9 +1,6 @@
-import { asc, eq, inArray, sql } from "drizzle-orm";
-import { db } from "@/db";
-import { staff } from "@/db/schema/staff";
-import { users } from "@/db/schema/users";
 import { requireAdmin } from "@/lib/auth";
-import { deskRole, DESK_ROLE_WORDS, personName } from "@/lib/desk-status";
+import { DESK_ROLE_WORDS } from "@/lib/desk-status";
+import { listTeam } from "@/domain/settings/queries";
 import { DeskRow } from "@/components/admin/desk-ui";
 import { TeamHeader, TeamRowChange } from "@/components/admin/settings/team-forms";
 
@@ -12,25 +9,7 @@ export const dynamic = "force-dynamic";
 export default async function TeamPage() {
   const me = await requireAdmin();
 
-  const rows = await db
-    .select({
-      id: users.id,
-      email: users.email,
-      role: users.role,
-      firstName: users.firstName,
-      lastName: users.lastName,
-      displayName: staff.displayName,
-    })
-    .from(users)
-    .leftJoin(staff, eq(staff.userId, users.id))
-    .where(inArray(users.role, ["dispatcher", "admin", "superadmin"]))
-    .orderBy(
-      // Owners first, then by name.
-      sql`case when ${users.role} in ('admin','superadmin') then 0 else 1 end`,
-      asc(staff.displayName),
-      asc(users.lastName),
-      asc(users.firstName),
-    );
+  const rows = await listTeam();
 
   return (
     <div>
@@ -38,10 +17,9 @@ export default async function TeamPage() {
 
       <div className="card mt-6 overflow-hidden">
         {rows.map((r) => {
-          const role = deskRole(r.role);
-          if (!role) return null;
+          const role = r.deskRole;
           const words = DESK_ROLE_WORDS[role];
-          const name = r.displayName?.trim() || personName(r.firstName, r.lastName, r.email.split("@")[0]);
+          const name = r.name;
           const isMe = r.id === me.id;
           const locked = r.role === "superadmin";
           return (

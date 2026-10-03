@@ -1,103 +1,11 @@
 import Link from "next/link";
-import { sql } from "drizzle-orm";
-import { db } from "@/db";
 import { requireAdmin } from "@/lib/auth";
 import { formatUSD } from "@/lib/quote-pricing";
+import { reportSummary } from "@/domain/reports/queries";
 import { DeskHeader, NumberCard } from "@/components/admin/desk-ui";
-import { NOT_SMOKE, PERIODS, parsePeriod, periodBounds, type PeriodKey } from "./period";
+import { PERIODS, parsePeriod } from "./period";
 
 export const dynamic = "force-dynamic";
-
-type Row<T extends object> = T;
-
-// ─── Queries ────────────────────────────────────────────────────────────
-
-async function getRequests(period: PeriodKey) {
-  const { start, prevStart } = periodBounds(period);
-  const [row] = await db.execute<
-    Row<{
-      received: number;
-      received_prev: number;
-      booked: number;
-      waiting: number;
-      lost: number;
-      open: number;
-    }>
-  >(sql`
-    select
-      count(*) filter (where received_at >= ${start})::int                                              as received,
-      count(*) filter (where received_at >= ${prevStart} and received_at < ${start})::int               as received_prev,
-      count(*) filter (where received_at >= ${start} and status in ('accepted','converted'))::int       as booked,
-      count(*) filter (where received_at >= ${start} and status in ('options_sent','held'))::int        as waiting,
-      count(*) filter (where received_at >= ${start}
-                        and status in ('declined','expired','cancelled'))::int                           as lost,
-      count(*) filter (where received_at >= ${start}
-                        and status in ('submitted','triaged','sourcing'))::int                           as open
-    from public.quotes
-    where ${NOT_SMOKE}
-  `);
-  return row;
-}
-
-async function getMoney(period: PeriodKey) {
-  const { start, prevStart } = periodBounds(period);
-  // True margin subtracts operator cost (from the trip) on top of the FET +
-  // segment pass-throughs. Operator cost only lands on trips converted with a
-  // chosen sourced option, so it's summed over the cost-known cohort only, and
-  // margin_covered/margin_total report coverage for an honest caveat.
-  const [row] = await db.execute<
-    Row<{
-      invoiced: number;
-      invoiced_prev: number;
-      outstanding: number;
-      outstanding_count: number;
-      true_margin: number;
-      covered_invoiced: number;
-      margin_covered: number;
-      margin_total: number;
-    }>
-  >(sql`
-    select
-      coalesce(sum(case when i.issued_on >= ${start}
-                        and i.status in ('paid','due','overdue')
-                  then i.total_usd else 0 end), 0)::int as invoiced,
-      coalesce(sum(case when i.issued_on >= ${prevStart} and i.issued_on < ${start}
-                        and i.status in ('paid','due','overdue')
-                  then i.total_usd else 0 end), 0)::int as invoiced_prev,
-      coalesce(sum(case when i.status in ('due','overdue') then i.total_usd else 0 end), 0)::int as outstanding,
-      count(*) filter (where i.status in ('due','overdue'))::int as outstanding_count,
-      coalesce(sum(case when i.issued_on >= ${start}
-                        and i.status = 'paid' and t.operator_cost_usd is not null
-                  then i.total_usd - coalesce(i.fet_usd,0) - coalesce(i.segment_fee_usd,0) - t.operator_cost_usd
-                  else 0 end), 0)::int as true_margin,
-      coalesce(sum(case when i.issued_on >= ${start}
-                        and i.status = 'paid' and t.operator_cost_usd is not null
-                  then i.total_usd else 0 end), 0)::int as covered_invoiced,
-      count(*) filter (where i.issued_on >= ${start}
-                        and i.status = 'paid' and t.operator_cost_usd is not null)::int as margin_covered,
-      count(*) filter (where i.issued_on >= ${start}
-                        and i.status = 'paid')::int as margin_total
-    from public.invoices i
-    left join public.trips t on t.id = i.trip_id
-  `);
-  return row;
-}
-
-async function getMostOverdue() {
-  const [row] = await db.execute<Row<{ name: string | null; preferred_name: string | null; days_late: number }>>(sql`
-    select
-      nullif(trim(coalesce(u.first_name, '') || ' ' || coalesce(u.last_name, '')), '') as name,
-      m.preferred_name,
-      (current_date - i.due_on)::int as days_late
-    from public.invoices i
-    join public.members m on m.id = i.member_id
-    join public.users u on u.id = m.user_id
-    where i.status in ('due','overdue') and i.due_on is not null and i.due_on < current_date
-    order by i.due_on asc
-    limit 1
-  `);
-  return row ?? null;
-}
 
 // ─── Page ───────────────────────────────────────────────────────────────
 
@@ -117,12 +25,12 @@ export default async function ReportsPage({ searchParams }: Props) {
   const period = parsePeriod(sp.period);
   const meta = PERIODS.find((p) => p.key === period)!;
 
-  const [req, money, overdue] = await Promise.all([getRequests(period), getMoney(period), getMostOverdue()]);
+  const { requests: req, money, mostOverdue: overdue } = await reportSummary(period);
 
-  const receivedDelta = req.received - req.received_prev;
+  const receivedDelta = req.received - req.receivedPrev;
   const bookedPct = req.received > 0 ? Math.round((req.booked / req.received) * 100) : null;
-  const revenueDelta = money.invoiced - money.invoiced_prev;
-  const marginPct = money.covered_invoiced > 0 ? Math.round((money.true_margin / money.covered_invoiced) * 100) : null;
+  const revenueDelta = money.invoiced - money.invoicedPrev;
+  const marginPct = money.coveredInvoiced > 0 ? Math.round((money.trueMargin / money.coveredInvoiced) * 100) : null;
 
   const funnel = [
     { label: "Booked", value: req.booked, bar: "bg-success" },
@@ -132,20 +40,20 @@ export default async function ReportsPage({ searchParams }: Props) {
   ];
   const funnelMax = Math.max(1, ...funnel.map((f) => f.value));
 
-  const overdueName = overdue ? overdue.preferred_name?.trim() || overdue.name || "A client" : null;
+  const overdueName = overdue ? overdue.preferredName?.trim() || overdue.name || "A client" : null;
   const owedNote =
-    money.outstanding_count === 0
+    money.outstandingCount === 0
       ? "Nothing outstanding"
       : overdue
-        ? `${money.outstanding_count} invoice${money.outstanding_count === 1 ? "" : "s"} · ${overdueName}'s invoice is ${overdue.days_late} day${overdue.days_late === 1 ? "" : "s"} late`
-        : `${money.outstanding_count} invoice${money.outstanding_count === 1 ? "" : "s"} outstanding, none late yet`;
+        ? `${money.outstandingCount} invoice${money.outstandingCount === 1 ? "" : "s"} · ${overdueName}'s invoice is ${overdue.daysLate} day${overdue.daysLate === 1 ? "" : "s"} late`
+        : `${money.outstandingCount} invoice${money.outstandingCount === 1 ? "" : "s"} outstanding, none late yet`;
 
   const marginNote =
-    money.margin_total === 0
+    money.marginTotal === 0
       ? `No paid invoices ${meta.words}`
-      : money.margin_covered === 0
-        ? `Operator cost is not recorded on any of the ${money.margin_total} paid trip${money.margin_total === 1 ? "" : "s"} yet`
-        : `about ${marginPct}% of invoiced · counts the ${money.margin_covered} of ${money.margin_total} paid trip${money.margin_total === 1 ? "" : "s"} with operator cost recorded`;
+      : money.marginCovered === 0
+        ? `Operator cost is not recorded on any of the ${money.marginTotal} paid trip${money.marginTotal === 1 ? "" : "s"} yet`
+        : `about ${marginPct}% of invoiced · counts the ${money.marginCovered} of ${money.marginTotal} paid trip${money.marginTotal === 1 ? "" : "s"} with operator cost recorded`;
 
   return (
     <div>
@@ -225,7 +133,7 @@ export default async function ReportsPage({ searchParams }: Props) {
           </div>
           <div>
             <dt className="text-[14px] text-steel">Kept after operator &amp; taxes</dt>
-            <dd className="mt-1 text-[22px] text-bone">{formatUSD(money.true_margin)}</dd>
+            <dd className="mt-1 text-[22px] text-bone">{formatUSD(money.trueMargin)}</dd>
             <dd className="mt-0.5 text-[14px] text-steel">{marginNote}</dd>
           </div>
         </dl>

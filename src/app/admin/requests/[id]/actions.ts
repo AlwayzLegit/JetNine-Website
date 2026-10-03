@@ -36,8 +36,9 @@ export async function updateQuoteStatus(
 ): Promise<{ ok: true } | { ok: false; error: string }> {
   const session = await sessionActor();
   if (!session.ok) return { ok: false, error: session.error };
+  if (!UUID_RE.test(quoteId)) return { ok: false, error: "Bad quote id" };
   const r = await runOp(requestStatusOp, session.value, { id: quoteId, status });
-  if (!r.ok) return { ok: false, error: r.code === "invalid" ? "Invalid status" : r.error };
+  if (!r.ok) return { ok: false, error: r.code === "invalid" ? "Invalid status" : r.code === "not_found" ? "Quote not found" : r.error };
   if (r.value.kind === "pending") return { ok: false, error: "This was sent for approval." };
   return { ok: true };
 }
@@ -555,7 +556,7 @@ export async function postQuoteMessage(
   const toAddress = ((formData.get("toAddress") as string | null) ?? "").trim() || undefined;
 
   const r = await runOp(requestMessageOp, session.value, { id: quoteId, channel, body, toAddress });
-  if (!r.ok) return { ok: false, error: r.error };
+  if (!r.ok) return { ok: false, error: r.code === "not_found" ? "Quote not found" : r.error };
   if (r.value.kind === "pending") return { ok: false, error: "This was sent for approval." };
   return { ok: true, id: (r.value.value as { id: string }).id };
 }
@@ -1038,8 +1039,9 @@ export type SendOptionsResult =
 export async function sendOptionsToClient(quoteId: string): Promise<SendOptionsResult> {
   const session = await sessionActor();
   if (!session.ok) return { ok: false, error: session.error };
+  if (!UUID_RE.test(quoteId)) return { ok: false, error: "Bad quote id" };
   const r = await runOp(requestSendOptionsOp, session.value, { id: quoteId });
-  if (!r.ok) return { ok: false, error: r.error };
+  if (!r.ok) return { ok: false, error: r.code === "not_found" ? "Quote not found" : r.error };
   if (r.value.kind === "pending") return { ok: false, error: "This was sent for approval." };
   const { count, to, delivery } = r.value.value as { count: number; to: string; delivery: "sent" | "queued" };
   return { ok: true, count, to, delivery };

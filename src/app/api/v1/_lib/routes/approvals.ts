@@ -47,6 +47,7 @@ export const APPROVAL_ROUTES = {
       "Things a key that asks before acting proposed, waiting for or decided by a person in Messages › Needs your OK. `status` picks one state (pending by default; executing, executed, failed, rejected, expired). Newest first, at most 200. `payload` is what was proposed, `editedPayload` what a person changed before approving, `result` what the operation returned once it ran.",
     tag: TAG,
     scope: "read",
+    untrusted: true,
     query: z.object({
       status: z.enum(APPROVAL_STATUSES).optional(),
       limit: z.coerce.number().int().min(1).max(200).optional(),
@@ -65,6 +66,7 @@ export const APPROVAL_ROUTES = {
     description: "One proposal with its state, what was proposed, the decision and what happened when it ran.",
     tag: TAG,
     scope: "read",
+    untrusted: true,
     run: async ({ params }) => {
       const a = await getApproval(params.id);
       return a ? ok({ data: approvalOut(a) }) : err("not_found", "No approval with that id.");

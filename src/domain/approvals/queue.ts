@@ -1,4 +1,4 @@
-import { and, count, eq, gte, sql } from "drizzle-orm";
+import { and, count, eq, gte, lt, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { approvals, type Approval, type ApprovalRisk } from "@/db/schema/approvals";
 import { logAudit } from "@/lib/audit";
@@ -28,6 +28,13 @@ export type QueueInput = {
 
 export async function queueApproval(q: QueueInput): Promise<Result<Approval>> {
   const keyId = q.actor.key && !q.actor.key.legacy ? q.actor.key.id : null;
+
+  // A stale pending twin would block this proposal until the daily sweep:
+  // expire it now so the key gets a fresh one and the tab shows the truth.
+  await db
+    .update(approvals)
+    .set({ status: "expired", decidedAt: new Date() })
+    .where(and(eq(approvals.dedupeKey, q.dedupeKey), eq(approvals.status, "pending"), lt(approvals.expiresAt, new Date())));
 
   // Same proposal already waiting: hand it back instead of a duplicate.
   const [existing] = await db

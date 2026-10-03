@@ -25,10 +25,10 @@ function canDecide(actor: Actor, a: Approval): Result<true> {
   return ok(true);
 }
 
-async function claim(id: string, actor: Actor, next: "executing" | "rejected", note: string | null): Promise<Approval | null> {
+async function claim(id: string, actor: Actor | null, next: "executing" | "rejected" | "expired", note: string | null): Promise<Approval | null> {
   const [row] = await db
     .update(approvals)
-    .set({ status: next, decidedBy: actor.userId, decidedAt: new Date(), decisionNote: note })
+    .set({ status: next, decidedBy: actor?.userId ?? null, decidedAt: new Date(), decisionNote: note })
     .where(and(eq(approvals.id, id), eq(approvals.status, "pending")))
     .returning();
   return row ?? null;
@@ -43,12 +43,17 @@ export async function approve(
   const [existing] = await db.select().from(approvals).where(eq(approvals.id, id)).limit(1);
   if (!existing) return err("not_found", "No approval with that id.");
   if (existing.status !== "pending") return err("conflict", `This was already ${existing.status}.`);
-  if (existing.expiresAt.getTime() <= Date.now()) return err("conflict", "This proposal has expired.");
+  if (existing.expiresAt.getTime() <= Date.now()) {
+    await claim(id, null, "expired", null);
+    return err("conflict", "This proposal has expired.");
+  }
   const allowed = canDecide(actor, existing);
   if (!allowed.ok) return allowed;
 
   const op = getOp(existing.op);
   if (!op) return err("unavailable", `The operation "${existing.op}" no longer exists.`);
+  // Risk and permission are separate axes: approving never grants a permission the approver lacks.
+  if (!actor.scopes.has(op.scope)) return err("forbidden", `This needs the "${op.scope}" permission.`);
 
   // Only whitelisted text fields may change; anything else is ignored.
   const edits: Record<string, unknown> = {};
@@ -123,6 +128,10 @@ export async function reject(actor: Actor, id: unknown, note: string): Promise<R
   const [existing] = await db.select().from(approvals).where(eq(approvals.id, id)).limit(1);
   if (!existing) return err("not_found", "No approval with that id.");
   if (existing.status !== "pending") return err("conflict", `This was already ${existing.status}.`);
+  if (existing.expiresAt.getTime() <= Date.now()) {
+    await claim(id, null, "expired", null);
+    return err("conflict", "This proposal has expired.");
+  }
   const allowed = canDecide(actor, existing);
   if (!allowed.ok) return allowed;
 
@@ -143,12 +152,21 @@ export async function reject(actor: Actor, id: unknown, note: string): Promise<R
   return ok(claimed);
 }
 
-/** Pending proposals past their expiry become `expired` (maintenance cron). */
+/**
+ * Pending proposals past their expiry become `expired`; a row left in
+ * `executing` for over an hour (the process died mid-run) becomes `failed`
+ * so it stops looking in flight. Maintenance cron.
+ */
 export async function expirePending(now = new Date()): Promise<number> {
   const rows = await db
     .update(approvals)
     .set({ status: "expired", decidedAt: now })
     .where(and(eq(approvals.status, "pending"), lt(approvals.expiresAt, now)))
     .returning({ id: approvals.id });
-  return rows.length;
+  const stuck = await db
+    .update(approvals)
+    .set({ status: "failed", error: "The desk lost track of this while carrying it out. Propose it again if it still matters." })
+    .where(and(eq(approvals.status, "executing"), lt(approvals.decidedAt, new Date(now.getTime() - 60 * 60_000))))
+    .returning({ id: approvals.id });
+  return rows.length + stuck.length;
 }

@@ -77,7 +77,7 @@ export default async function MessagesPage({ searchParams }: Props) {
     listCallNotes(),
     listInquiries({ show: sp.show }),
     listFailedDeliveries(now),
-    listApprovals({ status: ["pending"] }),
+    listApprovals({ status: ["pending"], limit: 200 }),
     // The quiet "Decided recently" group only loads on its own tab.
     tab === "approvals" ? listApprovals({ status: ["executed", "failed", "rejected", "expired"], limit: 20 }) : Promise.resolve([] as ApprovalRow[]),
     getCurrentUser(),

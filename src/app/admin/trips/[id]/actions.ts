@@ -567,7 +567,7 @@ export async function postTripMessage(
   const toAddress = ((formData.get("toAddress") as string | null) ?? "").trim() || undefined;
 
   const r = await runOp(tripMessageOp, session.value, { id: tripId, channel, body, toAddress });
-  if (!r.ok) return { ok: false, error: r.error };
+  if (!r.ok) return { ok: false, error: r.code === "not_found" ? "Trip not found" : r.error };
   if (r.value.kind === "pending") return { ok: false, error: "This was sent for approval." };
   return { ok: true, id: (r.value.value as { id: string }).id };
 }

@@ -282,6 +282,11 @@ test.describe("api v1", () => {
       "/api/v1/schedule/blocks",
       "/api/v1/reference/operators",
       "/api/v1/reference/airports",
+      `/api/v1/requests/${id}/convert`,
+      `/api/v1/clients/${id}/ledger`,
+      "/api/v1/clients",
+      "/api/v1/team",
+      "/api/v1/settings/test-email",
     ]) {
       const response = await request.post(path, { data: { title: "x" } });
       expect(response.status(), path).toBe(401);
@@ -291,7 +296,14 @@ test.describe("api v1", () => {
 
   test("reference and assignment changes are refused without a key", async ({ request }) => {
     const id = "00000000-0000-4000-8000-000000000000";
-    for (const path of [`/api/v1/requests/${id}/assignee`, `/api/v1/requests/${id}/client`, `/api/v1/reference/aircraft/${id}`]) {
+    for (const path of [
+      `/api/v1/requests/${id}/assignee`,
+      `/api/v1/requests/${id}/client`,
+      `/api/v1/reference/aircraft/${id}`,
+      `/api/v1/invoices/${id}`,
+      "/api/v1/settings/desk",
+      `/api/v1/team/${id}`,
+    ]) {
       const response = await request.patch(path, { data: {} });
       expect(response.status(), path).toBe(401);
     }

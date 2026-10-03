@@ -6,6 +6,7 @@ import { apiRequests } from "@/db/schema/api";
 import { authenticateApiKey, clientIp } from "@/lib/api-auth";
 import type { Scope } from "@/lib/api-keys";
 import type { Actor } from "@/domain/actor";
+import { runIsOpenForKey } from "@/domain/agent/queries";
 import { err, type Result } from "@/domain/result";
 import { failure, success } from "./envelope";
 
@@ -115,6 +116,9 @@ export function apiHandler(def: RouteDef) {
     }
     const actor: Actor = { ...auth.value, requestId };
     keyId = actor.key?.id ?? null;
+    // X-Agent-Run is only trusted (logged, audited, used for caps) when it
+    // names this key's own open run.
+    if (actor.runId && (!keyId || !(await runIsOpenForKey(actor.runId, keyId)))) actor.runId = undefined;
     runId = actor.runId ?? null;
 
     if (def.scope !== "any" && !actor.scopes.has(def.scope)) {

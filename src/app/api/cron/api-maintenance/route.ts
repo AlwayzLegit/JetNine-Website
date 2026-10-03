@@ -3,9 +3,11 @@ import { NextResponse } from "next/server";
 import { lt, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { apiRequests } from "@/db/schema/api";
+import { failStaleRuns } from "@/domain/agent/commands";
 
 // Daily API housekeeping (vercel.json: "20 9 * * *" UTC). Prunes the
-// per-call request log after 30 days. Keys themselves are never deleted:
+// per-call request log after 30 days and marks assistant runs left open
+// for a day as failed. Keys themselves are never deleted:
 // revoked and expired keys stay listed in Settings › API keys for the record.
 
 export const dynamic = "force-dynamic";
@@ -33,5 +35,6 @@ export async function GET(request: Request): Promise<NextResponse> {
     .delete(apiRequests)
     .where(lt(apiRequests.at, sql`now() - interval '30 days'`))
     .returning({ id: apiRequests.id });
-  return NextResponse.json({ ok: true, pruned: pruned.length });
+  const staleRuns = await failStaleRuns();
+  return NextResponse.json({ ok: true, pruned: pruned.length, staleRuns });
 }

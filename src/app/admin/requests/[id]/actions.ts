@@ -1,9 +1,9 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { and, asc, eq, ilike, inArray, sql } from "drizzle-orm";
+import { and, asc, eq, ilike, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { quotes, quoteLegs, quoteStatusEnum } from "@/db/schema/quotes";
+import { quotes, quoteLegs } from "@/db/schema/quotes";
 import { trips, tripLegs, type NewTrip, type NewTripLeg } from "@/db/schema/trips";
 import { invoices, type NewInvoice } from "@/db/schema/invoices";
 import { members } from "@/db/schema/members";
@@ -17,24 +17,16 @@ import {
   aircraftScheduleBlocks,
   type NewAircraftScheduleBlock,
 } from "@/db/schema/schedule-blocks";
-import {
-  messageChannelEnum,
-  messages,
-  type NewMessage,
-} from "@/db/schema/audit";
+import { messages } from "@/db/schema/audit";
 import { users } from "@/db/schema/users";
 import { requireStaff } from "@/lib/auth";
 import { logAudit } from "@/lib/audit";
-import { statusUrl } from "@/lib/request-status";
-import {
-  sendBookingConfirmationEmail,
-  sendQuoteLifecycleEmail,
-  sendQuoteOptionsEmail,
-  type QuoteOptionEmailItem,
-} from "@/lib/email";
+import { sendBookingConfirmationEmail } from "@/lib/email";
 import { attemptInvoiceDrawdown, type DrawdownOutcome } from "@/lib/membership-balance";
-import { dispatchThreadMessage, type ThreadChannel } from "@/lib/message-delivery";
-import { isE164, toE164 } from "@/lib/phone";
+import { sessionActor } from "@/domain/actor";
+import { runOp } from "@/domain/ops/registry";
+import { requestMessageOp, requestSendOptionsOp, requestStatusOp } from "@/domain/requests/ops";
+import { isDeskMessageChannel } from "@/domain/requests/schemas";
 
 // The work itself is the "request.status" op (src/domain/requests), shared
 // with the API and the approval queue; runOp revalidates the pages.

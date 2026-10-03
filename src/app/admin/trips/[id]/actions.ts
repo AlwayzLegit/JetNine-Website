@@ -11,11 +11,7 @@ import {
   reserveTransactions,
   type NewReserveTransaction,
 } from "@/db/schema/memberships";
-import {
-  messageChannelEnum,
-  messages,
-  type NewMessage,
-} from "@/db/schema/audit";
+import { messages, type NewMessage } from "@/db/schema/audit";
 import { requireStaff } from "@/lib/auth";
 import { logAudit } from "@/lib/audit";
 import {
@@ -28,7 +24,10 @@ import { memberPreferences } from "@/db/schema/member-prefs";
 import { isStripeConfigured, refundPaymentIntent } from "@/lib/stripe";
 import { sendDispatchAlert, sendRefundIssuedEmail } from "@/lib/email";
 import { sendTripStatusSms } from "@/lib/twilio";
-import { dispatchThreadMessage, type ThreadChannel } from "@/lib/message-delivery";
+import { sessionActor } from "@/domain/actor";
+import { runOp } from "@/domain/ops/registry";
+import { isDeskMessageChannel } from "@/domain/requests/schemas";
+import { tripMessageOp } from "@/domain/trips/ops";
 
 type Status = (typeof tripStatusEnum.enumValues)[number];
 

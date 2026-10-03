@@ -21,7 +21,11 @@ const PENDING = "This was sent for approval.";
 
 /** The form's own wording for a failed op: the first validation message, or the op's sentence. */
 function failure(r: Err): string {
-  if (r.code === "invalid") return (r.details as z.ZodIssue[] | undefined)?.[0]?.message ?? r.error;
+  if (r.code === "invalid") {
+    const issue = (r.details as z.ZodIssue[] | undefined)?.[0];
+    if (issue?.path[0] === "id") return "Bad request.";
+    return issue?.message ?? r.error;
+  }
   return r.error;
 }
 

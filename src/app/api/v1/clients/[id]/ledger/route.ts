@@ -4,5 +4,4 @@ import { ROUTE } from "@/app/api/v1/_lib/routes";
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
-export const GET = apiHandler(ROUTE.listClients);
-export const POST = apiHandler(ROUTE.inviteClient);
+export const POST = apiHandler(ROUTE.addClientLedgerEntry);

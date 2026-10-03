@@ -40,6 +40,8 @@ import {
 import { getRequest } from "@/domain/requests/queries";
 import { pendingForSubject } from "@/domain/approvals/queries";
 import { PendingApprovalsCard } from "@/components/admin/approvals/pending-approvals-card";
+import { itemsForSubject } from "@/domain/agent/queries";
+import { AssistantNotesCard } from "@/components/admin/assistant/assistant-notes-card";
 
 export const dynamic = "force-dynamic";
 
@@ -78,7 +80,7 @@ export default async function RequestPage({ params }: Props) {
   const { id } = await params;
   const now = new Date();
 
-  const [bundle, waitingOnYou] = await Promise.all([getRequest(id, now), pendingForSubject("quote", id)]);
+  const [bundle, waitingOnYou, notes] = await Promise.all([getRequest(id, now), pendingForSubject("quote", id), itemsForSubject("quote", id)]);
   if (!bundle) notFound();
   const {
     quote,
@@ -464,6 +466,7 @@ export default async function RequestPage({ params }: Props) {
         {/* ─── Conversation ─── */}
         <div id="conversation" className="flex min-w-0 flex-col gap-5 scroll-mt-6">
           <PendingApprovalsCard items={waitingOnYou} now={now} />
+          <AssistantNotesCard items={notes} now={now} path={`/admin/requests/${id}`} />
           <DeskCard title="Conversation">
             <div className="mt-3">
               <MarkThreadRead subjectType="quote" subjectId={quote.id} />

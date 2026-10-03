@@ -127,6 +127,46 @@ export async function listOpenFlags(): Promise<OpenFlag[]> {
   return flags.map((f) => ({ ...f, subjectNow: f.subjectId ? (now.get(f.subjectId) ?? null) : null }));
 }
 
+export type SubjectItem = Pick<AgentRunItem, "id" | "kind" | "title" | "bodyMd" | "url" | "status" | "createdAt" | "dismissedAt"> & {
+  /** YYYY-MM-DD of the run that produced the item. */
+  runDate: string;
+};
+
+/**
+ * What the assistant said about one request or trip, newest first, for the
+ * "Assistant notes" card on its page. Open items only unless asked.
+ */
+export async function itemsForSubject(
+  subjectType: string,
+  subjectId: string,
+  { includeDismissed = false }: { includeDismissed?: boolean } = {},
+): Promise<SubjectItem[]> {
+  if (!isUuid(subjectId)) return [];
+  return db
+    .select({
+      id: agentRunItems.id,
+      kind: agentRunItems.kind,
+      title: agentRunItems.title,
+      bodyMd: agentRunItems.bodyMd,
+      url: agentRunItems.url,
+      status: agentRunItems.status,
+      createdAt: agentRunItems.createdAt,
+      dismissedAt: agentRunItems.dismissedAt,
+      runDate: agentRuns.runDate,
+    })
+    .from(agentRunItems)
+    .innerJoin(agentRuns, eq(agentRuns.id, agentRunItems.runId))
+    .where(
+      and(
+        eq(agentRunItems.subjectType, subjectType),
+        eq(agentRunItems.subjectId, subjectId),
+        includeDismissed ? undefined : eq(agentRunItems.status, "open"),
+      ),
+    )
+    .orderBy(desc(agentRunItems.createdAt))
+    .limit(20);
+}
+
 export type AgentContext = {
   today: string;
   generatedAt: Date;

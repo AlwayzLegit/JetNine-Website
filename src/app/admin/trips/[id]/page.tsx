@@ -23,6 +23,8 @@ import {
 import { getTrip } from "@/domain/trips/queries";
 import { pendingForSubject } from "@/domain/approvals/queries";
 import { PendingApprovalsCard } from "@/components/admin/approvals/pending-approvals-card";
+import { itemsForSubject } from "@/domain/agent/queries";
+import { AssistantNotesCard } from "@/components/admin/assistant/assistant-notes-card";
 
 export const dynamic = "force-dynamic";
 
@@ -45,7 +47,7 @@ export default async function AdminTripDetailPage({ params }: Props) {
   const { id } = await params;
   const now = new Date();
 
-  const [bundle, waitingOnYou] = await Promise.all([getTrip(id, now), pendingForSubject("trip", id)]);
+  const [bundle, waitingOnYou, notes] = await Promise.all([getTrip(id, now), pendingForSubject("trip", id), itemsForSubject("trip", id)]);
   if (!bundle) notFound();
   const {
     trip,
@@ -248,6 +250,7 @@ export default async function AdminTripDetailPage({ params }: Props) {
           </div>
 
           <PendingApprovalsCard items={waitingOnYou} now={now} />
+          <AssistantNotesCard items={notes} now={now} path={`/admin/trips/${id}`} />
 
           <div id="conversation" className="scroll-mt-6">
           <DeskCard

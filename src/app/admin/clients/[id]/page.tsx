@@ -1,48 +1,21 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { and, asc, desc, eq, inArray, notInArray, sql } from "drizzle-orm";
 import type { ReactNode } from "react";
-import { db } from "@/db";
-import { members } from "@/db/schema/members";
-import { users } from "@/db/schema/users";
-import { staff } from "@/db/schema/staff";
-import { aircraft } from "@/db/schema/aircraft";
-import { airports } from "@/db/schema/airports";
-import { memberPreferences, memberLanes, companions, memberDocuments } from "@/db/schema/member-prefs";
-import { memberships, reserveTransactions } from "@/db/schema/memberships";
-import { trips, tripLegs } from "@/db/schema/trips";
-import { invoices } from "@/db/schema/invoices";
-import { quotes, quoteLegs } from "@/db/schema/quotes";
 import { formatUSD } from "@/lib/quote-pricing";
-import { formatDay, relativeTime } from "@/lib/request-page";
-import {
-  invoiceWords,
-  isCardOrReserve,
-  passengersWords,
-  personName,
-  requestStage,
-  tierWords,
-  tripState,
-} from "@/lib/desk-status";
+import { formatDay, relativeTime } from "@/lib/request-format";
+import { passengersWords, tierWords } from "@/lib/desk-status";
 import { ContactButtons, DeskCard, DeskHeader, DeskPage, DotSentence, StatusPill } from "@/components/admin/desk-ui";
 import { ReserveTxForm } from "@/components/admin/reserve-tx-form";
 import {
   ACCOUNT_STATUS_WORDS,
   DOC_WORDS,
   RELATION_WORDS,
-  cabinChips,
-  cateringWords,
-  dayAndClock,
-  groundWords,
-  isReserveProgram,
   ledgerKindWords,
   monthYear,
-  privacyChips,
-  reachWords,
-  routeFromLegs,
   shortDay,
   shortStamp,
 } from "@/components/admin/clients/client-words";
+import { getClient } from "@/domain/clients/queries";
 
 export const dynamic = "force-dynamic";
 
@@ -56,276 +29,33 @@ const INVOICE_KIND_WORDS: Record<string, string> = {
   renewal: "Renewal",
 };
 
-const PAST_TRIP_STATUSES = ["wheels_down", "completed", "cancelled_wx", "cancelled_other"] as const;
-
 export default async function AdminClientPage({ params }: Props) {
   const { id } = await params;
   const now = new Date();
-  const today = now.toISOString().slice(0, 10);
 
-  const [memberRow] = await db
-    .select({
-      id: members.id,
-      memberCode: members.memberCode,
-      legalName: members.legalName,
-      preferredName: members.preferredName,
-      tier: members.tier,
-      tierSince: members.tierSince,
-      memberSince: members.memberSince,
-      status: members.status,
-      mobileE164: members.mobileE164,
-      companyName: members.companyName,
-      roleTitle: members.roleTitle,
-      twoFactorEnabled: members.twoFactorEnabled,
-      marketingOptIn: members.marketingOptIn,
-      lifetimeTripsCache: members.lifetimeTripsCache,
-      lifetimeHoursCache: members.lifetimeHoursCache,
-      primaryDispatcherId: members.primaryDispatcherId,
-      email: users.email,
-      firstName: users.firstName,
-      lastName: users.lastName,
-      phoneE164: users.phoneE164,
-      role: users.role,
-    })
-    .from(members)
-    .innerJoin(users, eq(users.id, members.userId))
-    .where(eq(members.id, id));
-  if (!memberRow) notFound();
-
-  const [dispatcherRow] = memberRow.primaryDispatcherId
-    ? await db
-        .select({ displayName: staff.displayName, status: staff.status })
-        .from(staff)
-        .where(eq(staff.id, memberRow.primaryDispatcherId))
-    : [];
-
-  const [prefs] = await db.select().from(memberPreferences).where(eq(memberPreferences.memberId, id));
-
-  const lanesList = await db
-    .select()
-    .from(memberLanes)
-    .where(eq(memberLanes.memberId, id))
-    .orderBy(desc(memberLanes.frequencyPerYear));
-
-  const companionsList = await db
-    .select()
-    .from(companions)
-    .where(eq(companions.memberId, id))
-    .orderBy(asc(companions.legalName));
-
-  const documentsList = await db
-    .select({
-      id: memberDocuments.id,
-      docType: memberDocuments.docType,
-      countryIso2: memberDocuments.countryIso2,
-      expiresOn: memberDocuments.expiresOn,
-      isPrimary: memberDocuments.isPrimary,
-    })
-    .from(memberDocuments)
-    .where(eq(memberDocuments.memberId, id))
-    .orderBy(desc(memberDocuments.isPrimary), asc(memberDocuments.docType));
-
-  const programs = await db
-    .select()
-    .from(memberships)
-    .where(eq(memberships.memberId, id))
-    .orderBy(desc(memberships.activatedOn));
-  const activeProgram = programs.find((p) => p.status === "active") ?? null;
-
-  const [balanceRow] = await db
-    .select({
-      balance: sql<number>`coalesce(sum(${reserveTransactions.amountUsd}), 0)::int`,
-    })
-    .from(reserveTransactions)
-    .where(eq(reserveTransactions.memberId, id));
-  const balance = balanceRow?.balance ?? 0;
-
-  const tripsList = await db
-    .select({
-      id: trips.id,
-      tripCode: trips.tripCode,
-      status: trips.status,
-      missionType: trips.missionType,
-      paxCount: trips.paxCount,
-      revenueUsd: trips.revenueUsd,
-      aircraftId: trips.aircraftId,
-      createdAt: trips.createdAt,
-    })
-    .from(trips)
-    .where(eq(trips.memberId, id))
-    .orderBy(desc(trips.createdAt))
-    .limit(10);
-
-  // Everything still to fly, to pick the next trip for "Upcoming".
-  const openTrips = await db
-    .select({
-      id: trips.id,
-      status: trips.status,
-      paxCount: trips.paxCount,
-      revenueUsd: trips.revenueUsd,
-      aircraftId: trips.aircraftId,
-    })
-    .from(trips)
-    .where(and(eq(trips.memberId, id), notInArray(trips.status, [...PAST_TRIP_STATUSES])));
-
-  const tripIds = Array.from(new Set([...tripsList.map((t) => t.id), ...openTrips.map((t) => t.id)]));
-  const legRows = tripIds.length
-    ? await db
-        .select({
-          tripId: tripLegs.tripId,
-          fromIata: tripLegs.fromIata,
-          fromCity: tripLegs.fromCity,
-          fromName: tripLegs.fromName,
-          toIata: tripLegs.toIata,
-          toCity: tripLegs.toCity,
-          toName: tripLegs.toName,
-          departDate: tripLegs.departDate,
-          departTime: tripLegs.departTime,
-        })
-        .from(tripLegs)
-        .where(inArray(tripLegs.tripId, tripIds))
-        .orderBy(asc(tripLegs.legNumber))
-    : [];
-  const legsByTrip = new Map<string, typeof legRows>();
-  for (const l of legRows) legsByTrip.set(l.tripId, [...(legsByTrip.get(l.tripId) ?? []), l]);
-  const legsOf = (tripId: string) => legsByTrip.get(tripId) ?? [];
-  const nextLegOf = (tripId: string) => {
-    const legs = legsOf(tripId);
-    return legs.find((l) => l.departDate != null && l.departDate >= today) ?? legs[0] ?? null;
-  };
-
-  const upcoming = openTrips
-    .filter((t) => {
-      const legs = legsOf(t.id);
-      if (legs.every((l) => l.departDate == null)) return true; // dates not set yet
-      const next = nextLegOf(t.id)?.departDate;
-      return next != null && next >= today;
-    })
-    .sort((a, b) => (nextLegOf(a.id)?.departDate ?? "9999").localeCompare(nextLegOf(b.id)?.departDate ?? "9999"));
-  const nextTrip = upcoming[0] ?? null;
-
-  const [nextAircraft] = nextTrip?.aircraftId
-    ? await db
-        .select({ makeModel: aircraft.makeModel })
-        .from(aircraft)
-        .where(eq(aircraft.id, nextTrip.aircraftId))
-        .limit(1)
-    : [];
-
-  const invoicesList = await db
-    .select({
-      id: invoices.id,
-      invoiceCode: invoices.invoiceCode,
-      status: invoices.status,
-      kind: invoices.kind,
-      issuedOn: invoices.issuedOn,
-      dueOn: invoices.dueOn,
-      totalUsd: invoices.totalUsd,
-      tripId: invoices.tripId,
-      tripCode: trips.tripCode,
-    })
-    .from(invoices)
-    .leftJoin(trips, eq(trips.id, invoices.tripId))
-    .where(eq(invoices.memberId, id))
-    .orderBy(desc(invoices.issuedOn))
-    .limit(10);
-
-  const quotesList = await db
-    .select({
-      id: quotes.id,
-      quoteCode: quotes.quoteCode,
-      status: quotes.status,
-      paxCount: quotes.paxCount,
-      receivedAt: quotes.receivedAt,
-      convertedTripId: quotes.convertedTripId,
-    })
-    .from(quotes)
-    .where(eq(quotes.memberId, id))
-    .orderBy(desc(quotes.receivedAt))
-    .limit(10);
-
-  const quoteLegRows = quotesList.length
-    ? await db
-        .select({
-          quoteId: quoteLegs.quoteId,
-          fromIata: quoteLegs.fromIata,
-          fromCity: quoteLegs.fromCity,
-          fromName: quoteLegs.fromName,
-          toIata: quoteLegs.toIata,
-          toCity: quoteLegs.toCity,
-          toName: quoteLegs.toName,
-          departDate: quoteLegs.departDate,
-        })
-        .from(quoteLegs)
-        .where(
-          inArray(
-            quoteLegs.quoteId,
-            quotesList.map((q) => q.id),
-          ),
-        )
-        .orderBy(asc(quoteLegs.legNumber))
-    : [];
-  const legsByQuote = new Map<string, typeof quoteLegRows>();
-  for (const l of quoteLegRows) legsByQuote.set(l.quoteId, [...(legsByQuote.get(l.quoteId) ?? []), l]);
-
-  const [lifetimeInvoicedRow] = await db
-    .select({
-      total: sql<number>`coalesce(sum(${invoices.totalUsd}), 0)::int`,
-    })
-    .from(invoices)
-    .where(sql`${invoices.memberId} = ${id} and ${invoices.status} in ('paid','due','overdue')`);
-  const lifetimeInvoiced = lifetimeInvoicedRow?.total ?? 0;
-
-  const recentLedger = await db
-    .select({
-      id: reserveTransactions.id,
-      kind: reserveTransactions.kind,
-      amountUsd: reserveTransactions.amountUsd,
-      description: reserveTransactions.description,
-      occurredAt: reserveTransactions.occurredAt,
-    })
-    .from(reserveTransactions)
-    .where(eq(reserveTransactions.memberId, id))
-    .orderBy(desc(reserveTransactions.occurredAt))
-    .limit(8);
-
-  // Lanes are stored as ICAO pairs; the desk reads them as cities.
-  const laneIcaos = Array.from(new Set(lanesList.flatMap((l) => [l.fromIcao, l.toIcao])));
-  const laneAirports = laneIcaos.length
-    ? await db
-        .select({ icao: airports.icao, city: airports.city, name: airports.name })
-        .from(airports)
-        .where(inArray(airports.icao, laneIcaos))
-    : [];
-  const cityOf = new Map(laneAirports.map((a) => [a.icao, a.city || a.name]));
-  const laneCity = (icao: string) => cityOf.get(icao) ?? icao;
-
-  // ── Words ─────────────────────────────────────────────────────────────
-  const displayName = personName(memberRow.firstName, memberRow.lastName, memberRow.email);
-  const phone = memberRow.mobileE164 ?? memberRow.phoneE164 ?? null;
-  const program = activeProgram?.program ?? memberRow.tier;
-  const isMember = isCardOrReserve(program);
-  const reserve = isReserveProgram(program);
-  const memberSince = monthYear(memberRow.memberSince);
-  const lead = [memberRow.email, phone, memberSince ? `Member since ${memberSince}` : null, tierWords(program)]
-    .filter(Boolean)
-    .join(" · ");
-
-  const prefBlocks: { label: string; text?: string | null; chips?: string[] }[] = prefs
-    ? [
-        { label: "How to reach them", text: reachWords(prefs) },
-        { label: "Cabin", chips: cabinChips(prefs) },
-        { label: "Catering", text: cateringWords(prefs) },
-        { label: "Ground", text: groundWords(prefs) },
-        { label: "Privacy", chips: privacyChips(prefs) },
-        { label: "Standing notes", text: prefs.standingCateringNotes },
-      ].filter((b) => (b.text ? true : (b.chips?.length ?? 0) > 0))
-    : [];
-
-  const nextLeg = nextTrip ? nextLegOf(nextTrip.id) : null;
-  const nextRoute = nextTrip ? routeFromLegs(legsOf(nextTrip.id)) : null;
-  const nextWhen = nextLeg ? dayAndClock(nextLeg.departDate, nextLeg.departTime) : null;
-  const nextState = nextTrip ? tripState(nextTrip.status) : null;
+  const client = await getClient(id, now);
+  if (!client) notFound();
+  const {
+    member,
+    words,
+    dispatcher,
+    prefs,
+    prefBlocks,
+    lanes,
+    companions,
+    documents,
+    activeProgram,
+    balance,
+    trips,
+    upcoming,
+    requests,
+    hasOpenRequest,
+    invoices,
+    lifetimeInvoiced,
+    ledger,
+  } = client;
+  const { displayName, lead, memberSince, program, isMember, isReserve: reserve } = words;
+  const phone = member.phone;
 
   return (
     <DeskPage>
@@ -336,21 +66,21 @@ export default async function AdminClientPage({ params }: Props) {
           <>
             {lead}
             <span className="mt-1 block text-[13px] text-steel">
-              Reference {memberRow.memberCode}
-              {memberRow.companyName
-                ? ` · ${memberRow.companyName}${memberRow.roleTitle ? `, ${memberRow.roleTitle}` : ""}`
+              Reference {member.memberCode}
+              {member.companyName
+                ? ` · ${member.companyName}${member.roleTitle ? `, ${member.roleTitle}` : ""}`
                 : null}
             </span>
           </>
         }
         actions={
           <>
-            {memberRow.status !== "active" ? (
-              <StatusPill tone={memberRow.status === "closed" ? "danger" : "steel"}>
-                Account {ACCOUNT_STATUS_WORDS[memberRow.status]?.toLowerCase() ?? memberRow.status}
+            {member.status !== "active" ? (
+              <StatusPill tone={member.status === "closed" ? "danger" : "steel"}>
+                Account {ACCOUNT_STATUS_WORDS[member.status]?.toLowerCase() ?? member.status}
               </StatusPill>
             ) : null}
-            <ContactButtons phone={phone} email={memberRow.email} size="md" />
+            <ContactButtons phone={phone} email={member.email} size="md" />
           </>
         }
       />
@@ -359,31 +89,31 @@ export default async function AdminClientPage({ params }: Props) {
         {/* ── Left column ─────────────────────────────────────────── */}
         <div className="flex min-w-0 flex-col gap-4">
           <DeskCard title="Upcoming">
-            {nextTrip && nextState ? (
+            {upcoming ? (
               <div className="mt-3 flex flex-wrap items-start justify-between gap-4">
                 <div className="min-w-0">
-                  <div className="title-card-sm text-bone">{nextRoute ?? "Route being set up"}</div>
+                  <div className="title-card-sm text-bone">{upcoming.route ?? "Route being set up"}</div>
                   <p className="mt-1 text-[15px] text-bone-2">
                     {[
-                      nextLeg?.departDate === today ? "Today" : nextWhen,
-                      passengersWords(nextTrip.paxCount),
-                      nextAircraft?.makeModel ?? null,
+                      upcoming.isToday ? "Today" : upcoming.when,
+                      passengersWords(upcoming.paxCount),
+                      upcoming.aircraft,
                     ]
                       .filter(Boolean)
                       .join(" · ")}
                   </p>
-                  <DotSentence tone={nextState.dot} className="mt-2 text-[15px] text-bone">
-                    {nextState.label}
+                  <DotSentence tone={upcoming.state.dot} className="mt-2 text-[15px] text-bone">
+                    {upcoming.state.label}
                   </DotSentence>
                 </div>
-                <Link href={`/admin/trips/${nextTrip.id}`} className="btn btn-secondary btn-sm">
+                <Link href={`/admin/trips/${upcoming.id}`} className="btn btn-secondary btn-sm">
                   Open the trip
                 </Link>
               </div>
             ) : (
               <p className="mt-3 text-[15px] text-steel">
                 Nothing booked.
-                {quotesList.some((q) => requestStage(q.status).key !== "closed" && requestStage(q.status).key !== "booked")
+                {hasOpenRequest
                   ? " A request is open below."
                   : ""}
               </p>
@@ -398,22 +128,20 @@ export default async function AdminClientPage({ params }: Props) {
               </Link>
             }
           >
-            {tripsList.length === 0 ? (
+            {trips.length === 0 ? (
               <p className="mt-3 text-[15px] text-steel">No trips yet.</p>
             ) : (
               <ul className="mt-2">
-                {tripsList.map((t) => {
-                  const legs = legsOf(t.id);
-                  const first = nextLegOf(t.id);
-                  const state = tripState(t.status);
+                {trips.map((t) => {
+                  const state = t.state;
                   return (
                     <ListRow key={t.id} href={`/admin/trips/${t.id}`}>
                       <span className="min-w-0">
                         <span className="block truncate font-medium text-bone">
-                          {routeFromLegs(legs) ?? "Route being set up"}
+                          {t.route ?? "Route being set up"}
                         </span>
                         <span className="block text-[14px] text-steel">
-                          {[formatDay(first?.departDate), passengersWords(t.paxCount)].filter(Boolean).join(" · ")}
+                          {[formatDay(t.departDate), passengersWords(t.paxCount)].filter(Boolean).join(" · ")}
                         </span>
                       </span>
                       <DotSentence tone={state.dot} className="text-bone-2">
@@ -435,21 +163,20 @@ export default async function AdminClientPage({ params }: Props) {
               </Link>
             }
           >
-            {quotesList.length === 0 ? (
+            {requests.length === 0 ? (
               <p className="mt-3 text-[15px] text-steel">No requests yet.</p>
             ) : (
               <ul className="mt-2">
-                {quotesList.map((q) => {
-                  const legs = legsByQuote.get(q.id) ?? [];
-                  const stage = requestStage(q.status);
+                {requests.map((q) => {
+                  const stage = q.stage;
                   return (
                     <ListRow key={q.id} href={`/admin/requests/${q.id}`}>
                       <span className="min-w-0">
                         <span className="block truncate font-medium text-bone">
-                          {routeFromLegs(legs) ?? "Route not set"}
+                          {q.route ?? "Route not set"}
                         </span>
                         <span className="block text-[14px] text-steel">
-                          {[formatDay(legs[0]?.departDate), passengersWords(q.paxCount)].filter(Boolean).join(" · ")}
+                          {[formatDay(q.departDate), passengersWords(q.paxCount)].filter(Boolean).join(" · ")}
                         </span>
                       </span>
                       <DotSentence tone={stage.dot} className="text-bone-2">
@@ -466,14 +193,13 @@ export default async function AdminClientPage({ params }: Props) {
           </DeskCard>
 
           <DeskCard title="Invoices">
-            {invoicesList.length === 0 ? (
+            {invoices.length === 0 ? (
               <p className="mt-3 text-[15px] text-steel">Nothing invoiced yet.</p>
             ) : (
               <ul className="mt-2">
-                {invoicesList.map((i) => {
-                  const words =
-                    i.status === "credit" ? { text: "Credit", tone: "steel" as const } : invoiceWords(i.status, i.dueOn, now);
-                  const route = i.tripId ? routeFromLegs(legsOf(i.tripId)) : null;
+                {invoices.map((i) => {
+                  const words = i.words;
+                  const route = i.route;
                   return (
                     <ListRow key={i.id}>
                       <span className="min-w-0">
@@ -525,11 +251,11 @@ export default async function AdminClientPage({ params }: Props) {
           </DeskCard>
 
           <DeskCard title="Who travels with them">
-            {companionsList.length === 0 ? (
+            {companions.length === 0 ? (
               <p className="mt-3 text-[15px] text-steel">Nobody added yet.</p>
             ) : (
               <ul className="mt-2 flex flex-col">
-                {companionsList.map((c) => {
+                {companions.map((c) => {
                   const facts = [
                     RELATION_WORDS[c.relation] ?? c.relation,
                     c.relation === "pet" ? c.speciesBreed : null,
@@ -550,11 +276,11 @@ export default async function AdminClientPage({ params }: Props) {
           </DeskCard>
 
           <DeskCard title="Usual routes">
-            {lanesList.length === 0 ? (
+            {lanes.length === 0 ? (
               <p className="mt-3 text-[15px] text-steel">Nothing regular yet.</p>
             ) : (
               <ul className="mt-2 flex flex-col">
-                {lanesList.map((l) => {
+                {lanes.map((l) => {
                   const facts = [
                     l.frequencyPerYear ? `${l.frequencyPerYear} ${l.frequencyPerYear === 1 ? "time" : "times"} a year` : null,
                     l.seasonal ? "seasonal" : null,
@@ -563,7 +289,7 @@ export default async function AdminClientPage({ params }: Props) {
                   return (
                     <li key={l.id} className="border-b border-line-faint py-3 last:border-b-0 last:pb-0">
                       <div className="text-[15px] font-medium text-bone">
-                        {laneCity(l.fromIcao)} → {laneCity(l.toIcao)}
+                        {l.fromCity} → {l.toCity}
                       </div>
                       {facts.length ? <div className="text-[14px] text-steel">{facts.join(" · ")}</div> : null}
                     </li>
@@ -617,11 +343,11 @@ export default async function AdminClientPage({ params }: Props) {
 
             <div className="mt-5 border-t border-line pt-4">
               <h3 className="text-[13px] font-semibold text-steel">Reserve ledger</h3>
-              {recentLedger.length === 0 ? (
+              {ledger.length === 0 ? (
                 <p className="mt-2 text-[15px] text-steel">No entries yet.</p>
               ) : (
                 <ul className="mt-1 flex flex-col">
-                  {recentLedger.map((tx) => (
+                  {ledger.map((tx) => (
                     <li
                       key={tx.id}
                       className="grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-3 border-b border-line-faint py-2.5 last:border-b-0"
@@ -647,7 +373,7 @@ export default async function AdminClientPage({ params }: Props) {
                   Add a ledger entry
                 </summary>
                 <div className="mt-3 rounded-control border border-line bg-surface-2/40 p-4">
-                  <ReserveTxForm memberId={memberRow.id} />
+                  <ReserveTxForm memberId={member.id} />
                 </div>
               </details>
             </div>
@@ -656,45 +382,45 @@ export default async function AdminClientPage({ params }: Props) {
           <DeskCard title="Account">
             <dl className="dl-jn mt-3 gap-y-2">
               <dt>Legal name</dt>
-              <dd>{memberRow.legalName ?? "—"}</dd>
+              <dd>{member.legalName ?? "—"}</dd>
               <dt>Goes by</dt>
-              <dd>{memberRow.preferredName ?? "—"}</dd>
+              <dd>{member.preferredName ?? "—"}</dd>
               <dt>Company</dt>
               <dd>
-                {memberRow.companyName
-                  ? `${memberRow.companyName}${memberRow.roleTitle ? ` · ${memberRow.roleTitle}` : ""}`
+                {member.companyName
+                  ? `${member.companyName}${member.roleTitle ? ` · ${member.roleTitle}` : ""}`
                   : "—"}
               </dd>
               <dt>Dispatcher</dt>
-              <dd className={dispatcherRow ? "" : "text-steel"}>{dispatcherRow?.displayName ?? "Not assigned"}</dd>
+              <dd className={dispatcher ? "" : "text-steel"}>{dispatcher?.displayName ?? "Not assigned"}</dd>
               <dt>Account</dt>
-              <dd>{ACCOUNT_STATUS_WORDS[memberRow.status] ?? memberRow.status}</dd>
+              <dd>{ACCOUNT_STATUS_WORDS[member.status] ?? member.status}</dd>
               <dt>Two-step sign-in</dt>
-              <dd>{memberRow.twoFactorEnabled ? "On" : "Off"}</dd>
+              <dd>{member.twoFactorEnabled ? "On" : "Off"}</dd>
               <dt>Marketing email</dt>
-              <dd>{memberRow.marketingOptIn ? "Yes" : "No"}</dd>
+              <dd>{member.marketingOptIn ? "Yes" : "No"}</dd>
               <dt>Member since</dt>
               <dd>{memberSince ?? "—"}</dd>
-              {memberRow.tierSince ? (
+              {member.tierSince ? (
                 <>
                   <dt>Membership since</dt>
-                  <dd>{monthYear(memberRow.tierSince)}</dd>
+                  <dd>{monthYear(member.tierSince)}</dd>
                 </>
               ) : null}
               <dt>Flown with us</dt>
               <dd>
-                {memberRow.lifetimeTripsCache} {memberRow.lifetimeTripsCache === 1 ? "flight" : "flights"} ·{" "}
-                {memberRow.lifetimeHoursCache} hours
+                {member.lifetimeTripsCache} {member.lifetimeTripsCache === 1 ? "flight" : "flights"} ·{" "}
+                {member.lifetimeHoursCache} hours
               </dd>
               <dt>Billed to date</dt>
               <dd>{formatUSD(lifetimeInvoiced)}</dd>
             </dl>
           </DeskCard>
 
-          {documentsList.length > 0 ? (
+          {documents.length > 0 ? (
             <DeskCard title="Documents">
               <ul className="mt-2 flex flex-col">
-                {documentsList.map((d) => {
+                {documents.map((d) => {
                   const expires = monthYear(d.expiresOn);
                   const facts = [
                     d.countryIso2 ?? null,

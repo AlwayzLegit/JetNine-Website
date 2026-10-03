@@ -256,6 +256,14 @@ test.describe("api v1", () => {
     expect(response.status()).toBe(401);
   });
 
+  test("read endpoints are refused without a key", async ({ request }) => {
+    for (const path of ["/api/v1/desk/snapshot", "/api/v1/requests", "/api/v1/clients", "/api/v1/history", "/api/v1/reports/summary"]) {
+      const response = await request.get(path);
+      expect(response.status(), path).toBe(401);
+      expect((await response.json()).error?.code, path).toBe("unauthorized");
+    }
+  });
+
   test("writes are refused without a key", async ({ request }) => {
     const response = await request.post("/api/v1/blog/posts", { data: { title: "x" } });
     expect(response.status()).toBe(401);

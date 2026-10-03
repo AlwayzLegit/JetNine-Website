@@ -1,9 +1,7 @@
 import Link from "next/link";
-import { sql } from "drizzle-orm";
-import { db } from "@/db";
 import { requireAdmin } from "@/lib/auth";
-import { snapshot } from "@/lib/health";
 import { PROVIDER_META, getRoute, listProviders } from "@/lib/ai-providers";
+import { healthSnapshot } from "@/domain/settings/queries";
 import { DeskHeader, DotSentence } from "@/components/admin/desk-ui";
 import { sendTestEmail } from "./actions";
 
@@ -31,21 +29,6 @@ function phoneWords(e164: string | undefined): string | null {
   if (!e164) return null;
   const m = /^\+1(\d{3})(\d{3})(\d{4})$/.exec(e164.trim());
   return m ? `+1 (${m[1]}) ${m[2]}-${m[3]}` : e164.trim();
-}
-
-async function emailsSentToday(): Promise<number | null> {
-  try {
-    const [row] = await db.execute<{ n: number }>(sql`
-      select count(*)::int as n
-      from public.messages
-      where channel = 'email' and direction = 'out' and delivery_status = 'sent'
-        and (occurred_at at time zone 'America/Los_Angeles')::date
-            = (now() at time zone 'America/Los_Angeles')::date
-    `);
-    return row?.n ?? 0;
-  } catch {
-    return null;
-  }
 }
 
 async function phoneAnswering(): Promise<{ tone: Tone; status: string; hint?: string }> {
@@ -93,7 +76,8 @@ type Props = { searchParams: Promise<{ test?: string; provider?: string }> };
 export default async function ConnectionsPage({ searchParams }: Props) {
   const user = await requireAdmin();
   const sp = await searchParams;
-  const [snap, sentToday, ai] = await Promise.all([snapshot(), emailsSentToday(), phoneAnswering()]);
+  const [snap, ai] = await Promise.all([healthSnapshot(), phoneAnswering()]);
+  const sentToday = snap.emailsSentToday;
   const c = snap.checks;
 
   const emailOk = Boolean(c.email.outboundConfigured);

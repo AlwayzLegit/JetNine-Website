@@ -1,11 +1,7 @@
 import Link from "next/link";
-import { asc, eq, notInArray } from "drizzle-orm";
-import { db } from "@/db";
-import { aircraft } from "@/db/schema/aircraft";
-import { operators } from "@/db/schema/operators";
 import { AircraftForm } from "@/components/admin/aircraft-form";
-import { SOURCING_INELIGIBLE_STATUSES } from "@/lib/operator-eligibility";
 import { DeskEmpty, DeskHeader, DeskPage, DotSentence, NumberCard } from "@/components/admin/desk-ui";
+import { listAircraft, listSourcingOperators } from "@/domain/reference/queries";
 
 export const dynamic = "force-dynamic";
 
@@ -36,29 +32,9 @@ const WIFI_LABEL: Record<string, string> = {
 };
 
 export default async function AdminAircraftPage() {
-  const rows = await db
-    .select({
-      id: aircraft.id,
-      tailNumber: aircraft.tailNumber,
-      operatorId: aircraft.operatorId,
-      operatorName: operators.name,
-      category: aircraft.category,
-      makeModel: aircraft.makeModel,
-      yearManufactured: aircraft.yearManufactured,
-      seats: aircraft.seats,
-      rangeNm: aircraft.rangeNm,
-      speedKt: aircraft.speedKt,
-      wifiType: aircraft.wifiType,
-      standupCabin: aircraft.standupCabin,
-      lieflatCapable: aircraft.lieflatCapable,
-      petFriendly: aircraft.petFriendly,
-      baseIcao: aircraft.baseIcao,
-      totalHours: aircraft.totalHours,
-      status: aircraft.status,
-    })
-    .from(aircraft)
-    .innerJoin(operators, eq(operators.id, aircraft.operatorId))
-    .orderBy(asc(aircraft.category), asc(aircraft.tailNumber));
+  // Operator options for the create form leave out sourcing-ineligible
+  // operators (suspended / banned / hold) via the shared safety-floor list.
+  const [{ aircraft: rows, totals }, operatorOptions] = await Promise.all([listAircraft(), listSourcingOperators()]);
 
   const byCategory = new Map<string, typeof rows>();
   for (const r of rows) {
@@ -66,21 +42,6 @@ export default async function AdminAircraftPage() {
     arr.push(r);
     byCategory.set(r.category, arr);
   }
-
-  // Operator options for the create form — exclude sourcing-ineligible
-  // operators (suspended / banned / hold) via the shared safety-floor list.
-  const operatorOptions = await db
-    .select({ id: operators.id, name: operators.name })
-    .from(operators)
-    .where(notInArray(operators.status, [...SOURCING_INELIGIBLE_STATUSES]))
-    .orderBy(asc(operators.name));
-
-  const totals = {
-    total: rows.length,
-    available: rows.filter((r) => r.status === "available").length,
-    aog: rows.filter((r) => r.status === "aog").length,
-    maint: rows.filter((r) => r.status === "maint").length,
-  };
 
   return (
     <DeskPage>

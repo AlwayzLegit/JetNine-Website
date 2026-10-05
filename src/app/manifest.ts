@@ -18,8 +18,8 @@ export default function manifest(): MetadataRoute.Manifest {
       "Senior-dispatcher private charter brokerage. Part 295 indirect air carrier on ARG/US Platinum operators. Quote returned in under 30 minutes.",
     start_url: "/",
     display: "standalone",
-    background_color: "#07080A",
-    theme_color: "#07080A",
+    background_color: "#F7F5F0",
+    theme_color: "#FFFFFF",
     orientation: "portrait",
     icons: [
       {

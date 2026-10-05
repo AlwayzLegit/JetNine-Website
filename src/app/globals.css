@@ -4,52 +4,82 @@
 
 @layer base {
   :root {
-    /* Ink — page background + the admin sidebar / trust bar tint */
-    --ink: #07080A;
-    --ink-2: #0A0C10;
+    /* Light editorial system (Light handoff, 2026-10). Token NAMES keep
+       their roles from the dark build so every page re-themes at once:
+       --ink is the page background, --bone the primary text, --clearance
+       the primary-action fill. */
 
-    /* Surfaces — cards, panels, inputs */
-    --surface: #0E1014;
-    --surface-2: #161A20;
+    /* Page background (paper) and the admin sidebar / band tint */
+    --ink: #F7F5F0;
+    --ink-2: #FFFFFF;
+
+    /* Surfaces — cards and panels on white, soft panels on sand */
+    --surface: #FFFFFF;
+    --surface-2: #ECE8DF;
 
     /* Lines — card borders and dividers */
-    --line: #232830;
-    --line-2: #2C323B;
-    --line-faint: #161A20;
+    --line: #D8D3C9;
+    --line-2: #C2BCB0;
+    --line-faint: #E6E1D7;
 
-    /* Bone — text */
-    --bone: #F4F1EA;
-    --bone-2: #C9C4B8;
-    /* steel: tertiary text, labels, placeholders. 5.6:1 on ink, so it
-       clears WCAG AA for body text; steel-dim is for counts beside a
-       section label only (decorative, never the only copy). */
-    --steel: #8A9099;
-    --steel-dim: #5C636D;
+    /* Text — navy ink */
+    --bone: #12232E;
+    --bone-2: #33434D;
+    /* steel: supporting text, labels, placeholders. #56616A is 5.9:1 on
+       paper (WCAG AA); steel-dim is for counts beside a label only. */
+    --steel: #56616A;
+    --steel-dim: #66717A;
 
-    /* Single accent */
-    --clearance: #E8E2D2;
-    --clearance-hover: #F4F1EA;
+    /* Primary action: navy fill, white text */
+    --clearance: #12232E;
+    --clearance-hover: #284250;
 
-    /* Status — gold for "Recommended" / discounts / in-progress dots,
-       success for open + confirmed, danger for overdue + disabled
-       reasons + required asterisks. */
-    --gold: #C9A24A;
-    --success: #8FB58A;
-    --danger: #E07A6B;
+    /* Accent + status. Gold is the brand bronze (eyebrows, links,
+       highlights); gold-light reads on navy bands. */
+    --gold: #805C35;
+    --gold-light: #C9A56E;
+    --success: #3F6B45;
+    --danger: #9C2121;
+
+    /* Navy bands (hero, how it works, closing CTA) */
+    --navy: #12232E;
+    --on-navy: #FFFFFF;
+    --on-navy-2: #D8D3C9;
 
     /* Layout */
-    --container: 1200px;
-    --pad-x: 40px;
-    --header-h: 72px;
-    --radius-card: 12px;
-    --radius-control: 8px;
+    --container: 1240px;
+    --pad-x: 32px;
+    --header-h: 68px;
+    --radius-card: 4px;
+    --radius-control: 2px;
     --radius-pill: 999px;
     --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
     --ease-in: cubic-bezier(0.4, 0, 1, 1);
   }
 
+  /* Navy regions (photo heroes, how-it-works, closing bands): flip the
+     text and line tokens so anything inside reads light without per-page
+     overrides. Buttons keep their own fills. */
+  .on-navy {
+    --bone: #FFFFFF;
+    --bone-2: #D8D3C9;
+    --steel: #B9C0C5;
+    --steel-dim: #9AA3A9;
+    --line: rgba(255, 255, 255, 0.22);
+    --line-2: rgba(255, 255, 255, 0.35);
+    --line-faint: rgba(255, 255, 255, 0.12);
+    --gold: var(--gold-light);
+    --surface: rgba(255, 255, 255, 0.06);
+    --surface-2: rgba(255, 255, 255, 0.1);
+    --clearance: #FFFFFF;
+    --clearance-hover: #ECE8DF;
+    color: var(--bone);
+  }
+  .on-navy .btn-primary { color: var(--navy); }
+  .on-navy .btn-primary:hover { color: var(--navy); }
+
   @media (max-width: 1024px) { :root { --pad-x: 32px; } }
-  @media (max-width: 768px)  { :root { --pad-x: 20px; --header-h: 64px; } }
+  @media (max-width: 768px)  { :root { --pad-x: 20px; --header-h: 58px; } }
   @media (max-width: 640px)  { :root { --pad-x: 16px; } }
 
   *, *::before, *::after { box-sizing: border-box; }
@@ -64,7 +94,7 @@
     color: var(--bone);
     font-family: theme("fontFamily.sans");
     font-size: 16px;
-    line-height: 1.55;
+    line-height: 1.6;
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
     /* `clip` (not `hidden`) prevents horizontal overflow WITHOUT turning
@@ -75,12 +105,14 @@
   }
 
   ::selection {
-    background: var(--clearance);
-    color: var(--ink);
+    background: var(--surface-2);
+    color: var(--bone);
   }
 
   img { max-width: 100%; display: block; }
   a { color: inherit; text-decoration: none; }
+  input::placeholder, textarea::placeholder { color: var(--steel-dim); }
+  :where(a, button, input, select, textarea, summary):focus-visible { outline: 3px solid #976727; outline-offset: 3px; }
 
   /* Thin scrollbars on scrolling panes (admin, boards, strips). */
   * { scrollbar-width: thin; scrollbar-color: var(--line-2) transparent; }
@@ -95,8 +127,8 @@
 
   /* --- Simplification page grammar ------------------------------------
      Shared by every rebuilt page. Section rhythm, one title scale, cards,
-     chips, segmented controls and accordion rows — all sentence case,
-     Instrument Sans for UI and Fraunces 300 for titles. */
+     chips, segmented controls and accordion rows — Arial for UI and a
+     Times / Georgia serif for titles (system stacks, no web fonts). */
 
   /* Sections: 112px of top rhythm on public pages (128px on Home). */
   .section-jn { padding-top: 112px; }
@@ -107,49 +139,48 @@
   .eyebrow {
     margin: 0 0 12px;
     font-family: theme("fontFamily.sans");
-    font-size: 14px;
-    font-weight: 600;
+    font-size: 12px;
+    font-weight: 700;
     line-height: 1.4;
-    letter-spacing: 0;
-    text-transform: none;
-    color: var(--steel);
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--gold);
   }
+  .eyebrow-on-navy { color: var(--gold-light); }
 
   /* Title scale */
   .title-page {
     font-family: theme("fontFamily.serif");
-    font-weight: 300;
-    font-size: clamp(44px, 6vw, 80px);
+    font-weight: 400;
+    font-size: clamp(34px, 9vw, 78px);
     line-height: 1.02;
     letter-spacing: -0.02em;
-    font-variation-settings: "opsz" 144;
   }
   .title-section {
     font-family: theme("fontFamily.serif");
-    font-weight: 300;
-    font-size: clamp(34px, 4vw, 48px);
+    font-weight: 400;
+    font-size: clamp(34px, 9vw, 52px);
     line-height: 1.08;
     letter-spacing: -0.015em;
-    font-variation-settings: "opsz" 144;
   }
   .title-app {
     font-family: theme("fontFamily.serif");
-    font-weight: 300;
+    font-weight: 400;
     font-size: clamp(32px, 4vw, 44px);
     line-height: 1.1;
     letter-spacing: -0.015em;
   }
   .title-card {
-    font-family: theme("fontFamily.sans");
-    font-weight: 500;
-    font-size: 24px;
-    line-height: 1.25;
+    font-family: theme("fontFamily.serif");
+    font-weight: 400;
+    font-size: 25px;
+    line-height: 1.15;
   }
   .title-card-sm {
-    font-family: theme("fontFamily.sans");
-    font-weight: 500;
-    font-size: 21px;
-    line-height: 1.3;
+    font-family: theme("fontFamily.serif");
+    font-weight: 400;
+    font-size: 22px;
+    line-height: 1.2;
   }
   .lead { font-size: 19px; line-height: 1.5; color: var(--bone-2); }
   .label-jn { font-size: 14px; font-weight: 600; line-height: 1.4; color: var(--steel); }
@@ -162,20 +193,36 @@
   }
   .card-pad { padding: 28px; }
   .card-selected { border-color: var(--clearance); box-shadow: 0 0 0 1px var(--clearance); }
-  .card-highlight { background: rgba(232, 226, 210, 0.04); border-color: var(--clearance); }
+  .card-highlight { background: #FCFBF8; border-color: var(--gold); }
   /* :where() keeps specificity at zero so `flex` / `grid` utilities on a
      card link still win over the block default. */
   :where(a.card) { display: block; transition: border-color 200ms; }
-  :where(a.card):hover { border-color: var(--line-2); }
+  :where(a.card):hover { border-color: var(--gold); }
 
   /* Text link */
   .text-link {
-    color: var(--bone-2);
+    color: var(--bone);
     text-decoration: underline;
-    text-underline-offset: 3px;
+    text-decoration-color: var(--line-2);
+    text-underline-offset: 4px;
+    transition: color 200ms, text-decoration-color 200ms;
+  }
+  .text-link:hover { color: var(--gold); text-decoration-color: currentColor; }
+  /* Serif "Explore category ↗" link with a 1px rule under the label. */
+  .rule-link {
+    display: inline-block;
+    font-family: theme("fontFamily.serif");
+    font-size: 15px;
+    color: var(--bone);
+    border-bottom: 1px solid currentColor;
+    padding-bottom: 2px;
+    white-space: nowrap;
     transition: color 200ms;
   }
-  .text-link:hover { color: var(--bone); }
+  .rule-link:hover { color: var(--gold); }
+  .rule-link-on-navy { color: #FFFFFF; border-color: rgba(255, 255, 255, 0.75); }
+  .rule-link-on-navy:hover { color: var(--on-navy-2); }
+  .arrow-sm { font-family: theme("fontFamily.sans"); font-size: 12px; }
   .text-link-strong { color: var(--bone); font-weight: 500; text-decoration: underline; text-underline-offset: 3px; }
   /* Phones: opt-in tap area for INLINE links (breadcrumbs, links in a
      line of text). Vertical padding on an inline box grows the hit area
@@ -197,7 +244,7 @@
     height: 36px;
     padding: 0 16px;
     border: none;
-    border-radius: 6px;
+    border-radius: 2px;
     background: transparent;
     color: var(--bone-2);
     font-family: theme("fontFamily.sans");
@@ -211,7 +258,7 @@
   .segmented > button:hover, .segmented > a:hover { color: var(--bone); }
   .segmented > [aria-pressed="true"], .segmented > [aria-current], .segmented > .is-selected {
     background: var(--clearance);
-    color: var(--ink);
+    color: #FFFFFF;
   }
   .segmented > button:focus-visible, .segmented > a:focus-visible { outline: 2px solid var(--clearance); outline-offset: 1px; }
 
@@ -235,7 +282,7 @@
     transition: border-color 150ms, color 150ms, background 150ms;
   }
   .chip:hover { border-color: var(--steel); color: var(--bone); }
-  .chip[aria-pressed="true"], .chip.is-selected { background: var(--clearance); border-color: var(--clearance); color: var(--ink); }
+  .chip[aria-pressed="true"], .chip.is-selected { background: var(--clearance); border-color: var(--clearance); color: #FFFFFF; }
   .chip:focus-visible { outline: 2px solid var(--clearance); outline-offset: 2px; }
   .chip-sm { height: 30px; padding: 0 12px; font-size: 13px; }
 
@@ -254,7 +301,7 @@
     line-height: 1;
     white-space: nowrap;
   }
-  .pill-clearance { background: var(--clearance); color: var(--ink); }
+  .pill-clearance { background: var(--clearance); color: #FFFFFF; }
   .pill-outline { background: transparent; border: 1px solid var(--line-2); }
 
   /* Accordion rows — one open at a time, +/− on the right */
@@ -314,13 +361,13 @@
   .range-jn { -webkit-appearance: none; appearance: none; width: 100%; height: 4px; border-radius: 2px; background: var(--line-2); outline: none; }
   .range-jn::-webkit-slider-thumb { -webkit-appearance: none; width: 22px; height: 22px; border-radius: 50%; background: var(--clearance); border: none; cursor: pointer; }
   .range-jn::-moz-range-thumb { width: 22px; height: 22px; border-radius: 50%; background: var(--clearance); border: none; cursor: pointer; }
-  .range-jn:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 3px rgba(232, 226, 210, 0.35); }
+  .range-jn:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 3px rgba(18, 35, 46, 0.25); }
 
   /* Toggle switch 36×20 */
   .switch { position: relative; width: 36px; height: 20px; border-radius: 999px; background: var(--line-2); border: none; cursor: pointer; transition: background 150ms; flex: none; }
-  .switch::after { content: ""; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: var(--bone); transition: transform 150ms; }
+  .switch::after { content: ""; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: #FFFFFF; transition: transform 150ms; }
   .switch[aria-checked="true"] { background: var(--clearance); }
-  .switch[aria-checked="true"]::after { transform: translateX(16px); background: var(--ink); }
+  .switch[aria-checked="true"]::after { transform: translateX(16px); background: #FFFFFF; }
 
   /* Definition list rows: label left in steel, value right */
   .dl-jn { display: grid; grid-template-columns: max-content 1fr; column-gap: 24px; row-gap: 10px; font-size: 15px; }
@@ -362,22 +409,22 @@
   .blog-prose h4 { font-size: 18px; line-height: 1.3; margin: 32px 0 12px; }
   .blog-prose p { margin: 0 0 20px; }
   .blog-prose a {
-    color: var(--clearance);
+    color: var(--gold);
     text-decoration: underline;
     text-underline-offset: 3px;
-    text-decoration-color: color-mix(in srgb, var(--clearance) 40%, transparent);
+    text-decoration-color: color-mix(in srgb, var(--gold) 40%, transparent);
     transition: text-decoration-color 200ms;
   }
-  .blog-prose a:hover { text-decoration-color: var(--clearance); }
+  .blog-prose a:hover { text-decoration-color: var(--gold); }
   .blog-prose strong { color: var(--bone); font-weight: 600; }
   .blog-prose ul,
   .blog-prose ol { margin: 0 0 20px; padding-left: 24px; }
   .blog-prose li { margin-bottom: 8px; }
-  .blog-prose li::marker { color: var(--clearance); }
+  .blog-prose li::marker { color: var(--gold); }
   .blog-prose blockquote {
     margin: 32px 0;
     padding: 4px 0 4px 24px;
-    border-left: 2px solid var(--clearance);
+    border-left: 2px solid var(--gold);
     font-family: theme("fontFamily.serif");
     font-size: 20px;
     line-height: 1.45;
@@ -430,7 +477,7 @@
     color: var(--bone);
   }
 
-  /* Buttons — Instrument Sans 500, radius 8, fixed heights so hit targets
+  /* Buttons — Arial 600, radius 2, fixed heights so hit targets
      never fall below 44px. .btn is the secondary size (44), .btn-lg the
      primary CTA (52), .btn-xl the form submit (56). */
   .btn {
@@ -441,7 +488,7 @@
     height: 44px;
     padding: 0 20px;
     font-family: theme("fontFamily.sans");
-    font-weight: 500;
+    font-weight: 600;
     font-size: 15px;
     line-height: 1;
     letter-spacing: 0;
@@ -452,28 +499,32 @@
     white-space: nowrap;
     transition: background 200ms var(--ease-out), color 200ms var(--ease-out), border-color 200ms;
   }
-  .btn-primary { background: var(--clearance); color: var(--ink); }
-  .btn-primary:hover { background: var(--clearance-hover); }
-  .btn-secondary { background: transparent; color: var(--bone); border-color: var(--line-2); }
-  .btn-secondary:hover { border-color: var(--steel); }
+  .btn-primary { background: var(--clearance); color: #FFFFFF; border-color: var(--clearance); }
+  .btn-primary:hover { background: var(--clearance-hover); border-color: var(--clearance-hover); color: #FFFFFF; }
+  /* White button on navy bands. */
+  .btn-on-navy { background: #FFFFFF; color: var(--navy); border-color: #FFFFFF; font-weight: 700; }
+  .btn-on-navy:hover { background: var(--surface-2); border-color: var(--surface-2); color: var(--navy); }
+  .btn-secondary { background: transparent; color: var(--bone); border-color: #98948C; }
+  .btn-secondary:hover { background: var(--surface-2); }
   .btn-sm { height: 40px; font-size: 14px; padding: 0 16px; }
   .btn-lg { height: 52px; font-size: 16px; padding: 0 28px; }
   .btn-xl { height: 56px; font-size: 16px; padding: 0 28px; }
-  .btn:focus-visible { outline: 2px solid var(--clearance); outline-offset: 2px; }
+  .btn:focus-visible { outline: 3px solid #976727; outline-offset: 3px; }
   .btn:disabled, .btn[aria-disabled="true"] { opacity: 0.4; cursor: not-allowed; }
   @media (max-width: 768px) { .btn-sm { height: 44px; } }
 
   .arrow { display: inline-block; transition: transform 240ms var(--ease-out); }
   .btn:hover .arrow { transform: translateX(4px); }
 
-  /* Form field — block label above the control, control on surface-2
-     with an 8px radius; focus is a 1px clearance ring. Markup stays
+  /* Form field — block label above the control, white control with a
+     1px line border and 2px radius; focus darkens the border to ink. Markup stays
      `<div class="field-jn"><label/><input|select|textarea/></div>`. */
   .field-jn { position: relative; }
   .field-jn label {
     display: block;
     margin-bottom: 6px;
     font-family: theme("fontFamily.sans");
+    font-weight: 600;
     font-size: 13px;
     line-height: 1.4;
     letter-spacing: 0;
@@ -485,10 +536,10 @@
   .field-jn textarea {
     display: block;
     width: 100%;
-    background: var(--surface-2);
-    border: none;
+    background: #FFFFFF;
+    border: 1px solid var(--line);
     border-radius: var(--radius-control);
-    padding: 10px 14px;
+    padding: 10px 12px;
     outline: none;
     color: var(--bone);
     font-family: theme("fontFamily.sans");
@@ -499,7 +550,7 @@
   }
   .field-jn select {
     padding-right: 36px;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23C9C4B8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2356616A' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
     background-repeat: no-repeat;
     background-position: right 14px center;
   }
@@ -507,7 +558,7 @@
   .field-jn textarea::placeholder { color: var(--steel); }
   .field-jn input:focus,
   .field-jn select:focus,
-  .field-jn textarea:focus { box-shadow: 0 0 0 1px var(--clearance); }
+  .field-jn textarea:focus { border-color: var(--bone); box-shadow: 0 0 0 1px var(--bone); }
   .field-jn.error input,
   .field-jn.error select,
   .field-jn.error textarea { box-shadow: 0 0 0 1px var(--danger); }

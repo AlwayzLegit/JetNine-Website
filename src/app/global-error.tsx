@@ -7,8 +7,8 @@ import { useEffect } from "react";
 // clearance, 8px control radius, Instrument Sans with a system fallback).
 // No var(--font-*) here: the root layout (which defines them) is not
 // rendered, and an undefined var() would void the whole declaration.
-const SANS = '"Instrument Sans", system-ui, -apple-system, "Segoe UI", sans-serif';
-const SERIF = 'Fraunces, Georgia, "Times New Roman", serif';
+const SANS = 'Arial, Helvetica, sans-serif';
+const SERIF = '"Times New Roman", Times, Georgia, serif';
 
 export default function GlobalError({
   error,
@@ -30,8 +30,8 @@ export default function GlobalError({
         style={{
           margin: 0,
           minHeight: "100vh",
-          background: "#07080A",
-          color: "#F4F1EA",
+          background: "#F7F5F0",
+          color: "#12232E",
           fontFamily: SANS,
           display: "flex",
           alignItems: "center",
@@ -46,7 +46,7 @@ export default function GlobalError({
               fontSize: 14,
               fontWeight: 600,
               lineHeight: 1.4,
-              color: "#8A9099",
+              color: "#56616A",
               margin: "0 0 12px",
             }}
           >
@@ -70,14 +70,14 @@ export default function GlobalError({
               maxWidth: "52ch",
               fontSize: 19,
               lineHeight: 1.5,
-              color: "#C9C4B8",
+              color: "#33434D",
             }}
           >
             The site hit an unexpected error. Refresh to retry, or call dispatch directly at +1
             (424) 487-2707.
           </p>
           {error.digest ? (
-            <p style={{ margin: "16px 0 0", fontSize: 13, lineHeight: 1.5, color: "#8A9099" }}>
+            <p style={{ margin: "16px 0 0", fontSize: 13, lineHeight: 1.5, color: "#56616A" }}>
               Reference {error.digest}
             </p>
           ) : null}
@@ -88,8 +88,8 @@ export default function GlobalError({
               marginTop: 32,
               height: 52,
               padding: "0 28px",
-              background: "#E8E2D2",
-              color: "#07080A",
+              background: "#12232E",
+              color: "#FFFFFF",
               border: "none",
               borderRadius: 8,
               fontFamily: SANS,

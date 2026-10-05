@@ -1,31 +1,26 @@
 import { Hero } from "@/components/home/hero";
-import { TrustBar } from "@/components/home/trust-bar";
-import { Programs } from "@/components/home/programs";
-import { Flow } from "@/components/home/flow";
-import { WhyJetNine } from "@/components/home/why-jetnine";
 import { AircraftGrid } from "@/components/home/aircraft-grid";
-import { DiscretionSplit } from "@/components/home/discretion-split";
+import { Flow } from "@/components/home/flow";
+import { QuoteExplainer } from "@/components/home/quote-explainer";
+import { GuidesPreview } from "@/components/home/guides-preview";
 import { CtaBand } from "@/components/cta-band";
-import { SITE } from "@/lib/constants";
 
+// Light - Home: hero + trip bar, aircraft categories, how it works,
+// the quote explainer, guides, and the closing band.
 export default function HomePage() {
   return (
     <>
       <Hero />
-      <TrustBar />
-      <Programs />
-      <Flow />
-      <WhyJetNine />
       <AircraftGrid />
-      <DiscretionSplit />
+      <Flow />
+      <QuoteExplainer />
+      <GuidesPreview />
       <CtaBand
-        title="Ready when you are."
-        body="A real human, on a real number, twenty-four hours a day. Tell us the mission — we’ll have aircraft in front of you in minutes."
+        title="Where will you go next?"
+        body="Start with a conversation about your next journey."
         primary={{ label: "Request a quote", href: "/quote/mission" }}
-        secondary={{
-          label: `Call dispatch · ${SITE.dispatchPhone}`,
-          href: `tel:${SITE.dispatchPhoneE164}`,
-        }}
+        secondary={null}
+        imageSrc="/images/light/mountain-landscape.webp"
       />
     </>
   );

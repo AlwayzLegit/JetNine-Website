@@ -74,7 +74,7 @@ const KIND_CLS: Record<string, string> = {
   maintenance: "bg-gold text-ink",
   repositioning: "bg-bone-2 text-ink",
   crew_rest: "bg-steel text-ink",
-  owner: "bg-[#C9A961] text-ink",
+  owner: "bg-gold text-white",
   hold: "bg-transparent border border-dashed border-clearance text-clearance",
   unavailable: "bg-danger text-ink",
 };

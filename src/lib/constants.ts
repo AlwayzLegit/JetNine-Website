@@ -35,11 +35,13 @@ export const TRUST_BAR = [
 export type TrustBarItem = (typeof TRUST_BAR)[number];
 
 // Header order from the simplification handoff. Home is the wordmark.
+// Light handoff nav. "Journal" is the blog (URL unchanged); Programs and
+// About moved to the footer.
 export const PRIMARY_NAV = [
   { href: "/aircraft", label: "Aircraft" },
-  { href: "/memberships", label: "Programs" },
+  { href: "/routes", label: "Routes" },
+  { href: "/guides", label: "Guides" },
   { href: "/how-it-works", label: "How it works" },
-  { href: "/about", label: "About" },
-  { href: "/blog", label: "Blog" },
+  { href: "/blog", label: "Journal" },
   { href: "/contact", label: "Contact" },
 ] as const;

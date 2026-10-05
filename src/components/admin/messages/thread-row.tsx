@@ -36,7 +36,7 @@ export function ThreadRow({ href, selected, initial, name, context, preview, whe
       <span
         aria-hidden="true"
         className={`flex h-10 w-10 items-center justify-center rounded-full text-[14px] font-semibold ${
-          tone === "danger" ? "bg-[rgba(224,122,107,0.12)] text-danger" : "bg-surface-2 text-clearance"
+          tone === "danger" ? "bg-[rgba(156,33,33,0.08)] text-danger" : "bg-surface-2 text-clearance"
         }`}
       >
         {initial}

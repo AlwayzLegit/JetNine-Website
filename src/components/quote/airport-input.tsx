@@ -80,7 +80,7 @@ export function AirportInput({ label, value, error, onSelect }: Props) {
           id={listId}
           role="listbox"
           aria-label={`${label} suggestions`}
-          className="card absolute left-0 right-0 top-full z-20 mt-1 max-h-72 overflow-auto shadow-[0_24px_60px_rgba(0,0,0,0.45)]"
+          className="card absolute left-0 right-0 top-full z-20 mt-1 max-h-72 overflow-auto shadow-[0_18px_50px_rgba(18,35,46,0.14)]"
         >
           {results.map((a) => (
             <li key={a.icao} role="option" aria-selected={a.iata === value.iata}>

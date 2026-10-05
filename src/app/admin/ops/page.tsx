@@ -16,7 +16,7 @@ const KIND: Record<
   maintenance: { label: "Maintenance", cls: "bg-gold text-ink" },
   repositioning: { label: "Reposition", cls: "bg-bone-2 text-ink" },
   crew_rest: { label: "Crew rest", cls: "bg-steel text-ink" },
-  owner: { label: "Owner", cls: "bg-[#C9A961] text-ink" },
+  owner: { label: "Owner", cls: "bg-gold text-white" },
   hold: {
     label: "Soft hold",
     cls: "bg-transparent border border-dashed border-clearance text-clearance",

@@ -69,7 +69,7 @@ export function MemberInviteForm({ label = "+ Invite a client" }: { label?: stri
         {label}
       </summary>
 
-      <div className="card z-30 mt-2.5 p-6 lg:absolute lg:right-0 lg:top-full lg:w-[680px] lg:shadow-[0_24px_64px_rgba(0,0,0,0.45)]">
+      <div className="card z-30 mt-2.5 p-6 lg:absolute lg:right-0 lg:top-full lg:w-[680px] lg:shadow-[0_18px_50px_rgba(18,35,46,0.14)]">
         <div className="flex items-start justify-between gap-4">
           <div>
             <h2 className="text-[19px] font-medium text-bone">Invite a client</h2>

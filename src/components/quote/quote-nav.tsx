@@ -10,7 +10,7 @@ import { SITE } from "@/lib/constants";
 // the site header, so dispatch stays one tap away.
 export function QuoteNav() {
   return (
-    <header className="sticky top-0 z-50 border-b border-line-faint bg-[rgba(7,8,10,0.86)] backdrop-blur-[14px]">
+    <header className="sticky top-0 z-50 border-b border-line bg-white">
       <div className="container-jn grid h-header grid-cols-[1fr_auto_1fr] items-center gap-4">
         <Link
           href="/"

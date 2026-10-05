@@ -9,7 +9,7 @@ import { SITE } from "@/lib/constants";
  */
 export function RequestHeader({ signedIn }: { signedIn: boolean }) {
   return (
-    <header className="sticky top-0 z-50 border-b border-line-faint bg-[rgba(7,8,10,0.86)] backdrop-blur-[14px]">
+    <header className="sticky top-0 z-50 border-b border-line bg-white">
       <div className="container-jn grid h-header grid-cols-[1fr_auto_1fr] items-center">
         <Link
           href={signedIn ? "/account" : "/"}

@@ -61,7 +61,7 @@ export function Placeholder({
         className="absolute inset-0"
         style={{
           backgroundImage:
-            "repeating-linear-gradient(45deg, rgba(255,255,255,0.014) 0, rgba(255,255,255,0.014) 1px, transparent 1px, transparent 14px)",
+            "repeating-linear-gradient(45deg, rgba(18,35,46,0.03) 0, rgba(18,35,46,0.03) 1px, transparent 1px, transparent 14px)",
         }}
       />
 
@@ -70,7 +70,7 @@ export function Placeholder({
       {!imageUrl ? (
         <span
           aria-hidden
-          className="pointer-events-none absolute inset-0 flex items-center justify-center font-serif font-light text-[22vw] leading-none text-[rgba(232,226,210,0.07)]"
+          className="pointer-events-none absolute inset-0 flex items-center justify-center font-serif font-light text-[22vw] leading-none text-[rgba(18,35,46,0.06)]"
           style={{ fontVariationSettings: '"opsz" 144' }}
         >
           {glyph}

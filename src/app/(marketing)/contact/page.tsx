@@ -269,7 +269,7 @@ export default function ContactPage() {
               href={DIRECTIONS_URL}
               target="_blank"
               rel="noopener"
-              className="btn btn-secondary absolute bottom-5 left-5 bg-[rgba(7,8,10,0.85)]"
+              className="btn btn-secondary absolute bottom-5 left-5 bg-white"
             >
               Directions <span aria-hidden="true">↗</span>
             </a>

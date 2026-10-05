@@ -67,9 +67,9 @@ export function WatchlistsSection({ initial }: Props) {
   });
 
   return (
-    <section className="card card-pad">
-      <h2 className="title-card-sm text-bone">Empty-leg watchlists</h2>
-      <p className="mt-1 max-w-[60ch] text-[15px] leading-[1.5] text-bone-2">
+    <section className="border border-line bg-surface px-5 py-[18px] md:px-6 md:py-5">
+      <h2 className="font-serif text-[20px] font-normal leading-[1.2] text-bone">Empty-leg watchlists</h2>
+      <p className="mt-1 max-w-[60ch] text-[14px] leading-[1.5] text-steel">
         Routes and date windows you want to hear about when a repositioning flight lists. Pause to
         mute, remove to drop.
       </p>
@@ -83,7 +83,7 @@ export function WatchlistsSection({ initial }: Props) {
           and we&rsquo;ll text you when a matching flight lists.
         </p>
       ) : (
-        <ul className="mt-6 divide-y divide-line-faint border-y border-line-faint">
+        <ul className="mt-6 divide-y divide-line border-y border-line">
           {sorted.map((w) => {
             const from = day(w.earliestOn);
             const to = day(w.latestOn);
@@ -101,7 +101,7 @@ export function WatchlistsSection({ initial }: Props) {
                 ].join(" ")}
               >
                 <div className="min-w-0">
-                  <div className="text-[17px] font-medium text-bone">
+                  <div className="font-serif text-[18px] text-bone">
                     {w.fromText ?? w.fromIcao ?? "Anywhere"} → {w.toText ?? w.toIcao ?? "Anywhere"}
                   </div>
                   <div className="mt-0.5 text-[14px] text-bone-2">
@@ -133,8 +133,8 @@ export function WatchlistsSection({ initial }: Props) {
         </ul>
       )}
 
-      <div className="mt-6 flex flex-wrap items-center gap-4 border-t border-line-faint pt-5">
-        <Link href="/empty-legs" className="btn btn-primary">
+      <div className="mt-5 flex flex-wrap items-center gap-4 border-t border-line pt-4">
+        <Link href="/empty-legs" className="btn btn-primary btn-sm">
           Add from the board <span aria-hidden="true">→</span>
         </Link>
         {msg ? (

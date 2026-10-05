@@ -23,10 +23,18 @@ if (!url && !isBuildPhase) {
 // `force-dynamic`. If a future route is wrongly statically rendered and
 // reaches for the DB, the failure happens at query time with a clear
 // connection error — not a confusing module-load error.
-const sqlClient = postgres(url ?? "postgresql://build-stub:0@localhost:1/stub", {
-  prepare: false,
-  max: 10,
-});
+//
+// In development, every hot reload re-evaluates this module; caching the
+// client on globalThis keeps one pool per dev server instead of leaking a
+// new one per reload (which eventually exhausts Postgres connections).
+const globalForDb = globalThis as unknown as { __jnSql?: ReturnType<typeof postgres> };
+const sqlClient =
+  globalForDb.__jnSql ??
+  postgres(url ?? "postgresql://build-stub:0@localhost:1/stub", {
+    prepare: false,
+    max: 10,
+  });
+if (process.env.NODE_ENV !== "production") globalForDb.__jnSql = sqlClient;
 
 export const db = drizzle(sqlClient);
 export const sql = sqlClient;

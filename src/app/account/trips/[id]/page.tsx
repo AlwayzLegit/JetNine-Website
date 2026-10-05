@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { BTN_LINE, BTN_NAVY_LINE, Eyebrow, PANEL, PageHead, UnderLink } from "@/components/account/panel";
 import { notFound } from "next/navigation";
 import { and, asc, eq } from "drizzle-orm";
 import { db } from "@/db";
@@ -140,114 +140,123 @@ export default async function AccountTripDetailPage({ params }: Props) {
 
   return (
     <>
-      <Link href="/account/trips" className="text-[15px] text-bone-2 transition-colors hover:text-bone">
-        ← All trips
-      </Link>
-      <h1 className="title-app mt-3">{route}</h1>
-      <p className="mt-2.5 text-[17px] text-bone-2">
-        {sentence}
-        <span className="text-steel"> · trip {trip.tripCode}</span>
-      </p>
-      <p className="mt-2 flex items-center gap-2 text-[17px] text-bone">
+      <UnderLink href="/account/trips">← All trips</UnderLink>
+      <div className="mt-3">
+        <PageHead
+          title={route}
+          sub={
+            <>
+              {sentence}
+              <span> · trip {trip.tripCode}</span>
+            </>
+          }
+        />
+      </div>
+      <p className="mt-2 flex items-center gap-2 text-[15px] text-bone">
         <span className={dotClass(status.tone)} aria-hidden="true" />
         {status.text}
       </p>
 
-      <div className="mt-8 grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
+      <div className="mt-[22px] grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_300px]">
         <div className="flex min-w-0 flex-col gap-4">
           {legs.length === 0 ? (
-            <div className="card p-6 max-md:p-5">
-              <p className="text-bone-2">Dispatch is still writing up the legs for this trip. The itinerary lands here first.</p>
+            <div className={`${PANEL} px-6 py-5 max-md:px-5`}>
+              <p className="text-[15px] text-steel">Dispatch is still writing up the legs for this trip. The itinerary lands here first.</p>
             </div>
           ) : (
             legs.map((l) => <TripLegCard key={l.id} leg={l} showNumber={legs.length > 1} />)
           )}
 
           {trip.notesMember ? (
-            <section className="card p-6 max-md:p-5">
-              <h2 className="label-jn text-[13px]">Notes from dispatch</h2>
-              <p className="mt-2 whitespace-pre-line leading-[1.6] text-bone">{trip.notesMember}</p>
+            <section className={`${PANEL} px-6 py-5 max-md:px-5`}>
+              <Eyebrow>Notes from dispatch</Eyebrow>
+              <p className="mt-2 whitespace-pre-line text-[15px] leading-[1.6] text-bone">{trip.notesMember}</p>
             </section>
           ) : null}
 
           {memberThread.length > 0 ? (
-            <section className="card p-6 max-md:p-5">
-              <h2 className="label-jn text-[13px]">Updates from dispatch</h2>
+            <section className={`${PANEL} px-6 py-5 max-md:px-5`}>
+              <Eyebrow>Updates from dispatch</Eyebrow>
               <ul className="mt-3 flex flex-col gap-4">
                 {memberThread.map((m) => (
-                  <li key={m.id} className="border-l-2 border-line-2 pl-4">
-                    <div className="text-[14px] text-steel">
+                  <li key={m.id} className="border-l-2 border-gold pl-4">
+                    <div className="text-[12px] text-steel">
                       {CHANNEL_WORDS[m.channel] ?? "Update"}
                       {m.occurredAt ? ` · ${WHEN_FMT.format(m.occurredAt)}` : ""}
                     </div>
-                    <p className="mt-1 whitespace-pre-wrap leading-[1.6] text-bone">{m.body ?? m.preview ?? ""}</p>
+                    <p className="mt-1 whitespace-pre-wrap text-[15px] leading-[1.6] text-bone">{m.body ?? m.preview ?? ""}</p>
                   </li>
                 ))}
               </ul>
-              <p className="mt-5 text-[14px] text-steel">
+              <p className="mt-4 text-[12px] text-steel">
                 To reply, call or text your dispatcher — this page is read-only.
               </p>
             </section>
           ) : null}
 
-          <div className="flex flex-wrap gap-2.5 max-md:grid max-md:grid-cols-2">
-            <a href={`mailto:${SITE.email}?subject=${encodeURIComponent(subject)}`} className="btn btn-secondary">
+          <div className="flex flex-wrap gap-2.5">
+            <a href={`mailto:${SITE.email}?subject=${encodeURIComponent(subject)}`} className={BTN_NAVY_LINE}>
               Add passenger names
             </a>
-            <a href={`mailto:${SITE.email}?subject=${encodeURIComponent(`${trip.tripCode} — request a car`)}`} className="btn btn-secondary">
+            <a href={`mailto:${SITE.email}?subject=${encodeURIComponent(`${trip.tripCode} — request a car`)}`} className={BTN_LINE}>
               Request a car
             </a>
           </div>
+          <p className="text-[12px] text-steel">
+            Names and ID details are shared only with the operating carrier. Changes close to departure: call dispatch.
+          </p>
         </div>
 
         <aside className="flex flex-col gap-4">
-          <div className="card p-6">
-            <h2 className="label-jn text-[13px]">The trip</h2>
-            <dl className="dl-jn mt-2.5">
-              <dt>Aircraft</dt>
-              <dd>
+          <section className={`${PANEL} px-5 py-[18px]`}>
+            <Eyebrow>The trip</Eyebrow>
+            <dl className="mt-2.5 grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-2 text-[14px] leading-[1.5]">
+              <dt className="text-steel">Aircraft</dt>
+              <dd className="text-bone">
                 {aircraftLine ?? "Being finalised — dispatch confirms it before you fly"}
                 {acRow?.yearManufactured ? <span className="text-steel"> · {acRow.yearManufactured}</span> : null}
               </dd>
               {opRow ? (
                 <>
-                  <dt>Operated by</dt>
-                  <dd>
+                  <dt className="text-steel">Operated by</dt>
+                  <dd className="text-bone">
                     {opRow.name}
                     <span className="text-steel"> · FAA Part 135</span>
                   </dd>
                 </>
               ) : null}
-              <dt>Passengers</dt>
-              <dd>{trip.paxCount}</dd>
-              <dt>Status</dt>
-              <dd className="flex items-center gap-2">
+              <dt className="text-steel">Passengers</dt>
+              <dd className="text-bone">{trip.paxCount}</dd>
+              <dt className="text-steel">Status</dt>
+              <dd className="flex items-center gap-2 text-bone">
                 <span className={dotClass(status.tone)} aria-hidden="true" />
                 {status.text}
               </dd>
             </dl>
-          </div>
+          </section>
 
           {tripInvoice ? (
-            <div className="card p-6">
-              <h2 className="label-jn text-[13px]">Invoice</h2>
-              <div className="mt-2 text-[26px] font-medium leading-tight text-bone">
+            <section className={`${PANEL} px-5 py-[18px]`}>
+              <div className="flex items-baseline justify-between gap-3">
+                <Eyebrow>Invoice</Eyebrow>
+                <UnderLink href="/account/invoices">
+                  {tripInvoice.status === "due" || tripInvoice.status === "overdue" ? "Pay this invoice" : "All invoices"}
+                </UnderLink>
+              </div>
+              <div className="mt-2 font-serif text-[28px] leading-[1.15] text-bone">
                 {tripInvoice.totalUsd != null ? USD.format(tripInvoice.totalUsd) : "Amount to follow"}
               </div>
-              <div className="mt-1 text-[15px] text-bone-2">
+              <div className="mt-1 text-[14px] text-bone">
                 {INVOICE_WORDS[tripInvoice.status] ?? "With dispatch"}
                 {tripInvoice.status === "paid" && tripInvoice.paidOn ? ` · ${formatDay(tripInvoice.paidOn)}` : ""}
                 {(tripInvoice.status === "due" || tripInvoice.status === "overdue") && tripInvoice.dueOn
                   ? ` · by ${formatDay(tripInvoice.dueOn)}`
                   : ""}
               </div>
-              <p className="mt-2 text-[14px] text-steel">
+              <p className="mt-2 text-[12px] text-steel">
                 Everything included — federal excise tax and segment fees.
               </p>
-              <Link href="/account/invoices" className="text-link mt-1 inline-flex min-h-11 items-center text-[15px]">
-                {tripInvoice.status === "due" || tripInvoice.status === "overdue" ? "Pay this invoice" : "All invoices"}
-              </Link>
-            </div>
+            </section>
           ) : null}
 
           <DispatcherCard dispatcher={dispatcher ?? null} subject={`${trip.tripCode} — question`} />

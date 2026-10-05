@@ -83,14 +83,14 @@ export function PreferencesForm({ initial }: Props) {
   function footer(section: SectionKey) {
     const active = pending && sectionRef.current === section;
     return (
-      <div className="mt-6 flex flex-wrap items-center gap-4 border-t border-line-faint pt-5">
+      <div className="mt-5 flex flex-wrap items-center gap-4 border-t border-line pt-4">
         <button
           type="submit"
           disabled={pending}
           onClick={() => {
             sectionRef.current = section;
           }}
-          className="btn btn-primary disabled:cursor-wait"
+          className="btn btn-primary btn-sm disabled:cursor-wait"
         >
           {active ? "Saving…" : "Save"} <span className="arrow">→</span>
         </button>
@@ -100,11 +100,11 @@ export function PreferencesForm({ initial }: Props) {
   }
 
   return (
-    <form onSubmit={onSubmit} className="flex flex-col gap-4">
+    <form onSubmit={onSubmit} className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,360px),1fr))] items-start gap-4">
       {/* Cabin */}
-      <section className="card card-pad">
-        <h2 className="title-card-sm text-bone">Cabin</h2>
-        <p className="mt-1 text-[15px] text-bone-2">
+      <section className="border border-line bg-surface px-5 py-[18px] md:px-6 md:py-5">
+        <h2 className="font-serif text-[20px] font-normal leading-[1.2] text-bone">Cabin</h2>
+        <p className="mt-1 text-[14px] leading-[1.5] text-steel">
           What every new quote starts from. Change it on the quote when a trip needs something different.
         </p>
         <div className="field-jn mt-6 max-w-[420px]">
@@ -121,7 +121,7 @@ export function PreferencesForm({ initial }: Props) {
             ))}
           </select>
         </div>
-        <div className="mt-5 divide-y divide-line-faint">
+        <div className="mt-4 flex flex-wrap gap-2">
           {CABIN_FIELDS.map((f) => (
             <PreferencesToggle
               key={String(f.key)}
@@ -150,9 +150,9 @@ export function PreferencesForm({ initial }: Props) {
       </section>
 
       {/* Catering */}
-      <section className="card card-pad">
-        <h2 className="title-card-sm text-bone">Catering</h2>
-        <p className="mt-1 text-[15px] text-bone-2">
+      <section className="border border-line bg-surface px-5 py-[18px] md:px-6 md:py-5">
+        <h2 className="font-serif text-[20px] font-normal leading-[1.2] text-bone">Catering</h2>
+        <p className="mt-1 text-[14px] leading-[1.5] text-steel">
           A tier and a few notes, so dispatch doesn&rsquo;t have to ask.
         </p>
         <div className="mt-6 flex flex-col gap-2.5">
@@ -190,9 +190,9 @@ export function PreferencesForm({ initial }: Props) {
       </section>
 
       {/* Ground */}
-      <section className="card card-pad">
-        <h2 className="title-card-sm text-bone">Ground</h2>
-        <p className="mt-1 text-[15px] text-bone-2">
+      <section className="border border-line bg-surface px-5 py-[18px] md:px-6 md:py-5">
+        <h2 className="font-serif text-[20px] font-normal leading-[1.2] text-bone">Ground</h2>
+        <p className="mt-1 text-[14px] leading-[1.5] text-steel">
           Curb to cabin. We book it and pass it through at cost.
         </p>
         <div className="mt-6 flex flex-col gap-2.5">
@@ -224,12 +224,12 @@ export function PreferencesForm({ initial }: Props) {
       </section>
 
       {/* How we reach you */}
-      <section className="card card-pad">
-        <h2 className="title-card-sm text-bone">How we reach you</h2>
-        <p className="mt-1 text-[15px] text-bone-2">
+      <section className="border border-line bg-surface px-5 py-[18px] md:px-6 md:py-5">
+        <h2 className="font-serif text-[20px] font-normal leading-[1.2] text-bone">How we reach you</h2>
+        <p className="mt-1 text-[14px] leading-[1.5] text-steel">
           Quiet hours are respected for anything that isn&rsquo;t urgent.
         </p>
-        <div className="mt-5 divide-y divide-line-faint">
+        <div className="mt-4 flex flex-wrap gap-2">
           {COMMS_FIELDS.map((f) => (
             <PreferencesToggle
               key={String(f.key)}
@@ -265,10 +265,10 @@ export function PreferencesForm({ initial }: Props) {
       </section>
 
       {/* Privacy */}
-      <section className="card card-pad">
-        <h2 className="title-card-sm text-bone">Privacy</h2>
-        <p className="mt-1 text-[15px] text-bone-2">What the operator and the public can see.</p>
-        <div className="mt-5 divide-y divide-line-faint">
+      <section className="border border-line bg-surface px-5 py-[18px] md:px-6 md:py-5">
+        <h2 className="font-serif text-[20px] font-normal leading-[1.2] text-bone">Privacy</h2>
+        <p className="mt-1 text-[14px] leading-[1.5] text-steel">What the operator and the public can see.</p>
+        <div className="mt-4 flex flex-wrap gap-2">
           <PreferencesToggle
             name="anonymizeManifest"
             label="Initials only on the passenger list"

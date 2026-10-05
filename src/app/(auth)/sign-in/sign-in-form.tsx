@@ -86,7 +86,7 @@ export function SignInForm({ next, initialError }: { next?: string; initialError
       </button>
 
       {success ? (
-        <div role="status" className="rounded-control border border-line-2 bg-surface-2 p-4">
+        <div role="status" className="border border-line bg-surface-2 p-4">
           <p className="text-[15px] font-medium leading-[1.5] text-success">{success}</p>
           <p className="mt-2 text-[14px] leading-[1.6] text-bone-2">
             It arrives within a minute or two. Open it in <strong>this</strong> device&rsquo;s

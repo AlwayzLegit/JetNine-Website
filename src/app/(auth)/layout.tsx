@@ -7,7 +7,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
     <>
       <SkipLink />
       <SiteNav />
-      <main id="main-content" className="min-h-screen pt-32 pb-24">{children}</main>
+      <main id="main-content" className="min-h-screen pb-24 pt-16 md:pt-24">{children}</main>
       <SiteFooter />
     </>
   );

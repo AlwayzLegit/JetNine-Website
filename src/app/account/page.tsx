@@ -21,10 +21,9 @@ import {
   type InvoiceSummary,
   type MembershipSummary,
 } from "@/components/account/overview-aside";
-import { SectionHead } from "@/components/account/overview-section";
 import { NoUpcomingTrip, UpcomingTripCard, type UpcomingTrip } from "@/components/account/overview-upcoming-trip";
-import { QuoteRow } from "@/components/account/quotes-row";
-import { QUOTE_IN_PROGRESS, countWords, quoteStatusWords, todayISO } from "@/components/account/quotes-status";
+import { BTN_LINE, BTN_PRIMARY, EmptyPanel, Eyebrow, PANEL, PageHead, SectionTitle, UnderLink } from "@/components/account/panel";
+import { QUOTE_IN_PROGRESS, countWords, dotClass, quoteStatusWords, todayISO } from "@/components/account/quotes-status";
 import { isUpcoming, nextLeg, routeWords } from "@/components/account/trips-status";
 
 export const dynamic = "force-dynamic";
@@ -279,8 +278,8 @@ export default async function AccountPage({ searchParams }: Props) {
   return (
     <>
       {denied === "admin" ? (
-        <div className="card mb-8 p-6" role="alert">
-          <div className="label-jn text-[13px] text-danger">Dispatch desk · access denied</div>
+        <div className={`${PANEL} mb-6 border-danger px-6 py-5`} role="alert">
+          <Eyebrow className="!text-danger">Dispatch desk · access denied</Eyebrow>
           <p className="mt-2 text-[15px] leading-[1.5] text-bone-2">
             Your account doesn&rsquo;t have a dispatcher or admin role. Contact your account owner or
             email{" "}
@@ -292,82 +291,105 @@ export default async function AccountPage({ searchParams }: Props) {
         </div>
       ) : null}
 
-      <h1 className="title-app">Welcome back, {firstName}.</h1>
-      <p className="mt-2.5 text-[17px] text-bone-2">{summary}</p>
+      <PageHead
+        title={<>Welcome back, {firstName}.</>}
+        sub={summary}
+        action={
+          <Link href="/quote/mission" className={BTN_PRIMARY}>
+            Request a quote <span aria-hidden="true">→</span>
+          </Link>
+        }
+      />
 
-      <div className="mt-8 grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_280px]">
-        <div className="min-w-0">
-          <SectionHead label="Upcoming trip" />
-          {nextTrip ? <UpcomingTripCard trip={nextTrip} /> : <NoUpcomingTrip />}
+      {nextTrip ? <UpcomingTripCard trip={nextTrip} /> : <NoUpcomingTrip />}
 
-          <SectionHead label="Quotes · submitted & in progress" href="/account/quotes" linkText="All quotes →" className="mt-7" />
+      <div className="mt-5 grid grid-cols-[repeat(auto-fit,minmax(min(100%,260px),1fr))] items-start gap-4">
+        <section className={`${PANEL} px-5 py-[18px]`}>
+          <div className="flex items-baseline justify-between gap-3">
+            <Eyebrow>{openQuotes.length > 1 ? "Quotes in progress" : "Quote in progress"}</Eyebrow>
+            <UnderLink href="/account/quotes">All quotes</UnderLink>
+          </div>
           {openQuotes.length === 0 ? (
-            <div className="card mt-2.5 flex flex-wrap items-center justify-between gap-4 px-6 py-[18px] max-md:px-4">
-              <p className="text-[15px] text-bone-2">No open requests. Dispatch answers a new one {replyPromiseWords(replyMinutes)}.</p>
-              <Link href="/quote/mission" className="btn btn-secondary btn-sm">
-                Request a quote <span aria-hidden="true">→</span>
+            <>
+              <div className="mt-2 font-serif text-[21px] leading-[1.15] text-bone">No open requests.</div>
+              <p className="mt-1 text-[14px] text-steel">Dispatch answers a new one {replyPromiseWords(replyMinutes)}.</p>
+              <Link href="/quote/mission" className={`${BTN_LINE} mt-3`}>
+                Request a quote <span aria-hidden="true">&nbsp;→</span>
               </Link>
-            </div>
+            </>
           ) : (
-            <div className="mt-2.5 flex flex-col gap-2">
+            <ul className="flex flex-col divide-y divide-line">
               {openQuotes.slice(0, 3).map((q) => {
                 const legs = quoteLegsById.get(q.id) ?? [];
-                const title = [routeWords(legs), formatDay(legs[0]?.departDate)?.replace(/^\w+, /, ""), `${q.paxCount} passenger${q.paxCount === 1 ? "" : "s"}`]
+                const meta = [formatDay(legs[0]?.departDate)?.replace(/^\w+, /, ""), `${q.paxCount} passenger${q.paxCount === 1 ? "" : "s"}`]
                   .filter(Boolean)
                   .join(" · ");
+                const status = quoteStatusWords(q.status, q.slaDeadlineAt, undefined, replyMinutes);
+                const href = q.statusToken ? statusPath(q.statusToken) : null;
                 return (
-                  <QuoteRow
-                    key={q.id}
-                    href={q.statusToken ? statusPath(q.statusToken) : null}
-                    title={title}
-                    status={quoteStatusWords(q.status, q.slaDeadlineAt, undefined, replyMinutes)}
-                  />
-                );
-              })}
-            </div>
-          )}
-
-          <SectionHead label="Trips · past" href="/account/trips" linkText="All trips →" className="mt-7" />
-          {past.length === 0 ? (
-            <div className="card mt-2.5 px-6 py-[18px] max-md:px-4">
-              <p className="text-[15px] text-bone-2">
-                {member ? "No completed trips yet." : "Your trips appear here once dispatch books your first flight."}
-              </p>
-            </div>
-          ) : (
-            <ul className="card mt-2.5 overflow-hidden">
-              {past.map((t) => {
-                const legs = legsOf(t.id);
-                const ac = t.aircraftId ? aircraftById.get(t.aircraftId) : null;
-                const meta = [formatDay(legs[0]?.departDate)?.replace(/^\w+, /, ""), ac?.makeModel].filter(Boolean).join(" · ");
-                return (
-                  <li
-                    key={t.id}
-                    className="grid items-center gap-x-6 gap-y-1 border-b border-line-faint px-6 py-4 text-[15px] last:border-b-0 max-md:px-4 md:grid-cols-[minmax(0,1fr)_auto_auto]"
-                  >
-                    <div className="min-w-0">
-                      <Link href={`/account/trips/${t.id}`} className="font-medium text-bone transition-colors hover:text-bone-2">
-                        {routeWords(legs)}
-                      </Link>
-                      {meta ? <span className="text-steel"> · {meta}</span> : null}
+                  <li key={q.id} className="py-3 first:pt-2 last:pb-0">
+                    <div className="font-serif text-[21px] leading-[1.15] text-bone">
+                      {href ? (
+                        <Link href={href} className="transition-colors hover:text-gold">
+                          {routeWords(legs)}
+                        </Link>
+                      ) : (
+                        routeWords(legs)
+                      )}
                     </div>
-                    <span className="text-bone">{t.revenueUsd != null ? USD.format(t.revenueUsd) : ""}</span>
-                    <Link href="/account/invoices" className="text-link">
-                      Invoice
-                    </Link>
+                    {meta ? <div className="text-[14px] text-steel">{meta}</div> : null}
+                    <div className="mt-2.5 flex items-center gap-2.5 bg-surface-2 px-3 py-2.5 text-[13px] text-bone">
+                      <span className={dotClass(status.tone)} aria-hidden="true" />
+                      <span>{status.text}</span>
+                    </div>
                   </li>
                 );
               })}
             </ul>
           )}
-        </div>
-
-        <aside className="flex flex-col gap-4">
-          <MembershipCard membership={membership} />
-          <InvoicesCard summary={invoiceSummary} />
+        </section>
+        <MembershipCard membership={membership} />
+        <InvoicesCard summary={invoiceSummary} />
+        {dispatcher ? (
           <DispatcherCard dispatcher={dispatcher} subject={nextTrip ? `${nextTrip.code} — question` : undefined} />
-        </aside>
+        ) : null}
       </div>
+
+      <section className="mt-5">
+        <SectionTitle href="/account/trips" linkText="All trips">
+          Past flights
+        </SectionTitle>
+        {past.length === 0 ? (
+          <EmptyPanel className="mt-2.5">
+            {member ? "No completed trips yet." : "Your trips appear here once dispatch books your first flight."}
+          </EmptyPanel>
+        ) : (
+          <ul className={`${PANEL} mt-2.5`}>
+            {past.map((t) => {
+              const legs = legsOf(t.id);
+              const ac = t.aircraftId ? aircraftById.get(t.aircraftId) : null;
+              const meta = [formatDay(legs[0]?.departDate)?.replace(/^\w+, /, ""), ac?.makeModel].filter(Boolean).join(" · ");
+              return (
+                <li
+                  key={t.id}
+                  className="flex flex-wrap items-center gap-x-6 gap-y-1 border-t border-line px-[18px] py-3 text-[14px] first:border-t-0"
+                >
+                  <div className="min-w-0 flex-[999_1_240px]">
+                    <Link href={`/account/trips/${t.id}`} className="font-serif text-[17px] text-bone transition-colors hover:text-gold">
+                      {routeWords(legs)}
+                    </Link>
+                    {meta ? <span className="text-steel"> · {meta}</span> : null}
+                  </div>
+                  <span className="flex-none text-bone">{t.revenueUsd != null ? USD.format(t.revenueUsd) : ""}</span>
+                  <UnderLink href="/account/invoices" className="flex-none">
+                    Invoice
+                  </UnderLink>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </section>
     </>
   );
 }

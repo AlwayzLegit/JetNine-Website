@@ -9,6 +9,7 @@ import {
 import { emptyLegWatchlists } from "@/db/schema/empty-legs";
 import { getCurrentUser, requireUser } from "@/lib/auth";
 import { getMemberByUserId } from "@/lib/member";
+import { BTN_PRIMARY, PageHead } from "@/components/account/panel";
 import { PreferencesForm } from "./preferences-form";
 import { CompanionsSection } from "./companions-section";
 import { LanesSection } from "./lanes-section";
@@ -26,12 +27,11 @@ export default async function AccountPreferencesPage() {
   if (!member) {
     return (
       <>
-        <h1 className="title-app text-bone">Preferences</h1>
-        <p className="mt-2.5 max-w-[60ch] text-[17px] text-bone-2">
-          Dispatch sets up your profile when you book your first flight. Until then there&rsquo;s
-          nothing to customise.
-        </p>
-        <Link href="/quote" className="btn btn-primary mt-8">
+        <PageHead
+          title="Preferences"
+          sub="Dispatch sets up your profile when you book your first flight. Until then there’s nothing to customise."
+        />
+        <Link href="/quote" className={`${BTN_PRIMARY} mt-[22px]`}>
           Request a quote <span aria-hidden="true">→</span>
         </Link>
       </>
@@ -63,14 +63,12 @@ export default async function AccountPreferencesPage() {
 
   return (
     <>
-      <h1 className="title-app text-bone">Preferences</h1>
-      <p className="mt-2.5 max-w-[64ch] text-[17px] text-bone-2">
-        What carries forward to every flight — cabin, catering, ground, and the people and routes
-        that travel with you. Each new quote starts from these; change anything on the quote when
-        a trip needs something different.
-      </p>
+      <PageHead
+        title="Preferences"
+        sub="Tell us once. Cabin, catering, ground and the people and routes that travel with you carry forward to every quote — change anything on the quote when a trip needs something different."
+      />
 
-      <div className="mt-8 flex flex-col gap-4">
+      <div className="mt-[22px] flex flex-col gap-4">
         <PreferencesForm initial={existing ?? null} />
         <CompanionsSection initial={companionRows} />
         <LanesSection initial={laneRows} />

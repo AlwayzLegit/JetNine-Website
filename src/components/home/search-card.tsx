@@ -2,7 +2,8 @@
 
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent, type ReactNode } from "react";
-import { useQuoteStore, type TripType } from "@/lib/quote-store";
+import type { TripType } from "@/lib/quote-store";
+import { seedQuote } from "@/lib/start-quote";
 
 type FieldKey = "from" | "to" | "depart" | "return";
 type FieldErrors = Partial<Record<FieldKey, true>>;
@@ -117,26 +118,14 @@ export function SearchCard() {
 
     setErrors({});
 
-    // Seed the quote store, then hand off to the wizard. The store is a
-    // sessionStorage-backed client singleton, so these values survive the
-    // client-side navigation and the wizard's rehydrate. From/To are seeded
-    // as raw codes the user confirms in the mission step's airport picker
-    // (which resolves city/name/distance needed for pricing).
-    const store = useQuoteStore.getState();
-    store.setTripType(trip);
-    store.setPax(pax);
-
-    const legs = useQuoteStore.getState().legs;
-    const from = (data.get("from") as string).trim().toUpperCase();
-    const to = (data.get("to") as string).trim().toUpperCase();
-    const depart = data.get("depart") as string;
-    if (legs[0]) {
-      store.updateLeg(legs[0].id, { fromIata: from, toIata: to, date: depart });
-    }
-    if (roundTrip && legs[1]) {
-      store.updateLeg(legs[1].id, { date: (data.get("return") as string) || undefined });
-    }
-
+    seedQuote({
+      trip,
+      pax,
+      from: data.get("from") as string,
+      to: data.get("to") as string,
+      depart: data.get("depart") as string,
+      return: (data.get("return") as string) || undefined,
+    });
     setMsg({ tone: "success", text: "Opening your quote…" });
     router.push("/quote/mission");
   }

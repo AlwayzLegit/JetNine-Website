@@ -14,7 +14,8 @@ import { computeIndicative, formatHours, CRUISE_KT } from "@/lib/quote-pricing";
 import { getFleetEntry } from "@/lib/fleet";
 import { track } from "@/lib/analytics";
 import { submitQuote } from "@/app/quote/actions";
-import { QuoteSidebar, formatLegDate, legEndpoint } from "@/components/quote/quote-sidebar";
+import { formatLegDate, legEndpoint } from "@/components/quote/trip-summary";
+import { PanelHeader, QuotePanel } from "@/components/quote/quote-panel";
 import { StepFooter } from "@/components/quote/step-footer";
 import { ReviewSection } from "@/components/quote/review-section";
 import { ReviewSubmitCard, type SubmitError } from "@/components/quote/review-submit-card";
@@ -189,183 +190,182 @@ export function ReviewStep() {
   }
 
   return (
-    <>
-      <div className="min-w-0">
-        <p className="eyebrow">Step 4 · Review</p>
-        <h1 className="title-section !text-[clamp(36px,5vw,52px)] !leading-[1.05]">
-          Last look, then we send it.
-        </h1>
-        <p className="mt-4 max-w-[64ch] text-[17px] text-bone-2">
-          Everything you&rsquo;ve given us. Edit any section if something needs changing — the
-          rest of your work is preserved. When you submit, dispatch picks it up immediately and
-          returns specific aircraft &amp; pricing {replyPromiseWords(replyMinutes)}.
-        </p>
+    <QuotePanel>
+      <PanelHeader step={4} title="Last look, then we send it.">
+        Everything you&rsquo;ve given us. Edit any section if something needs changing — the rest
+        of your work is preserved. When you submit, dispatch picks it up immediately and returns
+        specific aircraft &amp; pricing {replyPromiseWords(replyMinutes)}.
+      </PanelHeader>
 
-        {/* Indicative range */}
-        <section className="card card-highlight mt-9 grid grid-cols-1 items-end gap-8 p-8 max-md:p-5 lg:grid-cols-[1.4fr_1fr]">
-          <div>
-            <div className="text-[14px] font-semibold text-clearance">Indicative range</div>
-            <div className="mt-2 font-serif text-[40px] font-light leading-none tracking-tight text-bone md:whitespace-nowrap md:text-[48px]">
-              {indicative?.formatted ?? "$ — – $ —"}
+      {/* Indicative range — the prototype's sand box, at review size. */}
+      <section className="mt-5 grid grid-cols-[repeat(auto-fit,minmax(min(100%,280px),1fr))] items-end gap-x-6 gap-y-3 rounded-[3px] bg-surface-2 px-5 py-4">
+        <div className="min-w-0">
+          <div className="text-[12px] font-semibold uppercase tracking-[0.18em] text-gold">
+            Indicative range
+          </div>
+          <div className="mt-1 font-serif text-[clamp(28px,4.4vw,36px)] leading-[1.05] text-bone">
+            {indicative?.formatted ?? "$ — – $ —"}
+          </div>
+          <p className="mt-2 text-[13px] leading-[1.5] text-steel">
+            All-in pricing. Fuel, taxes, FET (7.5%), repositioning, crew, catering &amp; ground
+            transport included. Final pricing locks once a specific aircraft is selected.
+          </p>
+        </div>
+        <ul className="flex flex-col gap-1 text-[13px] text-bone sm:text-right">
+          {reassurance(replyMinutes).map((t) => (
+            <li key={t}>
+              <span aria-hidden className="mr-1.5 text-gold">
+                ✓
+              </span>
+              {t}
+            </li>
+          ))}
+        </ul>
+      </section>
+
+      {/* 1 · Mission */}
+      <ReviewSection title="1 · Mission" editHref="/quote/mission" editLabel="Edit mission">
+        <ul className="mt-3 flex flex-col gap-2">
+          {s.legs.map((l, i) => (
+            <li
+              key={l.id}
+              className="grid grid-cols-1 gap-1 rounded-[3px] border border-line px-4 py-3 sm:grid-cols-[96px_minmax(0,1fr)_auto] sm:items-center sm:gap-4"
+            >
+              <span className="text-[12px] font-semibold uppercase tracking-[0.16em] text-gold">
+                {legTitle(s.tripType, i)}
+              </span>
+              <span className="text-[15px] text-bone">
+                {legEndpoint(l.fromCity, l.fromIata)} <span className="text-steel">→</span>{" "}
+                {legEndpoint(l.toCity, l.toIata)}
+              </span>
+              <span className="text-[13px] text-steel sm:text-right">
+                {formatLegDate(l.date) ?? "—"} · {l.time ?? "—"} depart
+                <br className="max-sm:hidden" />
+                <span className="sm:hidden"> · </span>
+                {l.distanceNm ? `${l.distanceNm.toLocaleString()} nm` : "—"}
+              </span>
+            </li>
+          ))}
+        </ul>
+        <dl className="mt-3 grid grid-cols-3 gap-3">
+          {[
+            ["Passengers", String(s.pax)],
+            ["Total distance", `${totalDistance.toLocaleString()} nm`],
+            ["Total flight time", totalHours > 0 ? formatHours(totalHours) : "—"],
+          ].map(([k, v]) => (
+            <div key={k} className="min-w-0">
+              <dt className="text-[12px] text-steel">{k}</dt>
+              <dd className="mt-0.5 font-serif text-[clamp(20px,3vw,24px)] leading-[1.15] text-bone">{v}</dd>
             </div>
-            <p className="mt-4 text-[15px] text-bone-2">
-              All-in pricing. Fuel, taxes, FET (7.5%), repositioning, crew, catering &amp; ground
-              transport included. Final pricing locks once a specific aircraft is selected.
-            </p>
-          </div>
-          <ul className="flex flex-col gap-2 text-[15px] text-bone-2 lg:text-right">
-            {reassurance(replyMinutes).map((t) => (
-              <li key={t}>{t}</li>
-            ))}
-          </ul>
-        </section>
+          ))}
+        </dl>
+      </ReviewSection>
 
-        {/* 1 · Mission */}
-        <ReviewSection title="1 · Mission" editHref="/quote/mission" editLabel="Edit mission">
-          <ul className="mt-4 flex flex-col gap-[10px]">
-            {s.legs.map((l, i) => (
-              <li
-                key={l.id}
-                className="card grid grid-cols-1 gap-2 rounded-control px-5 py-4 md:grid-cols-[120px_1fr_auto] md:items-center md:gap-4"
-              >
-                <span className="text-[14px] font-semibold text-steel">
-                  {legTitle(s.tripType, i)}
-                </span>
-                <span className="text-[18px] text-bone">
-                  {legEndpoint(l.fromCity, l.fromIata)} <span className="text-steel">→</span>{" "}
-                  {legEndpoint(l.toCity, l.toIata)}
-                </span>
-                <span className="text-[14px] text-bone-2 md:text-right">
-                  {formatLegDate(l.date) ?? "—"} · {l.time ?? "—"} depart
-                  <br />
-                  <span className="text-steel">
-                    {l.distanceNm ? `${l.distanceNm.toLocaleString()} nm` : "—"}
-                  </span>
-                </span>
-              </li>
-            ))}
-          </ul>
-          <dl className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-3">
-            {[
-              ["Passengers", String(s.pax)],
-              ["Total distance", `${totalDistance.toLocaleString()} nm`],
-              ["Total flight time", totalHours > 0 ? formatHours(totalHours) : "—"],
-            ].map(([k, v]) => (
-              <div key={k}>
-                <dt className="text-[13px] text-steel">{k}</dt>
-                <dd className="mt-1 font-serif text-[28px] font-light leading-[1.1] text-bone">{v}</dd>
-              </div>
-            ))}
-          </dl>
-        </ReviewSection>
+      {/* 2 · Aircraft & preferences */}
+      <ReviewSection
+        title="2 · Aircraft & preferences"
+        editHref="/quote/aircraft"
+        editLabel="Edit aircraft and preferences"
+      >
+        <div className="mt-3 grid grid-cols-[repeat(auto-fit,minmax(min(100%,240px),1fr))] gap-2">
+          {[
+            { k: "Category", v: categoryName, sub: categorySub },
+            {
+              k: "Catering",
+              v: s.catering[0].toUpperCase() + s.catering.slice(1),
+              sub: CATERING_DESC[s.catering],
+            },
+            { k: "Ground transport", v: GROUND_DESC[s.ground].label, sub: GROUND_DESC[s.ground].sub },
+            {
+              k: "Extras",
+              v: extras.length ? extras.join(" · ") : "None",
+              sub: "Crew briefed in advance",
+            },
+          ].map((c) => (
+            <div key={c.k} className="rounded-[3px] border border-line px-4 py-3">
+              <div className="text-[12px] text-steel">{c.k}</div>
+              <div className="mt-0.5 text-[15px] font-semibold leading-[1.35] text-bone">{c.v}</div>
+              <div className="text-[13px] text-steel">{c.sub}</div>
+            </div>
+          ))}
+        </div>
 
-        {/* 2 · Aircraft & preferences */}
-        <ReviewSection
-          title="2 · Aircraft & preferences"
-          editHref="/quote/aircraft"
-          editLabel="Edit aircraft and preferences"
-        >
-          <div className="mt-4 grid grid-cols-1 gap-[10px] md:grid-cols-2">
-            {[
-              { k: "Category", v: categoryName, sub: categorySub },
-              {
-                k: "Catering",
-                v: s.catering[0].toUpperCase() + s.catering.slice(1),
-                sub: CATERING_DESC[s.catering],
-              },
-              { k: "Ground transport", v: GROUND_DESC[s.ground].label, sub: GROUND_DESC[s.ground].sub },
-              {
-                k: "Extras",
-                v: extras.length ? extras.join(" · ") : "None",
-                sub: "Crew briefed in advance",
-              },
-            ].map((c) => (
-              <div key={c.k} className="card rounded-control px-5 py-4">
-                <div className="text-[13px] text-steel">{c.k}</div>
-                <div className="mt-1 text-[19px] font-medium leading-[1.3] text-bone">{c.v}</div>
-                <div className="text-[14px] text-bone-2">{c.sub}</div>
-              </div>
-            ))}
-          </div>
+        <div className="mt-3 text-[12px] text-steel">Cabin preferences</div>
+        <ul className="mt-1.5 flex flex-wrap gap-1.5">
+          {cabinEntries.map(([k, on]) => (
+            <li
+              key={k}
+              className={[
+                "inline-flex h-7 items-center rounded-pill border px-2.5 text-[13px]",
+                on ? "border-clearance text-bone" : "border-line text-steel",
+              ].join(" ")}
+            >
+              {on ? `✓ ${CABIN_LABELS[k]}` : `${CABIN_LABELS[k]} — not requested`}
+            </li>
+          ))}
+        </ul>
 
-          <div className="mt-4 text-[13px] text-steel">Cabin preferences</div>
-          <ul className="mt-2 flex flex-wrap gap-2">
-            {cabinEntries.map(([k, on]) => (
-              <li
-                key={k}
-                className={[
-                  "inline-flex h-8 items-center rounded-pill border px-3 text-[14px]",
-                  on ? "border-clearance text-bone" : "border-line-2 text-steel",
-                ].join(" ")}
-              >
-                {on ? `✓ ${CABIN_LABELS[k]}` : `${CABIN_LABELS[k]} — not requested`}
-              </li>
-            ))}
-          </ul>
+        <div className="mt-3 text-[12px] text-steel">Notes for dispatch</div>
+        <div className="mt-1.5 rounded-[3px] border border-line px-4 py-3 text-[14px] text-steel">
+          {s.notes ? <p className="whitespace-pre-line text-bone">{s.notes}</p> : "No notes added."}
+        </div>
+      </ReviewSection>
 
-          <div className="mt-4 text-[13px] text-steel">Notes for dispatch</div>
-          <div className="card mt-2 rounded-control px-5 py-4 text-[15px] text-bone-2">
-            {s.notes ? (
-              <p className="whitespace-pre-line text-bone">{s.notes}</p>
-            ) : (
-              "No notes added."
-            )}
-          </div>
-        </ReviewSection>
+      {/* 3 · Contact */}
+      <ReviewSection title="3 · Contact" editHref="/quote/contact" editLabel="Edit contact">
+        <dl className="mt-3 grid grid-cols-[repeat(auto-fit,minmax(min(100%,240px),1fr))] gap-x-6 gap-y-3 text-[15px] text-bone">
+          {[
+            ["Name", `${s.firstName} ${s.lastName}`.trim() || "—"],
+            ["Company", s.company || "—"],
+            ["Email", s.email || "—"],
+            ["Phone", s.phone ? `${s.phoneCountry} ${s.phone}` : "—"],
+            ["Reach me by", methodSummary(s.methods)],
+            ["Best time", bestTimeLabel(s.bestTime)],
+          ].map(([k, v]) => (
+            <div key={k} className="min-w-0">
+              <dt className="text-[12px] text-steel">{k}</dt>
+              <dd className="mt-0.5 break-words">{v}</dd>
+            </div>
+          ))}
+        </dl>
+      </ReviewSection>
 
-        {/* 3 · Contact */}
-        <ReviewSection title="3 · Contact" editHref="/quote/contact" editLabel="Edit contact">
-          <dl className="mt-4 grid grid-cols-1 gap-x-6 gap-y-4 text-[16px] text-bone sm:grid-cols-2">
-            {[
-              ["Name", `${s.firstName} ${s.lastName}`.trim() || "—"],
-              ["Company", s.company || "—"],
-              ["Email", s.email || "—"],
-              ["Phone", s.phone ? `${s.phoneCountry} ${s.phone}` : "—"],
-              ["Reach me by", methodSummary(s.methods)],
-              ["Best time", bestTimeLabel(s.bestTime)],
-            ].map(([k, v]) => (
-              <div key={k}>
-                <dt className="text-[13px] text-steel">{k}</dt>
-                <dd className="mt-1 break-words">{v}</dd>
-              </div>
-            ))}
-          </dl>
-        </ReviewSection>
-
-        {/* What happens next */}
-        <section className="card mt-8 p-8 max-md:p-5">
-          <h2 className="title-card-sm">What happens next</h2>
-          <p className="mt-1.5 text-[15px] text-bone-2">Four steps. Most clients fly within a week.</p>
-          <ol className="mt-6 flex flex-col gap-5">
-            {nextSteps(replyMinutes).map((n, i) => (
-              <li
-                key={n.t}
-                className="grid grid-cols-[28px_1fr] items-start gap-4 md:grid-cols-[28px_1fr_auto]"
-              >
+      {/* What happens next — the prototype's "Request received" timeline. */}
+      <section className="mt-7" aria-labelledby="review-next">
+        <h2 id="review-next" className="title-card-sm">
+          What happens next
+        </h2>
+        <p className="mt-1 text-[14px] text-steel">Four steps. Most clients fly within a week.</p>
+        <ol className="mt-4 flex flex-col">
+          {nextSteps(replyMinutes).map((n, i, all) => (
+            <li key={n.t} className="grid grid-cols-[28px_minmax(0,1fr)] gap-3.5">
+              <div className="flex flex-col items-center">
                 <span
                   aria-hidden
-                  className="flex h-7 w-7 items-center justify-center rounded-full bg-clearance text-[13px] font-semibold text-ink"
+                  className={[
+                    "flex h-6 w-6 flex-none items-center justify-center rounded-full border-[1.5px] text-[12px] font-semibold",
+                    i === 0 ? "border-gold bg-surface text-gold" : "border-line bg-surface text-steel",
+                  ].join(" ")}
                 >
                   {i + 1}
                 </span>
-                <div>
-                  <div className="text-[17px] font-medium text-bone">{n.t}</div>
-                  <div className="mt-0.5 max-w-[60ch] text-[14px] text-bone-2">{n.b}</div>
+                {i < all.length - 1 ? <span aria-hidden className="w-px flex-1 bg-line" /> : null}
+              </div>
+              <div className="pb-4">
+                <div className="flex flex-wrap items-baseline justify-between gap-x-3">
+                  <span className="text-[15px] font-semibold text-bone">{n.t}</span>
+                  <span className="whitespace-nowrap text-[13px] text-gold">{n.w}</span>
                 </div>
-                <span className="col-start-2 whitespace-nowrap text-[14px] text-gold md:col-start-auto">
-                  {n.w}
-                </span>
-              </li>
-            ))}
-          </ol>
-        </section>
+                <div className="mt-0.5 max-w-[60ch] text-[14px] text-steel">{n.b}</div>
+              </div>
+            </li>
+          ))}
+        </ol>
+      </section>
 
-        <ReviewSubmitCard submitting={submitting} error={submitError} onSubmit={onSubmit} />
+      <ReviewSubmitCard submitting={submitting} error={submitError} onSubmit={onSubmit} />
 
-        <StepFooter step={4} backHref="/quote/contact" backLabel="← Back to contact" />
-      </div>
-
-      <QuoteSidebar step={4} />
-    </>
+      <StepFooter step={4} backHref="/quote/contact" backLabel="← Back to contact" />
+    </QuotePanel>
   );
 }

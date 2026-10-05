@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useId, useRef, useState } from "react";
-import { searchAirports, type Airport } from "@/lib/airports";
+import { findAirport, searchAirports, type Airport } from "@/lib/airports";
 import { CompactField, COMPACT_INPUT_CLASS } from "./compact-field";
 
 type Props = {
@@ -12,8 +12,12 @@ type Props = {
 };
 
 // City first, code in parentheses — the plain-words way to show an airport.
+// A code seeded from another page's trip form (start-quote) arrives
+// without a city; look it up for display only so it reads "New York
+// (TEB)" rather than "(TEB)". The store is untouched until a pick.
 function display(city: string | undefined, iata: string): string {
-  return `${city ?? ""} (${iata})`.trim();
+  const c = city ?? findAirport(iata)?.city;
+  return `${c ?? ""} (${iata})`.trim();
 }
 
 export function AirportInput({ label, value, error, onSelect }: Props) {

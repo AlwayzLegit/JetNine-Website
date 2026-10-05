@@ -20,25 +20,25 @@ export function ContactOptional() {
   const summary = `${bestTimeLabel(bestTime)}${source ? ` · ${source}` : ""}`;
 
   return (
-    <section className="card overflow-hidden">
+    <section className="overflow-hidden rounded-[3px] border border-line bg-surface">
       <button
         type="button"
         aria-expanded={open}
         aria-controls={panelId}
         onClick={() => setOpen((o) => !o)}
-        className="flex w-full items-center justify-between gap-4 px-7 py-[18px] text-left text-bone max-md:px-5"
+        className="flex min-h-[52px] w-full items-center justify-between gap-4 px-4 py-3 text-left text-bone transition-colors hover:bg-ink"
       >
         <span>
-          <span className="block text-[18px] font-medium leading-[1.3]">
+          <span className="block text-[15px] font-semibold leading-[1.35]">
             Optional: best time to reach you &amp; how you heard about us
           </span>
-          <span className="mt-0.5 block text-[14px] text-steel">{summary}</span>
+          <span className="mt-0.5 block text-[13px] text-steel">{summary}</span>
         </span>
-        <span className="shrink-0 text-[14px] text-bone-2">{open ? "Hide ▲" : "Show ▼"}</span>
+        <span className="shrink-0 text-[13px] text-steel underline underline-offset-[3px]">{open ? "Hide" : "Show"}</span>
       </button>
 
-      <div id={panelId} hidden={!open} className="px-7 pb-7 max-md:px-5">
-        <h3 className="text-[15px] font-medium text-bone">When are you easiest to reach?</h3>
+      <div id={panelId} hidden={!open} className="border-t border-line-faint px-4 pb-4 pt-3.5">
+        <h3 className="text-[14px] font-semibold text-bone">When are you easiest to reach?</h3>
         <p className="mb-[10px] mt-0.5 text-[13px] text-steel">
           All times in your local timezone. Dispatch operates 24/7 — pick what&rsquo;s convenient.
         </p>
@@ -47,7 +47,7 @@ export function ContactOptional() {
             <button
               key={t.id}
               type="button"
-              className="chip max-md:h-11"
+              className="chip chip-sm max-md:!h-11"
               aria-pressed={bestTime === t.id}
               onClick={() => setBestTime(t.id)}
             >
@@ -56,7 +56,7 @@ export function ContactOptional() {
           ))}
         </div>
 
-        <h3 className="mt-5 text-[15px] font-medium text-bone">How did you hear about us?</h3>
+        <h3 className="mt-4 text-[14px] font-semibold text-bone">How did you hear about us?</h3>
         <p className="mb-[10px] mt-0.5 text-[13px] text-steel">
           Optional — helps us know which channels are working.
         </p>
@@ -65,7 +65,7 @@ export function ContactOptional() {
             <button
               key={src}
               type="button"
-              className="chip max-md:h-11"
+              className="chip chip-sm max-md:!h-11"
               aria-pressed={source === src}
               onClick={() => setSource(source === src ? null : src)}
             >

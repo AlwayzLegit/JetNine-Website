@@ -27,7 +27,7 @@ export function ChooseButton({
   const [error, setError] = useState<string | null>(null);
 
   return (
-    <div className="mt-3.5 flex flex-col items-end gap-2">
+    <div className="flex flex-col items-end gap-2 max-sm:w-full">
       <button
         type="button"
         disabled={pending}
@@ -39,12 +39,12 @@ export function ChooseButton({
             else setError(ERROR_TEXT[r.error] ?? `Something went wrong. Call ${SITE.dispatchPhone}.`);
           });
         }}
-        className={["btn", primary ? "btn-primary" : "btn-secondary", "max-md:w-full"].join(" ")}
+        className={["btn btn-sm", primary ? "btn-primary" : "btn-secondary", "max-sm:w-full"].join(" ")}
       >
         {pending ? "Choosing…" : label}
       </button>
       {error ? (
-        <p role="alert" className="max-w-[28ch] text-right text-[13px] text-danger">
+        <p role="alert" className="max-w-[32ch] text-right text-[13px] text-danger">
           {error}
         </p>
       ) : null}

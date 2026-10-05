@@ -16,12 +16,12 @@ const STEPS = [
   { idx: 4, label: "Review", href: "/quote/review" },
 ] as const;
 
-// Four-column step bar under the quote header. 28px number circle —
-// clearance-filled for done and current steps, outlined for upcoming —
-// then "Step n of 4" in steel over the step name. The current step gets a
-// 2px clearance bottom border. A step is a link only once everything
-// before it is complete (the store's step guards); otherwise it is inert.
-// Phones keep the circles and the current step's name only.
+// Slim four-segment progress bar above the step panel (the Light flow
+// has no heavy step bar — Quote.dc carries "Step n of 2" in the lead).
+// Each step is a 3px rule — navy for done and current, line for
+// upcoming — with "1 · Mission" under it; phones show the current
+// step's name only. A step is a link only once everything before it is
+// complete (the store's step guards); otherwise it is inert.
 //
 // Reading the store here is SSR-safe: hydration is skipped until the
 // StoreHydrationGate rehydrates, so server and first client render both
@@ -38,8 +38,8 @@ export function QuoteStepper() {
   const reachable = [true, missionDone, aircraftDone, contactDone];
 
   return (
-    <nav aria-label="Steps" className="border-b border-line-faint bg-ink">
-      <ol className="container-jn flex gap-2 md:grid md:grid-cols-4">
+    <nav aria-label="Steps" className="mb-5">
+      <ol className="grid grid-cols-4 gap-2">
         {STEPS.map((s) => {
           const state: "done" | "current" | "upcoming" =
             s.idx < currentIdx ? "done" : s.idx === currentIdx ? "current" : "upcoming";
@@ -50,44 +50,30 @@ export function QuoteStepper() {
               <span
                 aria-hidden="true"
                 className={[
-                  "flex h-7 w-7 flex-none items-center justify-center rounded-full border text-[13px] font-semibold",
-                  state === "upcoming"
-                    ? "border-line-2 text-steel"
-                    : "border-clearance bg-clearance text-ink",
+                  "block h-[3px] w-full rounded-[2px]",
+                  state === "upcoming" ? "bg-line" : "bg-clearance",
                 ].join(" ")}
-              >
-                {s.idx}
-              </span>
+              />
               <span
                 className={[
-                  "flex flex-col leading-[1.25]",
-                  state === "current" ? "" : "max-md:sr-only",
+                  "mt-2 block truncate text-[13px] leading-[1.35]",
+                  "max-md:sr-only",
+                  state === "current" ? "font-semibold text-bone" : "text-steel",
                 ].join(" ")}
               >
-                <span className="text-[12px] text-steel max-md:sr-only">Step {s.idx} of 4</span>
-                <span
-                  className={[
-                    "text-[15px] font-medium",
-                    state === "current" ? "text-bone" : "text-bone-2",
-                  ].join(" ")}
-                >
-                  {s.label}
-                </span>
+                {s.idx} · {s.label}
               </span>
             </>
           );
 
           const itemClass = [
-            "flex min-h-[56px] w-full items-center gap-3 border-b-2 px-1 py-3.5 text-left",
-            state === "current" ? "border-clearance" : "border-transparent",
-            isLink ? "transition-colors hover:text-bone" : "cursor-default",
+            "block w-full pt-2 text-left md:min-h-11 max-md:h-6",
+            isLink && state !== "current" ? "transition-colors hover:[&>span:last-child]:text-bone" : "",
+            isLink ? "" : "cursor-default",
           ].join(" ");
 
           return (
-            <li
-              key={s.idx}
-              className={state === "current" ? "min-w-0 max-md:flex-1" : "max-md:flex-none"}
-            >
+            <li key={s.idx} className="min-w-0">
               {isLink ? (
                 <Link
                   href={s.href}
@@ -106,6 +92,10 @@ export function QuoteStepper() {
           );
         })}
       </ol>
+      <p aria-hidden="true" className="mt-1 text-[13px] text-bone md:hidden">
+        <span className="font-semibold">Step {currentIdx} of 4</span> ·{" "}
+        {STEPS[currentIdx - 1]?.label}
+      </p>
     </nav>
   );
 }

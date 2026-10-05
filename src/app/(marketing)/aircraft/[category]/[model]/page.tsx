@@ -1,12 +1,30 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { PageHero } from "@/components/page-hero";
 import { CtaBand } from "@/components/cta-band";
 import { DeskNotes } from "@/components/desk-notes";
-import { FleetImage } from "@/components/aircraft/fleet-image";
+import { CATEGORY_COPY, CATEGORY_IMAGE, MODEL_SOURCE } from "@/components/aircraft/category-copy";
+import { ChecklistButton } from "@/components/aircraft/checklist-button";
+import { FaqList } from "@/components/aircraft/faq-list";
+import { GalleryButton } from "@/components/aircraft/gallery-button";
+import { LineIcon, type IconName } from "@/components/aircraft/line-icon";
+import { kt, nm, perHour, plainWords, wifiLabel } from "@/components/aircraft/plain";
 import { QuoteLink } from "@/components/aircraft/quote-link";
-import { kt, nm, perHour, plainWords, sentence, wifiLabel } from "@/components/aircraft/plain";
+import { SourceCards } from "@/components/aircraft/source-windows";
+import {
+  CostList,
+  GlanceBand,
+  NeighborCards,
+  PageRail,
+  RangeSection,
+  RelatedRow,
+  SectionTabs,
+  SplitHero,
+  h2Cls,
+  scrollM,
+} from "@/components/aircraft/template-parts";
+import { TripForm } from "@/components/aircraft/trip-form";
 import { pageMetadata } from "@/lib/page-meta";
 import { MODELS, getModel, siblingModels } from "@/lib/models";
 import { getFleetEntry, formatNm } from "@/lib/fleet";
@@ -57,6 +75,7 @@ export default async function ModelPage({ params }: RouteParams) {
   const entry = getFleetEntry(category);
   if (!m || !entry) notFound();
 
+  const c = CATEGORY_COPY[entry.slug];
   const rate = rateRowFor(m.category);
   const siblings = siblingModels(m);
   const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL || "https://jetnine.com").replace(/\/$/, "");
@@ -169,16 +188,46 @@ export default async function ModelPage({ params }: RouteParams) {
     })),
   };
 
-  const specs: [string, string][] = [
-    ["Passengers", `${m.sample.pax} typical`],
-    ["Range", `${nm(m.sample.rangeNm)} · with reserves`],
-    ["Cruise", kt(m.sample.speedKt)],
-    ["Ceiling", `${m.ceilingFt.toLocaleString()} ft`],
-    ["Cabin height", m.cabin.heightFt],
-    ["Cabin width", m.cabin.widthFt],
-    ["Cabin length", m.cabin.lengthFt],
-    ["Baggage", `~${m.baggageCuFt} cu ft`],
-    ["Wi-Fi", wifiLabel(m.sample.wifi)],
+  const specs: [string, string, IconName][] = [
+    ["Passengers", `${m.sample.pax} typical`, "people"],
+    ["Range", `${nm(m.sample.rangeNm)} · with reserves`, "plane"],
+    ["Cruise", kt(m.sample.speedKt), "bolt"],
+    ["Ceiling", `${m.ceilingFt.toLocaleString()} ft`, "runway"],
+    ["Cabin height", m.cabin.heightFt, "person"],
+    ["Cabin width", m.cabin.widthFt, "seat"],
+    ["Cabin length", m.cabin.lengthFt, "seat"],
+    ["Baggage", `~${m.baggageCuFt} cu ft`, "bag"],
+    ["Wi-Fi", wifiLabel(m.sample.wifi), "globe"],
+  ];
+
+  const source = MODEL_SOURCE[m.name] ?? { label: "Ask about this model", href: `mailto:${SITE.email}` };
+  const gallery = [
+    ...(m.sample.imageUrl ? [{ src: m.sample.imageUrl, label: "Exterior" }] : []),
+    { src: c.cabinImage, label: "Cabin" },
+    ...entry.cabin.placeholders.map((p, i) => ({
+      src: entry.cabin.imageUrls?.[i] ?? c.cabinImage,
+      label: plainWords(p.charAt(0) + p.slice(1).toLowerCase()),
+    })),
+  ];
+
+  const stepUp = getFleetEntry(entry.teaser.right.href.split("/").pop() ?? "");
+  const alternatives = [
+    ...siblings.map((s) => ({
+      slug: entry.slug,
+      name: s.shortName,
+      body: plainWords(s.knownFor),
+      href: `/aircraft/${s.category}/${s.slug}`,
+      image: s.sample.imageUrl ?? CATEGORY_IMAGE[entry.slug],
+      cta: "Specs & rates",
+    })),
+    {
+      slug: entry.slug,
+      name: entry.teaser.right.title,
+      body: plainWords(entry.teaser.right.body),
+      href: entry.teaser.right.href,
+      image: stepUp ? CATEGORY_IMAGE[stepUp.slug] : CATEGORY_IMAGE[entry.slug],
+      cta: entry.teaser.right.cta,
+    },
   ];
 
   return (
@@ -191,196 +240,244 @@ export default async function ModelPage({ params }: RouteParams) {
           dangerouslySetInnerHTML={{ __html: JSON.stringify(productJsonLd) }}
         />
       ) : null}
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
-      />
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }}
-      />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }} />
 
-      {/* ─── Hero: name, lead, the rate front and centre ─── */}
-      <PageHero
+      <SplitHero
+        crumbs={[
+          { label: "Home", href: "/" },
+          { label: "Aircraft", href: "/aircraft" },
+          { label: c.name, href: entry.href },
+          { label: m.shortName },
+        ]}
         eyebrow={`${entry.name} · ${m.manufacturer}`}
-        title={`${m.shortName} charter.`}
-        lead={plainWords(m.lead)}
-      >
-        <nav aria-label="Breadcrumb" className="mt-6 text-[15px] text-bone-2">
-          <Link href="/aircraft" className="text-link tap-pad">
-            Aircraft
-          </Link>
-          <span aria-hidden> · </span>
-          <Link href={entry.href} className="text-link tap-pad">
-            {entry.name}
-          </Link>
-          <span aria-hidden> · </span>
-          <span aria-current="page">{m.shortName}</span>
-        </nav>
-
-        <div className="mt-8 grid gap-6 lg:grid-cols-[minmax(0,1fr)_400px] lg:items-end">
-          <div className="flex flex-wrap items-center gap-4">
-            <QuoteLink context={`model-${m.slug}`} category={m.category}>
-              Request a quote <span className="arrow">→</span>
+        title={`${m.shortName} charter`}
+        tagline={c.tagline}
+        intro={plainWords(m.lead)}
+        image={m.sample.imageUrl}
+        imageAlt={`${m.name} exterior`}
+        actions={
+          <>
+            <QuoteLink
+              context={`model-${m.slug}`}
+              category={m.category}
+              className="inline-flex h-[42px] items-center gap-[10px] rounded-[2px] bg-clearance px-5 text-[14px] font-bold text-white hover:bg-clearance-hover"
+            >
+              Request a quote →
             </QuoteLink>
-            <Link href={entry.href} className="btn btn-secondary btn-lg">
-              All {entry.name.toLowerCase()} aircraft
+            <Link
+              href={entry.href}
+              className="inline-flex h-[42px] items-center gap-[10px] rounded-[2px] border border-bone px-5 text-[14px] text-bone hover:bg-surface-2"
+            >
+              All {entry.name.toLowerCase()} aircraft →
             </Link>
-          </div>
+          </>
+        }
+      />
+
+      <GlanceBand
+        items={[
+          { icon: "people", k: `${m.sample.pax} passengers`, v: "Typical layout" },
+          { icon: "plane", k: nm(m.sample.rangeNm), v: "Range · with reserves" },
+          { icon: "bolt", k: kt(m.sample.speedKt), v: "Cruise speed" },
+          { icon: "person", k: m.cabin.heightFt, v: "Cabin height" },
+          ...(rate ? [{ icon: "coins" as const, k: perHour(rate.market), v: `${entry.name} market rate · hourly` }] : []),
+        ]}
+      />
+
+      <div className="container-jn flex flex-wrap items-start gap-7 pt-[18px]">
+        <main className="min-w-0 flex-[999_1_520px]">
+          <SectionTabs
+            tabs={[
+              ["Specifications", "#specs"],
+              ...(routes.length ? ([["Routes", "#routes"]] as [string, string][]) : []),
+              ["Cabin", "#cabin"],
+              ["Range", "#range"],
+              ["Pricing", "#pricing"],
+            ]}
+          />
+
+          <section id="specs" className={`pt-[22px] ${scrollM}`}>
+            <h2 className="font-serif text-[32px] font-normal leading-[1.1]">The {m.shortName}, by the numbers.</h2>
+            <p className="mt-1 text-[13px] text-steel">{plainWords(m.knownFor)}</p>
+            <dl className="mt-3 grid gap-x-8 [grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr))]">
+              {specs.map(([k, v, icon]) => (
+                <div key={k} className="grid grid-cols-[28px_minmax(0,1fr)_auto] items-center gap-3 border-t border-line py-[10px] text-[13px]">
+                  <LineIcon name={icon} size={22} />
+                  <dt className="font-bold">{k}</dt>
+                  <dd className="text-right text-steel">{v}</dd>
+                </div>
+              ))}
+            </dl>
+            <p className="mt-2 text-[12px] leading-[1.5] text-steel">
+              Figures are the typical published layout; exact layout and performance vary by aircraft and are confirmed with your quote.
+            </p>
+            <a
+              href={source.href}
+              {...(source.href.startsWith("http") ? { target: "_blank", rel: "noopener noreferrer" } : {})}
+              className="mt-2 inline-block whitespace-nowrap border-b border-bone pb-px text-[13px] hover:text-gold"
+            >
+              {source.label} ↗
+            </a>
+          </section>
+
+          {routes.length > 0 ? (
+            <section id="routes" className={`pt-[26px] ${scrollM}`}>
+              <h2 className="font-serif text-[32px] font-normal leading-[1.1]">Popular {m.shortName} routes.</h2>
+              <p className="mt-1 max-w-[70ch] text-[13px] text-steel">
+                Indicative all-in ranges for the whole aircraft, worked out by the same engine behind our quote form. Tap through and the
+                quote opens with the route and category loaded.
+              </p>
+              <div className="mt-[14px] grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(min(100%,220px),1fr))]">
+                {routes.map((r) => (
+                  <div key={`${r.from}-${r.to}`} className="flex flex-col border border-line bg-surface p-[14px]">
+                    <span className="text-[12px] font-bold uppercase tracking-[.2em] text-gold">
+                      {r.from} → {r.to}
+                    </span>
+                    <h3 className="mt-1 font-serif text-[22px] font-normal leading-[1.15]">{r.label}</h3>
+                    <p className="mt-0.5 text-[12px] text-steel">
+                      {r.fromCity} ({r.from}) → {r.toCity} ({r.to})
+                    </p>
+                    <dl className="mt-3 text-[13px]">
+                      <div className="flex justify-between gap-3 border-t border-line py-1.5">
+                        <dt className="text-steel">Distance</dt>
+                        <dd>{nm(r.nm)}</dd>
+                      </div>
+                      <div className="flex justify-between gap-3 border-t border-line py-1.5">
+                        <dt className="text-steel">Flight time</dt>
+                        <dd>{r.hours}</dd>
+                      </div>
+                      <div className="flex flex-col border-t border-line pt-1.5">
+                        <dt className="text-steel">Indicative, all-in</dt>
+                        <dd className="font-serif text-[20px] leading-tight">{r.range}</dd>
+                      </div>
+                    </dl>
+                    <QuoteLink
+                      context={`route-card:${r.from}-${r.to}`}
+                      category={m.category}
+                      from={r.from}
+                      to={r.to}
+                      pax={Math.min(m.sample.pax, 8)}
+                      className="mt-3 self-start border-b border-bone pb-px text-[13px] hover:text-gold"
+                    >
+                      Get exact quote →
+                    </QuoteLink>
+                  </div>
+                ))}
+              </div>
+            </section>
+          ) : null}
+        </main>
+
+        <aside className="flex max-w-full flex-[1_1_280px] flex-col gap-[14px] lg:sticky lg:top-[calc(var(--header-h)+20px)]">
           {rate ? (
-            <div className="card card-pad">
-              <p className="label-jn">{entry.name} category · hourly</p>
-              <p className="mt-3 font-serif text-[40px] font-light leading-none">{rate.market}</p>
-              <p className="mt-2 text-[14px] text-bone-2">Market rate · all-in, locked at acceptance</p>
-              <div className="mt-5 border-t border-line pt-5">
-                <p className="font-serif text-[24px] font-light leading-none text-clearance">
-                  {perHour(rate.locked)}
-                </p>
-                <p className="mt-2 text-[14px] text-bone-2">JetNine Card · locked for 24 months</p>
+            <div className="border border-line bg-surface px-[18px] py-4">
+              <p className="text-[12px] font-bold uppercase tracking-[.2em] text-gold">{entry.name} category · hourly</p>
+              <p className="mt-2 font-serif text-[32px] leading-none">{perHour(rate.market)}</p>
+              <p className="mt-1 text-[12px] text-steel">Market rate · all-in, locked at acceptance</p>
+              <div className="mt-3 border-t border-line pt-3">
+                <p className="font-serif text-[22px] leading-none">{perHour(rate.locked)}</p>
+                <p className="mt-1 text-[12px] text-steel">JetNine Card · locked for 24 months</p>
               </div>
             </div>
           ) : null}
-        </div>
-      </PageHero>
+          <TripForm variant="side" title={`Price a ${m.shortName} trip`} context={`model-${m.slug}-side`} category={m.category} />
+          <PageRail
+            items={[
+              ["Specifications", "#specs"],
+              ...(routes.length ? ([["Popular routes", "#routes"]] as [string, string][]) : []),
+              ["Cabin details", "#cabin"],
+              ["Range", "#range"],
+              ["Pricing & alternatives", "#pricing"],
+              ["Original sources", "#sources"],
+            ]}
+          />
+        </aside>
+      </div>
 
-      {/* ─── Photo + specifications ─── */}
-      <section className="section-jn container-jn grid items-start gap-6 lg:grid-cols-[1.3fr_1fr]">
-        <FleetImage
-          src={m.sample.imageUrl}
-          alt={`${m.name} exterior`}
-          aspect="16/10"
-          sizes="(max-width: 1024px) 100vw, 60vw"
-          className="rounded-card border border-line"
-        />
-        <div className="card">
-          <div className="border-b border-line px-7 py-5">
-            <h2 className="title-card-sm">Specifications</h2>
-            <p className="mt-1 text-[14px] text-steel">Typical layout</p>
-          </div>
-          <dl className="dl-jn px-7 py-6">
-            {specs.map(([label, val]) => (
-              <div key={label} className="contents">
-                <dt>{label}</dt>
-                <dd>{val}</dd>
-              </div>
-            ))}
-          </dl>
-          <p className="border-t border-line px-7 py-4 text-[13px] leading-[1.6] text-steel">
-            Figures are the typical published layout; exact layout and performance vary by aircraft
-            and are confirmed with your quote.
-          </p>
-        </div>
-      </section>
-
-      {/* ─── Popular routes, engine-priced ─── */}
-      {routes.length > 0 ? (
-        <section className="section-jn container-jn">
-          <p className="eyebrow">Popular {m.shortName} routes</p>
-          <h2 className="title-section max-w-[24ch]">What it flies, and for what.</h2>
-          <p className="lead mt-5 max-w-[64ch]">
-            Indicative all-in ranges for the whole aircraft, worked out by the same engine behind
-            our quote form. Tap through and the quote opens with the route and category loaded.
-          </p>
-          <div className="mt-10 grid grid-cols-1 gap-4 md:grid-cols-3">
-            {routes.map((r) => (
-              <div key={`${r.from}-${r.to}`} className="card card-pad flex flex-col gap-5">
-                <div>
-                  <h3 className="title-card-sm">{r.label}</h3>
-                  <p className="mt-1 text-[14px] text-bone-2">
-                    {r.fromCity} ({r.from}) → {r.toCity} ({r.to})
-                  </p>
-                </div>
-                <dl className="dl-jn border-y border-line py-5">
-                  <dt>Distance</dt>
-                  <dd>{nm(r.nm)}</dd>
-                  <dt>Flight time</dt>
-                  <dd>{r.hours}</dd>
-                </dl>
-                <div className="flex flex-1 flex-col justify-end gap-4">
-                  <div>
-                    <p className="label-jn">Indicative, all-in</p>
-                    <p className="mt-1 font-serif text-[24px] font-light leading-tight">{r.range}</p>
-                  </div>
-                  <QuoteLink
-                    context={`route-card:${r.from}-${r.to}`}
-                    category={m.category}
-                    from={r.from}
-                    to={r.to}
-                    pax={Math.min(m.sample.pax, 8)}
-                    className="btn btn-secondary self-start"
-                  >
-                    Get exact quote <span className="arrow">→</span>
-                  </QuoteLink>
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
-      ) : null}
-
-      {/* ─── FAQ ─── */}
-      <section className="section-jn container-jn">
-        <p className="eyebrow">Asked about the {m.shortName}</p>
-        <div className="mt-6 grid grid-cols-1 gap-x-12 gap-y-10 md:grid-cols-2">
-          {FAQ.map((f) => (
-            <div key={f.q} className="border-t border-line pt-6">
-              <h3 className="title-card-sm">{f.q}</h3>
-              <p className="mt-3 max-w-[62ch] text-bone-2">{plainWords(f.a)}</p>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* ─── Alternatives ─── */}
-      <section className="section-jn container-jn">
-        <p className="eyebrow">Compare</p>
-        <h2 className="title-section max-w-[24ch]">The alternatives worth pricing.</h2>
-        <div className="mt-10 grid grid-cols-1 gap-4 md:grid-cols-3">
-          {siblings.map((s) => (
-            <Link
-              key={s.slug}
-              href={`/aircraft/${s.category}/${s.slug}`}
-              className="card card-pad flex flex-col gap-3"
+      {/* ─── Cabin ─── */}
+      <section id="cabin" className={`mt-6 border-y border-line bg-surface ${scrollM}`}>
+        <div className="container-jn grid items-start gap-7 pb-[22px] pt-5 [grid-template-columns:repeat(auto-fit,minmax(min(100%,340px),1fr))]">
+          <div>
+            <GalleryButton
+              images={gallery}
+              start={m.sample.imageUrl ? 1 : 0}
+              ariaLabel="Open cabin gallery"
+              title={`A closer look at the ${m.shortName}.`}
+              sub={`Representative ${c.name.toLowerCase()} imagery. Request photos of the quoted aircraft.`}
+              className="relative block aspect-[16/9] w-full overflow-hidden border-0 bg-surface-2 p-0"
             >
-              <p className="label-jn">Same category · {entry.name}</p>
-              <h3 className="title-card-sm">{s.shortName}</h3>
-              <p className="flex-1 text-bone-2">{plainWords(s.knownFor)}</p>
-              <span className="pt-2 text-[15px] font-medium">
-                Specs &amp; rates <span className="arrow">→</span>
+              <Image src={c.cabinImage} alt={`${c.name} cabin`} fill sizes="(max-width: 768px) 100vw, 600px" className="object-cover" />
+              <span className="absolute bottom-[10px] right-[10px] inline-flex h-[30px] items-center bg-[rgba(18,35,46,.85)] px-3 text-[12px] text-white">
+                View gallery ↗
               </span>
-            </Link>
-          ))}
-          <Link href={entry.teaser.right.href} className="card card-pad flex flex-col gap-3">
-            <p className="label-jn">{sentence(entry.teaser.right.label)}</p>
-            <h3 className="title-card-sm">{entry.teaser.right.title}</h3>
-            <p className="flex-1 text-bone-2">{plainWords(entry.teaser.right.body)}</p>
-            <span className="pt-2 text-[15px] font-medium">
-              {entry.teaser.right.cta} <span className="arrow">→</span>
-            </span>
-          </Link>
+            </GalleryButton>
+            <p className="mt-1.5 text-[12px] text-steel">Illustrative interior. Layouts and equipment vary by aircraft.</p>
+          </div>
+          <div>
+            <h2 className={h2Cls}>Inside the {m.shortName}.</h2>
+            <div className="mt-[10px]">
+              {(
+                [
+                  ["Headroom", `${m.cabin.heightFt} published cabin height.`, "person"],
+                  ["Floor & seating", `${m.cabin.lengthFt} long, ${m.cabin.widthFt} wide; ${m.sample.pax} seats typical.`, "seat"],
+                  ["Baggage", `About ${m.baggageCuFt} cu ft. Confirm sizes, weight and loading access.`, "bag"],
+                  ["Wi-Fi", `${wifiLabel(m.sample.wifi)} on the typical aircraft. Confirm coverage for your route.`, "cup"],
+                ] as [string, string, IconName][]
+              ).map(([k, v, icon]) => (
+                <div key={k} className="grid grid-cols-[28px_minmax(90px,120px)_minmax(0,1fr)] items-center gap-3 border-t border-line py-[10px] text-[13px] max-[420px]:grid-cols-[28px_minmax(0,1fr)]">
+                  <LineIcon name={icon} size={22} />
+                  <b>{k}</b>
+                  <span className="text-steel max-[420px]:col-start-2">{v}</span>
+                </div>
+              ))}
+            </div>
+            <div className="mt-4">
+              <ChecklistButton
+                label="Open cabin checklist →"
+                className="h-10 rounded-[2px] border-0 bg-gold px-4 text-[13px] font-bold text-white hover:opacity-90"
+                sub={`Confirm these details for the ${m.shortName} offered.`}
+                groups={[{ items: c.checklist }]}
+                note="Review current photos and the seating plan."
+                cta="Add needs to my request"
+                context={`model-${m.slug}-checklist`}
+                category={m.category}
+              />
+            </div>
+          </div>
         </div>
+      </section>
+
+      <RangeSection
+        title={`Can the ${m.shortName} fly your route nonstop?`}
+        sub={`About ${nm(m.sample.rangeNm)} with reserves at ${kt(m.sample.speedKt)} cruise. Real-world range depends on load, winds and routing.`}
+        tip={c.nonstopTip}
+        category={m.category}
+        context={`model-${m.slug}-route`}
+      />
+
+      {/* ─── Alternatives + cost ─── */}
+      <section id="pricing" className={`container-jn grid items-start gap-x-10 gap-y-8 pt-[26px] [grid-template-columns:repeat(auto-fit,minmax(min(100%,340px),1fr))] ${scrollM}`}>
+        <div>
+          <h2 className="font-serif text-[28px] font-normal leading-[1.1]">The alternatives worth pricing.</h2>
+          <NeighborCards items={alternatives} />
+        </div>
+        <CostList title={`What does ${m.shortName} charter cost?`} items={c.cost} />
       </section>
 
       <DeskNotes terms={[m.shortName, m.manufacturer, entry.name, "aircraft", "range"]} heading={`From the desk · ${entry.name}`} />
 
-      {/* ─── Quote handoff (was the inline launcher form) ─── */}
-      <section className="section-jn container-jn">
-        <div className="card card-pad grid gap-6 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
-          <div>
-            <p className="eyebrow">Start a quote</p>
-            <h2 className="title-card">Price a {m.shortName} mission.</h2>
-            <p className="mt-2 max-w-[52ch] text-bone-2">
-              Route, date, and passengers — the quote opens with the category already chosen and
-              prices as you type. Dispatch confirms specific aircraft within 30 minutes.
-            </p>
-          </div>
-          <QuoteLink context={`model-${m.slug}`} category={m.category}>
-            Request a quote <span className="arrow">→</span>
-          </QuoteLink>
-        </div>
+      <SourceCards models={[{ name: m.name, label: source.label, href: source.href }]} />
+
+      <section id="faqs" className={`container-jn pt-[22px] ${scrollM}`}>
+        <h2 className="font-serif text-[24px] font-normal leading-[1.1]">Asked about the {m.shortName}.</h2>
+        <FaqList items={FAQ.map((f) => ({ q: f.q, a: plainWords(f.a) }))} />
+        <RelatedRow />
       </section>
 
       <CtaBand
+        className="!mt-[22px]"
+        imageSrc={c.ctaImage}
         title={`${m.shortName}, sourced and vetted.`}
         body={`Every ${m.shortName} we quote flies for an ARG/US- or Wyvern-audited operator that passed our on-site vetting. Ask dispatch which aircraft are in position: ${SITE.dispatchPhone}.`}
         primary={{ label: "Request a quote", href: "/quote/mission" }}

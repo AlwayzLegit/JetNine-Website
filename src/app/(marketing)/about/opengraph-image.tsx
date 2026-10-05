@@ -12,7 +12,7 @@ export default function OgImage() {
       kicker: "About JetNine",
       title: "A small company built on one phone number.",
       lead: "Senior-dispatcher charter brokerage in Los Angeles. One number, one desk, ready when you are.",
-      bgImageUrl: `${siteBase()}/images/about/dispatch-room.webp`,
+      bgImageUrl: `${siteBase()}/images/og/dispatch-room.jpg`,
     }),
     { ...size },
   );

@@ -12,7 +12,7 @@ export default function OgImage() {
       kicker: "Aircraft",
       title: "Six categories. Hundreds of aircraft.",
       lead: "Turboprop through ultra long range — match the aircraft to the mission, not the other way around.",
-      bgImageUrl: `${siteBase()}/images/fleet/ultra.webp`,
+      bgImageUrl: `${siteBase()}/images/og/fleet-ultra.jpg`,
     }),
     { ...size },
   );

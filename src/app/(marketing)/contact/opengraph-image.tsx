@@ -12,7 +12,7 @@ export default function OgImage() {
       kicker: "Contact dispatch",
       title: "One desk. One number. Always.",
       lead: "Senior dispatcher picks up — average pick-up under twenty seconds. Open every hour of every day.",
-      bgImageUrl: `${siteBase()}/images/about/dispatch-room.webp`,
+      bgImageUrl: `${siteBase()}/images/og/dispatch-room.jpg`,
       bottomLeft: "+1 (424) 487-2707",
     }),
     { ...size },

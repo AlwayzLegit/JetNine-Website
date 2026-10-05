@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import Link from "next/link";
+import { TOKEN_BTN, TOKEN_CARD } from "@/components/empty-legs/token-page-shell";
 import { confirmWatchlist } from "@/app/(marketing)/empty-legs/confirm/actions";
 
 // One card, three states: ask for the click, confirmed, or an error line.
@@ -22,24 +23,24 @@ export function WatchlistConfirmCard({
 
   if (done) {
     return (
-      <div className="card p-10 text-center max-md:p-6">
-        <h2 className="title-card">Confirmed. You&rsquo;re on the list.</h2>
-        <p className="mx-auto mt-3 max-w-[52ch] text-bone-2">
+      <div className={TOKEN_CARD}>
+        <h2 className="title-card-sm">Confirmed. You&rsquo;re on the list.</h2>
+        <p className="mx-auto mt-3 max-w-[52ch] text-steel">
           We&rsquo;ll {done === "sms" ? "text" : "email"} you when a repositioning leg matching{" "}
           {route} hits the board. One message per match, nothing else.
           {done === "sms" ? " Reply STOP any time to end them." : ""}
         </p>
-        <Link href="/empty-legs" className="btn btn-primary btn-lg mt-8">
-          See the board <span className="arrow" aria-hidden="true">→</span>
+        <Link href="/empty-legs" className={`${TOKEN_BTN} mt-6`}>
+          See the board <span aria-hidden="true">→</span>
         </Link>
       </div>
     );
   }
 
   return (
-    <div className="card p-10 text-center max-md:p-6">
-      <h2 className="title-card">Confirm your empty-leg alerts</h2>
-      <p className="mx-auto mt-3 max-w-[52ch] text-bone-2">
+    <div className={TOKEN_CARD}>
+      <h2 className="title-card-sm">Confirm your empty-leg alerts</h2>
+      <p className="mx-auto mt-3 max-w-[52ch] font-serif text-[20px] text-bone">
         {route} · {dateWindow}
       </p>
       <p className="mx-auto mt-2 max-w-[52ch] text-[14px] text-steel">
@@ -65,9 +66,9 @@ export function WatchlistConfirmCard({
         <button
           type="submit"
           disabled={pending}
-          className="btn btn-primary btn-lg mt-8 disabled:cursor-wait disabled:opacity-60"
+          className={`${TOKEN_BTN} mt-6 disabled:cursor-wait disabled:opacity-60`}
         >
-          {pending ? "Confirming…" : "Confirm alerts"} <span className="arrow" aria-hidden="true">→</span>
+          {pending ? "Confirming…" : "Confirm alerts"} <span aria-hidden="true">→</span>
         </button>
       </form>
       {error ? (

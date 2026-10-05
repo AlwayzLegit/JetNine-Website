@@ -26,13 +26,18 @@ const supabaseHost = (() => {
 //     when NEXT_PUBLIC_POSTHOG_KEY is set (instrumentation-client.ts), so
 //     the policy entries are a no-op when analytics is dark. us-assets
 //     serves the SDK's lazy-loaded chunks; us.i is event ingest.
+//   - Development only: webpack's dev runtime evaluates modules with eval,
+//     and a local Supabase stack is served over plain http / ws. Neither
+//     entry is present in production builds.
+const devScript = isProd ? "" : " 'unsafe-eval'";
+const devConnect = isProd ? "" : ` http://${supabaseHost} ws://${supabaseHost}`;
 const csp = [
   "default-src 'self'",
-  "script-src 'self' 'unsafe-inline' https://us-assets.i.posthog.com",
+  `script-src 'self' 'unsafe-inline'${devScript} https://us-assets.i.posthog.com`,
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   "font-src 'self' data: https://fonts.gstatic.com",
   `img-src 'self' data: blob: https://jetnine.com https://${supabaseHost}`,
-  `connect-src 'self' https://${supabaseHost} wss://${supabaseHost} https://us.i.posthog.com https://us-assets.i.posthog.com`,
+  `connect-src 'self' https://${supabaseHost} wss://${supabaseHost}${devConnect} https://us.i.posthog.com https://us-assets.i.posthog.com`,
   "frame-ancestors 'none'",
   "base-uri 'self'",
   "form-action 'self'",

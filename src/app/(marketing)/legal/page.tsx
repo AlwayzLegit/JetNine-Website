@@ -1,5 +1,9 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { pageMetadata } from "@/lib/page-meta";
+import { Breadcrumb } from "@/components/light/breadcrumb";
+import { WindowButton } from "@/components/light/window";
+import { CopySectionLink, LegalContents, LegalTools } from "@/components/legal/legal-contents";
 
 export const metadata: Metadata = pageMetadata({
   title: "Legal & disclosures",
@@ -12,6 +16,7 @@ export const metadata: Metadata = pageMetadata({
 // flow, empty-legs watchlist, safety page) — keep them all.
 const TOC = [
   {
+    numeral: "I",
     title: "Privacy policy",
     items: [
       ["1.1", "What we collect", "#what-we-collect"],
@@ -24,6 +29,7 @@ const TOC = [
     ],
   },
   {
+    numeral: "II",
     title: "Terms of service",
     items: [
       ["2.1", "The agreement", "#agreement"],
@@ -36,6 +42,7 @@ const TOC = [
     ],
   },
   {
+    numeral: "III",
     title: "Part 295 disclosure",
     items: [
       ["3.1", "Broker status", "#part-295"],
@@ -65,36 +72,68 @@ const DEFINITIONS = [
 
 const LINK = "text-link-strong";
 
+const ICON = {
+  calendar: "M3 6h18v15H3zM3 10h18M8 3v4M16 3v4",
+  mail: "M3 6h18v12H3zM3 7l9 6 9-6",
+  scale: "M12 3v18M5 7h14M5 7l-3 7a3 3 0 0 0 6 0zM19 7l-3 7a3 3 0 0 0 6 0zM8 21h8",
+  doc: "M7 3h7l5 5v13H7zM14 3v5h5M10 13h6M10 17h6",
+  book: "M4 5a2 2 0 0 1 2-2h14v16H6a2 2 0 0 0-2 2zM4 5v16M8 7h8M8 11h8",
+  shield: "M12 3l8 4v6c0 4.5-3.5 8-8 9-4.5-1-8-4.5-8-9V7l8-4z",
+  plane: "M21 3L3 10.5l7.5 3L13.5 21 21 3zM10.5 13.5L21 3",
+} as const;
+
+const META_ICON: Record<string, string> = {
+  Effective: ICON.calendar,
+  "Last edited": ICON.calendar,
+  "Governing law": ICON.scale,
+  Questions: ICON.mail,
+  "Broker status": ICON.doc,
+};
+
+const NEXT_STEPS = [
+  { href: "/how-it-works", title: "How booking works", sub: "From request to confirmation", link: "Explore the process", d: ICON.doc },
+  { href: "/safety", title: "Charter safety", sub: "Questions about your operator", link: "Read the safety guide", d: ICON.shield },
+  { href: "/empty-legs", title: "Empty-leg flights", sub: "Review trip-specific conditions", link: "Explore empty legs", d: ICON.plane },
+] as const;
+
+const OFFICIAL = [
+  { href: "https://www.ecfr.gov/current/title-14/chapter-II/subchapter-A/part-295", title: "eCFR · Air charter brokers", link: "Read 14 CFR Part 295" },
+  { href: "https://www.faa.gov/about/initiatives/safecharteroperations/thinking-chartering-aircraft", title: "FAA · Charter guidance", link: "Check charter legitimacy" },
+] as const;
+
+const ROLES = [
+  { name: "JetNine", role: "Charter broker", items: ["Arranges the charter", "Coordinates booking information"], d: ICON.doc },
+  { name: "Operating carrier", role: "Flight operator", items: ["Operates the aircraft", "Makes operational decisions"], d: ICON.plane },
+] as const;
+
 export default function LegalPage() {
   return (
-    <>
-      {/* Title + meta card */}
-      <section className="container-jn grid grid-cols-1 items-end gap-12 pt-24 max-md:pt-12 lg:grid-cols-[1.4fr_1fr]">
-        <div>
-          <p className="mb-4 text-[14px] font-semibold text-bone-2">Legal &amp; disclosures</p>
-          <h1 className="title-page max-w-[14ch] !text-[clamp(44px,5.5vw,60px)]">
-            The fine print, large enough to read.
-          </h1>
-          <p className="lead mt-5 max-w-[56ch]">
-            Three documents that govern the JetNine relationship: how we handle your data, what
-            you and we agree to when you book, and the broker disclosure required by US DOT Part
-            295. Written plainly. Reviewed by counsel. Updated whenever they change — never
-            quietly.
-          </p>
-        </div>
-        <dl className="card px-6 py-2">
-          {META_CARD.map(([label, value], i) => (
-            <div
-              key={label}
-              className={[
-                "grid grid-cols-[130px_1fr] gap-4 py-3 text-[15px] max-md:grid-cols-[110px_1fr]",
-                i < META_CARD.length - 1 ? "border-b border-line-faint" : "",
-              ].join(" ")}
-            >
-              <dt className="text-steel">{label}</dt>
-              <dd className="text-bone">
+    <div className="container-jn pt-[18px]">
+      <Breadcrumb items={[{ label: "Home", href: "/" }, { label: "Legal" }]} />
+
+      {/* Title, meta row, broker strip */}
+      <p className="eyebrow !mb-[6px] mt-[14px] !text-bone">Legal &amp; disclosures</p>
+      <h1 className="m-0 font-serif text-[clamp(34px,9vw,54px)] font-normal leading-[1.04] tracking-[-0.01em]">
+        Legal &amp; Charter Terms
+      </h1>
+      <p className="mt-[6px] font-serif text-[22px] leading-[1.3]">The fine print, large enough to read.</p>
+      <p className="mt-3 max-w-[72ch] text-[16px] leading-[1.55] text-steel">
+        Three documents that govern the JetNine relationship: how we handle your data, what
+        you and we agree to when you book, and the broker disclosure required by US DOT Part
+        295. Written plainly. Reviewed by counsel. Updated whenever they change — never
+        quietly.
+      </p>
+      <dl className="mt-[14px] flex flex-wrap items-center gap-x-[18px] gap-y-2 text-[14px]">
+        {META_CARD.map(([label, value], i) => (
+          <div key={label} className="flex items-center gap-[18px]">
+            <div className="inline-flex items-center gap-2">
+              <svg viewBox="0 0 24 24" fill="none" stroke="var(--gold)" strokeWidth="1.5" aria-hidden="true" className="h-4 w-4 flex-none">
+                <path d={META_ICON[label]} />
+              </svg>
+              <dt className="text-steel">{label}:</dt>
+              <dd className="m-0 text-bone">
                 {label === "Questions" ? (
-                  <a href={`mailto:${value}`} className="text-link-strong tap-pad !no-underline hover:!underline">
+                  <a href={`mailto:${value}`} className="text-bone hover:text-gold">
                     {value}
                   </a>
                 ) : (
@@ -102,43 +141,95 @@ export default function LegalPage() {
                 )}
               </dd>
             </div>
-          ))}
-        </dl>
-      </section>
+            {i < META_CARD.length - 1 ? (
+              <span aria-hidden="true" className="text-line max-sm:hidden">
+                |
+              </span>
+            ) : null}
+          </div>
+        ))}
+      </dl>
 
       {/* Required disclosure */}
-      <section className="container-jn mt-8">
-        <div className="card card-highlight flex flex-wrap items-baseline gap-x-6 gap-y-2 px-7 py-5 max-md:px-5">
-          <span className="whitespace-nowrap text-[13px] font-semibold text-gold">Required disclosure</span>
-          <p className="max-w-[76ch] text-[17px] leading-[1.5] text-bone">
+      <div className="mt-[14px] flex flex-wrap items-center justify-between gap-x-4 gap-y-2 bg-[#F0EBE2] px-4 py-[10px] text-[14px]">
+        <div className="flex min-w-0 flex-1 basis-[280px] items-start gap-3">
+          <svg viewBox="0 0 24 24" fill="none" stroke="var(--gold)" strokeWidth="1.6" aria-hidden="true" className="mt-[2px] h-[18px] w-[18px] flex-none">
+            <circle cx="12" cy="12" r="9" />
+            <path d="M12 11v5M12 8h.01" strokeLinecap="round" />
+          </svg>
+          <p className="min-w-0 leading-[1.5]">
+            <span className="mr-2 text-[12px] font-bold uppercase tracking-[0.18em] text-gold">Required disclosure</span>
             JetNine is an indirect air carrier — a Part 295 broker. Every flight is operated by an
             independent FAA Part 135 certified carrier.{" "}
-            <em className="not-italic text-clearance">We are not the operator of your aircraft.</em>
+            <em className="font-semibold not-italic">We are not the operator of your aircraft.</em>
           </p>
         </div>
-      </section>
+        <WindowButton
+          label={
+            <>
+              Understand the roles <span aria-hidden="true">→</span>
+            </>
+          }
+          className="border-0 bg-transparent p-0 text-[13px] text-bone underline underline-offset-[3px] hover:text-gold print:hidden"
+          title="Who does what?"
+        >
+          <div className="mt-4 grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(min(100%,240px),1fr))]">
+            {ROLES.map((r) => (
+              <div key={r.name} className="border border-line bg-white p-4">
+                <div className="flex items-center gap-3">
+                  <IconDisc d={r.d} size={44} />
+                  <div>
+                    <div className="font-serif text-[19px]">{r.name}</div>
+                    <div className="text-[13px] text-steel">{r.role}</div>
+                  </div>
+                </div>
+                <ul className="mt-3 flex flex-col gap-[6px]">
+                  {r.items.map((x) => (
+                    <li key={x} className="flex gap-[10px] text-[14px]">
+                      <span aria-hidden="true" className="text-gold">•</span>
+                      {x}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+          <p className="mt-4 text-[14px] text-steel">
+            The operating carrier and tail number for your flight are stated on your trip sheet
+            before you sign.{" "}
+            <a href="#part-295" className="text-link">
+              Read the Part 295 disclosure
+            </a>
+          </p>
+        </WindowButton>
+      </div>
 
       {/* Contents rail + documents */}
-      <section className="container-jn grid grid-cols-1 items-start gap-12 pt-12 pb-32 max-md:pb-24 lg:grid-cols-[260px_minmax(0,1fr)]">
-        {/* Desktop: sticky rail. Phones: a collapsed "Contents" card so the
-            eighteen links don't push the documents below the fold. */}
-        <nav aria-label="Contents" className="max-lg:hidden lg:sticky lg:top-[calc(var(--header-h)+24px)]">
-          <ContentsList />
-        </nav>
-        <details className="card px-5 py-1 lg:hidden">
-          <summary className="flex min-h-[44px] cursor-pointer list-none items-center justify-between text-[16px] font-medium text-bone [&::-webkit-details-marker]:hidden">
-            Contents
-            <span aria-hidden="true" className="text-bone-2">+</span>
-          </summary>
-          <nav aria-label="Contents" className="pb-4 pt-2">
-            <ContentsList />
+      <div className="mt-[18px] grid grid-cols-1 items-start gap-7 lg:grid-cols-[300px_minmax(0,1fr)]">
+        <aside className="flex flex-col gap-[14px] lg:sticky lg:top-[calc(var(--header-h)+20px)] print:hidden">
+          <nav aria-label="Contents">
+            <LegalContents docs={TOC} />
           </nav>
-        </details>
+          <div className="on-navy bg-navy p-5 max-lg:hidden">
+            <h2 className="font-serif text-[24px] font-normal leading-[1.15]">
+              A question
+              <br />
+              about a clause?
+            </h2>
+            <p className="mt-[6px] text-[14px] text-navy-on-2">Contact the legal team.</p>
+            <a
+              href="mailto:legal@jetnine.com"
+              className="mt-[14px] flex h-10 w-full items-center justify-center gap-2 rounded-control border border-white text-[14px] font-bold text-white hover:bg-[rgba(255,255,255,0.08)]"
+            >
+              legal@jetnine.com <span aria-hidden="true">→</span>
+            </a>
+          </div>
+        </aside>
 
-        <div className="flex min-w-0 flex-col gap-[72px]">
+        <div className="flex min-w-0 flex-col gap-14">
           {/* ─── I. Privacy ─── */}
           <article>
-            <ArticleHeader kicker="Document I" title="Privacy policy.">
+            <ArticleHeader kicker="Document I" title="Privacy policy." tools>
               Privacy is structural at JetNine. The inquiry desk and the dispatch desk are the only
               people inside the company who see your trip details — and operators only ever see a
               route, not a name.
@@ -365,8 +456,8 @@ export default function LegalPage() {
               </Section>
 
               <Section id="operator-relationship" n="2.5" title="Operator relationship">
-                <div className="card card-highlight px-6 py-5">
-                  <p className="text-[13px] font-semibold text-gold">Part 295 notice</p>
+                <div className="border border-line bg-[#FBF8F2] px-6 py-5">
+                  <p className="eyebrow !mb-0">Part 295 notice</p>
                   <p className="mt-2 text-bone">
                     JetNine is an indirect air carrier (broker). The Operator is the direct air
                     carrier and exercises operational control of the flight. JetNine does not own,
@@ -483,7 +574,7 @@ export default function LegalPage() {
                   {DEFINITIONS.map(([term, def]) => (
                     <div
                       key={term}
-                      className="relative pl-6 before:absolute before:left-0 before:top-0 before:text-clearance before:content-['—']"
+                      className="relative pl-6 before:absolute before:left-0 before:top-0 before:text-gold before:content-['—']"
                     >
                       <dt className="inline font-medium text-bone">{term} —</dt>{" "}
                       <dd className="inline">{def}</dd>
@@ -502,49 +593,83 @@ export default function LegalPage() {
             </a>
           </p>
         </div>
+      </div>
+
+      <section className="mt-[30px] print:hidden">
+        <h2 className="font-serif text-[32px] font-normal leading-[1.1]">Useful next steps.</h2>
+        <div className="mt-3 grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(min(100%,220px),1fr))]">
+          {NEXT_STEPS.map((n) => (
+            <Link key={n.href} href={n.href} className="group grid grid-cols-[52px_minmax(0,1fr)] gap-[14px] border border-line bg-white p-4">
+              <IconDisc d={n.d} size={52} />
+              <span>
+                <span className="block font-serif text-[19px]">{n.title}</span>
+                <span className="block text-[13px] text-steel">{n.sub}</span>
+                <span className="mt-2 inline-block text-[13px] text-bone underline underline-offset-[3px] group-hover:text-gold">
+                  {n.link} <span aria-hidden="true">→</span>
+                </span>
+              </span>
+            </Link>
+          ))}
+        </div>
       </section>
-    </>
+
+      <section className="mt-[22px] pb-14 print:hidden">
+        <h2 className="font-serif text-[32px] font-normal leading-[1.1]">Official sources.</h2>
+        <div className="mt-3 grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr))]">
+          {OFFICIAL.map((o) => (
+            <a key={o.href} href={o.href} target="_blank" rel="noopener noreferrer" className="group grid grid-cols-[48px_minmax(0,1fr)] items-center gap-[14px] border border-line bg-white px-4 py-[14px]">
+              <IconDisc d={ICON.doc} size={48} />
+              <span>
+                <span className="block font-serif text-[18px]">{o.title}</span>
+                <span className="text-[13px] text-bone underline underline-offset-[3px] group-hover:text-gold">
+                  {o.link} <span aria-hidden="true">↗</span>
+                </span>
+              </span>
+            </a>
+          ))}
+        </div>
+        <p className="mt-2 text-[12px] text-steel">Independent references; no endorsement implied.</p>
+      </section>
+    </div>
   );
 }
 
-function ContentsList() {
+function IconDisc({ d, size }: { d: string; size: number }) {
   return (
-    <div className="flex flex-col gap-5">
-      {TOC.map((doc) => (
-        <div key={doc.title}>
-          <p className="mb-1.5 text-[16px] font-medium text-bone">{doc.title}</p>
-          <ol className="flex flex-col gap-0.5 border-l border-line pl-3">
-            {doc.items.map(([n, label, href]) => (
-              <li key={n}>
-                <a
-                  href={href}
-                  className="flex min-h-[32px] items-center py-1 text-[14px] text-bone-2 transition-colors hover:text-bone max-lg:min-h-[44px]"
-                >
-                  {n} · {label}
-                </a>
-              </li>
-            ))}
-          </ol>
-        </div>
-      ))}
-    </div>
+    <span
+      className="flex flex-none items-center justify-center rounded-full bg-[#F3EDE3]"
+      style={{ width: size, height: size }}
+    >
+      <svg viewBox="0 0 24 24" fill="none" stroke="var(--gold)" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className="h-[22px] w-[22px]">
+        <path d={d} />
+      </svg>
+    </span>
   );
 }
 
 function ArticleHeader({
   kicker,
   title,
+  tools = false,
   children,
 }: {
   kicker: string;
   title: string;
+  /** Show the Print / Copy link actions on the kicker row. */
+  tools?: boolean;
   children: React.ReactNode;
 }) {
   return (
     <header className="mb-7">
-      <p className="text-[13px] font-semibold text-gold">{kicker}</p>
-      <h2 className="title-section mt-2 !text-[clamp(32px,3.5vw,40px)] !leading-[1.1]">{title}</h2>
-      <p className="mt-3 max-w-[72ch] text-[17px] leading-[1.6] text-bone-2">{children}</p>
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <p className="text-[12px] font-bold uppercase tracking-[0.2em] text-bone">{kicker}</p>
+        {tools ? <LegalTools /> : null}
+      </div>
+      <h2 className="mt-[10px] font-serif text-[clamp(32px,5vw,40px)] font-normal leading-[1.08]">{title}</h2>
+      <div className="mt-4 grid grid-cols-[44px_minmax(0,1fr)] items-center gap-4 border border-line bg-[#FBF8F2] px-[18px] py-4 max-sm:px-[14px]">
+        <IconDisc d={ICON.book} size={44} />
+        <p className="min-w-0 text-[15px] leading-[1.55]">{children}</p>
+      </div>
     </header>
   );
 }
@@ -562,11 +687,12 @@ function Section({
 }) {
   return (
     <section id={id} className="scroll-mt-[calc(var(--header-h)+24px)]">
-      <div className="flex items-baseline gap-3.5 border-b border-line pb-2.5">
-        <span className="label-jn">{n}</span>
-        <h3 className="title-card">{title}</h3>
+      <div className="flex items-baseline gap-[14px] border-b border-line pb-[10px]">
+        <span className="font-serif text-[20px] text-gold">{n}</span>
+        <h3 className="font-serif text-[28px] font-normal leading-[1.1] max-sm:text-[24px]">{title}</h3>
+        <CopySectionLink id={id} label={title} />
       </div>
-      <div className="mt-3.5 flex max-w-[72ch] flex-col gap-3 text-[16px] leading-[1.6] text-bone-2">
+      <div className="mt-[14px] flex max-w-[72ch] flex-col gap-3 text-[16px] leading-[1.6] text-bone-2">
         {children}
       </div>
     </section>
@@ -578,9 +704,9 @@ function BulletList({ items }: { items: [string, string][] }) {
     <ul className="flex flex-col gap-2">
       {items.map(([head, body]) => (
         <li key={head + body} className="grid grid-cols-[auto_1fr] gap-2.5">
-          <span aria-hidden="true" className="text-clearance">—</span>
+          <span aria-hidden="true" className="text-gold">—</span>
           <span>
-            {head ? <strong className="font-medium text-bone">{head}</strong> : null}
+            {head ? <strong className="font-semibold text-bone">{head}</strong> : null}
             {head && body ? " " : null}
             {body}
           </span>

@@ -31,7 +31,7 @@ export function PostImage({
   className?: string;
 }) {
   return (
-    <div className={`aspect-[16/9] w-full overflow-hidden rounded-card bg-surface-2 ${className}`}>
+    <div className={`aspect-[16/10] w-full overflow-hidden bg-surface-2 ${className}`}>
       {post.heroImageUrl ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img
@@ -39,7 +39,7 @@ export function PostImage({
           alt={post.heroImageAlt ?? post.title}
           loading={eager ? "eager" : "lazy"}
           fetchPriority={eager ? "high" : "auto"}
-          className="h-full w-full object-cover"
+          className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.02]"
         />
       ) : null}
     </div>
@@ -64,20 +64,22 @@ export function PostCard({
   const body = (
     <>
       <PostImage post={post} />
-      <p className="label-jn mt-3.5">{postMeta(post)}</p>
-      <Heading className="title-card-sm mt-1.5 text-bone">{post.title}</Heading>
-      <p className="mt-2 text-[15px] text-bone-2">{post.description}</p>
+      <p className="mt-3 text-[12px] font-bold uppercase tracking-[0.18em] text-gold">{postMeta(post)}</p>
+      <Heading className="mt-[6px] font-serif text-[22px] font-normal leading-[1.15] text-bone group-hover:text-gold">
+        {post.title}
+      </Heading>
+      <p className="mt-[6px] text-[14px] leading-[1.45] text-steel">{post.description}</p>
     </>
   );
   if (variant === "card") {
     return (
-      <Link href={`/blog/${post.slug}`} className="card p-5">
+      <Link href={`/blog/${post.slug}`} className="group block border border-line bg-[#FBFAF7] p-2 pb-4 [&>p]:px-2 [&>h2]:px-2 [&>h3]:px-2">
         {body}
       </Link>
     );
   }
   return (
-    <Link href={`/blog/${post.slug}`} className="block">
+    <Link href={`/blog/${post.slug}`} className="group block">
       {body}
     </Link>
   );

@@ -11,21 +11,21 @@ export function BlogUnsubscribeCard({ token }: { token: string }) {
 
   if (done) {
     return (
-      <div className="card p-10 text-center max-md:p-6">
-        <h2 className="title-card">Done. No more digests.</h2>
+      <div className="border border-line bg-white p-10 text-center max-md:p-6">
+        <h2 className="font-serif text-[28px] font-normal leading-[1.15]">Done. No more digests.</h2>
         <p className="mx-auto mt-3 max-w-[52ch] text-bone-2">
           The blog is still here whenever you want it — this only stops the emails.
         </p>
         <Link href="/blog" className="btn btn-primary btn-lg mt-8">
-          Back to the blog <span className="arrow" aria-hidden="true">→</span>
+          Back to the journal <span className="arrow" aria-hidden="true">→</span>
         </Link>
       </div>
     );
   }
 
   return (
-    <div className="card p-10 text-center max-md:p-6">
-      <h2 className="title-card">Stop the weekly digest?</h2>
+    <div className="border border-line bg-white p-10 text-center max-md:p-6">
+      <h2 className="font-serif text-[28px] font-normal leading-[1.15]">Stop the weekly digest?</h2>
       <p className="mx-auto mt-3 max-w-[52ch] text-bone-2">
         One click and the emails stop. You can re-subscribe on the blog any time.
       </p>

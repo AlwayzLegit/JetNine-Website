@@ -40,10 +40,14 @@ export function WatchlistForm() {
     const onPrefill = (e: Event) => {
       const detail = (e as CustomEvent<WatchlistPrefill>).detail;
       if (!detail) return;
-      const earliest = document.getElementById("wl-earliest") as HTMLInputElement | null;
-      const latest = document.getElementById("wl-latest") as HTMLInputElement | null;
-      if (detail.earliest && earliest && !earliest.value) earliest.value = detail.earliest;
-      if (detail.latest && latest && !latest.value) latest.value = detail.latest;
+      const fill = (id: string, v?: string) => {
+        const el = document.getElementById(id) as HTMLInputElement | null;
+        if (v && el && !el.value) el.value = v;
+      };
+      fill("wl-from", detail.from);
+      fill("wl-to", detail.to);
+      fill("wl-earliest", detail.earliest);
+      fill("wl-latest", detail.latest);
     };
     window.addEventListener(WATCHLIST_PREFILL_EVENT, onPrefill);
     return () => window.removeEventListener(WATCHLIST_PREFILL_EVENT, onPrefill);
@@ -90,7 +94,7 @@ export function WatchlistForm() {
   }
 
   return (
-    <form noValidate onSubmit={onSubmit} className="relative flex flex-col gap-3">
+    <form noValidate onSubmit={onSubmit} className="relative flex flex-col gap-2">
       {/* Honeypot — humans never see it, autofill bots fill everything.
           The server silently drops submissions that include it. */}
       <div aria-hidden="true" className="absolute -left-[9999px] h-0 w-0 overflow-hidden">
@@ -98,16 +102,16 @@ export function WatchlistForm() {
         <input id="wl-company" name="company" type="text" tabIndex={-1} autoComplete="off" />
       </div>
 
-      <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
-        <div className={`field-jn ${errors.from ? "error" : ""}`}>
-          <label htmlFor="wl-from">From</label>
-          <input id="wl-from" name="from" type="text" placeholder="Los Angeles" autoComplete="off" />
-        </div>
-        <div className={`field-jn ${errors.to ? "error" : ""}`}>
-          <label htmlFor="wl-to">To</label>
-          <input id="wl-to" name="to" type="text" placeholder="Aspen" autoComplete="off" />
-        </div>
-        <div className={`field-jn ${errors.earliest ? "error" : ""}`}>
+      <div className={`field-jn ${errors.from ? "error" : ""}`}>
+        <label htmlFor="wl-from">From</label>
+        <input id="wl-from" name="from" type="text" placeholder="City or airport" autoComplete="off" />
+      </div>
+      <div className={`field-jn ${errors.to ? "error" : ""}`}>
+        <label htmlFor="wl-to">To</label>
+        <input id="wl-to" name="to" type="text" placeholder="City or airport" autoComplete="off" />
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        <div className={`field-jn min-w-0 ${errors.earliest ? "error" : ""}`}>
           <label htmlFor="wl-earliest">Earliest date</label>
           <input
             id="wl-earliest"
@@ -116,64 +120,64 @@ export function WatchlistForm() {
             min={new Date().toISOString().slice(0, 10)}
           />
         </div>
-        <div className={`field-jn ${errors.latest ? "error" : ""}`}>
+        <div className={`field-jn min-w-0 ${errors.latest ? "error" : ""}`}>
           <label htmlFor="wl-latest">Latest date</label>
           <input id="wl-latest" name="latest" type="date" />
         </div>
-        <div className={`field-jn ${errors.mobile ? "error" : ""}`}>
-          <label htmlFor="wl-mobile">Mobile for texts</label>
-          <input
-            id="wl-mobile"
-            name="mobile"
-            type="tel"
-            placeholder="+1 (818) 555-0142"
-            autoComplete="tel"
-            aria-describedby="wl-mobile-hint"
-          />
-          {/* A bare ten-digit number is read as US. Anyone outside the NANP
-              has to say so, or the alert goes to a stranger's phone. */}
-          <p id="wl-mobile-hint" className="mt-1.5 text-[13px] text-steel">
-            Outside the US? Include your country code.
-          </p>
-        </div>
-        <div className={`field-jn ${errors.email ? "error" : ""}`}>
-          <label htmlFor="wl-email">Email (optional)</label>
-          <input
-            id="wl-email"
-            name="email"
-            type="email"
-            placeholder="you@example.com"
-            autoComplete="email"
-          />
-        </div>
+      </div>
+      <div className={`field-jn ${errors.mobile ? "error" : ""}`}>
+        <label htmlFor="wl-mobile">Mobile for texts</label>
+        <input
+          id="wl-mobile"
+          name="mobile"
+          type="tel"
+          placeholder="+1 (818) 555-0142"
+          autoComplete="tel"
+          aria-describedby="wl-mobile-hint"
+        />
+        {/* A bare ten-digit number is read as US. Anyone outside the NANP
+            has to say so, or the alert goes to a stranger's phone. */}
+        <p id="wl-mobile-hint" className="mt-1 text-[12px] text-steel">
+          Outside the US? Include your country code.
+        </p>
+      </div>
+      <div className={`field-jn ${errors.email ? "error" : ""}`}>
+        <label htmlFor="wl-email">Email (optional)</label>
+        <input
+          id="wl-email"
+          name="email"
+          type="email"
+          placeholder="Your email address"
+          autoComplete="email"
+        />
       </div>
 
       <button
         type="submit"
         disabled={pending}
-        className="btn btn-primary btn-lg mt-1 w-full disabled:cursor-wait disabled:opacity-60"
+        className="btn mt-2 w-full border-gold bg-gold font-bold text-white hover:opacity-90 disabled:cursor-wait disabled:opacity-60"
       >
-        {pending ? "Saving…" : "Text me when one shows up"}
+        {pending ? "Saving…" : "Text me when one shows up"} <span aria-hidden="true">→</span>
       </button>
 
       {msg ? (
         <p
           role="status"
           aria-live="polite"
-          className={`text-[14px] ${msg.tone === "error" ? "text-danger" : "text-success"}`}
+          className={`text-[13px] ${msg.tone === "error" ? "text-danger" : "text-success"}`}
         >
           {msg.text}
         </p>
       ) : null}
 
-      <p className="text-[13px] text-steel">
+      <p className="text-[12px] text-steel">
         We text once to confirm, then only for matches. Reply STOP any time.
       </p>
 
       {/* Point-of-collection SMS consent disclosure — carriers audit this
           page against the A2P campaign's stated opt-in flow, so the wording
           here, the confirmation text, and /legal#sms must stay in agreement. */}
-      <p className="max-w-[72ch] text-[13px] leading-[1.6] text-steel">
+      <p className="text-[12px] leading-[1.55] text-steel">
         By creating a watchlist you agree to receive automated alert texts from JetNine at the
         number provided (one message per matching flight; frequency varies). Consent is not a
         condition of purchase. Message &amp; data rates may apply. Reply STOP to cancel, HELP for

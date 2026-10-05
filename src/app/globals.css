@@ -419,6 +419,9 @@
   .blog-prose strong { color: var(--bone); font-weight: 600; }
   .blog-prose ul,
   .blog-prose ol { margin: 0 0 20px; padding-left: 24px; }
+  /* The base reset strips list markers; articles need them back. */
+  .blog-prose ul { list-style: disc; }
+  .blog-prose ol { list-style: decimal; }
   .blog-prose li { margin-bottom: 8px; }
   .blog-prose li::marker { color: var(--gold); }
   .blog-prose blockquote {

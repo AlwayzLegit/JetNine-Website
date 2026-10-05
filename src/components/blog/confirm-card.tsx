@@ -11,22 +11,22 @@ export function BlogConfirmCard({ token }: { token: string }) {
 
   if (done) {
     return (
-      <div className="card p-10 text-center max-md:p-6">
-        <h2 className="title-card">Confirmed. You&rsquo;re on the list.</h2>
+      <div className="border border-line bg-white p-10 text-center max-md:p-6">
+        <h2 className="font-serif text-[28px] font-normal leading-[1.15]">Confirmed. You&rsquo;re on the list.</h2>
         <p className="mx-auto mt-3 max-w-[52ch] text-bone-2">
           One email on Fridays with the week&rsquo;s notes from the desk — nothing else, and every
           one carries an unsubscribe link.
         </p>
         <Link href="/blog" className="btn btn-primary btn-lg mt-8">
-          Back to the blog <span className="arrow" aria-hidden="true">→</span>
+          Back to the journal <span className="arrow" aria-hidden="true">→</span>
         </Link>
       </div>
     );
   }
 
   return (
-    <div className="card p-10 text-center max-md:p-6">
-      <h2 className="title-card">Confirm your subscription</h2>
+    <div className="border border-line bg-white p-10 text-center max-md:p-6">
+      <h2 className="font-serif text-[28px] font-normal leading-[1.15]">Confirm your subscription</h2>
       <p className="mx-auto mt-3 max-w-[52ch] text-[14px] text-steel">
         Nothing is sent until you confirm. If you didn&rsquo;t ask for this, close this page and
         the request expires on its own.

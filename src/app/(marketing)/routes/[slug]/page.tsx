@@ -2,23 +2,18 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { CtaBand } from "@/components/cta-band";
-import { ProofStrip } from "@/components/proof-strip";
 import { DeskNotes } from "@/components/desk-notes";
-import { QuoteLauncher, RouteQuoteLink } from "@/components/quote-launcher";
 import { pageMetadata } from "@/lib/page-meta";
-import { ROUTES, getRoute, relatedRoutes, type CharterRoute } from "@/lib/routes";
+import { ROUTES, getRoute, relatedRoutes } from "@/lib/routes";
 import { CITIES } from "@/lib/cities";
-import { FLEET, type AircraftCategorySlug } from "@/lib/fleet";
-import { MODELS } from "@/lib/models";
-import { distanceNm } from "@/lib/airports";
-import {
-  computeIndicative,
-  formatHours,
-  formatUSD,
-  recommendCategory,
-  type Indicative,
-} from "@/lib/quote-pricing";
+import { formatUSD } from "@/lib/quote-pricing";
 import { SITE } from "@/lib/constants";
+import { RoutesHero } from "@/components/routes/routes-hero";
+import { RouteCardView } from "@/components/routes/routes-explorer";
+import { RoutePlanForm, RouteQuoteButton } from "@/components/routes/quote-actions";
+import { categoryOptions, formatNm, routeCard, routeImage } from "@/components/routes/route-data";
+import { AirportBand, BeforeYouRequest, RouteFaq, RouteGuideBand, RouteSources } from "@/components/routes/sections";
+import { SOURCE_URLS } from "@/components/routes/icons";
 
 // Route pages — audit item 5, scoped to ~20 confirmed low-KD lanes.
 // The template is the best-of-breed composite from the four-broker
@@ -31,52 +26,8 @@ type RouteParams = { params: Promise<{ slug: string }> };
 // Blog band is DB-backed: regenerate hourly so new posts surface without a deploy.
 export const revalidate = 3600;
 
-const nmFormat = new Intl.NumberFormat("en-US");
-const formatNm = (n: number) => `${nmFormat.format(n)} nm`;
-
 export function generateStaticParams() {
   return ROUTES.map((r) => ({ slug: r.slug }));
-}
-
-type CategoryOption = {
-  slug: AircraftCategorySlug;
-  name: string;
-  href: string;
-  ind: Indicative;
-  hours: string;
-  recommended: boolean;
-  exampleModels: string[];
-};
-
-// Every category whose published range covers the leg, priced by the
-// engine — cheapest first. The recommendation mirrors the wizard's own
-// recommendCategory() so the two never disagree.
-function categoryOptions(route: CharterRoute): { nm: number; options: CategoryOption[] } {
-  const nm = distanceNm(route.from, route.to);
-  const rec = recommendCategory(4, nm);
-  const options = FLEET.filter((f) => f.rangeNm >= nm)
-    .map((f) => {
-      const ind = computeIndicative({
-        category: f.slug,
-        legs: [{ id: "r", fromIata: route.from.iata, toIata: route.to.iata, distanceNm: nm }],
-      });
-      if (!ind) return null;
-      return {
-        slug: f.slug,
-        name: f.name,
-        href: f.href,
-        ind,
-        hours: formatHours(ind.hours),
-        recommended: f.slug === rec,
-        exampleModels: MODELS.filter((m) => m.category === f.slug)
-          .slice(0, 2)
-          .map((m) => m.shortName),
-      };
-    })
-    .filter((o): o is CategoryOption => o !== null)
-    .sort((a, b) => a.ind.low - b.ind.low)
-    .slice(0, 4);
-  return { nm, options };
 }
 
 export async function generateMetadata({ params }: RouteParams): Promise<Metadata> {
@@ -182,7 +133,21 @@ export default async function RoutePage({ params }: RouteParams) {
     })),
   };
 
+
   const cityGuides = CITIES.filter((c) => c.name === route.from.city || c.name === route.to.city);
+  const laneCodes = [route.from.iata, route.to.iata];
+  const terminalLinks = [
+    ...(laneCodes.includes("VNY") ? [{ label: "Van Nuys private terminal directory", href: SOURCE_URLS.vny }] : []),
+    ...(laneCodes.includes("TEB") ? [{ label: "Teterboro official airport information", href: SOURCE_URLS.teb }] : []),
+  ];
+
+  const facts: [string, string][] = [
+    [`${route.from.name} (${route.from.iata})`, `Departing ${route.from.city}`],
+    [`${route.to.name} (${route.to.iata})`, `Arriving ${route.to.city}`],
+    [formatNm(nm), "Distance, as the crow flies"],
+    [`About ${fastest?.hours ?? "—"}`, `Flight time · ${fastest?.name.toLowerCase() ?? ""}`],
+    ["Under 30 min", "Quote turnaround · same-day flyable"],
+  ];
 
   return (
     <>
@@ -197,202 +162,148 @@ export default async function RoutePage({ params }: RouteParams) {
           />
         ))}
 
-      {/* ─── Header: route + from-price ─── */}
-      <header className="bg-ink pt-[96px] pb-4 max-md:pt-14">
-        <div className="container-jn grid items-end gap-10 lg:grid-cols-[1.4fr_1fr]">
-          <div>
-            <p className="eyebrow">
-              <Link href="/routes" className="tap-pad transition-colors hover:text-bone">
-                Routes
-              </Link>
-              <span aria-hidden> · </span>
-              {route.from.city} ({route.from.iata}) → {route.to.city} ({route.to.iata})
-            </p>
-            <h1 className="title-page max-w-[16ch] !text-[clamp(40px,5.5vw,64px)]">
-              Private jet, {route.from.city} to {route.to.city}.
-            </h1>
-            <p className="lead mt-5 max-w-[58ch]">{route.note}</p>
-          </div>
-          {cheapest ? (
-            <div className="card card-pad max-md:p-5">
-              <p className="label-jn">One way · whole aircraft · all-in</p>
-              <div className="mt-4 font-serif text-[44px] font-light leading-none tracking-tight text-bone max-md:text-[36px]">
-                From {formatUSD(cheapest.ind.low)}
+      <RoutesHero
+        crumbs={[{ label: "Home", href: "/" }, { label: "Routes", href: "/routes" }, { label: `${route.from.city} to ${route.to.city}` }]}
+        eyebrow={`${route.from.city} (${route.from.iata}) → ${route.to.city} (${route.to.iata})`}
+        title={`Private jet, ${route.from.city} to ${route.to.city}.`}
+        lead={route.note}
+        imageSrc={routeImage(route)}
+        imagePosition="center 55%"
+      />
+
+      {/* ─── At a glance: overlapping facts card with the from-price ─── */}
+      <section aria-label="Route at a glance" className="container-jn relative z-[5] -mt-12">
+        <div className="flex flex-wrap border border-line bg-white shadow-[0_14px_40px_rgba(18,35,46,.12)]">
+          <dl className="grid min-w-0 flex-[999_1_560px] [grid-template-columns:repeat(auto-fit,minmax(min(100%,150px),1fr))]">
+            {facts.map(([big, label]) => (
+              <div key={label} className="flex flex-col-reverse justify-end gap-1 border-b border-r border-line px-5 py-4">
+                <dt className="text-[12px] text-steel">{label}</dt>
+                <dd className="font-serif text-[20px] leading-tight">{big}</dd>
               </div>
-              <p className="mt-3 text-[15px] text-bone-2">
+            ))}
+          </dl>
+          {cheapest ? (
+            <div className="flex min-w-0 flex-[1_1_260px] flex-col justify-center gap-2 px-5 py-4">
+              <p className="text-[12px] font-bold text-steel">One way · whole aircraft · all-in</p>
+              <p className="font-serif text-[34px] leading-none">From {formatUSD(cheapest.ind.low)}</p>
+              <p className="text-[13px] text-steel">
                 {cheapest.name} category · about {cheapest.hours} in the air
               </p>
-              <div className="mt-6 border-t border-line pt-5">
-                <RouteQuoteLink
-                  from={route.from.iata}
-                  to={route.to.iata}
-                  category={cheapest.slug}
-                  pax={4}
-                  label="Get the exact number"
-                  className="btn btn-primary btn-lg max-md:w-full"
-                />
-              </div>
+              <RouteQuoteButton
+                from={route.from.iata}
+                to={route.to.iata}
+                category={cheapest.slug}
+                label="Get the exact number"
+                className="btn btn-primary mt-1 w-full"
+              />
             </div>
           ) : null}
         </div>
-      </header>
-
-      {/* ─── At a glance ─── */}
-      <section aria-label="Route at a glance" className="section-jn">
-        <div className="container-jn">
-          <div className="card grid grid-cols-1 divide-y divide-line-faint sm:grid-cols-2 sm:divide-y-0 lg:grid-cols-5">
-            {[
-              [`${route.from.name} (${route.from.iata})`, `Departing ${route.from.city}`],
-              [`${route.to.name} (${route.to.iata})`, `Arriving ${route.to.city}`],
-              [formatNm(nm), "Distance, as the crow flies"],
-              [`About ${fastest?.hours ?? "—"}`, `Flight time · ${fastest?.name.toLowerCase() ?? ""}`],
-              ["Under 30 min", "Quote turnaround · same-day flyable"],
-            ].map(([big, label]) => (
-              <div key={label} className="flex flex-col justify-center gap-1.5 px-6 py-6 lg:border-r lg:border-line lg:last:border-r-0">
-                <span className="font-serif text-[22px] font-normal leading-tight tracking-tight text-bone">
-                  {big}
-                </span>
-                <span className="text-[14px] text-steel">{label}</span>
-              </div>
-            ))}
-          </div>
-        </div>
       </section>
 
-      {/* ─── Aircraft options ─── */}
-      <section className="section-jn">
-        <div className="container-jn">
-          <p className="eyebrow">Aircraft for this lane</p>
-          <h2 className="title-section max-w-[26ch]">Every category that flies it, priced.</h2>
-          <p className="mt-5 max-w-[66ch] text-[17px] leading-[1.55] text-bone-2">
-            Indicative one-way ranges for the whole aircraft, computed by the same engine behind
-            the quote wizard. The marked category is what the wizard itself recommends for four
-            passengers on this distance.
+      <div className="container-jn flex flex-wrap items-start gap-7 pt-6">
+        {/* ─── Aircraft options ─── */}
+        <section className="min-w-0 flex-[1.7_1_520px]">
+          <p className="eyebrow mb-1">Aircraft for this lane</p>
+          <h2 className="font-serif text-[30px] leading-[1.1]">Every category that flies it, priced.</h2>
+          <p className="mt-1 max-w-[70ch] text-[13px] text-steel">
+            Indicative one-way ranges for the whole aircraft, computed by the same engine behind the quote wizard. The
+            marked category is what the wizard itself recommends for four passengers on this distance.
           </p>
-          <div className="mt-8 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <div className="mt-3 grid gap-[14px] [grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr))]">
             {options.map((o) => (
-              <div
-                key={o.slug}
-                className={["card card-pad flex flex-col gap-5 max-md:p-5", o.recommended ? "card-selected" : ""].join(" ")}
-              >
+              <article key={o.slug} className={`flex flex-col border bg-white px-4 py-[14px] ${o.recommended ? "border-clearance shadow-[0_0_0_1px_var(--clearance)]" : "border-line"}`}>
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <div className="title-card-sm text-bone">{o.name}</div>
-                    <div className="mt-1 text-[14px] text-steel">e.g. {o.exampleModels.join(" · ")}</div>
+                    <h3 className="font-serif text-[22px] leading-[1.1]">{o.name}</h3>
+                    <p className="mt-1 text-[12px] text-steel">e.g. {o.exampleModels.join(" · ")}</p>
                   </div>
-                  {o.recommended ? (
-                    <span className="shrink-0 text-[13px] font-semibold text-gold">Recommended</span>
-                  ) : null}
+                  {o.recommended ? <span className="pill pill-clearance shrink-0 !text-[11px]">Recommended</span> : null}
                 </div>
-                <dl className="dl-jn border-y border-line py-4">
-                  <dt>Flight time</dt>
+                <dl className="mt-3 grid grid-cols-[max-content_1fr] gap-x-4 gap-y-1 border-y border-line py-[10px] text-[13px]">
+                  <dt className="text-steel">Flight time</dt>
                   <dd>{o.hours}</dd>
-                  <dt>Hourly</dt>
+                  <dt className="text-steel">Hourly</dt>
                   <dd>{formatUSD(o.ind.hourly)}/hr</dd>
                 </dl>
-                <div className="flex flex-1 flex-col justify-end gap-4">
-                  <div>
-                    <div className="text-[14px] text-steel">One way, all-in</div>
-                    <div className="mt-1 font-serif text-[26px] font-light leading-tight tracking-tight text-bone">
-                      {o.ind.formatted}
-                    </div>
-                  </div>
-                  <div className="flex flex-wrap items-center gap-4">
-                    <RouteQuoteLink
-                      from={route.from.iata}
-                      to={route.to.iata}
-                      category={o.slug}
-                      pax={4}
-                      label="Quote it"
-                      className="btn btn-secondary btn-sm"
-                    />
-                    <Link href={o.href} className="text-link inline-flex min-h-11 items-center text-[15px]">
-                      Category <span className="arrow">→</span>
-                    </Link>
-                  </div>
+                <p className="mt-3 text-[12px] text-steel">One way, all-in</p>
+                <p className="font-serif text-[24px] leading-tight">{o.ind.formatted}</p>
+                <div className="mt-auto flex flex-wrap items-center justify-between gap-3 pt-3">
+                  <RouteQuoteButton from={route.from.iata} to={route.to.iata} category={o.slug} label="Quote it" className="btn btn-secondary btn-sm" />
+                  <Link href={o.href} className="text-[13px] font-bold text-gold">
+                    {o.name} category <span aria-hidden="true">→</span>
+                  </Link>
                 </div>
-              </div>
+              </article>
             ))}
           </div>
-          <p className="mt-6 max-w-[70ch] text-[15px] leading-[1.6] text-steel">
-            Flying the other direction? Same lane, same math — the wizard prices{" "}
-            {route.to.city} to {route.from.city} identically; repositioning differences show up in
-            the firm quote, not a different rate card.
+          <p className="mt-[10px] max-w-[70ch] text-[12px] text-steel">
+            Flying the other direction? Same lane, same math — the wizard prices {route.to.city} to {route.from.city}{" "}
+            identically; repositioning differences show up in the firm quote, not a different rate card.
           </p>
           {cityGuides.length > 0 ? (
-            <p className="mt-3 max-w-[70ch] text-[15px] leading-[1.6] text-steel">
+            <p className="mt-2 text-[13px] text-steel">
               City guides:{" "}
               {cityGuides.map((c, i) => (
                 <span key={c.slug}>
                   {i > 0 ? " · " : ""}
-                  <Link href={`/private-jet-charter/${c.slug}`} className="text-link tap-pad">
-                    {c.name} airports &amp; lanes
+                  <Link href={`/private-jet-charter/${c.slug}`} className="font-bold text-gold">
+                    {c.name} airports &amp; lanes →
                   </Link>
                 </span>
               ))}
             </p>
           ) : null}
+        </section>
+        <div className="min-w-0 max-w-full flex-[1_1_300px] self-stretch">
+          <aside className="sticky top-[84px] flex flex-col gap-[14px]">
+            <RoutePlanForm from={route.from.iata} to={route.to.iata} context={`route-${route.slug}`} />
+            <BeforeYouRequest />
+          </aside>
         </div>
-      </section>
-
-      {/* ─── FAQ ─── */}
-      <section className="section-jn">
-        <div className="container-jn">
-          <h2 className="title-section max-w-[24ch]">Asked about this route.</h2>
-          <div className="mt-8 grid grid-cols-1 gap-4 md:grid-cols-2">
-            {FAQ.map((f) => (
-              <div key={f.q} className="card card-pad max-md:p-5">
-                <h3 className="title-card-sm text-bone">{f.q}</h3>
-                <p className="mt-3 max-w-[62ch] text-[16px] leading-[1.6] text-bone-2">{f.a}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      <div className="section-jn">
-        <ProofStrip />
       </div>
 
-      {/* ─── Related routes ─── */}
-      {related.length > 0 ? (
-        <section className="section-jn">
-          <div className="container-jn">
-            <h2 className="title-section mb-8">Nearby lanes</h2>
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-              {related.map((r) => (
-                <Link key={r.slug} href={`/routes/${r.slug}`} className="card card-pad group flex h-full flex-col max-md:p-5">
-                  <span className="label-jn">
-                    {r.from.city} ({r.from.iata}) → {r.to.city} ({r.to.iata})
-                  </span>
-                  <h3 className="title-card-sm mt-3 text-bone transition-colors group-hover:text-clearance">
-                    {r.from.city} to {r.to.city}
-                  </h3>
-                  <span className="mt-5 text-[15px] font-medium text-bone">
-                    Cost &amp; time <span className="arrow">→</span>
-                  </span>
-                </Link>
-              ))}
+      <RouteFaq
+        title="Asked about this route."
+        items={FAQ}
+        aside={
+          related.length > 0 ? (
+            <div>
+              <h2 className="font-serif text-[28px] leading-[1.1]">Nearby lanes</h2>
+              <div className="mt-[10px] grid gap-[14px] [grid-template-columns:repeat(auto-fit,minmax(min(100%,220px),1fr))]">
+                {related.map((r) => (
+                  <RouteCardView key={r.slug} r={routeCard(r)} quick={false} />
+                ))}
+              </div>
+              <Link href="/routes" className="mt-3 inline-block text-[13px] font-bold text-gold">
+                All route guides <span aria-hidden="true">→</span>
+              </Link>
             </div>
-          </div>
-        </section>
-      ) : null}
+          ) : undefined
+        }
+      />
+
+      <AirportBand
+        airport={`${route.from.name} · ${route.from.iata}`}
+        links={terminalLinks}
+        rows={[
+          [`${route.from.name} · ${route.from.icao}`, `Departure field for ${route.from.city}.`],
+          [`${route.to.name} · ${route.to.icao}`, `Arrival field for ${route.to.city}.`],
+        ]}
+      />
+      <RouteGuideBand />
 
       <DeskNotes terms={[route.from.city, route.to.city, "routes"]} heading={`From the desk · ${route.from.city} and ${route.to.city}`} />
 
-      <QuoteLauncher
-        context={`route-${route.slug}`}
-        defaultFrom={route.from.iata}
-        defaultTo={route.to.iata}
-        heading={`Price ${route.from.city} to ${route.to.city} now.`}
-        body="The route is already filled in — add a date and passenger count and the wizard prices it as you type."
-      />
+      <RouteSources />
 
       <CtaBand
         title="This lane, on the standard."
         body={`Every aircraft we quote on it flies for an ARG/US- or Wyvern-audited operator that passed our vetting. Dispatch knows what's in position today: ${SITE.dispatchPhone}.`}
         primary={{ label: "Request a quote", href: "/quote/mission" }}
         secondary={{ label: `Call dispatch · ${SITE.dispatchPhone}`, href: `tel:${SITE.dispatchPhoneE164}` }}
+        imageSrc="/images/light/mountain-landscape.webp"
+        imagePosition="right center"
       />
     </>
   );

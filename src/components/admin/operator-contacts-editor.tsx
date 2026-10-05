@@ -145,7 +145,7 @@ export function OperatorContactsEditor({ operatorId, initial }: Props) {
       )}
 
       <form onSubmit={onAdd} className="rounded-control border border-line bg-surface-2 p-4">
-        <h3 className="label-jn mb-3 text-[13px]">Add contact</h3>
+        <h3 className="mb-3 text-[12px] font-bold uppercase tracking-[0.2em] text-gold">Add contact</h3>
         <div className="field-jn">
           <label htmlFor="oc-name">Name</label>
           <input id="oc-name" name="name" type="text" placeholder="Riley Chen" required maxLength={120} />

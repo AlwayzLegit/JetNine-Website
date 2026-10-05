@@ -42,7 +42,7 @@ export default async function AdminEmptyLegPage() {
         <NumberCard label="Sold" value={totals.sold} />
       </div>
 
-      <div className="mt-8 grid grid-cols-1 gap-8 lg:grid-cols-[1.3fr_1fr]">
+      <div className="mt-8 grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)]">
         {/* New leg form */}
         <DeskCard title="New empty leg" className="p-6">
           <div className="mt-5">
@@ -52,7 +52,7 @@ export default async function AdminEmptyLegPage() {
 
         {/* Recent list */}
         <section>
-          <h2 className="label-jn mb-2.5 text-[13px]">
+          <h2 className="mb-2.5 text-[12px] font-bold uppercase tracking-[0.2em] text-gold">
             Recent <span className="text-steel-dim">· {rows.length}</span>
           </h2>
           {rows.length === 0 ? (
@@ -64,7 +64,7 @@ export default async function AdminEmptyLegPage() {
           ) : (
             <ul className="flex flex-col gap-3">
               {rows.map((l) => (
-                <li key={l.id} className="card px-5 py-4">
+                <li key={l.id} className="card bg-[#FBFAF7] px-5 py-4">
                   <div className="flex items-center justify-between gap-3">
                     <span className="text-[13px] text-steel">Reference {l.code}</span>
                     <EmptyLegStatusSelect legId={l.id} current={l.status} />

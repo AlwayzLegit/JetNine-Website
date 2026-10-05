@@ -57,17 +57,19 @@ export default async function ReportsPage({ searchParams }: Props) {
 
   return (
     <div>
-      <DeskHeader
+      <DeskHeader size="md"
         title="Reports"
         lead="How the desk did. Updated live."
         actions={
-          <div className="segmented" role="group" aria-label="Period">
+          <div className="flex flex-wrap gap-1.5" role="group" aria-label="Period">
             {PERIODS.map((p) => (
               <Link
                 key={p.key}
                 href={`/admin/settings/reports?period=${p.key}`}
                 aria-current={p.key === period ? "page" : undefined}
-                className="inline-flex items-center"
+                className={`inline-flex h-9 items-center whitespace-nowrap rounded-pill border px-3 text-[12px] transition-colors md:h-[30px] ${
+                  p.key === period ? "border-clearance bg-clearance text-white" : "border-line bg-surface text-bone hover:border-bone"
+                }`}
               >
                 {p.label}
               </Link>
@@ -76,7 +78,7 @@ export default async function ReportsPage({ searchParams }: Props) {
         }
       />
 
-      <div className="mt-7 grid gap-4 md:grid-cols-3">
+      <div className="mt-4 grid gap-3 md:grid-cols-3">
         <NumberCard
           label="Requests received"
           value={req.received}
@@ -97,8 +99,8 @@ export default async function ReportsPage({ searchParams }: Props) {
         />
       </div>
 
-      <section className="card mt-6 p-6 md:px-7">
-        <h2 className="text-[17px] font-medium text-bone">Where requests ended up</h2>
+      <section className="card mt-3.5 bg-[#FBFAF7] px-5 py-4">
+        <h2 className="font-serif text-[20px] leading-[1.2] text-bone">Where requests ended up</h2>
         <p className="mt-1 text-[14px] text-steel">
           {req.received} request{req.received === 1 ? "" : "s"} {meta.words}
         </p>
@@ -106,9 +108,9 @@ export default async function ReportsPage({ searchParams }: Props) {
           {funnel.map((f) => (
             <li key={f.label} className="grid grid-cols-[minmax(0,1fr)_48px] items-center gap-3 text-[15px] md:grid-cols-[200px_minmax(0,1fr)_60px] md:gap-4">
               <span className="text-bone">{f.label}</span>
-              <div className="col-span-2 h-2.5 overflow-hidden rounded-pill bg-surface-2 md:col-span-1">
+              <div className="col-span-2 h-2 overflow-hidden bg-surface-2 md:col-span-1">
                 <div
-                  className={`h-full rounded-pill ${f.bar}`}
+                  className={`h-full ${f.bar}`}
                   style={{ width: `${Math.max(2, Math.round((f.value / funnelMax) * 100))}%` }}
                   aria-hidden="true"
                 />
@@ -119,8 +121,8 @@ export default async function ReportsPage({ searchParams }: Props) {
         </ul>
       </section>
 
-      <section className="card mt-6 p-6 md:px-7">
-        <h2 className="text-[17px] font-medium text-bone">Money</h2>
+      <section className="card mt-3.5 bg-[#FBFAF7] px-5 py-4">
+        <h2 className="font-serif text-[20px] leading-[1.2] text-bone">Money</h2>
         <dl className="mt-4 grid gap-x-6 gap-y-4 text-[15px] md:grid-cols-3">
           <div>
             <dt className="text-[14px] text-steel">Invoiced</dt>

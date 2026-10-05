@@ -57,7 +57,7 @@ export function OperatorEditForm({ initial }: { initial: Operator }) {
   return (
     <section className="card card-highlight p-6">
       <div className="mb-5 flex items-center justify-between gap-3">
-        <h2 className="label-jn text-[13px]">Edit operator</h2>
+        <h2 className="text-[12px] font-bold uppercase tracking-[0.2em] text-gold">Edit operator</h2>
         <button
           type="button"
           onClick={() => {

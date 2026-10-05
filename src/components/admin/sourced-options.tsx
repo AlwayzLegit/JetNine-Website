@@ -302,9 +302,9 @@ export function SourcedOptions({
   }
 
   return (
-    <section className="card p-5">
+    <section className="min-w-0 border border-line bg-[#FBFAF7] px-4 py-4 md:px-5 md:py-[18px]">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 className="label-jn text-[13px]">Options to send</h2>
+        <h2 className="text-[12px] font-bold uppercase tracking-[0.2em] text-gold">Options to send</h2>
         <div className="flex flex-wrap gap-2">
           <AvinodeSearchCopy
             paxCount={avinode.paxCount}
@@ -316,7 +316,7 @@ export function SourcedOptions({
             onClick={() => (pasteOpen ? setPasteOpen(false) : openPaste())}
             aria-expanded={pasteOpen}
             aria-controls={`paste-${quoteId}`}
-            className="btn btn-secondary h-9 px-3 text-[14px]"
+            className="inline-flex h-11 items-center whitespace-nowrap border border-clearance bg-surface px-3 text-[13px] text-bone transition-colors hover:bg-surface-2 md:h-8"
           >
             {pasteOpen ? "Close" : "Paste Avinode quote"}
           </button>
@@ -324,7 +324,7 @@ export function SourcedOptions({
       </div>
 
       {/* Option rows */}
-      <div className="mt-3.5 flex flex-col gap-2.5">
+      <div className="mt-3 flex flex-col gap-2.5">
         {initial.map((o) => {
           const meta = [categoryShort(o.category), o.paxCapacity ? `${o.paxCapacity} seats` : null, o.yearOfMake]
             .filter(Boolean)
@@ -338,20 +338,20 @@ export function SourcedOptions({
           return (
             <article
               key={o.id}
-              className={`rounded-control border bg-ink px-4 py-3.5 ${o.isChosen ? "border-clearance" : "border-line"}`}
+              className={`border bg-surface px-3.5 py-3 ${o.isChosen ? "border-gold" : "border-line"}`}
             >
               <div className="grid grid-cols-1 items-center gap-3 md:grid-cols-[minmax(0,1fr)_auto]">
                 <div className="min-w-0">
-                  <div className="text-[17px] font-medium text-bone">
+                  <div className="text-[15px] font-bold text-bone">
                     {o.aircraftType ?? "Aircraft"}
                     {meta ? <span className="font-normal text-steel"> · {meta}</span> : null}
                     {o.tailNumber ? <span className="font-normal text-steel"> · {o.tailNumber}</span> : null}
                   </div>
-                  <div className="mt-1 text-bone-2">
+                  <div className="mt-0.5 text-[13px] text-steel">
                     {o.operatorCostUsd != null ? (
                       <>
                         Operator price {formatUSD(o.operatorCostUsd)} → client price{" "}
-                        <b className="font-medium text-bone">
+                        <b className="font-bold text-bone">
                           {o.clientPriceUsd != null ? formatUSD(o.clientPriceUsd) : "—"}
                         </b>
                         {markupWords(o) ? <span className="text-steel"> ({markupWords(o)})</span> : null}
@@ -360,15 +360,15 @@ export function SourcedOptions({
                       <span className="text-steel">No price yet</span>
                     )}
                   </div>
-                  <div className="mt-1 text-[14px] text-steel">
+                  <div className="mt-0.5 text-[13px] text-steel">
                     {o.operatorNameRaw ?? "Operator not named"}
                     {" · "}
                     <span className={vetting.cls}>{vetting.text}</span>
                     {o.status === "sent_to_client" ? " · sent" : null}
-                    {o.isChosen ? <span className="text-success"> · chosen ✓</span> : null}
+                    {o.isChosen ? <span className="block pt-1 text-[12px] text-success">● The client chose this option</span> : null}
                   </div>
                 </div>
-                <div className="flex flex-wrap items-center gap-1.5 whitespace-nowrap text-[14px]">
+                <div className="flex flex-wrap items-center gap-1.5 whitespace-nowrap text-[13px]">
                   <button
                     type="button"
                     onClick={() => (editing ? setEditingId(null) : startEdit(o))}
@@ -458,7 +458,7 @@ export function SourcedOptions({
           <button
             type="button"
             onClick={openPaste}
-            className="flex items-center justify-center rounded-control border border-dashed border-line-2 px-4 py-[18px] text-center text-[15px] text-steel transition-colors hover:border-steel hover:text-bone-2"
+            className="flex items-center justify-center border border-dashed border-line p-3.5 text-center text-[13px] text-steel transition-colors hover:border-steel hover:text-bone"
           >
             {initial.length === 0
               ? "+ Add the first option — clients decide faster with 2 or 3 to compare"
@@ -469,7 +469,7 @@ export function SourcedOptions({
 
       {/* Paste-in + fields, collapsed by default */}
       {pasteOpen ? (
-        <div id={`paste-${quoteId}`} className="mt-3.5 flex flex-col gap-3 rounded-control border border-line bg-ink p-4">
+        <div id={`paste-${quoteId}`} className="mt-3 flex flex-col gap-3 border border-gold bg-surface p-3.5">
           <div className="field-jn">
             <label htmlFor={`paste-text-${quoteId}`}>Avinode quote</label>
             <textarea
@@ -570,14 +570,14 @@ export function SourcedOptions({
       ) : null}
 
       {/* Send to the client — the action that closes the funnel. */}
-      <div className="mt-5 flex flex-wrap items-center gap-3.5">
+      <div className="mt-4 flex flex-wrap items-center gap-3.5">
         {confirmSend ? (
           <>
             <button
               type="button"
               onClick={onSend}
               disabled={pending}
-              className="btn btn-primary btn-lg disabled:cursor-wait"
+              className="btn btn-primary h-11 px-5 text-[14px] font-bold disabled:cursor-wait"
             >
               {pending ? "Sending…" : `Send now to ${them}`} <span className="arrow">→</span>
             </button>
@@ -590,19 +590,19 @@ export function SourcedOptions({
             type="button"
             onClick={() => setConfirmSend(true)}
             disabled={!canSend}
-            className="btn btn-primary btn-lg disabled:cursor-not-allowed"
+            className="btn btn-primary h-11 px-5 text-[14px] font-bold disabled:cursor-not-allowed disabled:opacity-50"
           >
             Send options to {them} <span className="arrow">→</span>
           </button>
         )}
-        <p className="m-0 max-w-[36ch] text-[14px] leading-[1.45] text-steel">{sendHint}</p>
+        <p className="m-0 max-w-[44ch] text-[13px] leading-[1.45] text-steel">{sendHint}</p>
       </div>
 
       {msg ? (
         <p className={`mt-3 text-[14px] ${msg.tone === "error" ? "text-danger" : "text-success"}`}>{msg.text}</p>
       ) : null}
 
-      {children ? <div className="mt-5 border-t border-line pt-4">{children}</div> : null}
+      {children ? <div className="mt-4 border-t border-line pt-3.5">{children}</div> : null}
     </section>
   );
 }

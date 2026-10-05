@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { initialOf, personName } from "@/lib/desk-status";
 import { relativeTime } from "@/lib/request-format";
-import { ContactButtons, DeskEmpty, DeskSearch, DeskTabs } from "@/components/admin/desk-ui";
+import { ContactButtons, DESK_MINI_BTN, DeskEmpty, DeskSearch, DeskTabs } from "@/components/admin/desk-ui";
 import { MessageThread, type ThreadMessage } from "@/components/admin/message-thread";
 import { MarkThreadRead } from "@/components/admin/mark-thread-read";
 import { FailedDeliveryList } from "@/components/admin/failed-delivery-list";
@@ -224,33 +224,34 @@ export default async function MessagesPage({ searchParams }: Props) {
     : [];
 
   return (
-    <div className="min-w-0 lg:grid lg:h-screen lg:grid-cols-[380px_minmax(0,1fr)] lg:overflow-hidden">
+    <div className="min-w-0 max-w-[1296px] px-4 pb-10 pt-5 md:px-7 md:pt-[22px] lg:flex lg:h-screen lg:flex-col">
+      <h1 className="font-serif text-[clamp(32px,4vw,40px)] font-normal leading-[1.05] text-bone md:mt-3">Messages</h1>
+      <p className="mt-1.5 text-[14px] text-steel">Texts, emails and call notes, one thread per client.</p>
+      <div className="mt-[18px] border border-line bg-[#FBFAF7] lg:grid lg:min-h-0 lg:flex-1 lg:grid-cols-[340px_minmax(0,1fr)] lg:overflow-hidden">
       {/* Left: list */}
-      <section className="flex min-h-0 flex-col border-line-faint lg:border-r">
-        <div className="px-5 pt-6 md:px-6 md:pt-7">
-          <h1 className="title-app text-bone">Messages</h1>
-          <p className="mt-1.5 text-[14px] text-bone-2">Texts, emails and call notes, one thread per client.</p>
-          <div className="mt-4 [&_form]:w-full [&_label]:!w-full">
+      <section className="flex min-h-0 flex-col border-line lg:border-r">
+        <div className="flex flex-col gap-2.5 border-b border-line px-3.5 py-3">
+          <div className="[&_form]:w-full [&_input]:!w-full">
             <DeskSearch width="100%" placeholder="Search a name" defaultValue={q} hidden={{ tab: tab === "all" ? undefined : tab, show: keep.show }} />
           </div>
-          <DeskTabs items={tabs} current={tab} base={BASE} keep={keep} className="mt-3" />
+          <DeskTabs variant="chips" items={tabs} current={tab} base={BASE} keep={keep} />
         </div>
-        <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-6 pt-2">
+        <div className="max-h-[60vh] min-h-0 flex-1 overflow-y-auto lg:max-h-none">
           {tab === "form" ? (
-            <div className="flex justify-end px-3 pb-1">
+            <div className="flex justify-end px-3.5 py-1.5">
               <Link href={href({ tab: "form", q: keep.q, show: showHandled ? undefined : "all" })} className="text-[13px] text-steel transition-colors hover:text-bone">
                 {showHandled ? "Open only" : "Show handled too"}
               </Link>
             </div>
           ) : null}
           {rows.length === 0 ? (
-            <p className="px-3 py-8 text-center text-[15px] text-bone-2">{emptyWords}</p>
+            <p className="px-3.5 py-8 text-center text-[14px] text-steel">{emptyWords}</p>
           ) : (
             rows.map((r, i) => <ThreadRow key={`${r.href}#${i}`} {...r} />)
           )}
           {decidedRows.length > 0 ? (
             <>
-              <h2 className="label-jn mt-5 px-3 pb-1.5 text-[13px]">Decided recently</h2>
+              <h2 className="px-3.5 pb-1.5 pt-5 text-[12px] font-bold uppercase tracking-[0.2em] text-gold">Decided recently</h2>
               {decidedRows.map((r, i) => (
                 <ThreadRow key={`${r.href}#d${i}`} {...r} />
               ))}
@@ -260,33 +261,33 @@ export default async function MessagesPage({ searchParams }: Props) {
       </section>
 
       {/* Right: conversation */}
-      <section className="flex min-h-0 flex-col border-t border-line-faint lg:border-t-0">
+      <section className="flex min-h-[420px] flex-col border-t border-line lg:min-h-0 lg:border-t-0">
         {selectedThread ? (
           <>
-            <header className="flex flex-wrap items-center justify-between gap-4 border-b border-line-faint px-5 py-5 md:px-8">
+            <header className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-4 py-3.5 md:px-[18px]">
               <div className="min-w-0">
-                <div className="text-[20px] font-medium text-bone">{selectedThread.name}</div>
-                <div className="text-[14px] text-steel">
+                <div className="font-serif text-[20px] leading-[1.2] text-bone">{selectedThread.name}</div>
+                <div className="text-[12px] text-steel">
                   {selectedThread.context ? <>{selectedThread.context} · </> : null}
                   <Link href={selectedThread.linkHref} className="text-link">
                     {selectedThread.linkLabel}
                   </Link>
                 </div>
               </div>
-              <div className="flex gap-2">
+              <div className="flex gap-1.5">
                 {selectedThread.phone ? (
-                  <a href={`tel:${selectedThread.phone}`} className="btn btn-secondary btn-sm">
+                  <a href={`tel:${selectedThread.phone}`} className={DESK_MINI_BTN}>
                     Call
                   </a>
                 ) : null}
                 {selectedThread.memberId && selectedThread.subjectType !== "member" ? (
-                  <Link href={`/admin/clients/${selectedThread.memberId}`} className="btn btn-secondary btn-sm">
+                  <Link href={`/admin/clients/${selectedThread.memberId}`} className={DESK_MINI_BTN}>
                     Client page
                   </Link>
                 ) : null}
               </div>
             </header>
-            <div className="flex min-h-0 flex-1 flex-col px-5 pb-6 pt-6 md:px-8">
+            <div className="flex min-h-0 flex-1 flex-col px-4 pb-3 pt-4 md:px-[18px]">
               <MarkThreadRead subjectType={selectedThread.subjectType} subjectId={selectedThread.subjectId} />
               <MessageThread
                 now={now}
@@ -305,7 +306,7 @@ export default async function MessagesPage({ searchParams }: Props) {
         ) : selectedInquiry ? (
           <InquiryPane inquiry={selectedInquiry} now={now} />
         ) : selectedApproval ? (
-          <div className="min-h-0 flex-1 overflow-y-auto px-5 py-6 md:px-8">
+          <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 md:px-[18px]">
             <div className="max-w-[720px]">
               <ApprovalCard key={`${selectedApproval.id}:${selectedApproval.status}`} data={approvalCardData(selectedApproval, { now, role })} />
               <p className="mt-4 text-[13px] leading-[1.5] text-steel">
@@ -322,8 +323,8 @@ export default async function MessagesPage({ searchParams }: Props) {
             />
           </div>
         ) : tab === "problems" ? (
-          <div className="min-h-0 flex-1 overflow-y-auto px-5 py-6 md:px-8">
-            <h2 className="text-[20px] font-medium text-bone">Problems</h2>
+          <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 md:px-[18px]">
+            <h2 className="font-serif text-[20px] text-bone">Problems</h2>
             <p className="mt-1 text-[14px] text-steel">Texts and emails that didn&rsquo;t send in the last 7 days. Retry sends the same message again.</p>
             <div className="mt-5">
               <FailedDeliveryList initial={failed} now={now} />
@@ -335,6 +336,7 @@ export default async function MessagesPage({ searchParams }: Props) {
           </div>
         )}
       </section>
+      </div>
     </div>
   );
 }
@@ -365,14 +367,14 @@ function CallPane({ call, now }: { call: VoiceCallRow; now: Date }) {
   const summary = call.summary ?? call.escalation_reason ?? "No summary was recorded.";
   return (
     <>
-      <header className="flex flex-wrap items-center justify-between gap-4 border-b border-line-faint px-5 py-5 md:px-8">
+      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-4 py-3.5 md:px-[18px]">
         <div className="min-w-0">
-          <div className="text-[20px] font-medium text-bone">{call.from_number ?? "Unknown number"}</div>
-          <div className="text-[14px] text-steel">{context}</div>
+          <div className="font-serif text-[20px] leading-[1.2] text-bone">{call.from_number ?? "Unknown number"}</div>
+          <div className="text-[12px] text-steel">{context}</div>
         </div>
-        {call.from_number ? <ContactButtons phone={call.from_number} size="md" /> : null}
+        {call.from_number ? <ContactButtons phone={call.from_number} /> : null}
       </header>
-      <div className="flex min-h-0 flex-1 flex-col gap-3.5 overflow-y-auto px-5 py-6 md:px-8">
+      <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-4 py-4 md:px-[18px]">
         <Bubble
           kind="in"
           meta={
@@ -397,7 +399,7 @@ function CallPane({ call, now }: { call: VoiceCallRow; now: Date }) {
             {call.message_callback ? ` · call back ${call.message_callback}` : ""}
           </Bubble>
         ) : null}
-        <p className="mt-auto border-t border-line-faint pt-4 text-[13px] text-steel">
+        <p className="mt-auto border-t border-line pt-3 text-[13px] text-steel">
           Call notes come from the phone line. To follow up, call back or start a request.
         </p>
       </div>
@@ -420,10 +422,10 @@ function InquiryPane({ inquiry, now }: { inquiry: InquiryRow; now: Date }) {
   ];
   return (
     <>
-      <header className="flex flex-wrap items-center justify-between gap-4 border-b border-line-faint px-5 py-5 md:px-8">
+      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-4 py-3.5 md:px-[18px]">
         <div className="min-w-0">
-          <div className="text-[20px] font-medium text-bone">{name}</div>
-          <div className="text-[14px] text-steel">
+          <div className="font-serif text-[20px] leading-[1.2] text-bone">{name}</div>
+          <div className="text-[12px] text-steel">
             Website form · {reason}
             {inquiry.memberId ? (
               <>
@@ -435,9 +437,9 @@ function InquiryPane({ inquiry, now }: { inquiry: InquiryRow; now: Date }) {
             ) : null}
           </div>
         </div>
-        <ContactButtons phone={inquiry.phone} email={inquiry.email} size="md" />
+        <ContactButtons phone={inquiry.phone} email={inquiry.email} />
       </header>
-      <div className="flex min-h-0 flex-1 flex-col gap-3.5 overflow-y-auto px-5 py-6 md:px-8">
+      <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-4 py-4 md:px-[18px]">
         <Bubble kind="in" meta={`${name.split(" ")[0]} · website form · ${messageWhen(inquiry.createdAt, now)}`}>
           <dl className="dl-jn text-[15px]">
             {facts
@@ -462,7 +464,7 @@ function InquiryPane({ inquiry, now }: { inquiry: InquiryRow; now: Date }) {
             "use server";
             await setInquiryStatus(formData);
           }}
-          className="mt-auto flex flex-wrap items-center justify-between gap-3 border-t border-line-faint pt-4"
+          className="mt-auto flex flex-wrap items-center justify-between gap-3 border-t border-line pt-3"
         >
           <span className="text-[13px] text-steel">
             {handled ? "Reopen if the client comes back." : "Mark handled once the reply is out."}

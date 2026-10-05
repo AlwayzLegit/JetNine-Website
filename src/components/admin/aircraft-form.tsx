@@ -174,7 +174,7 @@ export function AircraftForm({
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-3 md:grid-cols-[1fr_1fr_1fr_1fr]">
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-2 2xl:grid-cols-4">
         <div className="field-jn">
           <label htmlFor="ac-seats">Seats</label>
           <input
@@ -223,7 +223,7 @@ export function AircraftForm({
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-3 md:grid-cols-[1fr_1fr_1fr_1fr]">
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-2 2xl:grid-cols-4">
         <div className="field-jn">
           <label htmlFor="ac-base">Base (ICAO)</label>
           <input
@@ -331,7 +331,7 @@ export function AircraftForm({
   return (
     <div className="card card-highlight w-full p-5">
       <div className="mb-4 flex items-center justify-between gap-3">
-        <h3 className="label-jn text-[13px]">Add aircraft</h3>
+        <h3 className="text-[12px] font-bold uppercase tracking-[0.2em] text-gold">Add aircraft</h3>
         <button
           type="button"
           onClick={() => {

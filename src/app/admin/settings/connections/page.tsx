@@ -196,7 +196,7 @@ export default async function ConnectionsPage({ searchParams }: Props) {
 
   return (
     <div>
-      <DeskHeader title="Connections" lead="The outside services the desk relies on. Green means working." />
+      <DeskHeader size="md" title="Connections" lead="The outside services the desk relies on. Green means working." />
 
       {testNote ? (
         <p role="status" className={`mt-4 text-[14px] ${sp.test === "failed" ? "text-danger" : "text-bone-2"}`}>

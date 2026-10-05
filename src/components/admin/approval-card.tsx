@@ -73,7 +73,7 @@ export function ApprovalCard({ data }: { data: ApprovalCardData }) {
   }
 
   return (
-    <section className="card p-5 md:p-6" aria-labelledby={`approval-${data.id}`}>
+    <section className="card bg-[#FBFAF7] p-5 md:p-6" aria-labelledby={`approval-${data.id}`}>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <h2 id={`approval-${data.id}`} className="min-w-0 text-[20px] font-medium leading-[1.3] text-bone">
           {data.summary}
@@ -95,14 +95,14 @@ export function ApprovalCard({ data }: { data: ApprovalCardData }) {
 
       {data.reason ? (
         <div className="mt-5">
-          <h3 className="label-jn text-[13px]">Why</h3>
+          <h3 className="text-[12px] font-bold uppercase tracking-[0.2em] text-gold">Why</h3>
           <p className="mt-1.5 whitespace-pre-line text-[15px] leading-[1.5] text-bone-2">{data.reason}</p>
         </div>
       ) : null}
 
       {data.preview && mode !== "edit" ? (
         <div className="mt-5">
-          <h3 className="label-jn text-[13px]">{goesOut ? "What goes out" : "What changes"}</h3>
+          <h3 className="text-[12px] font-bold uppercase tracking-[0.2em] text-gold">{goesOut ? "What goes out" : "What changes"}</h3>
           <pre className="mt-1.5 whitespace-pre-wrap break-words rounded-control border border-line bg-ink px-4 py-3 font-sans text-[15px] leading-[1.55] text-bone">
             {data.preview}
           </pre>

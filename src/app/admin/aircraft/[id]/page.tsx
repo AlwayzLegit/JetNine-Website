@@ -245,7 +245,7 @@ export default async function AdminAircraftDetailPage({ params }: Props) {
         <NumberCard label="Passengers flown" value={aggregate?.totalPax ?? 0} />
       </div>
 
-      <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-[1.3fr_1fr]">
+      <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)]">
         {/* LEFT */}
         <div className="flex flex-col gap-6">
           {/* 14-day strip */}

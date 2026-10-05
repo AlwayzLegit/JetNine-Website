@@ -1,7 +1,7 @@
 import { requireAdmin } from "@/lib/auth";
 import { DESK_ROLE_WORDS } from "@/lib/desk-status";
 import { listTeam } from "@/domain/settings/queries";
-import { DeskRow } from "@/components/admin/desk-ui";
+import { DESK_PANEL, DeskRow } from "@/components/admin/desk-ui";
 import { TeamHeader, TeamRowChange } from "@/components/admin/settings/team-forms";
 
 export const dynamic = "force-dynamic";
@@ -15,7 +15,7 @@ export default async function TeamPage() {
     <div>
       <TeamHeader />
 
-      <div className="card mt-6 overflow-hidden">
+      <div className={`${DESK_PANEL} mt-4 overflow-hidden`}>
         {rows.map((r) => {
           const role = r.deskRole;
           const words = DESK_ROLE_WORDS[role];
@@ -23,17 +23,20 @@ export default async function TeamPage() {
           const isMe = r.id === me.id;
           const locked = r.role === "superadmin";
           return (
-            <DeskRow key={r.id} cols="md:grid-cols-[minmax(0,1fr)_220px_auto]">
+            <DeskRow key={r.id} cols="md:grid-cols-[36px_minmax(0,1fr)_220px_auto]" className="md:!gap-3.5 md:!py-3">
+              <span aria-hidden="true" className="hidden h-[34px] w-[34px] items-center justify-center rounded-full bg-[#ECE3D6] font-serif text-[15px] text-gold md:flex">
+                {(name.trim()[0] ?? "?").toUpperCase()}
+              </span>
               <div className="min-w-0">
-                <div className="truncate text-[16px] font-medium text-bone">
+                <div className="truncate text-[14px] font-bold text-bone">
                   {name}
                   {isMe ? <span className="text-steel"> · you</span> : null}
                 </div>
-                <div className="truncate text-[14px] text-steel">{r.email}</div>
+                <div className="truncate text-[12px] text-steel">{r.email}</div>
               </div>
               <div>
-                <div className="text-[15px] text-bone">{words.label}</div>
-                <div className="text-[14px] text-steel">{words.can}</div>
+                <div className="text-[14px] text-bone">{words.label}</div>
+                <div className="text-[12px] text-steel">{words.can}</div>
               </div>
               {isMe ? (
                 <span className="text-[14px] text-steel">Ask another owner to change you</span>
@@ -47,7 +50,7 @@ export default async function TeamPage() {
         })}
       </div>
 
-      <p className="mt-4 text-[14px] text-steel">
+      <p className="mt-3 text-[14px] text-steel">
         Two roles only. <strong className="font-medium text-bone-2">Owner</strong> sees everything including reports and
         money. <strong className="font-medium text-bone-2">Team</strong> handles requests, trips and clients.
       </p>

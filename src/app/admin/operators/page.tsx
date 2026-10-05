@@ -74,7 +74,7 @@ export default async function OperatorsPage() {
       ) : (
         <div className="card mt-8 overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="table-jn min-w-[1200px]">
+            <table className="table-jn min-w-[1200px] text-[14px] [&_th]:bg-surface-2 [&_th]:py-2.5 [&_th]:text-[12px] [&_th]:font-bold [&_th]:text-bone">
               <thead>
                 <tr>
                   {[

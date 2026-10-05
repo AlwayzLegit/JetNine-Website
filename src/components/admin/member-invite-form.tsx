@@ -65,14 +65,14 @@ export function MemberInviteForm({ label = "+ Invite a client" }: { label?: stri
 
   return (
     <details ref={details} className="relative max-lg:w-full">
-      <summary className="btn btn-primary w-max cursor-pointer list-none whitespace-nowrap [&::-webkit-details-marker]:hidden">
+      <summary className="btn btn-primary h-11 w-max cursor-pointer list-none whitespace-nowrap px-3.5 text-[13px] font-bold md:h-10 [&::-webkit-details-marker]:hidden">
         {label}
       </summary>
 
       <div className="card z-30 mt-2.5 p-6 lg:absolute lg:right-0 lg:top-full lg:w-[680px] lg:shadow-[0_18px_50px_rgba(18,35,46,0.14)]">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <h2 className="text-[19px] font-medium text-bone">Invite a client</h2>
+            <h2 className="font-serif text-[22px] text-bone">Invite a client</h2>
             <p className="mt-1 text-[14px] text-steel">
               They get an email with a sign-in link. If they already have a sign-in, it is reused.
             </p>

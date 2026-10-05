@@ -38,7 +38,7 @@ export default async function AdminAiSettingsPage() {
 
   return (
     <div>
-      <DeskHeader
+      <DeskHeader size="md"
         back={{ href: "/admin/settings/connections", label: "Settings › Connections" }}
         title="Phone answering"
         lead="Store a key for each vendor you want available, then choose which one answers the phone and which one it falls back to. Keys are encrypted and never shown again; only the last four characters stay readable."
@@ -70,7 +70,7 @@ export default async function AdminAiSettingsPage() {
 
 function Notice({ children }: { children: React.ReactNode }) {
   return (
-    <p role="alert" className="card mt-6 border-danger px-5 py-3.5 text-[14px] text-danger">
+    <p role="alert" className="card bg-[#FBFAF7] mt-6 border-danger px-5 py-3.5 text-[14px] text-danger">
       {children}
     </p>
   );

@@ -39,7 +39,7 @@ export default async function ApiKeysPage() {
       />
 
       {working.length === 0 ? (
-        <p className="card mt-6 p-6 text-[15px] text-bone-2">
+        <p className="card bg-[#FBFAF7] mt-6 p-6 text-[15px] text-bone-2">
           No working keys. Create one for the daily assistant or for your own scripts.
         </p>
       ) : (
@@ -117,7 +117,7 @@ function LegacyKeyCard({ usage, now }: { usage: LegacyKeyUsage; now: Date }) {
   const used = usage.lastUsedAt ? `last used ${relativeTime(usage.lastUsedAt, now).toLowerCase()}` : "never used in the last 30 days";
   const calls = usage.calls7d ? `${usage.calls7d} ${usage.calls7d === 1 ? "call" : "calls"} in the last 7 days` : "no calls in the last 7 days";
   return (
-    <div className="card mt-6 p-5">
+    <div className="card bg-[#FBFAF7] mt-6 p-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="text-[16px] font-medium text-bone">The old blog key</div>

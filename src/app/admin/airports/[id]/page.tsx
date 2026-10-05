@@ -45,7 +45,7 @@ export default async function AdminAirportDetailPage({ params }: Props) {
         }
       />
 
-      <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-[1.5fr_1fr]">
+      <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
         <DeskCard title="Airport details">
           <div className="mt-4">
             <AirportEditForm initial={airport} />

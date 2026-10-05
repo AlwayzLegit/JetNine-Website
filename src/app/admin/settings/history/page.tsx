@@ -18,7 +18,7 @@ export default async function HistoryPage({ searchParams }: Props) {
 
   return (
     <div>
-      <DeskHeader
+      <DeskHeader size="md"
         title="History"
         lead="Who changed what. Here for the rare day you need it."
         actions={<DeskSearch placeholder="Search actions" defaultValue={q} hidden={{ type: tab.key !== "all" ? tab.key : undefined }} />}

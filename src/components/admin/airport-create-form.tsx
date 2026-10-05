@@ -44,7 +44,7 @@ export function AirportCreateForm() {
   return (
     <div className="card card-highlight w-full p-5">
       <div className="mb-4 flex items-center justify-between gap-3">
-        <h3 className="label-jn text-[13px]">Add airport</h3>
+        <h3 className="text-[12px] font-bold uppercase tracking-[0.2em] text-gold">Add airport</h3>
         <button
           type="button"
           onClick={() => {

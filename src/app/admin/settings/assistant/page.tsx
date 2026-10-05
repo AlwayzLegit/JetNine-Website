@@ -102,7 +102,7 @@ export default async function AssistantPage({ searchParams }: Props) {
 
   return (
     <div>
-      <DeskHeader
+      <DeskHeader size="md"
         title="Assistant"
         lead="Runs once a day through its API key. Here is what it did, its instructions, and what it remembers."
       />
@@ -201,9 +201,9 @@ function LatestRun({ run, today, jobNames }: { run: RunRow; today: string; jobNa
   const metrics = Object.entries(run.metrics ?? {});
 
   return (
-    <section className="card mt-6 p-5 md:p-6" aria-labelledby="latest-run">
+    <section className="card bg-[#FBFAF7] mt-6 p-5 md:p-6" aria-labelledby="latest-run">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 id="latest-run" className="label-jn text-[13px]">
+        <h2 id="latest-run" className="text-[12px] font-bold uppercase tracking-[0.2em] text-gold">
           {run.runDate === today ? "Today" : `Latest run · ${dayWords(run.runDate, today)}`}
         </h2>
         <DotSentence tone={status.tone} className="text-[15px] text-bone">
@@ -237,7 +237,7 @@ function LatestRun({ run, today, jobNames }: { run: RunRow; today: string; jobNa
 
       {jobs.length ? (
         <div className="mt-6 border-t border-line-faint pt-5">
-          <h3 className="label-jn text-[13px]">Jobs</h3>
+          <h3 className="text-[12px] font-bold uppercase tracking-[0.2em] text-gold">Jobs</h3>
           <ul className="mt-3 flex flex-col gap-4">
             {jobs.map((j) => (
               <li key={j.slug}>
@@ -265,7 +265,7 @@ function LatestRun({ run, today, jobNames }: { run: RunRow; today: string; jobNa
 
       {errors.length ? (
         <div className="mt-6 border-t border-line-faint pt-5">
-          <h3 className="label-jn text-[13px] text-danger">
+          <h3 className="text-[12px] font-bold uppercase tracking-[0.2em] text-danger">
             {errors.length === 1 ? "1 error" : `${errors.length} errors`}
           </h3>
           <ul className="mt-2 flex flex-col gap-1.5 text-[14px] text-danger">
@@ -300,7 +300,7 @@ function RunItems({ items, names }: { items: AgentRunItem[]; names: Map<string, 
     <div className="border-t border-line-faint px-5 pb-5 pt-1 md:px-6">
       {groups.map((g) => (
         <div key={g.kind} className="mt-4">
-          <h3 className="label-jn text-[13px]">
+          <h3 className="text-[12px] font-bold uppercase tracking-[0.2em] text-gold">
             {KIND_WORDS[g.kind]} <span className="text-steel-dim">· {g.items.length}</span>
           </h3>
           <ul className="mt-2 flex flex-col gap-3">

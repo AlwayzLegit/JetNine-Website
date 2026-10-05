@@ -1,4 +1,4 @@
-import { DeskEmpty, DeskHeader, DeskPage, DeskSearch, DeskTabs } from "@/components/admin/desk-ui";
+import { DESK_PANEL, DeskEmpty, DeskHeader, DeskPage, DeskSearch, DeskTabs } from "@/components/admin/desk-ui";
 import { MemberInviteForm } from "@/components/admin/member-invite-form";
 import { ClientsTable } from "@/components/admin/clients/clients-table";
 import { listClients, type ClientTab } from "@/domain/clients/queries";
@@ -23,11 +23,12 @@ export default async function AdminClientsPage({ searchParams }: Props) {
   const { tab, q, total, counts, clients } = await listClients({ tab: sp.tab, q: sp.q });
   const visible = clients.map((c) => c.row);
 
-  const lead = [
-    plural(counts.all, "client"),
-    `${counts.recent} flew in the last 90 days`,
-    `${counts.card} hold${counts.card === 1 ? "s" : ""} a JetNine Card or Reserve`,
-  ].join(" · ");
+  const lead = "Everyone who has asked for a quote or flown with JetNine.";
+  const stats: [number, string][] = [
+    [counts.all, counts.all === 1 ? "client" : "clients"],
+    [counts.recent, "flew in the last 90 days"],
+    [counts.card, counts.card === 1 ? "holds a JetNine Card or Reserve" : "hold a JetNine Card or Reserve"],
+  ];
 
   const header = (
     <>
@@ -37,7 +38,7 @@ export default async function AdminClientsPage({ searchParams }: Props) {
         actions={
           <>
             <DeskSearch
-              width={220}
+              width={200}
               placeholder="Search a name or email"
               defaultValue={q}
               action="/admin/clients"
@@ -47,8 +48,16 @@ export default async function AdminClientsPage({ searchParams }: Props) {
           </>
         }
       />
+      <div className="mt-4 grid grid-cols-3 gap-2 sm:gap-2.5">
+        {stats.map(([v, k]) => (
+          <div key={k} className={`${DESK_PANEL} min-w-0 px-3 py-3 sm:px-3.5`}>
+            <div className="font-serif text-[26px] leading-none text-bone">{v}</div>
+            <div className="mt-1 text-[12px] leading-[1.35] text-steel sm:text-[13px]">{k}</div>
+          </div>
+        ))}
+      </div>
       <DeskTabs
-        className="mt-6"
+        className="mt-4"
         base="/admin/clients"
         current={tab}
         keep={{ q: q || undefined }}
@@ -61,7 +70,7 @@ export default async function AdminClientsPage({ searchParams }: Props) {
   if (total === 0 && !q) {
     return (
       <DeskPage>
-        <DeskHeader title="Clients" lead="0 clients" actions={<MemberInviteForm />} />
+        <DeskHeader title="Clients" lead={plural(0, "client")} actions={<MemberInviteForm />} />
         <DeskEmpty title="No clients yet." body="Invite the first one, or they appear when someone books." />
       </DeskPage>
     );

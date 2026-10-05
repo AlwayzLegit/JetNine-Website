@@ -78,6 +78,24 @@
   .on-navy .btn-primary { color: var(--navy); }
   .on-navy .btn-primary:hover { color: var(--navy); }
 
+  /* Windows (LightWindow) are always white panels: reset the tokens a
+     surrounding .on-navy band would otherwise pass down to them. */
+  .light-window {
+    --bone: #12232E;
+    --bone-2: #33434D;
+    --steel: #56616A;
+    --steel-dim: #66717A;
+    --line: #D8D3C9;
+    --line-2: #C2BCB0;
+    --line-faint: #E6E1D7;
+    --gold: #805C35;
+    --surface: #FFFFFF;
+    --surface-2: #ECE8DF;
+    --clearance: #12232E;
+    --clearance-hover: #284250;
+    color: var(--bone);
+  }
+
   @media (max-width: 1024px) { :root { --pad-x: 32px; } }
   @media (max-width: 768px)  { :root { --pad-x: 20px; --header-h: 58px; } }
   @media (max-width: 640px)  { :root { --pad-x: 16px; } }

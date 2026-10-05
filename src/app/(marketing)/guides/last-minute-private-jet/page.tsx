@@ -1,9 +1,13 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { pageMetadata } from "@/lib/page-meta";
-import { GuideShell } from "@/components/guide/guide-shell";
 import { getGuideChapter } from "@/lib/guides";
+import { getShortGuide } from "@/lib/guides-short";
+import { RATES_UPDATED } from "@/lib/rates";
 import { SITE } from "@/lib/constants";
+import { ShortGuideTemplate } from "@/components/guide-short/guide-template";
+import { ChapterBody, ChapterEyebrow, ChapterNav } from "@/components/guide-short/chapter-bits";
+import { GuideJsonLd, faqJsonLd } from "@/components/guide-short/schema";
 
 export const metadata: Metadata = pageMetadata({
   title: "Last-Minute Private Jet Charter — Cost & Reality",
@@ -13,6 +17,8 @@ export const metadata: Metadata = pageMetadata({
 });
 
 const chapter = getGuideChapter("last-minute-private-jet")!;
+// Light handoff "Guide 14" content (sections, table, checklist, sources…).
+const guide = getShortGuide("last-minute-private-jet")!;
 
 const FAQ = [
   {
@@ -29,34 +35,45 @@ const FAQ = [
   },
 ];
 
+// The design's FAQ, minus the two questions the chapter already answers
+// (departure speed, empty legs).
+const DESIGN_FAQ = guide.faq.filter(
+  (f) => !/how quickly can a private jet depart|empty legs suitable/i.test(f.q),
+);
+
+const ALL_FAQ = [...FAQ, ...DESIGN_FAQ];
+
 export default function LastMinutePage() {
-  const faqJsonLd = {
-    "@context": "https://schema.org",
-    "@type": "FAQPage",
-    mainEntity: FAQ.map((f) => ({
-      "@type": "Question",
-      name: f.q,
-      acceptedAnswer: { "@type": "Answer", text: f.a },
-    })),
-  };
-
   return (
-    <GuideShell
-      chapter={chapter}
-      lead="Charter exists for exactly this. The rate card doesn't punish late — availability does. What actually changes inside a same-day quote, and the one case where late is the discount."
-    >
-      <script
-        type="application/ld+json"
-        // Build-time stringified site copy — not user-controlled.
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }}
+    <>
+      <GuideJsonLd
+        headline={chapter.title}
+        description={chapter.description}
+        path={chapter.href}
+        crumb={chapter.navTitle}
+        datePublished="2026-08-31"
+        dateModified="2026-10-05"
+        isPartOf={{
+          "@type": "CreativeWorkSeries",
+          name: "The JetNine Charter Pricing Guide",
+          url: `${(process.env.NEXT_PUBLIC_SITE_URL || "https://jetnine.com").replace(/\/$/, "")}/guides`,
+        }}
+        extra={[faqJsonLd(ALL_FAQ)]}
       />
-
-      <section className="section-jn">
-        <div className="container-jn">
-          <p className="eyebrow">What changes when it&rsquo;s tomorrow</p>
-          <h2 className="title-section max-w-[26ch]">Not the rate. The map.</h2>
-          <div className="mt-8 grid grid-cols-1 gap-4 md:grid-cols-3">
-            {[
+      <ShortGuideTemplate
+        guide={guide}
+        title={chapter.title}
+        crumb={chapter.navTitle}
+        dek="Charter exists for exactly this. The rate card doesn't punish late — availability does. What actually changes inside a same-day quote, and the one case where late is the discount."
+        eyebrow={<ChapterEyebrow chapter={chapter} />}
+        byline={<>By the JetNine dispatch desk · Updated {RATES_UPDATED} · Rates reviewed quarterly</>}
+        faq={ALL_FAQ}
+        context={`guide-${chapter.slug}`}
+        extra={
+          <ChapterBody
+            eyebrow="What changes when it’s tomorrow"
+            title="Not the rate. The map."
+            cards={[
               {
                 n: "01",
                 k: "Price",
@@ -75,18 +92,8 @@ export default function LastMinutePage() {
                 h: "Late is when the discounts live.",
                 p: "Empty legs are short-notice by nature — repositioning flights listed days or hours before departure at 30–60% off. A flexible traveler booking late isn't paying a premium; they're shopping the best-priced inventory in the market.",
               },
-            ].map((c) => (
-              <div key={c.n} className="card card-pad max-md:p-5">
-                <div className="mb-5 flex items-baseline gap-4">
-                  <span className="font-serif text-[48px] font-light leading-none text-clearance">{c.n}</span>
-                  <span className="label-jn">{c.k}</span>
-                </div>
-                <h3 className="title-card-sm text-bone">{c.h}</h3>
-                <p className="mt-3 text-[16px] leading-[1.6] text-bone-2">{c.p}</p>
-              </div>
-            ))}
-          </div>
-          <p className="mt-8 max-w-[68ch] text-[16px] leading-[1.6] text-bone-2">
+            ]}
+          >
             The practical playbook: run the{" "}
             <Link href="/quote/mission" className="text-link-strong">
               wizard
@@ -95,26 +102,13 @@ export default function LastMinutePage() {
             <Link href="/empty-legs" className="text-link-strong">
               live empty-legs board
             </Link>{" "}
-            in parallel. Truly time-critical? Skip both and call {SITE.dispatchPhone}: average
-            pick-up is under twenty seconds, every hour of every day, and &ldquo;first call wins&rdquo; is
-            literal on board inventory.
-          </p>
-        </div>
-      </section>
-
-      <section className="section-jn">
-        <div className="container-jn">
-          <h2 className="title-section max-w-[24ch]">Asked about short notice.</h2>
-          <div className="mt-8 grid grid-cols-1 gap-4 md:grid-cols-3">
-            {FAQ.map((f) => (
-              <div key={f.q} className="card card-pad max-md:p-5">
-                <h3 className="title-card-sm text-bone">{f.q}</h3>
-                <p className="mt-3 text-[16px] leading-[1.6] text-bone-2">{f.a}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-    </GuideShell>
+            in parallel. Truly time-critical? Skip both and call {SITE.dispatchPhone}: average pick-up is under
+            twenty seconds, every hour of every day, and &ldquo;first call wins&rdquo; is literal on board
+            inventory.
+          </ChapterBody>
+        }
+        after={<ChapterNav chapter={chapter} />}
+      />
+    </>
   );
 }

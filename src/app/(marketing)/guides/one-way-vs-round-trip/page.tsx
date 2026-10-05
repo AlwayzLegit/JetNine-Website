@@ -1,8 +1,12 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { pageMetadata } from "@/lib/page-meta";
-import { GuideShell } from "@/components/guide/guide-shell";
 import { getGuideChapter } from "@/lib/guides";
+import { getShortGuide } from "@/lib/guides-short";
+import { RATES_UPDATED } from "@/lib/rates";
+import { ShortGuideTemplate } from "@/components/guide-short/guide-template";
+import { ChapterBody, ChapterEyebrow, ChapterNav } from "@/components/guide-short/chapter-bits";
+import { GuideJsonLd, faqJsonLd } from "@/components/guide-short/schema";
 
 export const metadata: Metadata = pageMetadata({
   title: "One-Way vs Round-Trip Private Jet Pricing",
@@ -12,6 +16,8 @@ export const metadata: Metadata = pageMetadata({
 });
 
 const chapter = getGuideChapter("one-way-vs-round-trip")!;
+// Light handoff "Guide 14" content (sections, table, checklist, sources…).
+const guide = getShortGuide("one-way-vs-round-trip")!;
 
 const FAQ = [
   {
@@ -28,36 +34,42 @@ const FAQ = [
   },
 ];
 
+// The design's FAQ, minus the empty-leg question the chapter already answers.
+const DESIGN_FAQ = guide.faq.filter((f) => !/empty leg/i.test(f.q));
+
+const ALL_FAQ = [...FAQ, ...DESIGN_FAQ];
+
 export default function OneWayVsRoundTripPage() {
-  const faqJsonLd = {
-    "@context": "https://schema.org",
-    "@type": "FAQPage",
-    mainEntity: FAQ.map((f) => ({
-      "@type": "Question",
-      name: f.q,
-      acceptedAnswer: { "@type": "Answer", text: f.a },
-    })),
-  };
-
   return (
-    <GuideShell
-      chapter={chapter}
-      lead="Yes, one-way is cheaper — and no, not by half. The difference is repositioning: where the aircraft has to be next, and who pays for it to get there."
-    >
-      <script
-        type="application/ld+json"
-        // Build-time stringified site copy — not user-controlled.
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }}
+    <>
+      <GuideJsonLd
+        headline={chapter.title}
+        description={chapter.description}
+        path={chapter.href}
+        crumb={chapter.navTitle}
+        datePublished="2026-08-31"
+        dateModified="2026-10-05"
+        isPartOf={{
+          "@type": "CreativeWorkSeries",
+          name: "The JetNine Charter Pricing Guide",
+          url: `${(process.env.NEXT_PUBLIC_SITE_URL || "https://jetnine.com").replace(/\/$/, "")}/guides`,
+        }}
+        extra={[faqJsonLd(ALL_FAQ)]}
       />
-
-      <section className="section-jn">
-        <div className="container-jn">
-          <p className="eyebrow">The mechanics</p>
-          <h2 className="title-section max-w-[26ch]">
-            The aircraft always flies both directions. The question is who&rsquo;s aboard.
-          </h2>
-          <div className="mt-8 grid grid-cols-1 gap-4 md:grid-cols-3">
-            {[
+      <ShortGuideTemplate
+        guide={guide}
+        title={chapter.title}
+        crumb={chapter.navTitle}
+        dek="Yes, one-way is cheaper — and no, not by half. The difference is repositioning: where the aircraft has to be next, and who pays for it to get there."
+        eyebrow={<ChapterEyebrow chapter={chapter} />}
+        byline={<>By the JetNine dispatch desk · Updated {RATES_UPDATED} · Rates reviewed quarterly</>}
+        faq={ALL_FAQ}
+        context={`guide-${chapter.slug}`}
+        extra={
+          <ChapterBody
+            eyebrow="The mechanics"
+            title={<>The aircraft always flies both directions. The question is who&rsquo;s aboard.</>}
+            cards={[
               {
                 n: "01",
                 k: "Round trip",
@@ -76,20 +88,10 @@ export default function OneWayVsRoundTripPage() {
                 h: "You buy someone else's repositioning.",
                 p: "The mirror image of a one-way premium: that ferry flight goes on sale at 30–60% off. Date-locked and route-locked — but if your plans bend, it's the cheapest whole-aircraft flying there is.",
               },
-            ].map((c) => (
-              <div key={c.n} className="card card-pad max-md:p-5">
-                <div className="mb-5 flex items-baseline gap-4">
-                  <span className="font-serif text-[48px] font-light leading-none text-clearance">{c.n}</span>
-                  <span className="label-jn">{c.k}</span>
-                </div>
-                <h3 className="title-card-sm text-bone">{c.h}</h3>
-                <p className="mt-3 text-[16px] leading-[1.6] text-bone-2">{c.p}</p>
-              </div>
-            ))}
-          </div>
-          <p className="mt-8 max-w-[68ch] text-[16px] leading-[1.6] text-bone-2">
-            Practical upshot: quote the round trip whenever your dates are firm, quote one-ways when
-            they aren&rsquo;t, and put a{" "}
+            ]}
+          >
+            Practical upshot: quote the round trip whenever your dates are firm, quote one-ways when they
+            aren&rsquo;t, and put a{" "}
             <Link href="/empty-legs" className="text-link-strong">
               watchlist
             </Link>{" "}
@@ -98,23 +100,10 @@ export default function OneWayVsRoundTripPage() {
               run your route
             </Link>{" "}
             both ways and compare; it takes about ninety seconds each.
-          </p>
-        </div>
-      </section>
-
-      <section className="section-jn">
-        <div className="container-jn">
-          <h2 className="title-section max-w-[24ch]">Asked about directions.</h2>
-          <div className="mt-8 grid grid-cols-1 gap-4 md:grid-cols-3">
-            {FAQ.map((f) => (
-              <div key={f.q} className="card card-pad max-md:p-5">
-                <h3 className="title-card-sm text-bone">{f.q}</h3>
-                <p className="mt-3 text-[16px] leading-[1.6] text-bone-2">{f.a}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-    </GuideShell>
+          </ChapterBody>
+        }
+        after={<ChapterNav chapter={chapter} />}
+      />
+    </>
   );
 }

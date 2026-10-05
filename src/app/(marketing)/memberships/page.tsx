@@ -1,12 +1,22 @@
+import Image from "next/image";
 import type { Metadata } from "next";
 import { pageMetadata } from "@/lib/page-meta";
 import { RATES, RATES_UPDATED } from "@/lib/rates";
-import { PageHero } from "@/components/page-hero";
+import { SITE } from "@/lib/constants";
 import { CtaBand } from "@/components/cta-band";
-import { ProgramPicker } from "@/components/memberships/program-picker";
-import { FaqAccordion } from "@/components/memberships/faq-accordion";
-import { PROGRAMS } from "@/components/memberships/programs";
-import { plainMission, plainRate, plainSample } from "@/components/memberships/rate-copy";
+import { WindowButton } from "@/components/light/window";
+import { FaqList } from "@/components/company/faq-list";
+import { ProgramFit } from "@/components/memberships/program-fit";
+import { CARD_TIERS, PROGRAMS } from "@/components/memberships/programs";
+import { plainRate } from "@/components/memberships/rate-copy";
+import {
+  AvailabilityWindow,
+  CardTiersWindow,
+  ChangesWindow,
+  CompareWindow,
+  PricingWindow,
+  RefundsWindow,
+} from "@/components/memberships/windows";
 
 export const metadata: Metadata = pageMetadata({
   title: "Jet Card & Memberships — Locked Hourly Rates",
@@ -15,61 +25,15 @@ export const metadata: Metadata = pageMetadata({
   path: "/memberships",
 });
 
-// Numbers here mirror src/lib/memberships.ts (deposit, call-out hours,
-// rate-lock months, allowances, cardholder limits, empty-leg window).
-const CARD_TIERS = [
-  {
-    badge: "Tier 01 · Base",
-    name: "Card · 100",
-    deposit: "$100k",
-    items: [
-      "Locked hourly rates for 24 months",
-      "72-hour guaranteed call-out",
-      "$2,500 catering allowance / year",
-      "Standard empty-leg watchlist access",
-      "One named cardholder",
-    ],
-    highlight: false,
-  },
-  {
-    badge: "Tier 02 · Preferred",
-    name: "Card · 250",
-    deposit: "$250k",
-    items: [
-      "Locked hourly rates for 24 months",
-      "48-hour guaranteed call-out",
-      "$8,000 catering & ground allowance / year",
-      "Priority empty-leg access — 30 min advance window",
-      "Up to three named cardholders",
-      "Direct dispatcher cell number",
-    ],
-    highlight: true,
-  },
-  {
-    badge: "Tier 03 · Elite",
-    name: "Card · 500",
-    deposit: "$500k",
-    items: [
-      "Locked hourly rates for 36 months",
-      "24-hour guaranteed call-out",
-      "$20,000 catering & ground allowance / year",
-      "First-look empty-leg access — 60 min advance window",
-      "Unlimited named cardholders & dependents",
-      "Annual safety briefing & aircraft selection consultation",
-      "Path to Reserve qualification",
-    ],
-    highlight: false,
-  },
-];
-
-const AVAILABILITY = [
-  { title: "Substitute aircraft", sub: "Same category or one tier up, our cost.", val: "No charge" },
-  { title: "Commercial first-class", sub: "If no aircraft is reachable, we book commercial.", val: "Our cost" },
-  { title: "Hour credit", sub: "Failed call-out triggers a flight credit.", val: "+1 hour" },
-  { title: "No questions asked", sub: "Triggered by missed window, regardless of cause.", val: "Always" },
-];
+// Light - Programs. Prices, tiers and rates come from programs.ts and
+// src/lib/rates.ts (mirroring src/lib/memberships.ts) — the three tiers
+// still await owner confirmation; no figure here is new.
 
 const FAQ = [
+  {
+    q: "Do I need a membership?",
+    a: "No. On-demand charter lets you book trip by trip with no deposit, no annual fee and no minimum spend. A prepaid program is optional.",
+  },
   {
     q: "Is the deposit actually refundable?",
     a: "Yes, in plain terms. The deposit is held as a flight-credit balance. You can fly it down to zero, top it up, or — at any point in the 24-month locked-rate window — request a refund of the unused balance. We process refunds within ten business days, no penalties, no clawbacks. The only thing we don't refund is hours already flown.",
@@ -124,7 +88,14 @@ const offerCatalogJsonLd = {
   })),
 };
 
-const RATE_COLUMNS = ["Category", "Typical mission", "On-demand market", "Locked card rate"];
+const TERMS = [
+  { title: "Refunds & unused funds", heading: "Your unused balance.", body: <RefundsWindow /> },
+  { title: "Availability & notice", heading: "Know the commitment.", body: <AvailabilityWindow /> },
+  { title: "Changes & cancellations", heading: "When plans change.", body: <ChangesWindow /> },
+];
+
+const th = "px-[14px] py-[10px] text-left font-bold";
+const td = "px-[14px] py-[10px]";
 
 export default function MembershipsPage() {
   return (
@@ -134,131 +105,167 @@ export default function MembershipsPage() {
         // Built from PROGRAMS catalog at build time — no user input, no XSS.
         dangerouslySetInnerHTML={{ __html: JSON.stringify(offerCatalogJsonLd) }}
       />
-      <PageHero
-        eyebrow="Memberships · jet card · on-demand"
-        titleClassName="!max-w-[18ch] !text-[clamp(40px,4.5vw,56px)] !leading-[1.05]"
-        title="Jet card, reserve, or on-demand: three ways to fly, no membership required."
-        lead="Most charter brokers want you on a yearly retainer. We don't. The default is on-demand — pay per flight, locked pricing, zero commitment. The jet card and reserve programs exist because some clients want fixed hourly rates and guaranteed availability. Pick the one that fits your year."
-        imageSrc="/images/hero/memberships.webp"
-        imagePosition="58% center"
-      />
 
-      {/* Slider + the three program cards (#tiers) */}
-      <ProgramPicker />
+      {/* Hero: photo band with a paper card */}
+      <section className="relative flex min-h-[420px] items-center bg-navy">
+        <Image
+          src="/images/light/page-05-hero.webp"
+          alt=""
+          aria-hidden
+          fill
+          priority
+          sizes="100vw"
+          className="object-cover"
+          style={{ objectPosition: "78% center" }}
+        />
+        <div aria-hidden className="absolute inset-0 bg-[linear-gradient(90deg,rgba(18,35,46,.45)_0%,rgba(18,35,46,.1)_50%,rgba(18,35,46,0)_100%)]" />
+        <div className="container-jn relative w-full py-10">
+          <div className="max-w-[560px] border border-line bg-[rgba(247,245,240,.96)] px-[30px] pb-[30px] pt-7 max-sm:px-5">
+            <p className="text-[12px] font-bold uppercase tracking-[0.2em] text-bone">
+              On-Demand <span className="text-gold">•</span> JetNine Card <span className="text-gold">•</span> Reserve
+            </p>
+            <h1 className="mt-2 font-serif text-[clamp(34px,9vw,58px)] font-normal leading-[1.02] tracking-[-0.01em]">
+              Private aviation.
+              <br />
+              On your terms.
+            </h1>
+            <p className="mt-3 font-serif text-[22px] leading-[1.3]">
+              Three ways to fly. One clear comparison.
+            </p>
+            <div className="mt-5 flex flex-wrap gap-3">
+              <WindowButton label="Compare programs →" className="btn btn-primary btn-sm !h-[42px] !font-bold" variant="modal">
+                <CompareWindow />
+              </WindowButton>
+              <a href={`tel:${SITE.dispatchPhoneE164}`} className="btn btn-secondary btn-sm !h-[42px] !border-bone !font-bold">
+                Speak with an advisor
+              </a>
+            </div>
+          </div>
+        </div>
+      </section>
 
-      {/* Hourly rates */}
-      <section id="rates" className="container-jn section-jn max-md:pt-20">
-        <p className="eyebrow">Hourly rates</p>
-        <h2 className="title-section max-w-[22ch]">JetNine Card rates, by category.</h2>
-        <p className="mt-4 max-w-[62ch] text-[18px] text-bone-2">
-          Locked for 24 months from card activation. Includes everything except FET (7.5%, federal)
-          and private-terminal ramp fees. Compare to typical on-demand market rates — the savings
-          are 12–18% on average, more during peak.
-        </p>
-        <div className="card mt-8 overflow-hidden">
-          {/* tabIndex + role: keyboard users must be able to scroll this on phones. */}
-          <div
-            className="overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-            tabIndex={0}
-            role="region"
-            aria-label="Locked card rate comparison"
-          >
-            <table className="table-jn min-w-[720px] [&_td]:px-6 [&_th]:px-6">
+      <ProgramFit />
+
+      {/* Rates */}
+      <section id="rates" className="mt-9 grid scroll-mt-[var(--header-h)] border-y border-line bg-white [grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr))]">
+        <div className="relative min-h-[420px] bg-surface-2 max-md:min-h-[260px]">
+          <Image src="/images/light/chair-at-sunset.webp" alt="" aria-hidden fill sizes="(max-width: 768px) 100vw, 50vw" className="object-cover" />
+        </div>
+        <div className="px-10 pb-8 pt-9 max-sm:px-4">
+          <h2 className="font-serif text-[clamp(32px,7vw,40px)] leading-[1.1]">Know the whole trip price.</h2>
+          <p className="mt-2 max-w-[52ch] font-serif text-[17px] text-steel">
+            An hourly rate is a starting point. Compare billable time, taxes, fees and the same itinerary.
+          </p>
+          <div className="mt-[18px] max-w-[600px] overflow-x-auto border border-line" tabIndex={0} role="region" aria-label="JetNine Card rates by category">
+            <table className="w-full min-w-[320px] border-collapse text-[14px]">
               <thead>
-                <tr>
-                  {RATE_COLUMNS.map((h, i) => (
-                    <th key={h} scope="col" className={i === RATE_COLUMNS.length - 1 ? "text-right" : ""}>
-                      {h}
-                    </th>
-                  ))}
+                <tr className="border-b border-line bg-surface-2">
+                  <th scope="col" className={th}>Aircraft category</th>
+                  <th scope="col" className={`${th} border-l border-line`}>On-demand market</th>
+                  <th scope="col" className={`${th} border-l border-line`}>Card rate / hour</th>
                 </tr>
               </thead>
               <tbody>
                 {RATES.map((r) => (
-                  <tr key={r.category}>
-                    <td className="font-serif text-[22px] leading-[1.2]">{r.category}</td>
-                    <td className="text-bone-2">
-                      {plainMission(r.mission)}
-                      <span className="block text-[14px] text-steel">e.g. {plainSample(r.sample)}</span>
-                    </td>
-                    <td className="text-bone-2">{r.market}</td>
-                    <td className="text-right text-[19px] font-medium">{plainRate(r.locked)}</td>
+                  <tr key={r.category} className="border-b border-line last:border-b-0">
+                    <td className={td}>{r.category}</td>
+                    <td className={`${td} border-l border-line text-steel`}>{plainRate(r.market)}</td>
+                    <td className={`${td} border-l border-line font-bold`}>{plainRate(r.locked)}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
-        </div>
-        <p className="mt-3 text-[14px] text-steel">Rates reviewed quarterly · updated {RATES_UPDATED}</p>
-      </section>
-
-      {/* Card tiers */}
-      <section id="deposits" className="container-jn section-jn max-md:pt-20">
-        <p className="eyebrow">Card tiers</p>
-        <h2 className="title-section max-w-[22ch]">Three deposit levels. Same locked rates, more perks.</h2>
-        <p className="mt-4 max-w-[62ch] text-[18px] text-bone-2">
-          Higher deposits earn faster call-out, larger annual allowances, and elevated empty-leg
-          priority. The hourly rate is the same across tiers — what changes is the service envelope.
-        </p>
-        <div className="mt-8 grid grid-cols-1 gap-4 md:grid-cols-3">
-          {CARD_TIERS.map((t) => (
-            <article
-              key={t.name}
-              className={`card flex flex-col gap-4 p-8 max-md:p-6 ${t.highlight ? "card-selected" : ""}`}
-            >
-              <span className="text-[13px] font-semibold text-steel">{t.badge}</span>
-              <h3 className="font-serif text-[28px] font-normal leading-[1.15]">{t.name}</h3>
-              <div className="border-y border-line py-[18px]">
-                <div className="font-serif text-[40px] font-light leading-none">{t.deposit}</div>
-                <div className="mt-[6px] text-[14px] text-bone-2">Refundable deposit</div>
-              </div>
-              <ul className="flex flex-col gap-[10px] text-[15px]">
-                {t.items.map((it) => (
-                  <li key={it} className="grid grid-cols-[auto_1fr] gap-[10px]">
-                    <span className="text-clearance" aria-hidden="true">✓</span>
-                    <span>{it}</span>
-                  </li>
-                ))}
-              </ul>
-            </article>
-          ))}
+          <p className="mt-[10px] max-w-[60ch] text-[12px] text-steel">
+            Locked for 24 months from card activation. Includes everything except FET (7.5%, federal) and
+            private-terminal ramp fees. Rates reviewed quarterly · updated {RATES_UPDATED}.
+          </p>
+          <WindowButton
+            label="See what your quote should include →"
+            className="mt-3 cursor-pointer border-0 border-b border-gold bg-transparent p-0 pb-[2px] font-serif text-[16px] text-gold"
+          >
+            <PricingWindow />
+          </WindowButton>
         </div>
       </section>
 
-      {/* Availability commitment */}
-      <section className="container-jn section-jn max-md:pt-20">
-        <p className="eyebrow">Availability commitment</p>
-        <h2 className="title-section max-w-[22ch]">If we don&rsquo;t deliver, we make it right.</h2>
-        <p className="mt-4 max-w-[64ch] text-[18px] text-bone-2">
-          Guaranteed call-out is a commitment, not a marketing line. If we can&rsquo;t put an aircraft
-          in the air for you within your tier&rsquo;s window, here&rsquo;s what happens.
+      {/* Tiers */}
+      <section id="deposits" className="container-jn scroll-mt-[var(--header-h)] pt-9">
+        <h2 className="font-serif text-[clamp(32px,7vw,40px)] leading-[1.1]">The right level of service.</h2>
+        <div className="mt-[18px] overflow-x-auto border border-line bg-white" tabIndex={0} role="region" aria-label="JetNine Card tiers">
+          <table className="w-full min-w-[560px] border-collapse text-[14px]">
+            <thead>
+              <tr className="border-b border-line bg-surface-2 text-[13px]">
+                <th scope="col" className={th}>Tier</th>
+                <th scope="col" className={`${th} border-l border-line`}>Refundable deposit</th>
+                <th scope="col" className={`${th} border-l border-line`}>Call-out notice</th>
+                <th scope="col" className={`${th} border-l border-line`}>Rate lock</th>
+                <th scope="col" className={`${th} border-l border-line`}>Details</th>
+              </tr>
+            </thead>
+            <tbody>
+              {CARD_TIERS.map((t) => (
+                <tr key={t.key} className="border-b border-line last:border-b-0">
+                  <td className={td}>{t.name}</td>
+                  <td className={`${td} border-l border-line`}>{t.deposit}</td>
+                  <td className={`${td} border-l border-line`}>{t.notice}</td>
+                  <td className={`${td} border-l border-line`}>{t.lock}</td>
+                  <td className="border-l border-line px-[14px] py-1">
+                    <WindowButton
+                      label="View benefits →"
+                      className="min-h-9 border-0 bg-transparent p-0 text-left text-[14px] text-gold underline decoration-line underline-offset-4"
+                      title="JetNine Card"
+                      variant="drawer"
+                    >
+                      <CardTiersWindow initial={t.key} />
+                    </WindowButton>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <p className="mt-2 text-[12px] text-steel">
+          Higher deposits earn faster call-out, larger annual allowances and elevated empty-leg priority. The hourly
+          rate is the same across tiers. Availability and refund conditions apply as defined in the agreement.
         </p>
-        <div className="mt-8 grid grid-cols-1 gap-4 md:grid-cols-2">
-          {AVAILABILITY.map((a) => (
-            <div
-              key={a.title}
-              className="card grid grid-cols-[1fr_auto] items-start gap-4 px-7 py-6 max-md:px-5"
+        <div className="mt-4 grid gap-4 [grid-template-columns:repeat(auto-fit,minmax(min(100%,220px),1fr))]">
+          {TERMS.map((t) => (
+            <WindowButton
+              key={t.title}
+              label={
+                <span className="flex w-full items-center justify-between gap-3">
+                  <span>{t.title}</span>
+                  <span aria-hidden="true" className="text-[20px] text-gold">+</span>
+                </span>
+              }
+              className="flex min-h-[48px] w-full items-center border border-line bg-white px-4 py-3 text-left font-serif text-[16px] text-bone hover:border-gold"
+              title={t.heading}
+              variant="drawer"
             >
-              <div>
-                <h3 className="text-[20px] font-medium leading-[1.3]">{a.title}</h3>
-                <p className="mt-1 text-[15px] text-bone-2">{a.sub}</p>
-              </div>
-              <span className="whitespace-nowrap text-[14px] font-semibold text-gold">{a.val}</span>
-            </div>
+              {t.body}
+            </WindowButton>
           ))}
         </div>
       </section>
 
       {/* FAQ */}
-      <section id="faq" className="container-jn section-jn max-md:pt-20">
-        <p className="eyebrow">FAQ</p>
-        <h2 className="title-section max-w-[24ch]">The questions most card prospects ask.</h2>
-        <FaqAccordion items={FAQ} className="mt-8 max-w-[820px]" />
+      <section id="faq" className="container-jn grid scroll-mt-[var(--header-h)] items-start gap-10 pb-9 pt-9 [grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr))]">
+        <div>
+          <h2 className="font-serif text-[clamp(32px,7vw,40px)] leading-[1.1]">A few good questions.</h2>
+          <div aria-hidden className="mt-[14px] h-[2px] w-8 bg-gold" />
+        </div>
+        <FaqList items={FAQ} tone="serif" joined />
       </section>
 
       <CtaBand
-        title="Talk to dispatch. We'll model the right program for you."
-        body="Annual hours, typical lanes, peak-day exposure — fifteen minutes on the phone and we'll show you which program saves you money in writing."
+        className="!mt-0"
+        imageSrc="/images/light/wing-clouds.webp"
+        imagePosition="right center"
+        title="Build the right plan for your year."
+        body="Start with your routes, hours and notice requirements."
+        primary={{ label: "Request a program comparison", href: "/contact?subject=card" }}
+        secondary={{ label: `Call ${SITE.dispatchPhone}`, href: `tel:${SITE.dispatchPhoneE164}` }}
       />
     </>
   );

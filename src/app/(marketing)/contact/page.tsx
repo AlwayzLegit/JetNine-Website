@@ -1,10 +1,11 @@
-import Image from "next/image";
+import Link from "next/link";
 import type { Metadata } from "next";
 import { pageMetadata } from "@/lib/page-meta";
-import { PageHero } from "@/components/page-hero";
-import { CtaBand } from "@/components/cta-band";
 import { ContactForm } from "@/components/contact-form";
 import { DeskClock } from "@/components/contact/desk-clock";
+import { SplitHero } from "@/components/company/split-hero";
+import { FaqList } from "@/components/company/faq-list";
+import { Icon, type IconName } from "@/components/company/icons";
 import { SITE } from "@/lib/constants";
 
 export const metadata: Metadata = pageMetadata({
@@ -15,68 +16,6 @@ export const metadata: Metadata = pageMetadata({
 });
 
 const DISPATCH_EMAIL = "dispatch@jetnine.com";
-const HQ_ADDRESS = `${SITE.address.line1}, ${SITE.address.cityState}`;
-const DIRECTIONS_URL = `https://maps.google.com/?q=${encodeURIComponent(HQ_ADDRESS)}`;
-
-const CHANNELS = [
-  {
-    tag: "Fastest",
-    title: "Call the dispatch line.",
-    body: "Senior dispatcher picks up. Average call to first specific aircraft quote: under 30 minutes.",
-    big: SITE.dispatchPhone,
-    href: `tel:${SITE.dispatchPhoneE164}`,
-    meta: "24/7/365 · picks up in under 20 seconds",
-    primary: true,
-  },
-  {
-    tag: "Email",
-    title: "Email dispatch.",
-    body: "Best for non-urgent quotes & multi-leg trips you want to think through.",
-    big: DISPATCH_EMAIL,
-    href: `mailto:${DISPATCH_EMAIL}`,
-    meta: "Reply under 30 min in business hours · under 2 h after",
-    primary: false,
-  },
-  {
-    tag: "Text",
-    title: "Text the desk.",
-    body: "For existing clients with a confirmed dispatcher. Same number as the phone line.",
-    big: SITE.dispatchPhone,
-    href: `sms:${SITE.dispatchPhoneE164}`,
-    meta: "Reply under 5 min · escalates automatically after 15",
-    primary: false,
-  },
-];
-
-const SIDE_NOTES = [
-  {
-    k: "What we'll come back with",
-    v: "Three to five specific aircraft, all-in pricing, photos, operator standing.",
-  },
-  {
-    k: "What we won't do",
-    v: "Pass your details to operators, run promotional sequences, or share your inquiry with anyone outside the dispatch desk.",
-  },
-];
-
-const REGIONS = [
-  {
-    title: "North America · West",
-    cities: "Los Angeles · San Francisco · Seattle · Las Vegas · Aspen · Scottsdale",
-  },
-  { title: "North America · East", cities: "New York (Teterboro, JFK) · Boston · Miami · Washington" },
-  { title: "Europe", cities: "London (Luton, Farnborough) · Paris · Geneva · Rome" },
-  { title: "Asia & Middle East", cities: "Tokyo · Osaka · Dubai · Hong Kong · Singapore" },
-];
-
-const HQ_ROWS = [
-  ["Address", HQ_ADDRESS],
-  ["Phone", `${SITE.dispatchPhone} · 24 / 7`],
-  ["Email", DISPATCH_EMAIL],
-  ["Visits", "By appointment · same-day usually OK"],
-  ["Press", "press@jetnine.com"],
-] as const;
-
 // LocalBusiness JSON-LD. Schema.org subtype for a brick-and-mortar
 // or local-service-area business. Reinforces Organization on the root
 // layout with the specifically-local context — address, phone,
@@ -123,6 +62,36 @@ const localBusinessJsonLd = {
   ],
 };
 
+const CHANNELS: { title: string; value: string; note: string; href: string; icon: IconName }[] = [
+  { title: "Call JetNine", value: SITE.dispatchPhone, note: "For a conversation or a time-sensitive trip request. Staffed 24/7.", href: `tel:${SITE.dispatchPhoneE164}`, icon: "phone" },
+  { title: "Email the team", value: DISPATCH_EMAIL, note: "Send your itinerary or question in writing.", href: `mailto:${DISPATCH_EMAIL}`, icon: "mail" },
+];
+
+const AFTER = [
+  ["01", "Clarify your trip", "Discuss your route, timing and priorities."],
+  ["02", "Review the options", "Review aircraft, operating carrier, pricing and terms."],
+  ["03", "Confirm your booking", "Complete the agreement and required payment steps."],
+];
+
+const HELPFUL: { title: string; href: string; icon: IconName }[] = [
+  { title: "How charter works", href: "/how-it-works", icon: "plane" },
+  { title: "Understand charter pricing", href: "/guides/private-jet-charter-cost", icon: "doc" },
+  { title: "Compare aircraft", href: "/aircraft", icon: "seat" },
+  { title: "Safety questions", href: "/safety", icon: "shield" },
+];
+
+const CHECKS: { org: string; title: string; body: string; link: string; url: string; icon: IconName }[] = [
+  { org: "FAA", title: "Verify the operating carrier", body: "Ask for the operator’s certificate and confirm that the aircraft is authorized for charter.", link: "Read FAA charter guidance", url: "https://www.faa.gov/about/initiatives/safecharteroperations/thinking-chartering-aircraft", icon: "plane" },
+  { org: "NBAA", title: "Review the complete quote", body: "Ask about the aircraft, total trip price, additional charges and cancellation terms.", link: "Open the charter checklist", url: "https://nbaa.org/flight-department-administration/aircraft-operating-ownership-options/aircraft-charter/request-for-proposals-aircraft-charter/", icon: "doc" },
+];
+
+const FAQ = [
+  { q: "Do I need to know which aircraft I want?", a: "No. Start with your route, dates, passenger count and baggage. These details help narrow the options." },
+  { q: "Does sending the form book my flight?", a: "No. A request starts a conversation. A flight is confirmed only after the agreement and the required steps are complete." },
+  { q: "How should I request a change to an existing trip?", a: "Call with your booking reference, especially close to departure. A change is not confirmed until it is acknowledged in writing." },
+];
+
+// Light - Contact (board 10).
 export default function ContactPage() {
   return (
     <>
@@ -132,157 +101,115 @@ export default function ContactPage() {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(localBusinessJsonLd) }}
       />
 
-      <PageHero
-        titleClassName="!max-w-[18ch]"
-        eyebrow="Contact dispatch"
-        title="One desk. One number. Open every hour of every day."
-        lead="A senior dispatcher will pick up — and stay on with you for the duration of the call. No phone tree, no hold music, no after-hours voicemail."
-      >
-        {/* Live status pill — desk is staffed around the clock, so the
-            dot is always on; the clock is the verifiably live part. */}
-        <p className="mt-7 inline-flex min-h-[40px] flex-wrap items-center gap-x-3 gap-y-1 rounded-[20px] border border-line bg-surface px-4 py-1.5 text-[14px] text-bone-2">
-          <span className="dot dot-success" aria-hidden="true" />
-          <span>
-            Dispatch desk open now · average pick-up under 20 seconds · <DeskClock />
-          </span>
-        </p>
-      </PageHero>
+      <SplitHero
+        tone="sand"
+        minHeight={300}
+        crumbs={[{ label: "Home", href: "/" }, { label: "Contact" }]}
+        eyebrow="Let’s plan your next flight"
+        title="Contact JetNine"
+        subtitle={<span className="block font-serif text-[clamp(26px,6vw,34px)]">Start with a conversation.</span>}
+        body={
+          <>
+            <p className="max-w-[56ch]">Request a charter quote, ask a question or get help with an existing trip.</p>
+            <p className="mt-3 inline-flex flex-wrap items-center gap-x-2 text-[13px] text-steel">
+              <span className="dot dot-success" aria-hidden="true" />
+              Dispatch desk open now · <DeskClock />
+            </p>
+          </>
+        }
+        imageSrc="/images/light/reception-marble-walnut.webp"
+      />
 
       {/* Channels */}
-      <section className="container-jn pt-12">
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.4fr_1fr_1fr]">
-          {CHANNELS.map((c) => (
-            <a
-              key={c.tag}
-              href={c.href}
-              className={[
-                "card card-pad flex flex-col gap-3",
-                c.primary ? "card-selected" : "",
-              ].join(" ")}
-            >
-              <span className={`label-jn ${c.primary ? "text-gold" : ""}`}>{c.tag}</span>
-              <h2 className="title-card">{c.title}</h2>
-              <p className="text-bone-2">{c.body}</p>
-              <div
-                className={[
-                  "mt-auto pt-3 font-serif font-light leading-[1.1] text-bone break-all",
-                  c.primary ? "text-[36px] max-md:text-[30px]" : "text-[26px]",
-                ].join(" ")}
-                style={{ fontVariationSettings: '"opsz" 144' }}
-              >
-                {c.big}
+      <section className="container-jn grid gap-4 pt-[22px] [grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr))]">
+        {CHANNELS.map((c) => (
+          <a
+            key={c.title}
+            href={c.href}
+            className="flex items-center gap-[18px] border border-line bg-surface px-[22px] py-5 transition-colors hover:border-gold max-sm:px-4"
+          >
+            <span className="flex h-[46px] w-[46px] flex-none items-center justify-center rounded-full bg-navy">
+              <Icon name={c.icon} className="h-5 w-5" stroke="#FFFFFF" strokeWidth={1.5} />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-[14px] text-steel">{c.title}</span>
+              <span className="block break-words font-serif text-[22px] leading-[1.2]">{c.value}</span>
+              <span className="mt-1 block text-[13px] text-steel">{c.note}</span>
+            </span>
+            <span aria-hidden="true" className="text-[20px]">→</span>
+          </a>
+        ))}
+      </section>
+
+      <ContactForm email={DISPATCH_EMAIL} />
+
+      {/* After you send */}
+      <section className="container-jn pt-[30px]">
+        <h2 className="font-serif text-[28px] leading-[1.1]">After you send your request</h2>
+        <ol className="mt-[14px] flex list-none flex-wrap items-center gap-5 p-0">
+          {AFTER.map(([n, title, body], i) => (
+            <li key={n} className="contents">
+              <div className="flex min-w-0 flex-[1_1_180px] items-center gap-4">
+                <span className="flex h-[50px] w-[50px] flex-none items-center justify-center rounded-full border border-gold font-serif text-[17px] text-gold">
+                  {n}
+                </span>
+                <div>
+                  <div className="text-[15px] font-bold">{title}</div>
+                  <div className="text-[13px] text-steel">{body}</div>
+                </div>
               </div>
-              <div className="text-[14px] text-steel">{c.meta}</div>
-            </a>
+              {i < AFTER.length - 1 ? (
+                <span aria-hidden="true" className="text-[22px] text-gold max-sm:hidden">→</span>
+              ) : null}
+            </li>
+          ))}
+        </ol>
+        <p className="mt-[10px] text-center text-[12px] text-steel">Availability and final arrangements are subject to confirmation.</p>
+      </section>
+
+      {/* Helpful */}
+      <section className="container-jn pt-[26px]">
+        <h2 className="font-serif text-[28px] leading-[1.1]">Helpful before you book</h2>
+        <div className="mt-3 grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(min(100%,180px),1fr))]">
+          {HELPFUL.map((h) => (
+            <Link key={h.href} href={h.href} className="flex items-center gap-3 border border-line bg-surface px-4 py-[14px] transition-colors hover:border-gold">
+              <Icon name={h.icon} className="h-6 w-6" />
+              <span className="flex-1 text-[14px]">{h.title}</span>
+              <span aria-hidden="true">→</span>
+            </Link>
           ))}
         </div>
       </section>
 
-      {/* In writing */}
-      <section className="container-jn section-jn max-md:pt-20">
-        <p className="eyebrow">Or, in writing</p>
-        <h2 className="title-section max-w-[26ch]">Tell us the route. We&rsquo;ll be in touch.</h2>
-        <div className="mt-8 grid grid-cols-1 items-start gap-6 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
-          <div className="card card-pad max-md:p-5">
-            <ContactForm />
-          </div>
-          <div className="flex flex-col gap-4">
-            <p className="text-[17px] text-bone-2">
-              If you&rsquo;d rather start with a few lines of context, drop them here. Same
-              dispatcher will reach out within thirty minutes during business hours, two hours
-              after.
-            </p>
-            {SIDE_NOTES.map((n) => (
-              <div key={n.k} className="card px-6 py-5">
-                <div className="label-jn text-gold">{n.k}</div>
-                <p className="mt-1.5 text-bone-2">{n.v}</p>
+      {/* Independent checks */}
+      <section className="mt-[26px] border-y border-line bg-surface-2">
+        <div className="container-jn pb-[22px] pt-5">
+          <h2 className="font-serif text-[26px] leading-[1.1]">Two useful independent checks.</h2>
+          <div className="mt-3 grid gap-[14px] [grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr))]">
+            {CHECKS.map((c) => (
+              <div key={c.org} className="grid grid-cols-[40px_minmax(0,1fr)] gap-4 border border-line bg-surface px-[18px] py-4">
+                <Icon name={c.icon} className="h-[30px] w-[30px]" />
+                <div>
+                  <div className="text-[14px]">
+                    <span className="font-serif text-gold">{c.org}</span> <span className="text-gold">/</span> <b>{c.title}</b>
+                  </div>
+                  <p className="mb-2 mt-1 text-[13px] leading-[1.45] text-steel">{c.body}</p>
+                  <a href={c.url} target="_blank" rel="noopener noreferrer" className="rule-link !font-sans !text-[13px]">
+                    {c.link} ↗
+                  </a>
+                </div>
               </div>
             ))}
-            <div className="card px-6 py-5">
-              <div className="label-jn text-gold">Prefer a faster path?</div>
-              <p className="mt-1.5 text-bone-2">
-                Call{" "}
-                <a href={`tel:${SITE.dispatchPhoneE164}`} className="text-link-strong">
-                  {SITE.dispatchPhone}
-                </a>{" "}
-                — same desk.
-              </p>
-            </div>
           </div>
+          <p className="mt-[10px] text-center text-[12px] text-steel">Independent sources. Links do not imply endorsement.</p>
         </div>
       </section>
 
-      {/* Regions */}
-      <section className="container-jn section-jn max-md:pt-20">
-        <p className="eyebrow">Regional dispatchers</p>
-        <h2 className="title-section max-w-[26ch]">
-          A dedicated dispatcher per region of the network.
-        </h2>
-        <p className="mt-4 max-w-[64ch] text-[18px] text-bone-2">
-          Local airport knowledge, customs &amp; permitting expertise, fluent in the language and
-          time zone. They route calls inside the desk so you talk to the right person on the first
-          try.
-        </p>
-        <div className="mt-8 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-          {REGIONS.map((r) => (
-            <div key={r.title} className="card px-7 py-6">
-              <h3 className="text-[20px] font-medium leading-[1.2] text-bone">{r.title}</h3>
-              <p className="mt-2.5 text-[15px] text-bone-2">{r.cities}</p>
-            </div>
-          ))}
-        </div>
+      {/* FAQ */}
+      <section className="container-jn pb-[26px] pt-[22px]">
+        <h2 className="font-serif text-[26px] leading-[1.1]">Before you get in touch</h2>
+        <FaqList className="mt-3" items={FAQ} marks={["﹀", "︿"]} />
       </section>
-
-      {/* HQ */}
-      <section className="container-jn section-jn max-md:pt-20">
-        <div className="grid grid-cols-1 items-center gap-12 max-md:gap-8 lg:grid-cols-[1fr_1.2fr]">
-          <div>
-            <p className="eyebrow">Headquarters</p>
-            <h2 className="title-section max-w-[22ch]">
-              Van Nuys. Ten minutes from the private terminals at Van Nuys Airport.
-            </h2>
-            <p className="mt-4 max-w-[56ch] text-[18px] text-bone-2">
-              One office, one desk. Visitors welcome by appointment — most clients fly through Van
-              Nuys at some point and stop in to meet the dispatcher who handles their flights.
-            </p>
-            <dl className="card mt-7 px-6 py-2">
-              {HQ_ROWS.map(([k, v]) => (
-                <div
-                  key={k}
-                  className="grid grid-cols-[120px_1fr] gap-4 border-b border-line-faint py-3.5 text-[15px] last:border-b-0 max-md:grid-cols-1 max-md:gap-1"
-                >
-                  <dt className="text-steel">{k}</dt>
-                  <dd className="text-bone">{v}</dd>
-                </div>
-              ))}
-            </dl>
-          </div>
-          <div className="relative aspect-[4/3] overflow-hidden rounded-card bg-surface-2">
-            <Image
-              src="/images/about/dispatch-room.webp"
-              alt="The JetNine dispatch room in Van Nuys."
-              fill
-              sizes="(max-width: 1024px) 100vw, 640px"
-              className="object-cover"
-            />
-            <a
-              href={DIRECTIONS_URL}
-              target="_blank"
-              rel="noopener"
-              className="btn btn-secondary absolute bottom-5 left-5 bg-white"
-            >
-              Directions <span aria-hidden="true">↗</span>
-            </a>
-          </div>
-        </div>
-      </section>
-
-      <CtaBand
-        title="Easiest path: pick up the phone."
-        body="Senior dispatcher answers. Same one for the life of the trip."
-        primary={{ label: SITE.dispatchPhone, href: `tel:${SITE.dispatchPhoneE164}` }}
-        secondary={{ label: "Request a quote", href: "/quote/mission" }}
-      />
     </>
   );
 }

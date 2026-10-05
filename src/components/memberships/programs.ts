@@ -83,3 +83,68 @@ export const SUGGESTION: Record<ProgramKey, string> = {
   card: "The JetNine Card pays for itself in locked rates.",
   reserve: "Reserve — guaranteed call-out and a dedicated dispatcher.",
 };
+
+// Card tiers. Numbers mirror src/lib/memberships.ts (deposit, call-out
+// hours, rate-lock months, allowances, cardholder limits, empty-leg
+// window). Owner confirmation of the three tiers is still pending —
+// do not change figures here without it.
+export type CardTier = {
+  key: "card_100" | "card_250" | "card_500";
+  badge: string;
+  name: string;
+  deposit: string;
+  notice: string;
+  lock: string;
+  items: string[];
+};
+
+export const CARD_TIERS: CardTier[] = [
+  {
+    key: "card_100",
+    badge: "Tier 01 · Base",
+    name: "Card · 100",
+    deposit: "$100,000",
+    notice: "72 hours",
+    lock: "24 months",
+    items: [
+      "Locked hourly rates for 24 months",
+      "72-hour guaranteed call-out",
+      "$2,500 catering allowance / year",
+      "Standard empty-leg watchlist access",
+      "One named cardholder",
+    ],
+  },
+  {
+    key: "card_250",
+    badge: "Tier 02 · Preferred",
+    name: "Card · 250",
+    deposit: "$250,000",
+    notice: "48 hours",
+    lock: "24 months",
+    items: [
+      "Locked hourly rates for 24 months",
+      "48-hour guaranteed call-out",
+      "$8,000 catering & ground allowance / year",
+      "Priority empty-leg access — 30 min advance window",
+      "Up to three named cardholders",
+      "Direct dispatcher cell number",
+    ],
+  },
+  {
+    key: "card_500",
+    badge: "Tier 03 · Elite",
+    name: "Card · 500",
+    deposit: "$500,000",
+    notice: "24 hours",
+    lock: "36 months",
+    items: [
+      "Locked hourly rates for 36 months",
+      "24-hour guaranteed call-out",
+      "$20,000 catering & ground allowance / year",
+      "First-look empty-leg access — 60 min advance window",
+      "Unlimited named cardholders & dependents",
+      "Annual safety briefing & aircraft selection consultation",
+      "Path to Reserve qualification",
+    ],
+  },
+];

@@ -1,9 +1,8 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { pageMetadata } from "@/lib/page-meta";
-import { PageHero } from "@/components/page-hero";
-import { CtaBand } from "@/components/cta-band";
-import { SITE } from "@/lib/constants";
+import { FaqList } from "@/components/company/faq-list";
+import { DisclosureStrip, GoDeeper, SafetyClose, SafetyHero, SourcesRow } from "@/components/safety/parts";
 
 // Safety cluster subpage — expands the /safety pillar's vetting funnel
 // into a standalone page. Every figure here comes from the pillar
@@ -97,65 +96,56 @@ export default function OperatorVettingPage() {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }}
       />
 
-      <PageHero
-        eyebrow="Safety · operator vetting"
+      <SafetyHero
+        crumbs={[{ label: "Home", href: "/" }, { label: "Safety", href: "/safety" }, { label: "Operator vetting" }]}
         title="5,000 operators go in. 380 come out."
-        lead="A charter broker's real product is the operators it says no to. This is the funnel every aircraft on a JetNine quote has already passed — and keeps passing, every twelve months."
+        subtitle="How JetNine vets private jet operators."
+        body="A charter broker’s real product is the operators it says no to. This is the funnel every aircraft on a JetNine quote has already passed — and keeps passing, every twelve months."
+        actions={
+          <>
+            <Link href="/quote/mission" className="btn h-[42px] border-gold bg-gold !text-[14px] !font-bold text-white hover:bg-[#6b4c2b]">
+              Request a quote →
+            </Link>
+            <Link href="/safety" className="btn h-[42px] !border-bone bg-transparent !text-[14px] !font-bold text-bone hover:bg-surface-2">
+              The full safety standard
+            </Link>
+          </>
+        }
+        imageSrc="/images/light/six-02-maintenance-hangar.webp"
       />
+      <DisclosureStrip />
 
-      <section className="container-jn pt-12">
-        <ol className="flex flex-col gap-4">
+      <section className="container-jn pt-7">
+        <h2 className="font-serif text-[32px] leading-[1.1]">Five stages, every operator.</h2>
+        <p className="mt-1 text-[15px] text-steel">The network&rsquo;s published funnel, re-run every twelve months.</p>
+        <ol className="mt-[14px] flex list-none flex-col border border-line bg-white p-0">
           {STAGES.map((s) => (
-            <li
-              key={s.num}
-              className="card grid grid-cols-1 gap-5 p-7 max-md:p-5 lg:grid-cols-[64px_220px_minmax(0,1fr)] lg:gap-8"
-            >
-              <span className="font-serif text-[36px] font-light leading-none text-clearance">
-                {s.num}
-              </span>
+            <li key={s.num} className="grid gap-x-8 gap-y-3 border-b border-line px-5 py-[18px] last:border-b-0 lg:grid-cols-[56px_200px_minmax(0,1fr)] max-sm:px-4">
+              <span className="font-serif text-[34px] leading-none text-gold">{s.num}</span>
               <div>
-                <div className="font-serif text-[36px] font-light leading-none tracking-tight text-bone">
-                  {s.count}
-                </div>
-                <div className="label-jn mt-2">{s.name}</div>
+                <div className="font-serif text-[32px] leading-none">{s.count}</div>
+                <div className="mt-2 text-[13px] font-bold">{s.name}</div>
               </div>
-              <p className="max-w-[64ch] text-[16px] leading-[1.6] text-bone-2">{s.body}</p>
+              <p className="max-w-[64ch] text-[14px] leading-[1.6] text-steel">{s.body}</p>
             </li>
           ))}
         </ol>
-        <p className="mt-8 max-w-[70ch] text-[16px] leading-[1.6] text-bone-2">
-          The written floor behind these filters — certification, audit standing, pilot
-          qualification, insurance, maintenance, safety record, operator stability — is published
-          in full on the{" "}
-          <Link href="/safety" className="text-link-strong">
-            safety standards page
-          </Link>
-          . What the certifications themselves mean is on{" "}
-          <Link href="/safety/ratings-explained" className="text-link-strong">
-            ratings, explained
-          </Link>
-          .
+        <p className="mt-4 max-w-[70ch] text-[14px] leading-[1.6] text-steel">
+          The written floor behind these filters — certification, audit standing, pilot qualification, insurance, maintenance, safety
+          record, operator stability — is published in full on the{" "}
+          <Link href="/safety#standard" className="text-link text-bone">safety standards page</Link>. What the certifications themselves
+          mean is on <Link href="/safety/ratings-explained" className="text-link text-bone">ratings, explained</Link>.
         </p>
       </section>
 
-      <section className="container-jn section-jn max-md:pt-20">
-        <h2 className="eyebrow">Asked about vetting</h2>
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-          {FAQ.map((f) => (
-            <div key={f.q} className="card card-pad">
-              <h3 className="title-card-sm text-bone">{f.q}</h3>
-              <p className="mt-3 text-[15px] leading-[1.6] text-bone-2">{f.a}</p>
-            </div>
-          ))}
-        </div>
+      <section className="container-jn pt-[30px]">
+        <h2 className="font-serif text-[32px] leading-[1.1]">Asked about vetting.</h2>
+        <FaqList className="mt-3" joined items={FAQ} />
       </section>
 
-      <CtaBand
-        title="Fly the 380, not the 5,000."
-        body="Every quote we return is an aircraft that already passed this page. Price a trip and see."
-        primary={{ label: "Request a quote", href: "/quote/mission" }}
-        secondary={{ label: "Call dispatch", href: `tel:${SITE.dispatchPhoneE164}` }}
-      />
+      <SourcesRow />
+      <GoDeeper current="/safety/operator-vetting" />
+      <SafetyClose title="Fly the 380, not the 5,000." label="Request a quote" />
     </>
   );
 }

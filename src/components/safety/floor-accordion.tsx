@@ -39,7 +39,7 @@ export function FloorAccordion({ items }: { items: FloorItem[] }) {
             <div
               id={panelId}
               hidden={!isOpen}
-              className="grid gap-6 pb-6 md:grid-cols-[180px_minmax(0,1fr)]"
+              className="grid gap-6 pb-6 md:grid-cols-[180px_minmax(0,1fr)] [&[hidden]]:!hidden"
             >
               <span aria-hidden="true" className="max-md:hidden" />
               <div>

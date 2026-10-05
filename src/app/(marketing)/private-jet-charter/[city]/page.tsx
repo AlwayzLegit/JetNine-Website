@@ -2,7 +2,9 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { CtaBand } from "@/components/cta-band";
-import { ProofStrip } from "@/components/proof-strip";
+import { EdgeHero } from "@/components/company/edge-hero";
+import { FaqList } from "@/components/company/faq-list";
+import { NextStep, TripBrief } from "@/components/charter/sections";
 import { DeskNotes } from "@/components/desk-notes";
 import { QuoteLauncher, RouteQuoteLink } from "@/components/quote-launcher";
 import { RateTable } from "@/components/rate-table";
@@ -25,6 +27,9 @@ import { SITE } from "@/lib/constants";
 // engine, the published rate card, operational FAQs, and the internal
 // chain city → route pages → category/model pages. Scoped to the deep
 // top markets; the registry grows only after these index.
+// Markets with a photo in public/images/light/<slug>.webp.
+const CITY_PHOTOS = new Set(["los-angeles", "new-york", "miami", "las-vegas", "san-francisco", "aspen"]);
+
 type RouteParams = { params: Promise<{ city: string }> };
 
 // Blog band is DB-backed: regenerate hourly so new posts surface without a deploy.
@@ -184,6 +189,8 @@ export default async function CityPage({ params }: RouteParams) {
     })),
   };
 
+  const photo = CITY_PHOTOS.has(city.slug) ? `/images/light/${city.slug}.webp` : "/images/light/boarding-golden-hour.webp";
+
   return (
     <>
       {[...airportJsonLd, serviceJsonLd, breadcrumbJsonLd, faqJsonLd].filter(Boolean).map((json, i) => (
@@ -195,193 +202,151 @@ export default async function CityPage({ params }: RouteParams) {
         />
       ))}
 
-      {/* ─── Header ─── */}
-      <header className="bg-ink pt-[96px] pb-4 max-md:pt-14">
-        <div className="container-jn grid items-end gap-10 lg:grid-cols-[1.4fr_1fr]">
-          <div>
-            <p className="eyebrow">
-              <Link href="/private-jet-charter" className="tap-pad transition-colors hover:text-bone">
-                Charter by city
-              </Link>
-              <span aria-hidden> · </span>
-              {city.state}
+      {/* ─── Hero ─── */}
+      <EdgeHero
+        crumbs={[{ label: "Home", href: "/" }, { label: "Charter", href: "/private-jet-charter" }, { label: city.name }]}
+        title={<span className="[text-wrap:balance]">Private jet charter, {city.name}.</span>}
+        body={<p>{city.lead}</p>}
+        imageSrc={photo}
+        caption={CITY_PHOTOS.has(city.slug) ? "Illustrative imagery" : null}
+      >
+        {cheapest ? (
+          <div className="mt-6 max-w-[460px] border border-line bg-white p-5">
+            <p className="text-[12px] uppercase tracking-[0.14em] text-gold">
+              Departing {city.primary.name} ({city.primary.iata}) · whole aircraft · all-in
             </p>
-            <h1 className="title-page max-w-[16ch] !text-[clamp(40px,5.5vw,64px)]">
-              Private jet charter, {city.name}.
-            </h1>
-            <p className="lead mt-5 max-w-[58ch]">{city.lead}</p>
-          </div>
-          {cheapest ? (
-            <div className="card card-pad max-md:p-5">
-              <p className="label-jn">
-                Departing {city.primary.name} ({city.primary.iata}) · whole aircraft · all-in
-              </p>
-              <div className="mt-4 font-serif text-[44px] font-light leading-none tracking-tight text-bone max-md:text-[36px]">
-                From {formatUSD(cheapest.low)}
-              </div>
-              <p className="mt-3 text-[15px] text-bone-2">
-                {city.name} to {cheapest.to.city} · {cheapest.category.toLowerCase()} · about {cheapest.hours}
-              </p>
-              <div className="mt-6 border-t border-line pt-5">
-                <RouteQuoteLink
-                  from={city.primary.iata}
-                  to={cheapest.to.iata}
-                  category={cheapest.categorySlug}
-                  pax={4}
-                  label="Get the exact number"
-                  className="btn btn-primary btn-lg max-md:w-full"
-                />
-              </div>
+            <div className="mt-3 font-serif text-[40px] leading-none max-sm:text-[34px]">From {formatUSD(cheapest.low)}</div>
+            <p className="mt-2 text-[14px] text-steel">
+              {city.name} to {cheapest.to.city} · {cheapest.category.toLowerCase()} · about {cheapest.hours}
+            </p>
+            <div className="mt-4 flex flex-wrap items-center gap-3 border-t border-line pt-4">
+              <RouteQuoteLink
+                from={city.primary.iata}
+                to={cheapest.to.iata}
+                category={cheapest.categorySlug}
+                pax={4}
+                label="Get the exact number"
+                className="btn h-[42px] border-gold bg-gold !text-[14px] !font-bold text-white hover:bg-[#6b4c2b] max-sm:w-full"
+              />
+              <a href="#brief" className="text-link text-[14px]">
+                Prepare a trip brief
+              </a>
             </div>
-          ) : null}
-        </div>
-      </header>
+          </div>
+        ) : null}
+      </EdgeHero>
 
-      <div className="section-jn">
-        <ProofStrip />
-      </div>
+      <TripBrief city={city.name} />
 
       {/* ─── Airports ─── */}
-      <section className="section-jn">
-        <div className="container-jn">
-          <p className="eyebrow">The fields that matter</p>
-          <h2 className="title-section max-w-[26ch]">
-            {city.name}&rsquo;s charter airports, chosen for the drive.
-          </h2>
-          <div className="mt-8 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {city.airports.map((a) => (
-              <div key={a.airport.icao} className="card card-pad flex flex-col max-md:p-5">
-                <div className="flex items-start justify-between gap-4">
-                  <h3 className="title-card-sm text-bone">{a.airport.name}</h3>
-                  <span className="pill pill-outline shrink-0">{a.role}</span>
-                </div>
-                <dl className="dl-jn mt-4">
-                  <dt>Airport code</dt>
-                  <dd>
-                    {a.airport.iata}
-                    {a.airport.iata !== a.airport.icao ? ` · ${a.airport.icao}` : ""}
-                  </dd>
-                </dl>
-                <p className="mt-4 border-t border-line pt-4 text-[15px] leading-[1.6] text-bone-2">
-                  {a.drive}
-                </p>
-              </div>
-            ))}
-          </div>
+      <section className="container-jn pt-14 max-md:pt-10">
+        <p className="eyebrow !mb-0 !font-normal !tracking-[0.14em]">The fields that matter</p>
+        <h2 className="mt-[10px] font-serif text-[34px] leading-[1.1]">{city.name}&rsquo;s charter airports, chosen for the drive.</h2>
+        <div className="mt-6 grid gap-4 [grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr))]">
+          {city.airports.map((a) => (
+            <div key={a.airport.icao} className="flex flex-col border border-line-faint bg-white p-5">
+              <span className="text-[12px] uppercase tracking-[0.14em] text-gold">{a.role}</span>
+              <h3 className="mt-2 font-serif text-[22px] leading-[1.2]">{a.airport.name}</h3>
+              <p className="mt-1 text-[14px] font-bold">
+                {a.airport.iata}
+                {a.airport.iata !== a.airport.icao ? ` · ${a.airport.icao}` : ""}
+              </p>
+              <p className="mt-3 border-t border-line pt-3 text-[14px] leading-[1.55] text-steel">{a.drive}</p>
+            </div>
+          ))}
         </div>
       </section>
 
       {/* ─── Lanes, engine-priced ─── */}
-      <section className="section-jn">
-        <div className="container-jn">
-          <p className="eyebrow">Where {city.name} flies</p>
-          <h2 className="title-section max-w-[24ch]">The lanes, priced live.</h2>
-          <p className="mt-5 max-w-[66ch] text-[17px] leading-[1.55] text-bone-2">
-            One-way, whole-aircraft indicative ranges from {city.primary.name}, in the category the
-            wizard itself recommends per distance — computed by the same engine behind every quote.
-          </p>
-          <div className="card relative mt-8 overflow-x-auto">
-            <table className="table-jn min-w-[760px]">
-              <thead>
-                <tr>
-                  <th>Destination</th>
-                  <th>Distance</th>
-                  <th>Category</th>
-                  <th>Flight time</th>
-                  <th>All-in from</th>
-                  <th>
-                    <span className="sr-only">Quote</span>
-                  </th>
+      <section className="container-jn pt-14 max-md:pt-10">
+        <p className="eyebrow !mb-0 !font-normal !tracking-[0.14em]">Where {city.name} flies</p>
+        <h2 className="mt-[10px] font-serif text-[34px] leading-[1.1]">The lanes, priced live.</h2>
+        <p className="mt-3 max-w-[66ch] text-steel">
+          One-way, whole-aircraft indicative ranges from {city.primary.name}, in the category recommended for each distance — computed by
+          the same engine behind every quote.
+        </p>
+        <div className="relative mt-6 overflow-x-auto border border-line bg-white" tabIndex={0} role="region" aria-label={`Lanes from ${city.name} — scrolls sideways`}>
+          <table className="w-full min-w-[720px] border-collapse text-[14px]">
+            <thead>
+              <tr className="border-b border-line bg-surface-2 text-left">
+                <th className="px-4 py-[10px] font-bold">Destination</th>
+                <th className="px-4 py-[10px] font-bold">Distance</th>
+                <th className="px-4 py-[10px] font-bold">Category</th>
+                <th className="px-4 py-[10px] font-bold">Flight time</th>
+                <th className="px-4 py-[10px] font-bold">All-in from</th>
+                <th className="px-4 py-[10px]">
+                  <span className="sr-only">Quote</span>
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {lanes.map((l) => (
+                <tr key={l.to.icao} className="border-b border-line last:border-b-0">
+                  <td className="px-4 py-3">
+                    {l.routeHref ? (
+                      <Link href={l.routeHref} className="font-serif text-[18px] hover:text-gold">
+                        {l.to.city} <span aria-hidden>→</span>
+                      </Link>
+                    ) : (
+                      <span className="font-serif text-[18px]">{l.to.city}</span>
+                    )}
+                    <span className="block text-[13px] text-steel">
+                      {l.to.name} ({l.to.iata})
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 text-steel">{formatNm(l.nm)}</td>
+                  <td className="px-4 py-3 text-steel">{l.category}</td>
+                  <td className="px-4 py-3 text-steel">{l.hours}</td>
+                  <td className="px-4 py-3 font-bold">{formatUSD(l.low)}</td>
+                  <td className="px-4 py-3 text-right">
+                    <RouteQuoteLink
+                      from={city.primary.iata}
+                      to={l.to.iata}
+                      category={l.categorySlug}
+                      pax={4}
+                      label="Quote"
+                      className="btn btn-secondary btn-sm"
+                    />
+                  </td>
                 </tr>
-              </thead>
-              <tbody>
-                {lanes.map((l) => (
-                  <tr key={l.to.icao}>
-                    <td>
-                      {l.routeHref ? (
-                        <Link
-                          href={l.routeHref}
-                          className="font-serif text-[20px] tracking-tight text-bone transition-colors hover:text-clearance"
-                        >
-                          {l.to.city} <span aria-hidden>→</span>
-                        </Link>
-                      ) : (
-                        <span className="font-serif text-[20px] tracking-tight text-bone">{l.to.city}</span>
-                      )}
-                      <span className="mt-1 block text-[14px] text-steel">
-                        {l.to.name} ({l.to.iata})
-                      </span>
-                    </td>
-                    <td className="text-bone-2">{formatNm(l.nm)}</td>
-                    <td className="text-bone-2">{l.category}</td>
-                    <td className="text-bone-2">{l.hours}</td>
-                    <td className="font-medium text-bone">{formatUSD(l.low)}</td>
-                    <td className="text-right">
-                      <RouteQuoteLink
-                        from={city.primary.iata}
-                        to={l.to.iata}
-                        category={l.categorySlug}
-                        pax={4}
-                        label="Quote"
-                        className="btn btn-secondary btn-sm"
-                      />
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          <p className="mt-4 max-w-[72ch] text-[14px] leading-[1.6] text-steel">
-            Indicative, whole aircraft, including 7.5% FET. Exact aircraft confirmed by dispatch
-            within 30 minutes. The reverse direction prices identically.
-          </p>
+              ))}
+            </tbody>
+          </table>
         </div>
+        <p className="mt-3 max-w-[72ch] text-[13px] leading-[1.6] text-steel">
+          Indicative, whole aircraft, including 7.5% FET. Exact aircraft confirmed by dispatch within 30 minutes. The reverse direction
+          prices identically.
+        </p>
       </section>
 
       {/* ─── Rate card ─── */}
-      <section className="section-jn">
-        <div className="container-jn">
-          <p className="eyebrow">By the hour</p>
-          <h2 className="title-section max-w-[24ch]">The rate card behind every {city.name} quote.</h2>
-          <div className="mt-8">
-            <RateTable />
-          </div>
-        </div>
+      <section className="container-jn pt-14 max-md:pt-10">
+        <p className="eyebrow !mb-0 !font-normal !tracking-[0.14em]">By the hour</p>
+        <h2 className="mb-6 mt-[10px] font-serif text-[34px] leading-[1.1]">The rate card behind every {city.name} quote.</h2>
+        <RateTable />
       </section>
 
+      <NextStep />
+
       {/* ─── FAQ ─── */}
-      <section className="section-jn">
-        <div className="container-jn">
-          <h2 className="title-section max-w-[24ch]">Asked about flying {city.name}.</h2>
-          <div className="mt-8 grid grid-cols-1 gap-4 md:grid-cols-2">
-            {FAQ.map((f) => (
-              <div key={f.q} className="card card-pad max-md:p-5">
-                <h3 className="title-card-sm text-bone">{f.q}</h3>
-                <p className="mt-3 max-w-[62ch] text-[16px] leading-[1.6] text-bone-2">{f.a}</p>
-              </div>
-            ))}
-          </div>
-        </div>
+      <section className="container-jn pt-14 max-md:pt-10">
+        <h2 className="font-serif text-[34px] leading-[1.1]">Asked about flying {city.name}.</h2>
+        <FaqList className="mt-4" joined items={FAQ} />
       </section>
 
       {/* ─── Other markets — every city links every other city, so no
              market page depends on the hub alone for its inbound links. */}
-      <section className="section-jn">
-        <div className="container-jn">
-          <h2 className="title-section mb-8">Also flying from</h2>
-          <ul className="grid grid-cols-2 gap-x-8 gap-y-3 md:grid-cols-3 lg:grid-cols-5">
-            {CITIES.filter((c) => c.slug !== city.slug).map((c) => (
-              <li key={c.slug}>
-                <Link
-                  href={`/private-jet-charter/${c.slug}`}
-                  className="inline-flex min-h-[44px] items-center text-[15px] text-bone-2 transition-colors hover:text-bone"
-                >
-                  {c.name}
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </div>
+      <section className="container-jn pt-14 max-md:pt-10">
+        <h2 className="mb-4 font-serif text-[30px]">Also flying from</h2>
+        <ul className="grid list-none gap-x-8 p-0 [grid-template-columns:repeat(auto-fill,minmax(160px,1fr))]">
+          {CITIES.filter((c) => c.slug !== city.slug).map((c) => (
+            <li key={c.slug} className="border-b border-line-faint">
+              <Link href={`/private-jet-charter/${c.slug}`} className="flex min-h-[44px] items-center justify-between text-[15px] hover:text-gold">
+                {c.name} <span aria-hidden="true" className="text-gold">→</span>
+              </Link>
+            </li>
+          ))}
+        </ul>
       </section>
 
       <DeskNotes terms={[city.name, "cities", "airports"]} heading={`From the desk · ${city.name}`} />

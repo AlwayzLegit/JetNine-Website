@@ -8,9 +8,12 @@ import { quotes } from "@/db/schema/quotes";
  */
 
 /** Post-deploy smoke tests submit real quotes flagged by a "[SMOKE]" first name or a smoke+ email. */
+// coalesce: a missing name or email (e.g. a phone request before the
+// caller's name is taken) makes `ilike` NULL, and `not NULL` would hide
+// the row from every desk list.
 export const NOT_SMOKE: SQL = sql`not (
-  ${quotes.contactSnapshot}->>'firstName' ilike '[SMOKE]%'
-  or ${quotes.contactSnapshot}->>'email' ilike 'smoke+%'
+  coalesce(${quotes.contactSnapshot}->>'firstName' ilike '[SMOKE]%', false)
+  or coalesce(${quotes.contactSnapshot}->>'email' ilike 'smoke+%', false)
 )`;
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;

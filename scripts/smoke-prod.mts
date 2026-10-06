@@ -129,11 +129,35 @@ async function checkSitemap(): Promise<void> {
   });
 }
 
+// Which robots policy the target should serve. src/app/robots.ts gives
+// production the crawl rules plus a Sitemap: line, and previews a blanket
+// "Disallow: /" with no Sitemap: line (docs/robots.md). /api/health reports
+// the deployment's environment; anything but "preview" is held to the
+// production policy, so a production deploy can never pass while blocking
+// every crawler.
+async function targetEnv(): Promise<string | undefined> {
+  try {
+    const r = await fetchWithTimeout(`${TARGET}/api/health`);
+    return (JSON.parse(r.text) as { env?: string }).env;
+  } catch {
+    return undefined;
+  }
+}
+
 async function checkRobots(): Promise<void> {
+  const env = await targetEnv();
   await check("GET /robots.txt", "required", async () => {
     const r = await fetchWithTimeout(`${TARGET}/robots.txt`);
     if (r.status !== 200) return { ok: false, detail: `expected 200, got ${r.status}` };
-    if (!r.text.includes("Sitemap:")) return { ok: false, detail: "missing Sitemap: line" };
+    const blocksAll = /^Disallow:\s*\/\s*$/m.test(r.text);
+    const hasSitemap = /^Sitemap:/m.test(r.text);
+    if (env === "preview") {
+      if (!blocksAll) return { ok: false, detail: "preview must disallow all crawling" };
+      if (hasSitemap) return { ok: false, detail: "preview must not advertise a sitemap" };
+      return { ok: true, detail: "preview policy · Disallow: /" };
+    }
+    if (!hasSitemap) return { ok: false, detail: "missing Sitemap: line" };
+    if (blocksAll) return { ok: false, detail: "production robots blocks all crawling" };
     if (!r.text.includes("Allow") && !r.text.includes("Disallow")) {
       return { ok: false, detail: "missing Allow/Disallow rules" };
     }

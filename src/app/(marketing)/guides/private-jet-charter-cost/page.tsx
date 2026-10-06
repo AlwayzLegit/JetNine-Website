@@ -22,9 +22,9 @@ import { AutoGrid, Icon, type IconName } from "@/components/guide-long/ui";
 // on this page comes from the shared rate card, the published itemized
 // sample, or the quote engine.
 export const metadata: Metadata = pageMetadata({
-  title: "How Much Does a Private Jet Cost? (2026)",
+  title: "Private Jet Charter Cost — Rates, Fees & Examples",
   description:
-    "Straight answer with real rates: $3,200–$11,200/hr by category, an itemized $47,260 coast-to-coast quote, per-passenger math, and how to pay 30–60% less.",
+    "Understand private jet charter costs by aircraft category. Explore hourly rates, an itemized trip example, per-passenger costs and factors that affect your quote.",
   path: "/guides/private-jet-charter-cost",
 });
 

@@ -26,8 +26,8 @@ import {
 const guide = getLongGuide("empty-legs-explained");
 
 export const metadata: Metadata = pageMetadata({
-  title: guide.title,
-  description: guide.description,
+  title: "Empty Leg Flights Explained — Savings & Trade-Offs",
+  description: "Learn why empty leg flights are available and how they differ from regular charter. Review route and date restrictions, cancellation risks and backup travel.",
   path: guide.href,
   image: guide.image,
 });

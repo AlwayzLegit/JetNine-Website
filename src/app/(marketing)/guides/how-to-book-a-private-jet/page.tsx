@@ -19,8 +19,8 @@ import { AutoGrid, Icon, type IconName } from "@/components/guide-long/ui";
 const guide = getLongGuide("how-to-book-a-private-jet");
 
 export const metadata: Metadata = pageMetadata({
-  title: guide.title,
-  description: guide.description,
+  title: "How to Book a Private Jet — Charter Booking Guide",
+  description: "Follow the steps to book a private jet: prepare your trip brief, compare aircraft and operators, review pricing and terms, and confirm your travel arrangements.",
   path: guide.href,
   image: guide.image,
 });

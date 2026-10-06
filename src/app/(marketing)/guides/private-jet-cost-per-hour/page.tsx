@@ -10,9 +10,9 @@ import { FaqJsonLd, FaqList } from "@/components/guide-long/faq";
 import { AutoGrid } from "@/components/guide-long/ui";
 
 export const metadata: Metadata = pageMetadata({
-  title: "Private Jet Cost Per Hour — 2026 Rates",
+  title: "Private Jet Cost Per Hour — Aircraft Rates Explained",
   description:
-    "Hourly charter rates by category, published: $3,200–$3,600 for a light jet up to $10,400–$11,200 for ultra-long-range, what the hour includes, and how block time is counted.",
+    "Compare hourly private jet charter rates by aircraft category. Learn how block time, aircraft speed and included services affect the total cost of your trip.",
   path: "/guides/private-jet-cost-per-hour",
 });
 

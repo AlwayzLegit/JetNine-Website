@@ -29,8 +29,8 @@ import {
 const guide = getLongGuide("private-jet-charter-safety-checklist");
 
 export const metadata: Metadata = pageMetadata({
-  title: guide.title,
-  description: guide.description,
+  title: "Private Jet Charter Safety Checklist — Before You Book",
+  description: "Prepare for charter booking with a safety checklist covering the operating carrier, aircraft authorization, crew qualifications, insurance and substitution terms.",
   path: guide.href,
   image: guide.image,
 });

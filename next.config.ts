@@ -67,10 +67,6 @@ const securityHeaders = [
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
-  // Stamped once per build: the sitemap's lastmod for pages whose content
-  // ships with the code (so it moves on deploy, not on every hourly
-  // sitemap regeneration).
-  env: { SITE_BUILT_AT: new Date().toISOString() },
   // Keep postgres.js out of the webpack server bundle. Bundling broke its
   // instanceof-based param type inference (Date params reached
   // Buffer.byteLength raw), which silently disabled the rate limiter in

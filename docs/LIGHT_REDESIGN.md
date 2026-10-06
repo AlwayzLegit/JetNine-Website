@@ -63,9 +63,73 @@ Design rules that hold across the branch:
 - OG headlines render in Satori's default sans (no serif font bundled).
 - Migrations 0043–0053 are not in `src/db/migrations/meta/_journal.json`,
   so `db:migrate` skips them on a fresh database (production applied them
-  by hand). Local testing needed them applied manually.
+  by hand). Local testing needed them applied manually. **Not changed for
+  the cutover, on purpose:** nothing in the build or deploy runs
+  migrations. Production's `drizzle.__drizzle_migrations` holds 32 rows,
+  the last being 0031 (checked 2026-10-06), so every later migration
+  (0032–0053) was applied by hand. **Do not run `db:migrate` against
+  production**: today it would already try to re-run 0032–0042, and with
+  journal entries added it would also re-run 0043–0053 (0050 creates two
+  policies with no `if not exists`; 0045 has an unguarded `create`). The
+  safe fix, later and separately: add the journal entries for 0043–0053
+  *and* insert the matching rows for 0032–0053 into production's
+  `__drizzle_migrations` in the same change.
 - Warm tints with no token are used as raw hex in a few areas
-  (`#FBFAF7`, `#F1EADF`, `#F3EDE3`…) — candidate `--panel` tokens.
+  (`#FBFAF7`, `#F1EADF`, `#F3EDE3`…) — candidate `--panel` tokens. A
+  no-visible-change refactor; left for after the cutover.
 - Pages were tested against a local Supabase with seed data only; walk the
   quote flow, account and admin on a Vercel preview with real data before
   merging.
+
+## Go-live plan (decided 2026-10-06)
+
+- **One cutover PR**, `light-redesign` → `main`, squash-merged as soon as
+  its checks are green. Rollback: Vercel Instant Rollback to the previous
+  production deployment, then a revert PR if needed.
+- The eight owner decisions above are **not** a gate. They land as their
+  own commit when answered; until then the branch's copy stands (removed
+  claims stay removed).
+- Gates before the PR: the preview smoke (`smoke Preview` check, which
+  submits one `[SMOKE]` quote and one `[SMOKE]` inquiry) is green on the
+  branch head — **passed 2026-10-06 on 6517970** — and the signed-in walk
+  below is done.
+- After merge: the production deploy reaches READY, the post-deploy smoke
+  passes, `/api/health` is healthy, Sentry is quiet for an hour. Then
+  PostHog vs the baseline in `docs/LAUNCH_CHECKS.md` (filter
+  `$host = jetnine.com`), Search Console for the 27 new guide URLs, and
+  the next Semrush crawl (errors 0, warnings ≈ 118).
+
+### Preview smoke tests follow the redesign (2026-10-06)
+`tests/prod-smoke/contact-form.spec.ts` targeted the old contact page
+(heading "One desk", labels "Departing" / "Arriving" / "Date or window",
+"Send to dispatch", "Sent. A dispatcher will reply"), so every preview
+of this branch failed the browser smoke, and production would have
+failed it after the cutover. It now drives the redesigned form. The
+quote-wizard test needed no change: it walks all four redesigned steps
+and the request page still shows the `JN-` code.
+
+## Signed-in walk on the preview (Claude in Chrome)
+
+Run from a Claude session on the owner's computer, with Chrome signed in
+to the preview as an owner:
+https://jet-nine-website-git-light-redesign-alwayzlegits-projects.vercel.app
+
+The preview uses the **production** database, live Stripe and real
+email/SMS. **Read only:** open and look; no Approve / Reject, no status
+changes, no messages, no saves, no payments. Note anything that looks
+broken, unstyled, misaligned on a phone width, or shows the wrong data.
+
+Account (`/account`): each of the seven sections; one quote → its
+`/request/<token>` page; one trip; invoices; membership; preferences
+(do not save).
+
+Admin (`/admin`): Requests (each tab; open one real request: options,
+holds, thread, Needs your OK and Assistant notes cards); Trips (upcoming,
+past; open one trip); Clients (list; open one client: ledger, trips);
+Messages (all tabs incl. Needs your OK; open one thread); Settings
+(Reports, Team, Notifications, Connections, API keys, Assistant: Today /
+Instructions / Memory, History, Reference data incl. one operator,
+aircraft and airport page).
+
+Compare a few against production (`jetnine.com/admin/...`) for the same
+records: same counts, same rows, same numbers. Record the result here.

@@ -4,6 +4,29 @@ Plain-text mirror of the checklist page shared on 2026-09-11. **You** items
 need Jet's accounts; **Me** items I do once pinged. A2P 10DLC covers SMS
 from long-code numbers only, so Phase A does not wait on it.
 
+## Status 2026-10-06 — calls forward to the owner's mobile
+
+- **Incoming calls are live, by plain forwarding (not the voice desk).**
+  Twilio → Phone Numbers → +1 (424) 487-2707 → Voice Configuration → "A
+  call comes in" now runs the TwiML Bin **Forward to Mobile**:
+  `<Response><Dial timeout="25">OWNER_MOBILE</Dial></Response>`, where
+  OWNER_MOBILE is the owner's own mobile in E.164 (kept in Twilio, not in
+  the repo). The caller's number shows on the mobile; unanswered calls
+  end after 25 seconds (no voicemail). Test call answered on the mobile,
+  confirmed by the owner.
+- Messaging Configuration on the number is unchanged:
+  `https://jetnine.com/api/twilio/inbound`, so text replies still reach
+  Admin › Messages.
+- **Voice desk (Phase A) stays parked.** `jetnine-voice` on Render is still
+  on the Free plan with no logs in the last 30 days. To switch over later:
+  Starter plan, a model key in Admin › Settings › AI, `ESCALATION_PHONE`
+  set to the owner's mobile (never the Twilio number), `/health` reporting
+  call-ready, then change "A call comes in" from the TwiML Bin to Webhook
+  `https://jetnine-voice.onrender.com/twiml` (HTTP POST) and run the three
+  test calls in Phase A item 6. Switching back is the same dropdown.
+- Twilio bills both legs of a forwarded call (inbound to the number plus
+  the outbound leg to the mobile), per minute.
+
 ## Status 2026-09-24
 
 - Phase B done on the Twilio side per the owner: number in place, A2P 10DLC

@@ -30,6 +30,43 @@ export function generateStaticParams() {
   return ROUTES.map((r) => ({ slug: r.slug }));
 }
 
+// Reviewed route summaries use local planning details instead of fixed
+// teaser fares, precise flight-time promises, or response-time guarantees.
+const ROUTE_METADATA: Partial<Record<string, { title: string; description: string }>> = {
+  "los-angeles-to-new-york": {
+    "title": "Los Angeles to New York Private Jet Charter",
+    "description": "Plan a coast-to-coast charter from Van Nuys to Teterboro. Compare aircraft, estimated costs and flight times, including considerations for the westbound return."
+  },
+  "los-angeles-to-las-vegas": {
+    "title": "Los Angeles to Las Vegas Private Jet Charter",
+    "description": "Explore private jet charter from Van Nuys to Las Vegas. Compare aircraft, estimated flight times and costs, with planning notes for busy event weekends."
+  },
+  "new-york-to-miami": {
+    "title": "New York to Miami Private Jet Charter",
+    "description": "Compare private jet options from Teterboro to Miami’s Opa-Locka airport. Review estimated costs, flight times and seasonal planning for your Florida trip."
+  },
+  "new-york-to-london": {
+    "title": "New York to London Private Jet Charter",
+    "description": "Explore transatlantic charter from Teterboro to London Luton. Compare aircraft range, estimated costs and flight times for your outbound and return journey."
+  },
+  "los-angeles-to-london": {
+    "title": "Los Angeles to London Private Jet Charter",
+    "description": "Plan a Los Angeles to London charter with long-range aircraft options. Review LAX and Heathrow, estimated costs, flight times and international arrival planning."
+  },
+  "miami-to-bahamas": {
+    "title": "Miami to Nassau Private Jet Charter — Bahamas",
+    "description": "Explore private charter from Miami to Nassau in the Bahamas. Compare aircraft, estimated costs and flight times, and review passport and customs considerations."
+  },
+  "los-angeles-to-cabo": {
+    "title": "Los Angeles to Los Cabos Private Jet Charter",
+    "description": "Plan private jet travel from LAX to Los Cabos. Compare aircraft, baggage needs and estimated charter costs, with guidance on international handling."
+  },
+  "new-york-to-palm-beach": {
+    "title": "New York to Palm Beach Private Jet Charter",
+    "description": "Explore charter from Teterboro to Palm Beach International. Compare aircraft, estimated costs and flight times, with notes on holiday airport demand."
+  }
+};
+
 export async function generateMetadata({ params }: RouteParams): Promise<Metadata> {
   const { slug } = await params;
   const route = getRoute(slug);
@@ -37,8 +74,8 @@ export async function generateMetadata({ params }: RouteParams): Promise<Metadat
   const { nm, options } = categoryOptions(route);
   const cheapest = options[0];
   return pageMetadata({
-    title: `Private Jet ${route.from.city} to ${route.to.city} — Cost & Time`,
-    description: `Charter ${route.from.city} to ${route.to.city}: ${formatNm(nm)}, about ${options[0] ? options[options.length - 1].hours : "—"} in the air${cheapest ? `, from ${formatUSD(cheapest.ind.low)} one way for the whole aircraft` : ""}. Live pricing, vetted operators, quotes in 30 minutes.`,
+    title: ROUTE_METADATA[route.slug]?.title ?? `Private Jet ${route.from.city} to ${route.to.city} — Cost & Time`,
+    description: ROUTE_METADATA[route.slug]?.description ?? `Charter ${route.from.city} to ${route.to.city}: ${formatNm(nm)}, about ${options[0] ? options[options.length - 1].hours : "—"} in the air${cheapest ? `, from ${formatUSD(cheapest.ind.low)} one way for the whole aircraft` : ""}. Live pricing, vetted operators, quotes in 30 minutes.`,
     path: `/routes/${route.slug}`,
   });
 }

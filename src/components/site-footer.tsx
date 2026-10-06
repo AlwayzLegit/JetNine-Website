@@ -12,6 +12,8 @@ const SITE_LINKS: FooterLink[] = [
   { label: "Routes", href: "/routes" },
   { label: "Charter by city", href: "/private-jet-charter" },
   { label: "Cost calculator", href: "/cost-calculator" },
+  { label: "Concierge", href: "/private-jet-concierge" },
+  { label: "Birthday charters", href: "/private-jet-birthday-party" },
   { label: "Programs", href: "/memberships" },
   { label: "Guides", href: "/guides" },
   { label: "How it works", href: "/how-it-works" },

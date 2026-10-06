@@ -29,8 +29,8 @@ export function SiteNav() {
     return () => window.removeEventListener("keydown", onKey);
   }, [open]);
 
-  const isActive = (href: string) =>
-    pathname === href || (href !== "/" && pathname.startsWith(href + "/"));
+  const isActive = (href: string, also: readonly string[] = []) =>
+    [href, ...also].some((h) => pathname === h || (h !== "/" && pathname.startsWith(h + "/")));
 
   return (
     <header className="sticky top-0 z-50 border-b border-line bg-white">
@@ -39,12 +39,12 @@ export function SiteNav() {
         <BrandMark className="max-lg:hidden" />
 
         <nav className="hidden items-center gap-[30px] whitespace-nowrap text-[14px] lg:flex" aria-label="Primary">
-          {PRIMARY_NAV.map(({ href, label }) => (
+          {PRIMARY_NAV.map(({ href, label, also }) => (
             <Link
               key={href}
               href={href}
-              className={`transition-colors hover:text-gold ${isActive(href) ? "font-semibold text-bone" : "text-bone"}`}
-              aria-current={isActive(href) ? "page" : undefined}
+              className={`transition-colors hover:text-gold ${isActive(href, also) ? "font-semibold text-bone" : "text-bone"}`}
+              aria-current={isActive(href, also) ? "page" : undefined}
             >
               {label}
             </Link>
@@ -73,12 +73,12 @@ export function SiteNav() {
         aria-label="Primary"
         className={`flex-col border-t border-line bg-white lg:hidden ${open ? "flex" : "hidden"}`}
       >
-        {PRIMARY_NAV.map(({ href, label }) => (
+        {PRIMARY_NAV.map(({ href, label, also }) => (
           <Link
             key={href}
             href={href}
-            className={`border-b border-line px-4 py-3 text-[15px] text-bone ${isActive(href) ? "font-bold" : ""}`}
-            aria-current={isActive(href) ? "page" : undefined}
+            className={`border-b border-line px-4 py-3 text-[15px] text-bone ${isActive(href, also) ? "font-bold" : ""}`}
+            aria-current={isActive(href, also) ? "page" : undefined}
           >
             {label}
           </Link>

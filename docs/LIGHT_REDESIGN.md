@@ -25,6 +25,26 @@ Design rules that hold across the branch:
   events are kept. Two events added: `cost_calculator_estimated`,
   `faq_feedback`.
 
+### Added later: Concierge and Birthday party (branch `light-redesign-concierge`)
+Two screens that arrived in a later handoff export:
+- `/private-jet-concierge` (Light - Concierge) and
+  `/private-jet-birthday-party` (Light - Birthday party), with
+  `src/components/concierge/*` (static sections, shared planner kit, one
+  client planner per page: trip drawer, review, checklist, destination and
+  support windows).
+- Requests send through `submitContactInquiry` as reason `quote`
+  (no schema change): organizer name split into first/last, a blank date
+  sent as "Flexible", every planner detail in `notes` under
+  "[Concierge request]" / "[Birthday request]". They land on
+  `/admin/messages`. Event: `contact_inquiry_submitted` with
+  `source: "concierge" | "birthday"`.
+- Linking: header nav follows the screens' nav (Concierge replaces
+  Journal; Journal stays in the footer); footer gains Concierge and
+  Birthday charters; both pages are in the sitemap; Birthday links back to
+  Concierge and vice versa.
+- Photos converted from the handoff PNGs to WebP in
+  `public/images/concierge/`.
+
 ## Verified locally
 - `pnpm build`, `pnpm typecheck`, `pnpm lint` pass.
 - `scripts/audit-seo-snapshot.mts` diff vs a `main` build: 0 paths lost,

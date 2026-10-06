@@ -24,8 +24,8 @@ export function generateStaticParams() {
   return QUESTIONS.map((q) => ({ slug: q.slug }));
 }
 
-// Titles: the question itself, minus the trailing question mark when
-// the template suffix follows better without it.
+// Reviewed question summaries are applied by pageMetadata. New questions use
+// the complete answer as a fallback rather than cutting off mid-sentence.
 export async function generateMetadata({
   params,
 }: RouteParams): Promise<Metadata> {
@@ -33,11 +33,8 @@ export async function generateMetadata({
   const question = getQuestion(slug);
   if (!question) return {};
   return pageMetadata({
-    title: question.q.replace(/\?$/, ""),
-    description:
-      question.short.length > 158
-        ? `${question.short.slice(0, question.short.lastIndexOf(" ", 157))}…`
-        : question.short,
+    title: question.q,
+    description: question.short,
     path: `/questions/${question.slug}`,
   });
 }

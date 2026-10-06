@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { SEO_COPY } from "./seo-copy";
 
 // Per-page metadata helper. The root layout sets a sensible default
 // canonical ("/") and openGraph block, which is correct for the home
@@ -6,8 +7,8 @@ import type { Metadata } from "next";
 // Google sees /about, /safety, /memberships etc. all canonicaling to
 // "/" and treats them as duplicates of the home page.
 //
-// pageMetadata() returns the override block: same title and description
-// the page already had, plus a path-specific canonical and openGraph /
+// pageMetadata() uses reviewed SEO_COPY where present, otherwise the route
+// or CMS title and description, plus a path-specific canonical and openGraph /
 // twitter title + URL so social shares of /about don't say
 // "JetNine — Private aviation, ready when you are" (the home tagline).
 //
@@ -34,6 +35,8 @@ export function pageMetadata(opts: {
   /** Optional alt text for the image. Defaults to the resolved page title. */
   imageAlt?: string;
 }): Metadata {
+  // Apply reviewed copy consistently to search, Open Graph and Twitter.
+  opts = { ...opts, ...SEO_COPY[opts.path] };
   const resolvedTitle = `${opts.title} · JetNine`;
   const imageBlock = opts.image
     ? {

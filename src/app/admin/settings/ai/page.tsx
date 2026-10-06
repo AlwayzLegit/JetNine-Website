@@ -70,7 +70,7 @@ export default async function AdminAiSettingsPage() {
 
 function Notice({ children }: { children: React.ReactNode }) {
   return (
-    <p role="alert" className="card bg-[#FBFAF7] mt-6 border-danger px-5 py-3.5 text-[14px] text-danger">
+    <p role="alert" className="card bg-panel mt-6 border-danger px-5 py-3.5 text-[14px] text-danger">
       {children}
     </p>
   );

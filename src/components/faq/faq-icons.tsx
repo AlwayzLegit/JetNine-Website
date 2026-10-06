@@ -50,7 +50,7 @@ export function FaqIcon({
 export function IconDisc({ name, size = 48 }: { name: FaqIconName; size?: number }) {
   return (
     <span
-      className="flex flex-none items-center justify-center rounded-full bg-[#F3EDE3]"
+      className="flex flex-none items-center justify-center rounded-full bg-panel-well"
       style={{ width: size, height: size }}
     >
       <FaqIcon name={name} className={size > 50 ? "h-6 w-6" : "h-[22px] w-[22px]"} />

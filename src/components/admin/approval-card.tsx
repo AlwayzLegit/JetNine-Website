@@ -73,7 +73,7 @@ export function ApprovalCard({ data }: { data: ApprovalCardData }) {
   }
 
   return (
-    <section className="card bg-[#FBFAF7] p-5 md:p-6" aria-labelledby={`approval-${data.id}`}>
+    <section className="card bg-panel p-5 md:p-6" aria-labelledby={`approval-${data.id}`}>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <h2 id={`approval-${data.id}`} className="min-w-0 text-[20px] font-medium leading-[1.3] text-bone">
           {data.summary}

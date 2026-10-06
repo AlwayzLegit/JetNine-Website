@@ -283,7 +283,7 @@ export function Estimator({ categories }: { categories: CalcCategory[] }) {
           <button
             type="button"
             onClick={() => setWin("bags")}
-            className={`mt-3 flex h-10 w-full cursor-pointer items-center justify-between rounded-[3px] border border-line bg-[#FBFAF7] px-3 text-left text-[13px] ${prefs ? "text-bone" : "text-steel"}`}
+            className={`mt-3 flex h-10 w-full cursor-pointer items-center justify-between rounded-[3px] border border-line bg-panel px-3 text-left text-[13px] ${prefs ? "text-bone" : "text-steel"}`}
           >
             <span className="truncate">{prefs ? prefsSummary(prefs) : "Bags, pets and cabin needs (optional)"}</span>
             <span aria-hidden="true" className="text-[16px] text-bone">
@@ -299,7 +299,7 @@ export function Estimator({ categories }: { categories: CalcCategory[] }) {
             Calculate my estimate →
           </button>
           <p className="mt-2 text-center text-[12px] text-steel">A planning estimate does not reserve an aircraft.</p>
-          <div className="-mx-6 -mb-[18px] mt-4 flex flex-wrap justify-center gap-x-7 gap-y-2 border-t border-line bg-[#FBFAF7] px-6 py-3 text-[13px] max-sm:-mx-4 max-sm:px-4">
+          <div className="-mx-6 -mb-[18px] mt-4 flex flex-wrap justify-center gap-x-7 gap-y-2 border-t border-line bg-panel px-6 py-3 text-[13px] max-sm:-mx-4 max-sm:px-4">
             <Link href="/guides/private-jet-charter-cost" className="text-link whitespace-nowrap font-bold">
               How estimates work →
             </Link>
@@ -481,7 +481,7 @@ function CompareCabins({
               role="radio"
               aria-checked={on}
               onClick={() => setSel(c.slug)}
-              className={`cursor-pointer rounded-[3px] border p-3 text-left text-bone ${on ? "border-gold bg-[#FBFAF7]" : "border-line bg-white"}`}
+              className={`cursor-pointer rounded-[3px] border p-3 text-left text-bone ${on ? "border-gold bg-panel" : "border-line bg-white"}`}
             >
               <span className="flex items-center gap-2 text-[14px] font-bold">
                 <span className={`h-4 w-4 rounded-full border shadow-[inset_0_0_0_3px_#fff] ${on ? "border-gold bg-gold" : "border-line bg-white"}`} />

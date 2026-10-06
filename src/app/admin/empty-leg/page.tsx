@@ -64,7 +64,7 @@ export default async function AdminEmptyLegPage() {
           ) : (
             <ul className="flex flex-col gap-3">
               {rows.map((l) => (
-                <li key={l.id} className="card bg-[#FBFAF7] px-5 py-4">
+                <li key={l.id} className="card bg-panel px-5 py-4">
                   <div className="flex items-center justify-between gap-3">
                     <span className="text-[13px] text-steel">Reference {l.code}</span>
                     <EmptyLegStatusSelect legId={l.id} current={l.status} />

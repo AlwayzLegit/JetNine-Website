@@ -13,6 +13,11 @@ const config: Config = {
           DEFAULT: "var(--surface)",
           2: "var(--surface-2)",
         },
+        panel: {
+          DEFAULT: "var(--panel)",
+          now: "var(--panel-now)",
+          well: "var(--panel-well)",
+        },
         line: {
           DEFAULT: "var(--line)",
           2: "var(--line-2)",

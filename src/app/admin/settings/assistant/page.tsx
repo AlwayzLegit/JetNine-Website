@@ -201,7 +201,7 @@ function LatestRun({ run, today, jobNames }: { run: RunRow; today: string; jobNa
   const metrics = Object.entries(run.metrics ?? {});
 
   return (
-    <section className="card bg-[#FBFAF7] mt-6 p-5 md:p-6" aria-labelledby="latest-run">
+    <section className="card bg-panel mt-6 p-5 md:p-6" aria-labelledby="latest-run">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 id="latest-run" className="text-[12px] font-bold uppercase tracking-[0.2em] text-gold">
           {run.runDate === today ? "Today" : `Latest run · ${dayWords(run.runDate, today)}`}

@@ -71,7 +71,7 @@ export function ChapterShell({
         </div>
         <div className="min-w-0 flex-[999_1_440px] border-l border-line pl-6 max-sm:border-l-0 max-sm:pl-0">{children}</div>
         <aside className="min-w-0 max-w-full flex-[1_1_260px] self-stretch">
-          <div className="sticky top-[calc(var(--header-h)+16px)] border border-line bg-[#FBFAF7] px-[22px] py-5">
+          <div className="sticky top-[calc(var(--header-h)+16px)] border border-line bg-panel px-[22px] py-5">
             <p className="m-0 text-[12px] font-bold uppercase tracking-[.16em] text-gold">On every JetNine quote</p>
             <h2 className="mt-2 font-serif text-[22px] font-normal leading-[1.2]">One all-in number.</h2>
             <ul className="mt-[14px] flex list-none flex-col gap-[9px] p-0">

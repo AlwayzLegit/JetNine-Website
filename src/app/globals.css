@@ -16,6 +16,12 @@
     /* Surfaces — cards and panels on white, soft panels on sand */
     --surface: #FFFFFF;
     --surface-2: #ECE8DF;
+    /* Warm panels on the paper page: panel (cards, side panels, KPI
+       tiles), now (the "current" tint: selected rows, outbound
+       bubbles), well (icon wells and inset callouts). */
+    --panel: #FBFAF7;
+    --panel-now: #F1EADF;
+    --panel-well: #F3EDE3;
 
     /* Lines — card borders and dividers */
     --line: #D8D3C9;

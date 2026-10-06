@@ -274,7 +274,7 @@ export function LegsBoard({
           One-way charter of the whole aircraft. Return travel is arranged separately.
         </p>
 
-        <div className="mt-3 flex flex-wrap items-center gap-[14px] border border-line bg-[#FBFAF7] px-4 py-[14px]">
+        <div className="mt-3 flex flex-wrap items-center gap-[14px] border border-line bg-panel px-4 py-[14px]">
           <span className="flex h-11 w-11 flex-none items-center justify-center rounded-full bg-surface-2">
             <svg viewBox="0 0 24 24" fill="none" stroke="var(--gold)" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className="h-[22px] w-[22px]">
               <path d="M21 3L3 10.5l7.5 3L13.5 21 21 3zM10.5 13.5L21 3" />

@@ -187,7 +187,7 @@ export function JournalBoard({ posts, start, empty }: { posts: JournalPost[]; st
                 </div>
               </article>
             ))}
-            {list.length === 0 ? <div className="border border-line bg-[#FBFAF7] p-7">{empty}</div> : null}
+            {list.length === 0 ? <div className="border border-line bg-panel p-7">{empty}</div> : null}
           </div>
         </section>
       </div>
@@ -306,7 +306,7 @@ export function JournalSearch({ posts }: { posts: JournalPost[] }) {
             </Link>
           ))}
           {results.length === 0 ? (
-            <p className="mt-[10px] border border-line bg-[#FBFAF7] p-4 text-[13px] text-steel">
+            <p className="mt-[10px] border border-line bg-panel p-4 text-[13px] text-steel">
               {q ? `Nothing matches “${query.trim()}”. Try one of the suggestions below.` : "No articles published yet."}
             </p>
           ) : null}

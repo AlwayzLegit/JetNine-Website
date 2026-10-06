@@ -55,7 +55,7 @@ export function SectionTabs({ tabs, active = 0 }: { tabs: [string, string][]; ac
 
 export function IconDisc({ name, size = 44 }: { name: IconName; size?: number }) {
   return (
-    <span className="flex flex-none items-center justify-center rounded-full bg-[#F3EDE3]" style={{ width: size, height: size }}>
+    <span className="flex flex-none items-center justify-center rounded-full bg-panel-well" style={{ width: size, height: size }}>
       <Icon name={name} className={size > 50 ? "h-[26px] w-[26px]" : "h-[22px] w-[22px]"} />
     </span>
   );

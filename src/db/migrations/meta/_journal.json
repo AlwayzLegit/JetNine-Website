@@ -302,6 +302,83 @@
       "when": 1782000000000,
       "tag": "0042_watchlist_unsubscribe_token",
       "breakpoints": true
+    },
+    {
+      "idx": 43,
+      "version": "7",
+      "when": 1782100000000,
+      "tag": "0043_quote_sla_alerted",
+      "breakpoints": true
+    },
+    {
+      "idx": 44,
+      "version": "7",
+      "when": 1782200000000,
+      "tag": "0044_invoice_dunning",
+      "breakpoints": true
+    },
+    {
+      "idx": 45,
+      "version": "7",
+      "when": 1782300000000,
+      "tag": "0045_blog_subscribers",
+      "breakpoints": true
+    },
+    {
+      "idx": 46,
+      "version": "7",
+      "when": 1782400000000,
+      "tag": "0046_audit_blog_subscriber",
+      "breakpoints": true
+    },
+    {
+      "idx": 47,
+      "version": "7",
+      "when": 1782500000000,
+      "tag": "0047_ai_providers",
+      "breakpoints": true
+    },
+    {
+      "idx": 48,
+      "version": "7",
+      "when": 1782600000000,
+      "tag": "0048_quote_status_token",
+      "breakpoints": true
+    },
+    {
+      "idx": 49,
+      "version": "7",
+      "when": 1782700000000,
+      "tag": "0049_quotes_anon_select_revoke",
+      "breakpoints": true
+    },
+    {
+      "idx": 50,
+      "version": "7",
+      "when": 1782800000000,
+      "tag": "0050_desk_settings",
+      "breakpoints": true
+    },
+    {
+      "idx": 51,
+      "version": "7",
+      "when": 1782900000000,
+      "tag": "0051_api_keys",
+      "breakpoints": true
+    },
+    {
+      "idx": 52,
+      "version": "7",
+      "when": 1783000000000,
+      "tag": "0052_agent",
+      "breakpoints": true
+    },
+    {
+      "idx": 53,
+      "version": "7",
+      "when": 1783100000000,
+      "tag": "0053_approvals",
+      "breakpoints": true
     }
   ]
 }

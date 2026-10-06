@@ -227,7 +227,7 @@ export default async function MessagesPage({ searchParams }: Props) {
     <div className="min-w-0 max-w-[1296px] px-4 pb-10 pt-5 md:px-7 md:pt-[22px] lg:flex lg:h-screen lg:flex-col">
       <h1 className="font-serif text-[clamp(32px,4vw,40px)] font-normal leading-[1.05] text-bone md:mt-3">Messages</h1>
       <p className="mt-1.5 text-[14px] text-steel">Texts, emails and call notes, one thread per client.</p>
-      <div className="mt-[18px] border border-line bg-[#FBFAF7] lg:grid lg:min-h-0 lg:flex-1 lg:grid-cols-[340px_minmax(0,1fr)] lg:overflow-hidden">
+      <div className="mt-[18px] border border-line bg-panel lg:grid lg:min-h-0 lg:flex-1 lg:grid-cols-[340px_minmax(0,1fr)] lg:overflow-hidden">
       {/* Left: list */}
       <section className="flex min-h-0 flex-col border-line lg:border-r">
         <div className="flex flex-col gap-2.5 border-b border-line px-3.5 py-3">

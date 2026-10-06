@@ -84,7 +84,7 @@ export default async function AdminTripsPage({ searchParams }: Props) {
               return (
                 <article
                   key={t.id}
-                  className="grid grid-cols-1 gap-5 border border-gold bg-[#FBFAF7] p-4 md:px-[18px] lg:grid-cols-[minmax(0,1fr)_280px] lg:gap-8"
+                  className="grid grid-cols-1 gap-5 border border-gold bg-panel p-4 md:px-[18px] lg:grid-cols-[minmax(0,1fr)_280px] lg:gap-8"
                 >
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-3">

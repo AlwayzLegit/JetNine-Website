@@ -18,7 +18,7 @@ export function FaqColumns({ items }: { items: CalcFaq[] }) {
             const isOpen = open === i;
             const id = `calc-faq-${i}`;
             return (
-              <div key={f.q} className="border border-line bg-[#FBFAF7]">
+              <div key={f.q} className="border border-line bg-panel">
                 <h3>
                   <button
                     type="button"

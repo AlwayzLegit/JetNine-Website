@@ -99,7 +99,7 @@ export default async function ReportsPage({ searchParams }: Props) {
         />
       </div>
 
-      <section className="card mt-3.5 bg-[#FBFAF7] px-5 py-4">
+      <section className="card mt-3.5 bg-panel px-5 py-4">
         <h2 className="font-serif text-[20px] leading-[1.2] text-bone">Where requests ended up</h2>
         <p className="mt-1 text-[14px] text-steel">
           {req.received} request{req.received === 1 ? "" : "s"} {meta.words}
@@ -121,7 +121,7 @@ export default async function ReportsPage({ searchParams }: Props) {
         </ul>
       </section>
 
-      <section className="card mt-3.5 bg-[#FBFAF7] px-5 py-4">
+      <section className="card mt-3.5 bg-panel px-5 py-4">
         <h2 className="font-serif text-[20px] leading-[1.2] text-bone">Money</h2>
         <dl className="mt-4 grid gap-x-6 gap-y-4 text-[15px] md:grid-cols-3">
           <div>

@@ -13,7 +13,7 @@ import { SITE } from "@/lib/constants";
  */
 export const TINT_BG = "bg-[#F6F0E6]";
 export const TINT_BORDER = "border-[#E8DFCF]";
-export const WELL_BG = "bg-[#F3EDE3]";
+export const WELL_BG = "bg-panel-well";
 
 /** Stroke icons from the boards (24×24, bronze 1.4px). */
 export const ICONS = {

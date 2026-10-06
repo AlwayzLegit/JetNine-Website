@@ -238,7 +238,7 @@ export default async function BlogPostPage({ params }: Props) {
 
         <aside className="flex flex-col gap-[14px] lg:sticky lg:top-[calc(var(--header-h)+20px)]">
           <PlanBox title="Put a number on it" sub="Route, date, passengers. The desk prices your trip against the same rate card." context="blog-post" />
-          <div className="border border-line bg-[#FBFAF7] p-5">
+          <div className="border border-line bg-panel p-5">
             <p className="eyebrow !mb-1">Keep exploring</p>
             <div className="mt-2 flex flex-col items-start gap-2 font-serif text-[15px]">
               <Link href="/guides/private-jet-charter-cost" className="border-b border-bone hover:text-gold">

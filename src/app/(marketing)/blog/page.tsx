@@ -140,7 +140,7 @@ export default async function BlogIndexPage() {
       <h2 className="font-serif text-[32px] font-normal leading-[1.1]">New to private charter? Start here.</h2>
       <Link
         href="/guides"
-        className="group mt-[14px] grid gap-[22px] border border-line bg-[#FBFAF7] p-2 [grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr))]"
+        className="group mt-[14px] grid gap-[22px] border border-line bg-panel p-2 [grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr))]"
       >
         <span className="relative block aspect-[16/10] overflow-hidden bg-surface-2">
           <Image src="/images/light/jet-twilight.webp" alt="" fill sizes="(max-width: 768px) 100vw, 460px" className="object-cover" />
@@ -163,7 +163,7 @@ export default async function BlogIndexPage() {
       </Link>
       <div className="mt-3 grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr))]">
         {STARTERS.map((s) => (
-          <Link key={s.href} href={s.href} className="group flex flex-wrap gap-[14px] border border-line bg-[#FBFAF7] p-2">
+          <Link key={s.href} href={s.href} className="group flex flex-wrap gap-[14px] border border-line bg-panel p-2">
             <span className="relative block aspect-[4/3] min-w-0 max-w-full flex-[1_1_130px] overflow-hidden bg-surface-2">
               <Image src={s.img} alt="" fill sizes="(max-width: 768px) 100vw, 200px" className="object-cover" />
             </span>
@@ -224,7 +224,7 @@ export default async function BlogIndexPage() {
         </div>
       </section>
 
-      <nav aria-label="Stages" className="border-b border-line bg-[#FBFAF7]">
+      <nav aria-label="Stages" className="border-b border-line bg-panel">
         <div className="container-jn grid py-[10px] [grid-template-columns:repeat(auto-fit,minmax(min(100%,160px),1fr))]">
           {STAGES.map((s, i) => (
             <Link
@@ -245,13 +245,13 @@ export default async function BlogIndexPage() {
         <SubscribeCard />
       </section>
 
-      <section className="mt-7 border-y border-line bg-[#F1EADF]">
+      <section className="mt-7 border-y border-line bg-panel-now">
         <div className="container-jn pb-5 pt-[22px]">
           <h2 className="font-serif text-[30px] font-normal leading-[1.1]">Go straight to the source.</h2>
           <p className="mt-1 text-[13px] text-steel">Useful starting points from regulators, industry bodies and manufacturers.</p>
           <div className="mt-[14px] grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr))]">
             {SOURCES.map((s) => (
-              <div key={s.url} className="flex flex-wrap gap-4 border border-line bg-[#FBFAF7] p-2">
+              <div key={s.url} className="flex flex-wrap gap-4 border border-line bg-panel p-2">
                 <span className="relative block aspect-[4/3] min-w-0 max-w-full flex-[1_1_140px] overflow-hidden bg-surface-2">
                   <Image src={s.img} alt="" fill sizes="(max-width: 768px) 100vw, 220px" className="object-cover" />
                 </span>
@@ -266,7 +266,7 @@ export default async function BlogIndexPage() {
               </div>
             ))}
           </div>
-          <div className="mt-3 flex flex-wrap items-center gap-4 border border-line bg-[#FBFAF7] p-2">
+          <div className="mt-3 flex flex-wrap items-center gap-4 border border-line bg-panel p-2">
             <span className="relative block aspect-[4/1.6] min-w-0 max-w-full flex-[1_1_140px] overflow-hidden bg-surface-2">
               <Image src="/images/light/wing-clouds.webp" alt="" fill sizes="(max-width: 768px) 100vw, 220px" className="object-cover" />
             </span>

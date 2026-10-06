@@ -1,4 +1,5 @@
 import type { AircraftCategorySlug } from "@/lib/fleet";
+import { RATES } from "@/lib/rates";
 
 export type Leg = {
   id: string;
@@ -13,15 +14,24 @@ export type Leg = {
   time?: string; // HH:MM
 };
 
-// Hourly rates by aircraft category (USD/hr). Static for now; moves to
-// aircraft_categories table in Phase B.
+// Hourly rates by aircraft category (USD/hr): the midpoint of each
+// category's market range on the published rate card (src/lib/rates.ts),
+// so the estimates and the rate table on /cost-calculator agree. The card
+// has no turboprop row; turboprop keeps the share of the light-jet rate it
+// had before the card was adopted (4,500 / 5,500), rounded to $50.
+const marketMid = (slug: (typeof RATES)[number]["slug"]): number => {
+  const row = RATES.find((r) => r.slug === slug);
+  if (!row) throw new Error(`rates.ts has no row for ${slug}`);
+  return (row.marketLowUsd + row.marketHighUsd) / 2;
+};
+
 export const HOURLY_USD: Record<AircraftCategorySlug, number> = {
-  turboprop: 4500,
-  light: 5500,
-  midsize: 7500,
-  supermid: 9500,
-  heavy: 12500,
-  ultra: 18000,
+  turboprop: Math.round((marketMid("light") * (4500 / 5500)) / 50) * 50,
+  light: marketMid("light"),
+  midsize: marketMid("midsize"),
+  supermid: marketMid("supermid"),
+  heavy: marketMid("heavy"),
+  ultra: marketMid("ultra"),
 };
 
 export const CRUISE_KT: Record<AircraftCategorySlug, number> = {

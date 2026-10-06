@@ -41,14 +41,18 @@ Design rules that hold across the branch:
   allows `unsafe-eval` and the local Supabase http/ws origin in development.
 
 ## Decisions waiting on the owner
-1. Copy removed as unverifiable — restore if these are real policies:
-   About's five beliefs; How it works promises ("quote in 30 min or it's
-   free", $5,000 credit), its old steps ("dispatch picks up within five
-   minutes", "three to five aircraft in under thirty minutes", "four-hour
-   soft hold"), six old How it works FAQs.
-2. Rate mismatch (pre-existing): `HOURLY_USD` in `quote-pricing.ts`
-   (light $5,500/hr) vs the published rate card in `rates.ts`
-   ($3,200–3,600/hr); both show on `/cost-calculator`.
+1. ~~Copy removed as unverifiable~~ — **decided 2026-10-06: stays
+   removed.** About's five beliefs; How it works promises ("quote in 30 min
+   or it's free", $5,000 credit), its old steps ("dispatch picks up within
+   five minutes", "three to five aircraft in under thirty minutes",
+   "four-hour soft hold"), six old How it works FAQs. Do not restore.
+2. ~~Rate mismatch~~ — **decided 2026-10-06: the rate card wins.**
+   `HOURLY_USD` in `quote-pricing.ts` now reads the midpoint of each
+   category's market range in `rates.ts` (light $3,400, midsize $4,400,
+   super-mid $5,650, heavy $8,100, ultra $10,800/hr), so every estimate
+   (quote wizard, calculator, route, city and model pages, pricing-guide
+   PDF) follows the card. The card has no turboprop row: turboprop keeps
+   its old share of the light rate (≈ $2,800/hr) until the owner sets one.
 3. The 27 new guides' copy came from the design tool — needs a read.
    Invented slugs to confirm: cabin amenities, charter vs first class,
    charter vs fractional, corporate multi-city.

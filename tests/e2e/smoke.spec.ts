@@ -44,6 +44,29 @@ test.describe("public marketing surface", () => {
     expect(await sitemap.text()).toContain("<urlset");
   });
 
+  test("sitemap lists each page once, with a build-time lastmod", async ({ request }) => {
+    const xml = await (await request.get("/sitemap.xml")).text();
+    const locs = [...xml.matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => new URL(m[1]).pathname);
+    expect(new Set(locs).size).toBe(locs.length);
+    for (const path of [
+      "/",
+      "/aircraft/light",
+      "/guides/private-jet-charter-cost",
+      "/private-jet-concierge",
+      "/private-jet-birthday-party",
+      "/routes",
+      "/private-jet-charter",
+      "/questions",
+    ]) {
+      expect(locs, `${path} in sitemap`).toContain(path);
+    }
+    // Static pages share one lastmod (the build), not "now".
+    const home = xml.match(/<loc>[^<]*\/<\/loc>\s*<lastmod>([^<]+)<\/lastmod>/);
+    const about = xml.match(/<loc>[^<]*\/about<\/loc>\s*<lastmod>([^<]+)<\/lastmod>/);
+    expect(home?.[1]).toBeTruthy();
+    expect(about?.[1]).toBe(home?.[1]);
+  });
+
   test("404 page is branded", async ({ page }) => {
     const response = await page.goto("/this-route-does-not-exist");
     expect(response?.status()).toBe(404);

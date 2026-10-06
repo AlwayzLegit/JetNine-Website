@@ -274,7 +274,7 @@ export default function HowToBookPage() {
 
           <div className="min-w-0 max-w-full flex-[1_1_230px] self-stretch">
             <aside className="sticky top-[calc(var(--header-h)+16px)] flex flex-col gap-4">
-              <PlanBox title="Start with your itinerary" sub=" " />
+              <PlanBox title="Start with your itinerary" sub=" " context="guide-how-to-book-a-private-jet" />
               <div className="rounded-[3px] border border-line bg-white p-5">
                 <h3 className="m-0 font-serif text-[21px] font-normal leading-[1.2]">Know what to check</h3>
                 <p className="mb-3 mt-[6px] text-[14px] text-steel">Use our checklist and trusted sources to book with confidence.</p>

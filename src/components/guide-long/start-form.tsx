@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import type { FormEvent } from "react";
+import { track } from "@/lib/analytics";
 import { seedQuote } from "@/lib/start-quote";
 
 const PAX: [string, number][] = [
@@ -28,6 +29,7 @@ export function StartingPointForm() {
       from: (d.get("from") as string) || undefined,
       to: (d.get("to") as string) || undefined,
     });
+    track("quote_launcher_submitted", { context: "guide-start-form" });
     router.push("/quote/mission");
   }
   const input = "h-9 min-w-0 rounded-[2px] border-0 bg-white px-[10px] text-[13px] text-navy outline-none";

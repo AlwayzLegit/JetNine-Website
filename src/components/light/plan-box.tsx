@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import type { FormEvent } from "react";
+import { track } from "@/lib/analytics";
 import { seedQuote } from "@/lib/start-quote";
 
 const PAX = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 14, 16];
@@ -10,7 +11,9 @@ const PAX = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 14, 16];
  * "Plan your flight" side box (jn-light-chrome.js <jn-planbox>): From, To,
  * Departure and Passengers stacked, then a full-width primary. Seeds the
  * quote store and opens /quote/mission, like the Home trip bar. Fields are
- * optional here — the wizard asks for whatever is missing.
+ * optional here — the wizard asks for whatever is missing. Fires
+ * `quote_launcher_submitted` with `context`, as the QuoteLauncher it
+ * replaces on the questions pages did, so quote-start attribution holds.
  */
 export function PlanBox({
   title = "Plan your flight",
@@ -18,12 +21,15 @@ export function PlanBox({
   button = "Request a quote",
   note = "An inquiry is not a booking.",
   defaultPax = 4,
+  context = "plan-box",
 }: {
   title?: string;
   sub?: string;
   button?: string;
   note?: string;
   defaultPax?: number;
+  /** Analytics context for `quote_launcher_submitted`, e.g. "questions-hub". */
+  context?: string;
 }) {
   const router = useRouter();
 
@@ -37,6 +43,7 @@ export function PlanBox({
       to: (d.get("to") as string) || undefined,
       depart: (d.get("depart") as string) || undefined,
     });
+    track("quote_launcher_submitted", { context });
     router.push("/quote/mission");
   }
 

@@ -196,7 +196,7 @@ export default async function QuestionPage({ params }: RouteParams) {
 
           <div className="min-w-0 max-w-full flex-[1_1_300px] self-stretch">
             <aside className="sticky top-[calc(var(--header-h)+20px)] flex flex-col gap-[14px]">
-              <PlanBox sub="Question answered — price the trip." />
+              <PlanBox sub="Question answered — price the trip." context={`question-${question.slug}`} />
               <RailList title="Go deeper" items={question.goDeeper} />
               {related.length > 0 ? (
                 <RailList

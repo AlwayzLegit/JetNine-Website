@@ -117,7 +117,7 @@ export default function QuestionsHubPage() {
 
           <div className="min-w-0 max-w-full flex-[1_1_300px] self-stretch">
             <aside className="sticky top-[calc(var(--header-h)+20px)] flex flex-col gap-[14px]">
-              <PlanBox sub="Enough reading — run a number." />
+              <PlanBox sub="Enough reading — run a number." context="questions-hub" />
               <div className="on-navy bg-navy p-5">
                 <h2 className="font-serif text-[24px] font-normal leading-[1.15]">Still have a question?</h2>
                 <p className="mt-[6px] text-[14px] text-bone-2">Ask the question your way.</p>

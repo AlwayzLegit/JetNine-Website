@@ -247,7 +247,7 @@ export default function BeginnersGuidePage() {
 
           <div className="min-w-0 max-w-full flex-[1_1_230px] self-stretch">
             <aside className="sticky top-[calc(var(--header-h)+16px)] flex flex-col gap-4">
-              <PlanBox title="Plan your first trip" sub="A few details to get started." />
+              <PlanBox title="Plan your first trip" sub="A few details to get started." context="guide-private-jet-charter-guide" />
               <div className="rounded-[3px] border border-line bg-white p-5">
                 <Icon name="page" size={30} />
                 <h3 className="mt-[10px] font-serif text-[21px] font-normal leading-[1.2]">Learn with confidence</h3>

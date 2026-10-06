@@ -3,6 +3,7 @@ import Link from "next/link";
 import { pageMetadata } from "@/lib/page-meta";
 import { CtaBand } from "@/components/cta-band";
 import { EdgeHero } from "@/components/company/edge-hero";
+import { TrackedQuoteLink } from "@/components/light/tracked-quote-link";
 import { NextReads, NextStep, TripBrief } from "@/components/charter/sections";
 import { CITIES } from "@/lib/cities";
 import { SITE } from "@/lib/constants";
@@ -44,9 +45,9 @@ export default function CityHubPage() {
         body="Build the flight around your requirements. Start with the itinerary, then compare suitable aircraft and a complete proposal."
         actions={
           <>
-            <Link href="/quote/mission" className="btn h-[42px] border-gold bg-gold !text-[14px] !font-bold text-white hover:bg-[#6b4c2b]">
+            <TrackedQuoteLink context="city-hub" className="btn h-[42px] border-gold bg-gold !text-[14px] !font-bold text-white hover:bg-[#6b4c2b]">
               Request trip options →
-            </Link>
+            </TrackedQuoteLink>
             <a href="#brief" className="btn h-[42px] !border-bone bg-transparent !text-[14px] !font-bold text-bone hover:bg-surface-2">
               Prepare a trip brief
             </a>

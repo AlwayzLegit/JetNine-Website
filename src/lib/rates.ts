@@ -3,9 +3,13 @@
 // cost/route/city pages. Competitor audit showed Paramount's pages quoting
 // contradictory hourly rates ($2,900 vs $2,300 for the same category);
 // keeping the card in one module means no two JetNine pages can disagree.
-// The quote wizard's indicative engine (quote-pricing.ts) quotes whole-trip
-// ranges, not hourly rates, so the two never collide on a page.
+// The indicative engine (quote-pricing.ts) prices from this card too: its
+// hourly rate per category is the midpoint of the market range below.
+import type { AircraftCategorySlug } from "@/lib/fleet";
+
 export type RateRow = {
+  /** Fleet category this row prices. */
+  slug: Exclude<AircraftCategorySlug, "turboprop">;
   category: string;
   mission: string;
   sample: string;
@@ -41,6 +45,7 @@ export const PRICE_STACK_TOTAL = "$47,260";
 
 export const RATES: RateRow[] = [
   {
+    slug: "light",
     category: "Light",
     mission: "3–4 passengers · 1,500 nm · regional hops",
     sample: "Los Angeles (VNY) → Aspen (ASE)",
@@ -51,6 +56,7 @@ export const RATES: RateRow[] = [
     lockedUsd: 2950,
   },
   {
+    slug: "midsize",
     category: "Midsize",
     mission: "5–6 passengers · 2,500 nm · coast to coast",
     sample: "Los Angeles (VNY) → New York (TEB)",
@@ -61,6 +67,7 @@ export const RATES: RateRow[] = [
     lockedUsd: 3950,
   },
   {
+    slug: "supermid",
     category: "Super-mid",
     mission: "6–8 passengers · 3,500 nm · coast to coast nonstop",
     sample: "San Francisco (SFO) → Miami (MIA)",
@@ -71,6 +78,7 @@ export const RATES: RateRow[] = [
     lockedUsd: 5100,
   },
   {
+    slug: "heavy",
     category: "Heavy",
     mission: "8–12 passengers · 4,500 nm · transatlantic",
     sample: "New York (JFK) → London (LHR)",
@@ -81,6 +89,7 @@ export const RATES: RateRow[] = [
     lockedUsd: 7400,
   },
   {
+    slug: "ultra",
     category: "Ultra long range",
     mission: "12–16 passengers · 6,500+ nm · transpacific",
     sample: "Los Angeles (LAX) → Tokyo (HND)",

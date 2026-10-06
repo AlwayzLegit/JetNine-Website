@@ -44,6 +44,11 @@ Two screens that arrived in a later handoff export:
   Concierge and vice versa.
 - Photos converted from the handoff PNGs to WebP in
   `public/images/concierge/`.
+- Confirmed by the owner (2026-10-06): 24/7 concierge support and
+  helicopter / yacht coordination are real services — keep that copy.
+  Also kept as built: Concierge in the header in place of Journal, and
+  the Birthday page's "Explore the cost calculator" link to
+  `/cost-calculator`.
 
 ## Verified locally
 - `pnpm build`, `pnpm typecheck`, `pnpm lint` pass.

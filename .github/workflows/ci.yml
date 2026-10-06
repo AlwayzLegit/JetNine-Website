@@ -46,6 +46,9 @@ jobs:
       - name: API checks
         run: pnpm check:api
 
+      - name: Sitemap invariants
+        run: pnpm check:sitemap
+
       # Build is the canonical check — catches Next.js / Drizzle issues that
       # lint + typecheck miss. Env values come from GitHub secrets when set;
       # the build's runtime code falls back to dummy values when env is

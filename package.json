@@ -24,7 +24,8 @@
     "check:watchlist": "tsx scripts/check-watchlist-matching.mts",
     "audit:launch": "tsx scripts/audit-launch.mts",
     "audit:seo": "tsx scripts/audit-seo-snapshot.mts",
-    "check:api": "tsx scripts/check-api.mts"
+    "check:api": "tsx scripts/check-api.mts",
+    "check:sitemap": "tsx scripts/check-sitemap.mts"
   },
   "dependencies": {
     "@sentry/nextjs": "^10.53.1",

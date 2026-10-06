@@ -158,6 +158,7 @@ export function validatePostInput(
 export function revalidateBlog(slugs: (string | null | undefined)[] = []): void {
   revalidatePath("/blog");
   revalidatePath("/blog/feed.xml");
+  revalidatePath("/sitemap.xml");
   for (const s of new Set(slugs.filter((s): s is string => Boolean(s)))) {
     revalidatePath(`/blog/${s}`);
   }

@@ -65,22 +65,22 @@ Design rules that hold across the branch:
 
 ## Known gaps
 - OG headlines render in Satori's default sans (no serif font bundled).
-- Migrations 0043–0053 are not in `src/db/migrations/meta/_journal.json`,
-  so `db:migrate` skips them on a fresh database (production applied them
-  by hand). Local testing needed them applied manually. **Not changed for
-  the cutover, on purpose:** nothing in the build or deploy runs
-  migrations. Production's `drizzle.__drizzle_migrations` holds 32 rows,
-  the last being 0031 (checked 2026-10-06), so every later migration
-  (0032–0053) was applied by hand. **Do not run `db:migrate` against
-  production**: today it would already try to re-run 0032–0042, and with
-  journal entries added it would also re-run 0043–0053 (0050 creates two
-  policies with no `if not exists`; 0045 has an unguarded `create`). The
-  safe fix, later and separately: add the journal entries for 0043–0053
-  *and* insert the matching rows for 0032–0053 into production's
-  `__drizzle_migrations` in the same change.
-- Warm tints with no token are used as raw hex in a few areas
-  (`#FBFAF7`, `#F1EADF`, `#F3EDE3`…) — candidate `--panel` tokens. A
-  no-visible-change refactor; left for after the cutover.
+- Migrations journal: **entries for 0043–0053 added 2026-10-06**, so
+  `db:migrate` builds a fresh database end to end (checked on a scratch
+  Postgres 16 with Supabase stand-ins: all 54 apply). Production is not
+  changed by this: its `drizzle.__drizzle_migrations` still holds 32 rows
+  ending at 0031 (checked 2026-10-06), although every migration through
+  0053 is applied there (each one's objects checked the same day). **Do
+  not run `db:migrate` against production** until its log is brought up to
+  date: it would re-run 0032–0053 (0050 creates two policies with no
+  `if not exists`; 0045 has an unguarded `create`). To bring it up to date,
+  insert one row per migration 0032–0053 into `drizzle.__drizzle_migrations`
+  with `hash` = sha256 of the `.sql` file and `created_at` = the journal's
+  `when` (the existing rows follow exactly this rule). Needs the owner's OK:
+  it is a write to the production database.
+- ~~Warm tints as raw hex~~ — done 2026-10-06: `--panel` (#FBFAF7),
+  `--panel-now` (#F1EADF) and `--panel-well` (#F3EDE3) in `globals.css`,
+  Tailwind `bg-panel` / `bg-panel-now` / `bg-panel-well`. No visible change.
 - Pages were tested against a local Supabase with seed data only; walk the
   quote flow, account and admin on a Vercel preview with real data before
   merging.

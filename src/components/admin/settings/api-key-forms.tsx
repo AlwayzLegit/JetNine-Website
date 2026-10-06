@@ -117,7 +117,7 @@ export function ApiKeysHeader({
       />
 
       {created ? (
-        <div className="card bg-[#FBFAF7] mt-6 border-gold/40 p-6" role="region" aria-label="Your new key">
+        <div className="card bg-panel mt-6 border-gold/40 p-6" role="region" aria-label="Your new key">
           <h2 className="font-serif text-[20px] leading-[1.2] text-bone">“{created.name}” is ready</h2>
           <p className="mt-1 text-[14px] text-bone-2">
             Copy it now. This is the only time it is shown; if it is lost, revoke it and create another.
@@ -137,7 +137,7 @@ export function ApiKeysHeader({
       ) : null}
 
       {open ? (
-        <form id="key-create" onSubmit={onSubmit} className="card bg-[#FBFAF7] mt-6 p-6">
+        <form id="key-create" onSubmit={onSubmit} className="card bg-panel mt-6 p-6">
           <h2 className="font-serif text-[20px] leading-[1.2] text-bone">Create a key</h2>
 
           <fieldset className="mt-4">

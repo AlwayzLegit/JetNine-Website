@@ -48,7 +48,7 @@ export function MemoryList({ items, archived, cap }: { items: MemoryRowData[]; a
           </span>
         </div>
         {items.length === 0 ? (
-          <p className="card bg-[#FBFAF7] p-6 text-[15px] text-bone-2">Nothing remembered yet. The assistant adds a few items after each run; you can add one above.</p>
+          <p className="card bg-panel p-6 text-[15px] text-bone-2">Nothing remembered yet. The assistant adds a few items after each run; you can add one above.</p>
         ) : (
           <div className="card overflow-hidden">
             {items.map((m) => (
@@ -102,7 +102,7 @@ function AddMemory() {
   }
 
   return (
-    <section className="card bg-[#FBFAF7] p-5 md:p-6">
+    <section className="card bg-panel p-5 md:p-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-[12px] font-bold uppercase tracking-[0.2em] text-gold">Add a note for the assistant</h2>
         <button type="button" className="btn btn-secondary btn-sm" aria-expanded={open} aria-controls="memory-add" onClick={() => setOpen((v) => !v)}>

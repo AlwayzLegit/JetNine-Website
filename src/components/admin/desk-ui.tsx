@@ -14,15 +14,15 @@ import type { ReactNode } from "react";
  *     </DeskGroup>
  *     <DeskEmpty title body />
  *
- * Panels use the prototype's warm off-white (#FBFAF7) on the paper page;
- * lists sit on white. The two warm tints (#FBFAF7 panel, #F1EADF "now")
- * have no global token — they live here so every page shares them.
+ * Panels use the prototype's warm off-white (--panel) on the paper page;
+ * lists sit on white. The warm tints are tokens in globals.css (--panel,
+ * --panel-now); these constants keep every desk page on the same ones.
  */
 
-/** Warm panel: hairline border on #FBFAF7 (cards, side panels, KPI tiles). */
-export const DESK_PANEL = "border border-line bg-[#FBFAF7]";
+/** Warm panel: hairline border on --panel (cards, side panels, KPI tiles). */
+export const DESK_PANEL = "border border-line bg-panel";
 /** Bronze-tinted fill for "current" stage, internal notes, highlights. */
-export const DESK_TINT = "bg-[#F1EADF]";
+export const DESK_TINT = "bg-panel-now";
 /** Small white bordered button (Call / Text / Email, "Open in Avinode ↗"). */
 export const DESK_MINI_BTN =
   "inline-flex h-11 items-center justify-center whitespace-nowrap border border-line bg-surface px-3 text-[13px] text-bone transition-colors hover:border-bone md:h-8";
@@ -293,7 +293,7 @@ export function DeskRow({
   hot?: boolean;
 }) {
   const shell = card
-    ? `border bg-[#FBFAF7] px-4 py-3.5 md:px-[18px] ${hot ? "border-gold" : "border-line"}`
+    ? `border bg-panel px-4 py-3.5 md:px-[18px] ${hot ? "border-gold" : "border-line"}`
     : "border-b border-line px-4 py-4 last:border-b-0 md:px-5";
   // Callers may set their own phone columns (`grid-cols-[…]`); default to one.
   const phoneCols = /(^|\s)grid-cols-/.test(cols) ? "" : "grid-cols-1";
@@ -361,7 +361,7 @@ export function StatusPill({
 }) {
   const cls =
     tone === "gold"
-      ? "border-gold bg-[#F1EADF] text-bone"
+      ? "border-gold bg-panel-now text-bone"
       : tone === "success"
         ? "border-clearance bg-clearance text-white"
         : tone === "danger"

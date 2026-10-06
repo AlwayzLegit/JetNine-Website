@@ -302,7 +302,7 @@ export function SourcedOptions({
   }
 
   return (
-    <section className="min-w-0 border border-line bg-[#FBFAF7] px-4 py-4 md:px-5 md:py-[18px]">
+    <section className="min-w-0 border border-line bg-panel px-4 py-4 md:px-5 md:py-[18px]">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-[12px] font-bold uppercase tracking-[0.2em] text-gold">Options to send</h2>
         <div className="flex flex-wrap gap-2">

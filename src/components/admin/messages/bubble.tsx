@@ -36,7 +36,7 @@ export function Bubble({
       ? `max-w-[92%] lg:max-w-[70%] rounded-[8px_8px_8px_0] border border-line bg-surface text-bone ${pad}`
       : kind === "out"
         ? `max-w-[92%] lg:max-w-[70%] rounded-[8px_8px_0_8px] border border-line bg-surface-2 text-bone ${pad}`
-        : `max-w-[92%] lg:max-w-[70%] rounded-[8px_8px_0_8px] border border-[#C9A98A] bg-[#F1EADF] text-bone ${pad}`;
+        : `max-w-[92%] lg:max-w-[70%] rounded-[8px_8px_0_8px] border border-[#C9A98A] bg-panel-now text-bone ${pad}`;
   return (
     <div className={`flex flex-col ${align}`}>
       {kind === "note" && noteLabel ? <div className="mb-1 text-[12px] text-steel">{noteLabel}</div> : null}

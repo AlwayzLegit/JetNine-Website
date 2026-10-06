@@ -110,7 +110,7 @@ export function DeskSidebar({
         href={AVINODE_URL}
         target="_blank"
         rel="noreferrer"
-        className="mt-[18px] flex items-center justify-between border border-line bg-[#FBFAF7] px-3 py-2.5 text-[13px] text-bone transition-colors hover:border-gold hover:text-gold"
+        className="mt-[18px] flex items-center justify-between border border-line bg-panel px-3 py-2.5 text-[13px] text-bone transition-colors hover:border-gold hover:text-gold"
       >
         <span>Open Avinode</span>
         <span aria-hidden="true">↗</span>

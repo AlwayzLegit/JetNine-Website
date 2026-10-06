@@ -19,7 +19,7 @@ export function Small({ children }: { children: ReactNode }) {
 
 export function Notice({ children, icon = "info" }: { children: ReactNode; icon?: IconName }) {
   return (
-    <div className="flex items-start gap-[10px] rounded-[3px] border border-line bg-[#FBFAF7] px-3 py-[10px] text-[13px] leading-[1.45]">
+    <div className="flex items-start gap-[10px] rounded-[3px] border border-line bg-panel px-3 py-[10px] text-[13px] leading-[1.45]">
       <Icon name={icon} size={18} />
       <span>{children}</span>
     </div>
@@ -119,7 +119,7 @@ export function NbaaWindow() {
             ["Price & terms", NBAA_PRICE],
           ] as const
         ).map(([t, list]) => (
-          <div key={t} className="rounded-[3px] border border-line bg-[#FBFAF7] px-[14px] py-3">
+          <div key={t} className="rounded-[3px] border border-line bg-panel px-[14px] py-3">
             <p className="mb-1 font-serif text-[18px]">{t}</p>
             {list.map(([, title, body]) => (
               <div key={title} className="grid grid-cols-[22px_minmax(0,1fr)] gap-[10px] py-2">
@@ -161,7 +161,7 @@ export function TaxesWindow({ footer }: { footer?: ReactNode }) {
         <Row icon="plane" title="Airport and terminal fees" body="Confirm landing, handling and parking charges." />
         <Row icon="globe" title="International services" body="Ask about permits, customs and handling where applicable." />
       </div>
-      <div className="mt-[14px] grid grid-cols-[30px_minmax(0,1fr)] gap-3 border border-line bg-[#FBFAF7] px-4 py-[14px]">
+      <div className="mt-[14px] grid grid-cols-[30px_minmax(0,1fr)] gap-3 border border-line bg-panel px-4 py-[14px]">
         <Icon name="book" size={28} />
         <div>
           <b className="block text-[14px]">IRS · Publication 510</b>
@@ -211,7 +211,7 @@ export function ExtrasWindow({ footer }: { footer?: ReactNode }) {
                 <span className="text-[12px] text-steel">{b}</span>
               </span>
             </div>
-            <div className="mx-[14px] mb-3 rounded-[3px] bg-[#FBFAF7] px-3 py-[10px] text-[13px] leading-[1.5] sm:ml-[52px]">{body}</div>
+            <div className="mx-[14px] mb-3 rounded-[3px] bg-panel px-3 py-[10px] text-[13px] leading-[1.5] sm:ml-[52px]">{body}</div>
           </div>
         ))}
       </div>

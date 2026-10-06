@@ -50,7 +50,7 @@ export function TocNav({
 
   const shell =
     variant === "boxed"
-      ? "border border-line bg-[#FBFAF7] px-3 py-[14px]"
+      ? "border border-line bg-panel px-3 py-[14px]"
       : variant === "ruled"
         ? "border-r border-line pr-[14px] max-md:border-r-0 max-md:pr-0"
         : "";

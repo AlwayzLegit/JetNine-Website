@@ -73,7 +73,7 @@ export function PostCard({
   );
   if (variant === "card") {
     return (
-      <Link href={`/blog/${post.slug}`} className="group block border border-line bg-[#FBFAF7] p-2 pb-4 [&>p]:px-2 [&>h2]:px-2 [&>h3]:px-2">
+      <Link href={`/blog/${post.slug}`} className="group block border border-line bg-panel p-2 pb-4 [&>p]:px-2 [&>h2]:px-2 [&>h3]:px-2">
         {body}
       </Link>
     );

@@ -107,7 +107,7 @@ export default function JetSizesPage() {
             <span className="min-w-0 flex-[999_1_120px]">Explore</span>
           </div>
           {CATS.map((c, i) => (
-            <div key={c.slug} className={`flex flex-wrap items-center gap-x-4 gap-y-[6px] border-t border-surface-2 px-3 py-2 ${i % 2 ? "bg-[#FBFAF7]" : "bg-white"}`}>
+            <div key={c.slug} className={`flex flex-wrap items-center gap-x-4 gap-y-[6px] border-t border-surface-2 px-3 py-2 ${i % 2 ? "bg-panel" : "bg-white"}`}>
               <span className="relative block aspect-[3/2] w-[76px] flex-[0_0_76px] overflow-hidden bg-surface-2">
                 {c.imageUrl ? <Image src={c.imageUrl} alt="" fill sizes="76px" className="object-cover" /> : null}
               </span>

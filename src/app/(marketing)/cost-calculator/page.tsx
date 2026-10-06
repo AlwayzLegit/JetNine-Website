@@ -231,7 +231,7 @@ export default function CostCalculatorPage() {
       <Estimator categories={categories} />
 
       {/* ─── On this page ─── */}
-      <nav aria-label="On this page" className="mt-[18px] border-y border-line bg-[#FBFAF7]">
+      <nav aria-label="On this page" className="mt-[18px] border-y border-line bg-panel">
         <div className="container-jn flex flex-wrap justify-center gap-x-7 text-[13px]">
           {TABS.map(([label, href], i) => (
             <a
@@ -250,7 +250,7 @@ export default function CostCalculatorPage() {
         <h2 className="font-serif text-[30px] leading-[1.1]">What changes your trip price?</h2>
         <div className="mt-3 grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(min(100%,180px),1fr))]">
           {FACTORS.map(([title, body, icon]) => (
-            <div key={title} className="grid grid-cols-[34px_minmax(0,1fr)] items-center gap-3 border border-line bg-[#FBFAF7] px-4 py-[14px]">
+            <div key={title} className="grid grid-cols-[34px_minmax(0,1fr)] items-center gap-3 border border-line bg-panel px-4 py-[14px]">
               <Icon name={icon} size={30} />
               <span>
                 <b className="block text-[14px]">{title}</b>
@@ -271,7 +271,7 @@ export default function CostCalculatorPage() {
         id="inclusions"
         className="container-jn grid scroll-mt-[84px] items-start gap-6 pt-[22px] [grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr))]"
       >
-        <div className="border border-line bg-[#FBFAF7] px-5 py-[18px]">
+        <div className="border border-line bg-panel px-5 py-[18px]">
           <h2 className="font-serif text-[26px] leading-[1.1]">Know what the number covers.</h2>
           <div className="mt-3 border border-line bg-white text-[13px]">
             <div className="grid gap-x-3 gap-y-1 bg-surface-2 px-[14px] py-2 text-[12px] font-bold [grid-template-columns:repeat(auto-fit,minmax(min(100%,150px),1fr))]">
@@ -291,7 +291,7 @@ export default function CostCalculatorPage() {
             </WindowButton>
           </div>
         </div>
-        <div className="border border-line bg-[#FBFAF7] px-5 py-[18px]">
+        <div className="border border-line bg-panel px-5 py-[18px]">
           <h2 className="font-serif text-[22px] leading-[1.1]">Estimate → Quote → Confirmation</h2>
           <ol className="mt-[10px] flex flex-col gap-[10px]">
             {STAGES.map(([n, t, b]) => (
@@ -423,7 +423,7 @@ export default function CostCalculatorPage() {
             <Link
               key={href}
               href={href}
-              className="inline-flex h-[38px] items-center gap-2 whitespace-nowrap border border-line bg-[#FBFAF7] px-[14px] text-[13px] font-bold hover:border-gold"
+              className="inline-flex h-[38px] items-center gap-2 whitespace-nowrap border border-line bg-panel px-[14px] text-[13px] font-bold hover:border-gold"
             >
               {label} →
             </Link>
@@ -447,7 +447,7 @@ export default function CostCalculatorPage() {
 
 function SourceCard({ icon, title, body, children }: { icon: IconName; title: string; body: string; children: React.ReactNode }) {
   return (
-    <div className="grid grid-cols-[30px_minmax(0,1fr)] gap-3 border border-line bg-[#FBFAF7] px-4 py-[14px]">
+    <div className="grid grid-cols-[30px_minmax(0,1fr)] gap-3 border border-line bg-panel px-4 py-[14px]">
       <Icon name={icon} size={28} />
       <div>
         <b className="block text-[14px]">{title}</b>

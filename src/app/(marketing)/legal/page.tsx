@@ -637,7 +637,7 @@ export default function LegalPage() {
 function IconDisc({ d, size }: { d: string; size: number }) {
   return (
     <span
-      className="flex flex-none items-center justify-center rounded-full bg-[#F3EDE3]"
+      className="flex flex-none items-center justify-center rounded-full bg-panel-well"
       style={{ width: size, height: size }}
     >
       <svg viewBox="0 0 24 24" fill="none" stroke="var(--gold)" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className="h-[22px] w-[22px]">

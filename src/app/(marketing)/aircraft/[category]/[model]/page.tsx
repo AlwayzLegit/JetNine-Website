@@ -55,14 +55,43 @@ function rateRowFor(category: string) {
   return RATES.find((r) => r.category === entry.name);
 }
 
+// Tailored summaries for the reviewed model pages. Other catalog models
+// retain their current metadata until their copy is reviewed.
+const MODEL_METADATA: Partial<Record<string, { title: string; description: string }>> = {
+  "phenom-300e": {
+    "title": "Phenom 300E Charter — Cabin, Range & Specs",
+    "description": "Explore the Embraer Phenom 300E for regional private flights. Review cabin dimensions, baggage capacity, range and charter options for your next business trip."
+  },
+  "citation-cj4": {
+    "title": "Citation CJ4 Charter — Cabin, Range & Specs",
+    "description": "Compare the Cessna Citation CJ4’s seating, cabin dimensions, baggage space and typical range. Review route options and request a quote for this light jet."
+  },
+  "challenger-350": {
+    "title": "Challenger 350 Charter — Cabin, Range & Specs",
+    "description": "Explore the Bombardier Challenger 350 for coast-to-coast travel. Review its stand-up cabin, seating, baggage space and range, then request a charter quote."
+  },
+  "praetor-600": {
+    "title": "Praetor 600 Charter — Cabin, Range & Specs",
+    "description": "Discover the Embraer Praetor 600 for longer super-midsize jet journeys. Compare cabin space, baggage capacity and typical range to plan your charter."
+  },
+  "gulfstream-g450": {
+    "title": "Gulfstream G450 Charter — Cabin, Range & Specs",
+    "description": "Explore Gulfstream G450 charter for long-distance and transatlantic travel. Review cabin dimensions, seating, baggage capacity and range for your itinerary."
+  },
+  "gulfstream-g650er": {
+    "title": "Gulfstream G650ER Charter — Cabin, Range & Specs",
+    "description": "Plan long-haul private travel with the Gulfstream G650ER. Explore cabin dimensions, seating, baggage and extended range, and request a quote for your route."
+  }
+};
+
 export async function generateMetadata({ params }: RouteParams): Promise<Metadata> {
   const { category, model } = await params;
   const m = getModel(category, model);
   if (!m) return {};
   const rate = rateRowFor(m.category);
   return pageMetadata({
-    title: `${m.shortName} Charter — Rates, Range & Specs`,
-    description: `Charter the ${m.name}: ${m.sample.pax} passengers, ${formatNm(m.sample.rangeNm)} range, ${m.sample.speedKt} kt cruise${rate ? `, from ${rate.market} at market rates` : ""}. Vetted operators, all-in quotes in 30 minutes.`,
+    title: MODEL_METADATA[m.slug]?.title ?? `${m.shortName} Charter — Rates, Range & Specs`,
+    description: MODEL_METADATA[m.slug]?.description ?? `Charter the ${m.name}: ${m.sample.pax} passengers, ${formatNm(m.sample.rangeNm)} range, ${m.sample.speedKt} kt cruise${rate ? `, from ${rate.market} at market rates` : ""}. Vetted operators, all-in quotes in 30 minutes.`,
     path: `/aircraft/${m.category}/${m.slug}`,
     image: m.sample.imageUrl,
     imageAlt: `${m.name} exterior`,

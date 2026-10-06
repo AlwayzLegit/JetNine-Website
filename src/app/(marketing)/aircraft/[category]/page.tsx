@@ -38,26 +38,34 @@ export function generateStaticParams() {
   return FLEET.map((f) => ({ category: f.slug }));
 }
 
-// Query-first titles: category-intent searches are "light jet charter",
-// "turboprop charter", not the bare category name the old brand-first
-// titles carried ("Light · JetNine"). The root template appends "· JetNine".
-const SEO_TITLES: Record<string, string> = {
-  turboprop: "Turboprop Charter — Aircraft, Range & Rates",
-  light: "Light Jet Charter — Aircraft, Range & Rates",
-  midsize: "Midsize Jet Charter — Aircraft, Range & Rates",
-  supermid: "Super-Midsize Jet Charter — Aircraft & Rates",
-  heavy: "Heavy Jet Charter — Aircraft, Range & Rates",
-  ultra: "Ultra-Long-Range Jet Charter — Aircraft & Rates",
+// Complete page-specific summaries: never truncate a lead or fabricate a
+// character limit. Google decides how much text to show for each query.
+const CATEGORY_METADATA: Record<string, { title: string; description: string }> = {
+  "turboprop": {
+    "title": "Turboprop Charter — Aircraft, Cabins & Range",
+    "description": "Compare turboprop charter aircraft for regional flights and smaller airports. Explore passenger capacity, baggage space, range and options for your trip."
+  },
+  "light": {
+    "title": "Light Jet Charter — Aircraft, Cabins & Range",
+    "description": "Explore light jet charter for small groups and regional travel. Compare aircraft, cabin layouts, baggage capacity and range before requesting a quote."
+  },
+  "midsize": {
+    "title": "Midsize Jet Charter — Cabins, Range & Options",
+    "description": "Compare midsize charter jets for business and leisure travel. Review cabin space, seating, baggage and route suitability to find an aircraft for your trip."
+  },
+  "supermid": {
+    "title": "Super-Midsize Jet Charter — Cabins & Range",
+    "description": "Explore super-midsize charter jets for longer journeys. Compare stand-up cabins, baggage space, aircraft range and estimated costs for your itinerary."
+  },
+  "heavy": {
+    "title": "Heavy Jet Charter — Large Cabins & Long-Range Travel",
+    "description": "Compare heavy jets for group travel and longer flights. Explore cabin layouts, sleeping arrangements, baggage capacity and aircraft options for your route."
+  },
+  "ultra": {
+    "title": "Ultra-Long-Range Jet Charter — Aircraft & Cabins",
+    "description": "Explore ultra-long-range jets for intercontinental travel. Compare cabin zones, sleeping options and aircraft range, then discuss your itinerary with JetNine."
+  }
 };
-
-// Meta descriptions come from the entry lead, which can run past the
-// ~160-char limit. A blunt slice() cut mid-word ("...quicker to dispa");
-// cut at the last word boundary instead and mark the elision.
-function truncateAtWord(text: string, max = 158): string {
-  if (text.length <= max) return text;
-  const cut = text.slice(0, max - 1);
-  return `${cut.slice(0, cut.lastIndexOf(" "))}…`;
-}
 
 export async function generateMetadata({ params }: RouteParams): Promise<Metadata> {
   const { category } = await params;
@@ -68,8 +76,8 @@ export async function generateMetadata({ params }: RouteParams): Promise<Metadat
   // category-specific OG card (photo + headline + spec line) at
   // 1200×630. That beats the raw 4:5 fleet photo for social cropping.
   return pageMetadata({
-    title: SEO_TITLES[entry.slug] ?? `${entry.name} Charter`,
-    description: truncateAtWord(entry.lead),
+    title: CATEGORY_METADATA[entry.slug].title,
+    description: CATEGORY_METADATA[entry.slug].description,
     path: entry.href,
   });
 }

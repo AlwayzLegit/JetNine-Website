@@ -6,6 +6,11 @@ import { test, expect } from "@playwright/test";
  * submitContactInquiry action recognizes the firstName prefix, inserts
  * the row pre-handled (status='handled') and skips the dispatch email,
  * so deploy noise never reaches the desk.
+ *
+ * Selectors follow the light redesign's form: the "New charter" topic
+ * (default) with a one-way trip, contact details, then the submit button
+ * whose label names the topic. The form maps its inputs onto the action's
+ * original field names, so this also proves that mapping end to end.
  */
 
 test.describe("@prod-smoke contact form", () => {
@@ -15,28 +20,31 @@ test.describe("@prod-smoke contact form", () => {
     const stamp = Date.now();
 
     await page.goto("/contact");
-    await expect(
-      page.getByRole("heading", { name: /one desk/i }).first(),
-    ).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole("heading", { name: /contact jetnine/i }).first()).toBeVisible({
+      timeout: 15_000,
+    });
 
-    // New contact-page surfaces ship together with the live form — assert
-    // they rendered so a silent regression doesn't hide behind the submit.
+    // Surfaces that ship with the live form — assert they rendered so a
+    // silent regression doesn't hide behind the submit.
     await expect(page.getByTestId("desk-clock")).toBeVisible();
 
-    await page.getByLabel(/first name/i).fill("[SMOKE]");
-    await page.getByLabel(/last name/i).fill(`Contact-${stamp}`);
-    await page.getByLabel(/^email$/i).fill(`smoke+contact${stamp}@jetnine.com`);
-    await page.getByLabel(/departing/i).fill("KVNY");
-    await page.getByLabel(/arriving/i).fill("KTEB");
-    await page.getByLabel(/date or window/i).fill("next week · flexible");
-    await page.getByLabel(/passengers/i).fill("2");
-    await page
-      .getByLabel(/anything else/i)
-      .fill(`[SMOKE] automated post-deploy check · ${stamp}`);
+    const form = page.locator("section#form");
+    await form.getByRole("textbox", { name: /^from\b/i }).fill("KVNY");
+    await form.getByRole("textbox", { name: /^to\b/i }).fill("KTEB");
 
-    await page.getByRole("button", { name: /send to dispatch/i }).click();
+    const date = new Date();
+    date.setDate(date.getDate() + 21);
+    await form.getByLabel(/^departure date/i).fill(date.toISOString().slice(0, 10));
+    await form.getByLabel(/^passengers/i).selectOption("2");
 
-    const success = page.getByText(/Sent\. A dispatcher will reply/i);
+    await form.getByLabel(/^first name/i).fill("[SMOKE]");
+    await form.getByLabel(/^last name/i).fill(`Contact-${stamp}`);
+    await form.getByLabel(/^email/i).fill(`smoke+contact${stamp}@jetnine.com`);
+    await form.getByLabel(/^trip notes/i).fill(`[SMOKE] automated post-deploy check · ${stamp}`);
+
+    await form.getByRole("button", { name: /request a charter quote/i }).click();
+
+    const success = page.getByText(/Request received|a person will be in touch shortly/i);
     const errorBanner = page.locator("text=/Not sent|Too many sends|Check —/");
 
     await expect(async () => {

@@ -35,6 +35,8 @@ const MARKETING_ROUTES: { path: string; priority: number; changeFreq: "daily" | 
     priority: 0.5,
     changeFreq: "monthly" as const,
   })),
+  { path: "/private-jet-concierge",      priority: 0.7, changeFreq: "monthly" },
+  { path: "/private-jet-birthday-party", priority: 0.6, changeFreq: "monthly" },
   { path: "/how-it-works",     priority: 0.7, changeFreq: "monthly" },
   { path: "/safety",           priority: 0.7, changeFreq: "monthly" },
   { path: "/safety/operator-vetting",  priority: 0.6, changeFreq: "monthly" },

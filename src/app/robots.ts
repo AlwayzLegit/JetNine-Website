@@ -1,61 +1,35 @@
 import type { MetadataRoute } from "next";
 
-/**
- * robots.txt
- *
- * Production: allow indexing of the marketing surface, block account /
- * admin / quote-wizard internals (they're behind auth or session state
- * and have no value in the index).
- *
- * Preview & non-prod Vercel environments: disallow everything so we
- * don't accidentally let Google index preview deployments under
- * *.vercel.app subdomains.
- */
+// These paths are crawl exclusions, not access controls or noindex directives.
+// Authentication and page-level indexing policy remain responsible for privacy.
+const PRIVATE_ROOTS = [
+  "/account", "/admin", "/api", "/auth", "/sign-in",
+  "/quote/aircraft", "/quote/contact", "/quote/review",
+  "/request", "/downloads",
+];
+
 export default function robots(): MetadataRoute.Robots {
-  const base = (process.env.NEXT_PUBLIC_SITE_URL || "https://jetnine.com").replace(/\/$/, "");
   const isProduction = process.env.VERCEL_ENV
     ? process.env.VERCEL_ENV === "production"
     : process.env.NODE_ENV === "production";
 
+  // A preview build also uses NODE_ENV=production. Vercel's environment wins.
+  // Disallow is a crawl policy; preview access protection must be enforced by
+  // the hosting platform to guarantee preview content remains private.
   if (!isProduction) {
-    return {
-      rules: { userAgent: "*", disallow: "/" },
-      sitemap: `${base}/sitemap.xml`,
-    };
+    return { rules: { userAgent: "*", disallow: "/" } };
   }
 
-  const disallow = [
-    // No trailing slash: covers the bare /account path the nav and
-    // footer link to, which 307s to /sign-in for the (logged-out)
-    // crawler — Semrush flagged those as 17 temporary-redirect hits.
-    "/account",
-    "/admin/",
-    "/api/",
-    "/auth/",
-    "/sign-in",
-    "/quote/aircraft",
-    "/quote/contact",
-    "/quote/review",
-    // Guest status pages, keyed by an unguessable token.
-    "/request/",
-    // Gated assets (the pricing-guide PDF) — reachable only via the
-    // capture form's unguessable path; keep crawlers from indexing it.
-    "/downloads/",
-  ];
-
   return {
-    rules: [
-      { userAgent: "*", allow: "/", disallow },
-      // Explicitly welcome AI-answer crawlers (same private-area
-      // disallows). The published rate card and FAQ answers are exactly
-      // the concrete, citable data LLM answers surface for "how much
-      // does a private jet cost" queries — being crawlable there is
-      // distribution the competitor set mostly ignores.
-      ...["GPTBot", "ClaudeBot", "Claude-Web", "PerplexityBot", "Google-Extended"].map(
-        (userAgent) => ({ userAgent, allow: "/", disallow }),
-      ),
-    ],
-    sitemap: `${base}/sitemap.xml`,
-    host: base,
+    rules: [{
+      // Share one rule group without changing the existing named-bot policy.
+      userAgent: ["*", "GPTBot", "ClaudeBot", "Claude-Web", "PerplexityBot", "Google-Extended"],
+      allow: "/",
+      // Exact URL, query variant, and descendants; /accounting stays allowed.
+      disallow: PRIVATE_ROOTS.flatMap((path) => [`${path}$`, `${path}?`, `${path}/`]),
+    }],
+    // Keep discovery on the canonical production host, independent of preview
+    // URLs or malformed environment configuration. Google ignores Host:.
+    sitemap: "https://jetnine.com/sitemap.xml",
   };
 }

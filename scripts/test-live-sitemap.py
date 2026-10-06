@@ -10,7 +10,7 @@ spec.loader.exec_module(audit)
 
 
 class AuditTests(unittest.TestCase):
-    def run_audit(self, *, robots='', meta='', canonical='https://jetnine.com/', date='', broken_image=False):
+    def run_audit(self, *, robots='', meta='', canonical='https://jetnine.com/', date='', broken_image=False, robots_type='text/plain'):
         xml = f'''<urlset xmlns="{audit.NS['s']}" xmlns:image="{audit.NS['i']}">
         <url><loc>https://jetnine.com/</loc>{date}<image:image>
         <image:loc>https://jetnine.com/image.webp</image:loc></image:image></url></urlset>'''
@@ -19,7 +19,7 @@ class AuditTests(unittest.TestCase):
             if url.endswith('/sitemap.xml'):
                 return xml.encode(), {'Content-Type': 'application/xml'}
             if url.endswith('/robots.txt'):
-                return ('Sitemap: https://jetnine.com/sitemap.xml\n' + robots).encode(), {}
+                return ('Sitemap: https://jetnine.com/sitemap.xml\n' + robots).encode(), {'Content-Type': robots_type}
             if url.endswith('/image.webp'):
                 if broken_image:
                     raise RuntimeError('broken image')
@@ -31,6 +31,10 @@ class AuditTests(unittest.TestCase):
 
     def test_valid_and_longest_robots_rule(self):
         self.assertEqual(self.run_audit(robots='User-agent: *\nDisallow: /\nAllow: /$')['errors'], [])
+
+    def test_robots_html_error_page(self):
+        with self.assertRaisesRegex(AssertionError, 'Robots must be plain text'):
+            self.run_audit(robots_type='text/html')
 
     def test_bad_canonical(self):
         self.assertTrue(self.run_audit(canonical='https://jetnine.com/wrong')['errors'])

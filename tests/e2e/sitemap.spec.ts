@@ -42,7 +42,7 @@ test("sitemap XML lists only healthy, canonical, indexable public pages", async 
       const url = new URL(entry.url);
       expect(url.origin).toBe(origin);
       expect(url.search + url.hash).toBe("");
-      expect(disallows.some((rule) => url.pathname.startsWith(rule))).toBe(false);
+      expect(disallows.some((rule) => (rule.endsWith("$") ? url.pathname === rule.slice(0, -1) : url.pathname.startsWith(rule)))).toBe(false);
       expect(url.pathname).not.toMatch(/^\/(account|admin|api|auth|sign-in|request|downloads)(\/|$)/);
       expect(url.pathname).not.toMatch(/^\/quote\/(aircraft|contact|review)$/);
       if (!url.pathname.startsWith("/blog/")) expect(entry.lastmod).toBeUndefined();

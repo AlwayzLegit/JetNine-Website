@@ -62,7 +62,9 @@ const originalNodeEnv = process.env.NODE_ENV;
 try {
   Object.assign(process.env, { NODE_ENV: "production" });
   process.env.VERCEL_ENV = "preview";
-  assert.deepEqual(robots().rules, { userAgent: "*", disallow: "/" });
+  assert.deepEqual(robots(), { rules: { userAgent: "*", disallow: "/" } });
+  process.env.VERCEL_ENV = "development";
+  assert.deepEqual(robots(), { rules: { userAgent: "*", disallow: "/" } });
   process.env.VERCEL_ENV = "production";
   assert(Array.isArray(robots().rules));
 } finally {

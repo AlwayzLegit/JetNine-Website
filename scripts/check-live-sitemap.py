@@ -52,7 +52,10 @@ def audit():
     entries = root.findall('s:url', NS)
     urls = [entry.findtext('s:loc', namespaces=NS) for entry in entries]
     assert 1 <= len(urls) <= 50000 and len(set(urls)) == len(urls), 'Invalid count or duplicates'
-    robots = fetch(BASE + '/robots.txt')[0].decode('utf-8')
+    robots_body, robots_headers = fetch(BASE + '/robots.txt')
+    assert 'text/plain' in robots_headers.get('Content-Type', ''), 'Robots must be plain text'
+    assert len(robots_body) <= 500 * 1024, 'Robots exceeds 500 KiB'
+    robots = robots_body.decode('utf-8')
     assert f'Sitemap: {BASE}/sitemap.xml' in robots, 'Missing robots discovery'
     # Match Googlebot's group when present, otherwise the wildcard group.
     groups, agents, rules = [], [], []

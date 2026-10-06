@@ -40,44 +40,46 @@ Design rules that hold across the branch:
 - Dev only: postgres client cached on `globalThis` (connection leak); CSP
   allows `unsafe-eval` and the local Supabase http/ws origin in development.
 
-## Decisions waiting on the owner
-1. ~~Copy removed as unverifiable~~ — **decided 2026-10-06: stays
-   removed.** About's five beliefs; How it works promises ("quote in 30 min
-   or it's free", $5,000 credit), its old steps ("dispatch picks up within
-   five minutes", "three to five aircraft in under thirty minutes",
-   "four-hour soft hold"), six old How it works FAQs. Do not restore.
-2. ~~Rate mismatch~~ — **decided 2026-10-06: the rate card wins.**
-   `HOURLY_USD` in `quote-pricing.ts` now reads the midpoint of each
-   category's market range in `rates.ts` (light $3,400, midsize $4,400,
-   super-mid $5,650, heavy $8,100, ultra $10,800/hr), so every estimate
-   (quote wizard, calculator, route, city and model pages, pricing-guide
-   PDF) follows the card. The card has no turboprop row: turboprop keeps
-   its old share of the light rate (≈ $2,800/hr) until the owner sets one.
-3. The 27 new guides' copy came from the design tool — needs a read.
-   Invented slugs to confirm: cabin amenities, charter vs first class,
-   charter vs fractional, corporate multi-city.
-4. dispatch@jetnine.com (contact pages) vs `SITE.email` info@jetnine.com.
-5. About team names that look like placeholders ("Sarah Smith", "James Lee").
-6. Membership tiers still unconfirmed (from REDESIGN_PLAN).
-7. `/guides` metadata still says "Pricing Guide (2026)".
-8. Existing claims kept but unbacked: "within 30 minutes" quotes, "pick-up
-   under twenty seconds", ARG/US / Wyvern lines.
+## Owner decisions (2026-10-06)
+**The Claude Design handoff is the final word on copy and everything else.**
+Where a page's copy came from the design, it stays exactly as designed;
+do not rewrite it for verifiability. Applied to the open items:
+1. Copy removed during the port (About's five beliefs; How it works'
+   "quote in 30 min or it's free" and $5,000 credit promises, its old
+   steps — "dispatch picks up within five minutes", "three to five
+   aircraft in under thirty minutes", "four-hour soft hold" — and six old
+   FAQs) came from the old site (it is on `main` at d86a601). The design
+   decides: whatever the design screens show goes on the page as
+   designed; what they don't show stays out. Not re-checked against the
+   design files yet (they are not in the repo).
+2. Rates: the rate card wins. `HOURLY_USD` in `quote-pricing.ts` reads the
+   midpoint of each category's market range in `rates.ts` (light $3,400,
+   midsize $4,400, super-mid $5,650, heavy $8,100, ultra $10,800/hr) for
+   every estimate. The card has no turboprop row: turboprop keeps its old
+   share of the light rate (≈ $2,800/hr) until the owner sets one.
+3. The 27 new guides, their slugs included, stay as designed.
+4. Contact pages keep dispatch@jetnine.com as designed (`SITE.email`,
+   info@, is unchanged elsewhere).
+5. About team names stay as designed.
+6. Membership tiers: as designed.
+7. `/guides` metadata ("Pricing Guide (2026)") is not in the design; it is
+   unchanged.
+8. Claims the design carries ("within 30 minutes" quotes, "pick-up under
+   twenty seconds", ARG/US / Wyvern lines) stay.
+9. The Concierge screen (`Light - Concierge.dc.html`) is built by the owner
+   on a separate branch.
 
 ## Known gaps
 - OG headlines render in Satori's default sans (no serif font bundled).
-- Migrations journal: **entries for 0043–0053 added 2026-10-06**, so
-  `db:migrate` builds a fresh database end to end (checked on a scratch
-  Postgres 16 with Supabase stand-ins: all 54 apply). Production is not
-  changed by this: its `drizzle.__drizzle_migrations` still holds 32 rows
-  ending at 0031 (checked 2026-10-06), although every migration through
-  0053 is applied there (each one's objects checked the same day). **Do
-  not run `db:migrate` against production** until its log is brought up to
-  date: it would re-run 0032–0053 (0050 creates two policies with no
-  `if not exists`; 0045 has an unguarded `create`). To bring it up to date,
-  insert one row per migration 0032–0053 into `drizzle.__drizzle_migrations`
-  with `hash` = sha256 of the `.sql` file and `created_at` = the journal's
-  `when` (the existing rows follow exactly this rule). Needs the owner's OK:
-  it is a write to the production database.
+- ~~Migrations journal~~ — done 2026-10-06. `_journal.json` lists all
+  54 migrations, so `db:migrate` builds a fresh database end to end
+  (checked on a scratch Postgres 16 with Supabase stand-ins). Production's
+  `drizzle.__drizzle_migrations` was brought up to date the same day with
+  the owner's OK: 22 rows for 0032–0053 (`hash` = sha256 of the `.sql`
+  file, `created_at` = the journal's `when`, the rule the earlier rows
+  follow), after checking each migration's objects exist there. It now
+  holds 54 rows ending at 0053, so `db:migrate` against production has
+  nothing to apply. New migrations: add the journal entry with the file.
 - ~~Warm tints as raw hex~~ — done 2026-10-06: `--panel` (#FBFAF7),
   `--panel-now` (#F1EADF) and `--panel-well` (#F3EDE3) in `globals.css`,
   Tailwind `bg-panel` / `bg-panel-now` / `bg-panel-well`. No visible change.

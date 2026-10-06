@@ -87,6 +87,59 @@ function cityLanes(city: CharterCity): Lane[] {
     .filter((l): l is Lane => l !== null);
 }
 
+// Reviewed city summaries describe local planning information without a
+// changing teaser fare or a fixed response-time promise.
+const CITY_METADATA: Partial<Record<string, { title: string; description: string }>> = {
+  "los-angeles": {
+    "title": "Los Angeles Private Jet Charter — Airports & Routes",
+    "description": "Compare Van Nuys, Burbank and LAX for private jet charter in Los Angeles. Explore aircraft, popular routes and airport access before planning your flight."
+  },
+  "new-york": {
+    "title": "New York Private Jet Charter — Airports & Routes",
+    "description": "Plan a New York private jet charter with guidance on Teterboro, JFK and LaGuardia. Compare routes, aircraft and airport access for your Manhattan itinerary."
+  },
+  "miami": {
+    "title": "Miami Private Jet Charter — Airports & Routes",
+    "description": "Explore Miami private jet charter from Opa-Locka and Miami International. Review Bahamas and US routes, aircraft options and seasonal travel considerations."
+  },
+  "las-vegas": {
+    "title": "Las Vegas Private Jet Charter — Airports & Events",
+    "description": "Compare Harry Reid and Henderson Executive for a Las Vegas charter. Explore routes, aircraft and planning considerations for conventions and event weekends."
+  },
+  "san-francisco": {
+    "title": "San Francisco Private Jet Charter — Bay Area Airports",
+    "description": "Compare SFO and Oakland for San Francisco private jet charter. Explore Bay Area airport access, popular routes and fog-related planning considerations."
+  },
+  "chicago": {
+    "title": "Chicago Private Jet Charter — Midway & Routes",
+    "description": "Explore private jet charter from Chicago Midway. Compare aircraft and routes to New York, Las Vegas and beyond, with guidance on winter flight planning."
+  },
+  "dallas": {
+    "title": "Dallas Private Jet Charter — Love Field & Routes",
+    "description": "Compare Dallas Love Field and DFW for your private jet charter. Explore aircraft options, popular routes and airport access for business or leisure travel."
+  },
+  "houston": {
+    "title": "Houston Private Jet Charter — Hobby & Routes",
+    "description": "Plan private jet charter from Houston Hobby. Explore routes to Dallas, Miami, New York and Aspen, compare aircraft and review airport options for your trip."
+  },
+  "palm-beach": {
+    "title": "Palm Beach Private Jet Charter — Airports & Routes",
+    "description": "Explore private jet charter from Palm Beach International. Compare routes to New York, Boston and Chicago, and review seasonal demand and airport planning."
+  },
+  "aspen": {
+    "title": "Aspen Private Jet Charter — Airport & Trip Planning",
+    "description": "Plan an Aspen private jet charter with guidance on Aspen-Pitkin Airport, mountain conditions, weather alternatives and aircraft suitability for your trip."
+  },
+  "scottsdale": {
+    "title": "Scottsdale Private Jet Charter — Airport & Travel Planning",
+    "description": "Explore Scottsdale private jet charter for golf, resorts and business travel. Review airport access, popular routes and summer heat considerations."
+  },
+  "boston": {
+    "title": "Boston Private Jet Charter — Hanscom & Logan",
+    "description": "Compare Hanscom Field and Logan for Boston private jet charter. Explore routes to New York, Florida and Martha’s Vineyard, with seasonal travel guidance."
+  }
+};
+
 export async function generateMetadata({ params }: RouteParams): Promise<Metadata> {
   const { city: slug } = await params;
   const city = getCity(slug);
@@ -94,8 +147,8 @@ export async function generateMetadata({ params }: RouteParams): Promise<Metadat
   const lanes = cityLanes(city);
   const cheapest = lanes.reduce((a, b) => (b.low < a.low ? b : a), lanes[0]);
   return pageMetadata({
-    title: `Private Jet Charter ${city.name} — Cost, Jets & Airports`,
-    description: `Charter from ${city.name}: ${city.primary.name} (${city.primary.icao}) and the fields that matter, live from-prices${cheapest ? ` (${city.name} to ${cheapest.to.city} from ${formatUSD(cheapest.low)})` : ""}, and quotes in 30 minutes from vetted operators.`,
+    title: CITY_METADATA[city.slug]?.title ?? `Private Jet Charter ${city.name} — Cost, Jets & Airports`,
+    description: CITY_METADATA[city.slug]?.description ?? `Charter from ${city.name}: ${city.primary.name} (${city.primary.icao}) and the fields that matter, live from-prices${cheapest ? ` (${city.name} to ${cheapest.to.city} from ${formatUSD(cheapest.low)})` : ""}, and quotes in 30 minutes from vetted operators.`,
     path: `/private-jet-charter/${city.slug}`,
   });
 }

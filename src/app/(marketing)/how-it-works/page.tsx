@@ -13,9 +13,9 @@ import { STEPS } from "@/components/how-it-works/steps";
 import { ChecklistWindow, ConfirmationWindow, ExampleQuoteWindow } from "@/components/how-it-works/windows";
 
 export const metadata: Metadata = pageMetadata({
-  title: "How Private Jet Charter Works",
+  title: "How Private Jet Charter Works — Booking Steps",
   description:
-    "A senior dispatcher, not a chatbot. One number to call. Specific aircraft & pricing back within thirty minutes.",
+    "Follow the private jet charter process from trip request to departure. Learn how to compare aircraft, review your quote, confirm booking and prepare to fly.",
   path: "/how-it-works",
 });
 

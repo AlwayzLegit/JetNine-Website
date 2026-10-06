@@ -8,9 +8,9 @@ import { routeCard } from "@/components/routes/route-data";
 import { AirportBand, BeforeYouRequest, RouteFaq, RouteGuideBand, RouteSources } from "@/components/routes/sections";
 
 export const metadata: Metadata = pageMetadata({
-  title: "Private Jet Charter Routes — Cost by City Pair",
+  title: "Private Jet Routes — Flight Times & Charter Costs",
   description:
-    "Charter costs and flight times for the lanes we fly most — LA to Vegas, New York to Miami, coast to coast, international — priced live, whole aircraft, all-in.",
+    "Explore private jet routes across the US and internationally. Compare airports, estimated flight times and indicative charter costs for your next journey.",
   path: "/routes",
 });
 

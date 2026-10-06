@@ -9,9 +9,9 @@ import { DisclosureStrip, GoDeeper, SafetyClose, SafetyHero, SourcesRow } from "
 // rating quotes the pillar's own policy (Gold floor, Platinum preferred
 // and used on 78% of flights, Wingman for intl/ultra, IS-BAO Stage 2).
 export const metadata: Metadata = pageMetadata({
-  title: "ARG/US, Wyvern & IS-BAO Ratings Explained",
+  title: "Private Jet Safety Ratings — ARG/US, Wyvern & IS-BAO",
   description:
-    "What ARG/US Gold and Platinum, Wyvern Wingman, and IS-BAO Stage 2 actually certify — and how JetNine applies each rating as a floor, not a marketing badge.",
+    "Understand ARG/US Gold and Platinum, Wyvern Wingman and IS-BAO Stage 2. Learn what each safety assessment covers and how JetNine uses it in operator selection.",
   path: "/safety/ratings-explained",
 });
 

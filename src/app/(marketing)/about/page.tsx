@@ -14,7 +14,7 @@ import { SITE } from "@/lib/constants";
 export const metadata: Metadata = pageMetadata({
   title: "About Our Private Jet Charter Brokerage",
   description:
-    "JetNine is a senior-dispatcher charter brokerage in Los Angeles. One number, one desk, ready when you are.",
+    "Learn how JetNine arranges private jet charter, supports your journey and works with independent aircraft operators. Understand our role as your charter broker.",
   path: "/about",
 });
 

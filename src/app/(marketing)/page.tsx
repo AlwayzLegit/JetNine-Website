@@ -1,9 +1,16 @@
+import { pageMetadata } from "@/lib/page-meta";
 import { Hero } from "@/components/home/hero";
 import { AircraftGrid } from "@/components/home/aircraft-grid";
 import { Flow } from "@/components/home/flow";
 import { QuoteExplainer } from "@/components/home/quote-explainer";
 import { GuidesPreview } from "@/components/home/guides-preview";
 import { CtaBand } from "@/components/cta-band";
+
+export const metadata = pageMetadata({
+  title: "Private Jet Charter & Personalized Travel",
+  description: "Arrange private jet charter with JetNine. Compare aircraft for your route, review a clear quote, and plan your journey with a dedicated charter team.",
+  path: "/",
+});
 
 // Light - Home: hero + trip bar, aircraft categories, how it works,
 // the quote explainer, guides, and the closing band.

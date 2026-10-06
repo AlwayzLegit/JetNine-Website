@@ -27,9 +27,9 @@ import { BirthdayButton, BirthdayProvider, BirthdaySidebarForm } from "@/compone
 const PATH = "/private-jet-birthday-party";
 
 export const metadata: Metadata = pageMetadata({
-  title: "Private Jet Birthday Party & Celebration Charter",
+  title: "Private Jet Birthday Parties & Celebration Flights",
   description:
-    "Plan a private jet birthday celebration with tailored aircraft options, catering, approved decorations and chauffeur transfers. Request your JetNine proposal.",
+    "Arrange a private jet birthday flight with aircraft options, catering, operator-approved decorations and ground transfers tailored to your celebration.",
   path: PATH,
   image: "/images/concierge/birthday-hero.webp",
   imageAlt: "Four friends celebrating a birthday around a cake in a private jet cabin.",

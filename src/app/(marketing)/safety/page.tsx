@@ -17,9 +17,9 @@ import {
 } from "@/components/safety/parts";
 
 export const metadata: Metadata = pageMetadata({
-  title: "Private Jet Safety — ARG/US & Wyvern Vetting",
+  title: "Private Jet Charter Safety & Operator Standards",
   description:
-    "Private jet safety at JetNine: every operator vetted against a written floor — ARG/US or Wyvern audited, re-checked every twelve months, spot-checked between.",
+    "Explore JetNine’s charter safety standards, including operator vetting, independent audits, pilot qualifications and the checks behind your flight.",
   path: "/safety",
 });
 

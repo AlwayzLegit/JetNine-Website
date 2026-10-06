@@ -9,9 +9,9 @@ import { CITIES } from "@/lib/cities";
 import { SITE } from "@/lib/constants";
 
 export const metadata: Metadata = pageMetadata({
-  title: "Private Jet Charter by City — US Markets",
+  title: "Private Jet Charter by City — Airports & Routes",
   description:
-    "Charter guides for the markets we fly most: the airports that actually matter in each city, drive times, live from-prices per lane, and the operational notes only a dispatch desk writes down.",
+    "Explore private jet charter by city. Compare local airports, popular routes, estimated costs and travel considerations before requesting your flight.",
   path: "/private-jet-charter",
 });
 

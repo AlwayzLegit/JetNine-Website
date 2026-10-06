@@ -25,7 +25,7 @@ import type { Metadata } from "next";
 export function pageMetadata(opts: {
   /** Short title used in <title> (the template adds " · JetNine"). */
   title: string;
-  /** ≤160 chars, used for meta description, og:description, twitter:description. */
+  /** Concise page summary for search and social cards; Google has no fixed character limit. */
   description: string;
   /** Site-relative path with leading slash (e.g. "/about"). */
   path: string;

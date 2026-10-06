@@ -8,9 +8,9 @@ import { DisclosureStrip, GoDeeper, SafetyClose, SafetyHero, SourcesRow } from "
 // into a standalone page. All minimums quoted here are the pillar's own
 // published numbers.
 export const metadata: Metadata = pageMetadata({
-  title: "Private Jet Pilot Standards — Crew Minimums",
+  title: "Private Jet Pilot Standards — Experience & Training",
   description:
-    "Two ATP-rated pilots on every JetNine flight: 3,500-hour PIC minimum with 1,500 in-type, 2,500-hour SIC, 90-day currency. No exceptions for daylight, short legs, or VFR.",
+    "Review JetNine’s charter pilot standards, including ATP certification, flight experience, aircraft type ratings, recent flying experience and duty-time checks.",
   path: "/safety/pilot-standards",
 });
 

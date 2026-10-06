@@ -35,7 +35,7 @@ const PATH = "/private-jet-concierge";
 export const metadata: Metadata = pageMetadata({
   title: "Private Jet Concierge & Travel Planning",
   description:
-    "Coordinate private jet charter, chauffeur transfers, tailored catering, hotels and experiences with JetNine. Request a personalized travel plan.",
+    "Plan private jet travel with coordinated chauffeur transfers, catering, hotels and destination experiences. Share your itinerary with the JetNine team.",
   path: PATH,
   image: "/images/concierge/hero.webp",
   imageAlt: "Travellers walking to a private jet at sunset as a chauffeur waits beside the car.",

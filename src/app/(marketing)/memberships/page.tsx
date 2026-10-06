@@ -19,9 +19,9 @@ import {
 } from "@/components/memberships/windows";
 
 export const metadata: Metadata = pageMetadata({
-  title: "Jet Card & Memberships — Locked Hourly Rates",
+  title: "Jet Cards & Private Jet Memberships",
   description:
-    "JetNine jet card and memberships: locked hourly rates, refundable deposits, no peak surcharges — or fly on-demand with no commitment at all.",
+    "Compare JetNine jet cards, memberships and on-demand charter. Review hourly rates, deposits, availability and cancellation terms to find the right option.",
   path: "/memberships",
 });
 

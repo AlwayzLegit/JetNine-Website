@@ -21,9 +21,9 @@ import type { EmptyLegView, SoldLegView } from "@/lib/empty-legs";
 export const revalidate = 60; // refresh every minute
 
 export const metadata: Metadata = pageMetadata({
-  title: "Empty Leg Flights — Private Jets Up to 60% Off",
+  title: "Empty Leg Private Jet Flights & Route Alerts",
   description:
-    "Repositioning legs at up to 60% off. Posted by the desk as operators release them, with SMS alerts on your lanes.",
+    "Browse available empty leg flights and set alerts for your preferred routes. Review departure dates, aircraft and pricing for flexible private jet travel.",
   path: "/empty-legs",
 });
 

@@ -13,9 +13,9 @@ import { GuideLibrary, HubFaq, PreBookingButton } from "@/components/guide-short
 import { FaaGuidance, NbaaChecklist } from "@/components/guide-short/hub-windows";
 
 export const metadata: Metadata = pageMetadata({
-  title: "Private Jet Charter Pricing Guide (2026)",
+  title: "Private Jet Charter Guides — Costs, Booking & Travel",
   description:
-    "The pricing guide written by a desk that publishes its rates: hourly costs by category, a real itemized quote, one-way vs round-trip economics, last-minute reality, and every price driver.",
+    "Explore private jet charter guides covering costs, aircraft selection, booking, safety and travel planning. Prepare your trip and compare quotes with confidence.",
   path: "/guides",
 });
 

@@ -9,9 +9,9 @@ import { Icon, type IconName } from "@/components/company/icons";
 import { SITE } from "@/lib/constants";
 
 export const metadata: Metadata = pageMetadata({
-  title: "Contact 24/7 Private Jet Dispatch",
+  title: "Contact 24/7 Private Jet Charter Support",
   description:
-    "One desk. One number. Open every hour of every day. Senior dispatcher picks up — average pick-up under twenty seconds.",
+    "Contact JetNine by phone or email to discuss a charter, share your itinerary or get trip support. Find our dispatch details and request your next flight.",
   path: "/contact",
 });
 

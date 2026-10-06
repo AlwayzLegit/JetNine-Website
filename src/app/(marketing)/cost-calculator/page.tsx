@@ -24,9 +24,9 @@ import { SITE } from "@/lib/constants";
 // the wizard uses, so no number here can disagree with a quote.
 // Layout: Light - Cost calculator (claude design handoff).
 export const metadata: Metadata = pageMetadata({
-  title: "Private Jet Cost Calculator — Instant Estimate",
+  title: "Private Jet Cost Calculator — Estimate Your Charter",
   description:
-    "Estimate your charter in seconds: live hourly rates by category ($2,950–$9,850/hr locked, market rates published too) and worked example trips. No callback required.",
+    "Estimate private jet charter costs by route and aircraft category. Compare hourly rates and example trips, then request a quote for your itinerary.",
   path: "/cost-calculator",
 });
 

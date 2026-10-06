@@ -18,9 +18,9 @@ import { readingMinutes } from "@/lib/markdown";
 export const revalidate = 3600;
 
 const base = pageMetadata({
-  title: "Private Jet Charter Blog — Notes From the Desk",
+  title: "Private Jet Charter Blog — Travel & Planning Insights",
   description:
-    "Charter pricing moves, route intel, aircraft picks, and the occasional strong opinion — written by the JetNine dispatch desk, with the numbers left in.",
+    "Read JetNine articles on charter costs, aircraft, seasonal routes, empty leg flights and travel planning. Explore practical advice for your next private flight.",
   path: "/blog",
 });
 export const metadata: Metadata = {

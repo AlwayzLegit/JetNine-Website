@@ -9,9 +9,9 @@ import { DisclosureStrip, GoDeeper, SafetyClose, SafetyHero, SourcesRow } from "
 // (5,000 → 380 funnel, 12-month re-audit cycle, one-strike policy);
 // this page explains the process, the pillar states the standard.
 export const metadata: Metadata = pageMetadata({
-  title: "How We Vet Private Jet Operators",
+  title: "Private Jet Operator Vetting — Safety Checks",
   description:
-    "From ~5,000 US Part 135 certificates to 380 approved operators: the certification, insurance, audit, and on-site filters every JetNine operator passes — re-checked every 12 months.",
+    "See how JetNine reviews charter operators, including operating certificates, insurance, independent safety audits, site visits and recurring checks.",
   path: "/safety/operator-vetting",
 });
 

@@ -18,9 +18,9 @@ import { FLEET } from "@/lib/fleet";
 import { MODELS } from "@/lib/models";
 
 export const metadata: Metadata = pageMetadata({
-  title: "Charter Fleet — Turboprop to Ultra-Long-Range Jets",
+  title: "Private Charter Aircraft — Compare Jets & Turboprops",
   description:
-    "Six categories, hundreds of aircraft. Turboprop through ultra long range — match the aircraft to the mission.",
+    "Compare six charter aircraft categories, from turboprops to ultra-long-range jets. Explore cabin space, passenger capacity, baggage and range for your trip.",
   path: "/aircraft",
 });
 

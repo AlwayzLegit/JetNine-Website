@@ -8,9 +8,9 @@ import { IconDisc, type FaqIconName } from "@/components/faq/faq-icons";
 import { FAQ } from "@/lib/faq";
 
 export const metadata: Metadata = pageMetadata({
-  title: "Private Jet Charter FAQ",
+  title: "Private Jet Charter FAQ — Booking, Costs & Travel",
   description:
-    "Answers to the questions before the call. Written by the dispatch desk for the kind of question that comes in at 11pm on a Sunday.",
+    "Find answers to private jet charter questions about booking, pricing, aircraft, baggage, pets and cancellations. Know what to review before you fly.",
   path: "/faq",
 });
 

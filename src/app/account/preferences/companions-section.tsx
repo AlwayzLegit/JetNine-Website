@@ -93,9 +93,9 @@ export function CompanionsSection({ initial }: Props) {
   }
 
   return (
-    <section className="card card-pad">
-      <h2 className="title-card-sm text-bone">Companions</h2>
-      <p className="mt-1 max-w-[60ch] text-[15px] leading-[1.5] text-bone-2">
+    <section className="border border-line bg-surface px-5 py-[18px] md:px-6 md:py-5">
+      <h2 className="font-serif text-[20px] font-normal leading-[1.2] text-bone">Companions</h2>
+      <p className="mt-1 max-w-[60ch] text-[14px] leading-[1.5] text-steel">
         Spouses, family, assistants, pets — the people who fly with you. Stored encrypted and used
         to pre-fill passenger lists and itinerary copies.
       </p>
@@ -106,7 +106,7 @@ export function CompanionsSection({ initial }: Props) {
           ready before each trip.
         </p>
       ) : (
-        <ul className="mt-6 divide-y divide-line-faint border-y border-line-faint">
+        <ul className="mt-6 divide-y divide-line border-y border-line">
           {list.map((c) => {
             const facts: string[] = [RELATION_WORDS[c.relation] ?? "Companion"];
             const b = born(c.birthDate);
@@ -118,7 +118,7 @@ export function CompanionsSection({ initial }: Props) {
             return (
               <li key={c.id} className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2 py-4">
                 <div className="min-w-0">
-                  <div className="text-[17px] font-medium text-bone">{c.legalName}</div>
+                  <div className="font-serif text-[18px] text-bone">{c.legalName}</div>
                   <div className="mt-0.5 text-[14px] text-bone-2">{facts.join(" · ")}</div>
                   {c.notes ? <div className="mt-1 text-[14px] leading-[1.5] text-steel">{c.notes}</div> : null}
                 </div>
@@ -137,7 +137,7 @@ export function CompanionsSection({ initial }: Props) {
       )}
 
       <form onSubmit={onAdd} className="mt-6">
-        <h3 className="label-jn text-[13px]">Add a companion</h3>
+        <h3 className="text-[12px] font-bold uppercase tracking-[.2em] text-gold">Add a companion</h3>
         <div className="mt-3 grid grid-cols-1 gap-2.5 md:grid-cols-2">
           <div className="field-jn">
             <label htmlFor="cp-relation">Relationship</label>
@@ -194,8 +194,8 @@ export function CompanionsSection({ initial }: Props) {
             defaultChecked={false}
           />
         </div>
-        <div className="mt-5 flex flex-wrap items-center gap-4 border-t border-line-faint pt-5">
-          <button type="submit" disabled={pending} className="btn btn-primary disabled:cursor-wait">
+        <div className="mt-5 flex flex-wrap items-center gap-4 border-t border-line pt-4">
+          <button type="submit" disabled={pending} className="btn btn-primary btn-sm disabled:cursor-wait">
             {pending ? "Saving…" : "Add companion"} <span className="arrow">→</span>
           </button>
           {msg ? (

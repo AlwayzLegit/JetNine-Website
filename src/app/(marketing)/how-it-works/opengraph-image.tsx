@@ -12,7 +12,7 @@ export default function OgImage() {
       kicker: "How it works",
       title: "Quote to wheels-up in under thirty minutes.",
       lead: "Senior dispatcher, not a chatbot. One number to call. Specific aircraft and pricing back, fast.",
-      bgImageUrl: `${siteBase()}/images/programs/tarmac-dusk.webp`,
+      bgImageUrl: `${siteBase()}/images/og/tarmac-dusk.jpg`,
     }),
     { ...size },
   );

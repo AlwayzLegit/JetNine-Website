@@ -170,7 +170,7 @@ export function MessageThread({
       {/* Bubbles — scroll to the newest when the pane has a fixed height */}
       <div ref={scrollRef} className={`flex min-h-0 flex-1 flex-col overflow-y-auto ${compact ? "gap-3" : "gap-3.5"}`}>
         {list.length === 0 ? (
-          <p className="rounded-card border border-dashed border-line-2 bg-surface px-5 py-6 text-center text-[15px] text-bone-2">
+          <p className="border border-dashed border-line bg-surface px-5 py-6 text-center text-[13px] text-steel">
             No messages yet. The first one starts the thread.
           </p>
         ) : (
@@ -211,8 +211,8 @@ export function MessageThread({
       </div>
 
       {/* Composer */}
-      <form onSubmit={onSubmit} className={`mt-auto border-t border-line-faint ${compact ? "pt-4" : "pt-5"}`}>
-        <div className="mb-2.5 flex flex-wrap items-center gap-1.5">
+      <form onSubmit={onSubmit} className={`mt-auto border-t border-line ${compact ? "pt-3" : "pt-3.5"}`}>
+        <div className="mb-2 flex flex-wrap items-center gap-1.5">
           {CHANNELS.map((c) => {
             const usable = canUse(c.id);
             return (
@@ -231,7 +231,7 @@ export function MessageThread({
               </button>
             );
           })}
-          <span className="ml-auto text-[13px] text-steel">{disabledNote ?? current.hint}</span>
+          <span className="ml-auto text-[12px] text-steel">{disabledNote ?? current.hint}</span>
         </div>
         <input type="hidden" name="channel" value={channel} />
         <div className={`grid gap-2.5 ${compact ? "grid-cols-1" : "grid-cols-[minmax(0,1fr)_auto] items-end"}`}>
@@ -245,12 +245,12 @@ export function MessageThread({
             required
             maxLength={4000}
             disabled={Boolean(disabledNote)}
-            className="w-full resize-none rounded-[10px] border border-line bg-surface px-3.5 py-3 text-[15px] leading-[1.5] text-bone outline-none placeholder:text-steel focus:border-steel disabled:opacity-50"
+            className="w-full resize-none rounded-control border border-line bg-surface px-2.5 py-2 text-[15px] leading-[1.5] text-bone outline-none placeholder:text-steel focus:border-bone disabled:opacity-50 md:text-[14px]"
           />
           <button
             type="submit"
             disabled={pending || Boolean(disabledNote)}
-            className={`btn btn-primary ${compact ? "btn-sm justify-self-end" : "h-12 px-5"}`}
+            className={`btn btn-primary text-[13px] font-bold ${compact ? "h-11 justify-self-end px-4 md:h-9" : "h-11 px-4 md:h-10"}`}
           >
             {pending ? "Sending…" : "Send"}
           </button>
@@ -258,7 +258,7 @@ export function MessageThread({
         <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
           {!compact && !disabledNote ? (
             <>
-              <span className="text-[13px] text-steel">Quick replies:</span>
+              <span className="text-[12px] text-steel">Quick replies:</span>
               {QUICK_REPLIES.map((q) => (
                 <button
                   key={q.label}

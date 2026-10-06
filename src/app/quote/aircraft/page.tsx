@@ -8,7 +8,8 @@ import {
   useQuoteStore,
   type CabinFlags,
 } from "@/lib/quote-store";
-import { QuoteSidebar } from "@/components/quote/quote-sidebar";
+import { IndicativeRange, TripSummaryBar } from "@/components/quote/trip-summary";
+import { PanelHeader, PanelLabel, QuotePanel } from "@/components/quote/quote-panel";
 import { StepFooter } from "@/components/quote/step-footer";
 import { CollapsibleSection } from "@/components/quote/collapsible-section";
 import { StoreHydrationGate } from "@/components/quote/store-hydration";
@@ -123,274 +124,270 @@ function AircraftStepInner() {
     : "Special requests, mobility needs, time-sensitive details.";
 
   const tileBase =
-    "rounded-control border bg-ink-2 p-4 text-left transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-clearance";
-  const tileBorder = (on: boolean) => (on ? "border-clearance" : "border-line hover:border-line-2");
+    "rounded-[3px] border bg-surface p-3.5 text-left transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-clearance";
+  const tileBorder = (on: boolean) =>
+    on ? "border-clearance shadow-[0_0_0_1px_var(--clearance)]" : "border-line hover:border-line-2";
 
   return (
-    <>
-      <div className="min-w-0">
-        <p className="eyebrow">Step 2 · Aircraft &amp; preferences</p>
-        <h1 className="title-section max-w-[18ch] md:text-[52px]">The shape of the flight.</h1>
-        <p className="mt-4 max-w-[60ch] text-[17px] leading-[1.55] text-bone-2">
-          Pick a category and tell us how you want it set up. Everything is optional except
-          category — dispatch can fill in the rest. We&rsquo;ve pre-recommended the right size for
-          your route &amp; passengers.
-        </p>
+    <QuotePanel>
+      <PanelHeader step={2} title="The shape of the flight.">
+        Pick a category — everything else is optional and dispatch can fill it in. We&rsquo;ve
+        pre-recommended the right size for your route and group.
+      </PanelHeader>
 
-        {/* Category */}
-        <section className="mt-9" aria-labelledby="category-heading">
-          <h2 id="category-heading" className="title-card-sm">
-            Match the aircraft to the trip.
-          </h2>
-          <p className="mt-1.5 text-[15px] text-bone-2">
-            Greyed-out categories don&rsquo;t fit your passenger count or route distance — adjust
-            either to unlock.
+      <TripSummaryBar />
+
+      {/* Category */}
+      <section className="mt-[18px]" aria-labelledby="category-heading">
+        <PanelLabel as="h2" id="category-heading">
+          Aircraft size
+        </PanelLabel>
+        <p className="mt-1 text-[13px] text-steel">
+          Greyed-out categories don&rsquo;t fit your passenger count or route distance — adjust
+          either to unlock.
+        </p>
+        <div className="mt-3 grid grid-cols-[repeat(auto-fit,minmax(min(100%,200px),1fr))] gap-2.5">
+          {FLEET.map((f) => {
+            const fit = categoryFits(f.slug);
+            const selected = s.category === f.slug;
+            const recommend = f.slug === recommended && fit.ok;
+            return (
+              <button
+                key={f.slug}
+                type="button"
+                disabled={!fit.ok}
+                aria-pressed={selected}
+                onClick={() => s.setCategory(f.slug)}
+                className={[
+                  tileBase,
+                  "relative min-h-[76px]",
+                  !fit.ok ? "cursor-not-allowed border-line opacity-45" : tileBorder(selected),
+                  showErrors && selected && !fit.ok ? "!border-danger !opacity-70" : "",
+                ].join(" ")}
+              >
+                {recommend ? (
+                  <span className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.16em] text-gold">
+                    Recommended
+                  </span>
+                ) : null}
+                <span className="block text-[15px] font-semibold leading-[1.3] text-bone">{f.name}</span>
+                <span className="mt-0.5 block text-[13px] text-steel">
+                  Up to {f.pax} passengers · {f.rangeNm.toLocaleString("en-US")} nm range
+                </span>
+                {!fit.ok ? (
+                  <span className="mt-1 block text-[13px] text-danger">{fit.reason}</span>
+                ) : null}
+              </button>
+            );
+          })}
+        </div>
+      </section>
+
+      {/* Optional groups */}
+      <div className="mt-[18px] flex flex-col gap-2">
+        <PanelLabel as="p">
+          Optional <span className="font-normal normal-case tracking-normal text-steel">— open only what you care about</span>
+        </PanelLabel>
+
+        <CollapsibleSection
+          id="cabin"
+          title="Cabin preferences"
+          summary={cabinSummary}
+          open={!!open.cabin}
+          onToggle={toggle("cabin")}
+        >
+          <p className="mb-3 text-[13px] text-steel">
+            All standard on most aircraft. We&rsquo;ll match to operators that have what you ask
+            for.
           </p>
-          {/* 3-up grid; a horizontal snap strip on phones (scrollbar hidden). */}
-          <div className="mt-5 grid gap-3 md:grid-cols-3 max-md:-mx-[var(--pad-x)] max-md:flex max-md:snap-x max-md:overflow-x-auto max-md:px-[var(--pad-x)] max-md:pb-1 max-md:[scrollbar-width:none] max-md:[&::-webkit-scrollbar]:hidden">
-            {FLEET.map((f) => {
-              const fit = categoryFits(f.slug);
-              const selected = s.category === f.slug;
-              const recommend = f.slug === recommended && fit.ok;
+          <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,240px),1fr))] gap-2">
+            {CABIN_TOGGLES.map((t) => {
+              const on = s.cabin[t.key];
               return (
                 <button
-                  key={f.slug}
+                  key={t.key}
                   type="button"
-                  disabled={!fit.ok}
-                  aria-pressed={selected}
-                  onClick={() => s.setCategory(f.slug)}
-                  className={[
-                    "card relative p-5 text-left transition-colors max-md:w-[260px] max-md:flex-none max-md:snap-start",
-                    !fit.ok
-                      ? "cursor-not-allowed opacity-40"
-                      : selected
-                        ? "card-selected"
-                        : "hover:border-line-2",
-                    showErrors && selected && !fit.ok ? "!border-danger !opacity-70" : "",
-                  ].join(" ")}
+                  role="switch"
+                  aria-checked={on}
+                  onClick={() => s.toggleCabin(t.key)}
+                  className={`${tileBase} flex min-h-[52px] items-start gap-3 ${tileBorder(on)}`}
                 >
-                  {recommend ? (
-                    <span className="absolute right-3.5 top-3.5 text-[12px] font-semibold text-gold">
-                      Recommended
-                    </span>
-                  ) : null}
-                  <span className={`block text-[20px] font-medium leading-[1.25] text-bone ${recommend ? "pr-24" : ""}`}>{f.name}</span>
-                  <span className="mt-1 block text-[14px] text-bone-2">
-                    Up to {f.pax} passengers · range {f.rangeNm.toLocaleString("en-US")} nm
+                  <span
+                    aria-hidden="true"
+                    className={[
+                      "switch mt-0.5",
+                      on ? "!bg-clearance after:translate-x-4" : "",
+                    ].join(" ")}
+                  />
+                  <span>
+                    <span className="block text-[15px] font-semibold text-bone">{t.name}</span>
+                    <span className="mt-0.5 block text-[13px] text-steel">{t.desc}</span>
                   </span>
-                  {!fit.ok ? (
-                    <span className="mt-2 block text-[13px] text-danger">{fit.reason}</span>
-                  ) : null}
                 </button>
               );
             })}
           </div>
-        </section>
+        </CollapsibleSection>
 
-        {/* Optional groups */}
-        <div className="mt-7 flex flex-col gap-2.5">
-          <p className="label-jn">Optional — open only what you care about</p>
-
-          <CollapsibleSection
-            id="cabin"
-            title="Cabin preferences"
-            summary={cabinSummary}
-            open={!!open.cabin}
-            onToggle={toggle("cabin")}
-          >
-            <p className="mb-3.5 text-[14px] text-bone-2">
-              All standard on most aircraft. We&rsquo;ll match to operators that have what you ask
-              for.
-            </p>
-            <div className="grid gap-2.5 md:grid-cols-2">
-              {CABIN_TOGGLES.map((t) => {
-                const on = s.cabin[t.key];
-                return (
-                  <button
-                    key={t.key}
-                    type="button"
-                    role="switch"
-                    aria-checked={on}
-                    onClick={() => s.toggleCabin(t.key)}
-                    className={`${tileBase} flex min-h-[56px] items-start gap-3.5 ${tileBorder(on)}`}
-                  >
-                    <span
-                      aria-hidden="true"
-                      className={[
-                        "switch mt-0.5",
-                        on ? "!bg-clearance after:translate-x-4 after:!bg-ink" : "",
-                      ].join(" ")}
-                    />
-                    <span>
-                      <span className="block text-[16px] font-medium text-bone">{t.name}</span>
-                      <span className="mt-0.5 block text-[13px] text-steel">{t.desc}</span>
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          </CollapsibleSection>
-
-          <CollapsibleSection
-            id="catering"
-            title="What’s on board"
-            summary={cateringSummary}
-            open={!!open.catering}
-            onToggle={toggle("catering")}
-          >
-            <p className="mb-3.5 text-[14px] text-bone-2">
-              Curated menus from network providers. Custom requests &amp; dietary in notes below.
-            </p>
-            <div className="grid gap-2.5 sm:grid-cols-2 md:grid-cols-4">
-              {CATERING.map((c) => {
-                const selected = s.catering === c.id;
-                return (
-                  <button
-                    key={c.id}
-                    type="button"
-                    aria-pressed={selected}
-                    onClick={() => s.setCatering(c.id)}
-                    className={`${tileBase} min-h-[56px] ${tileBorder(selected)}`}
-                  >
-                    <span className="flex items-baseline justify-between gap-2">
-                      <span className="text-[16px] font-medium text-bone">{c.name}</span>
-                      <span className="text-[13px] text-gold">{c.price}</span>
-                    </span>
-                    <span className="mt-1.5 block text-[13px] text-steel">{c.desc}</span>
-                  </button>
-                );
-              })}
-            </div>
-          </CollapsibleSection>
-
-          <CollapsibleSection
-            id="ground"
-            title="Curb to cabin"
-            summary={groundSummary}
-            open={!!open.ground}
-            onToggle={toggle("ground")}
-          >
-            <p className="mb-3.5 text-[14px] text-bone-2">
-              Black car or chauffeur to the private terminal at every leg. Independent of the air
-              charter cost.
-            </p>
-            <div className="grid gap-2.5 md:grid-cols-3">
-              {GROUND.map((g) => {
-                const selected = s.ground === g.id;
-                return (
-                  <button
-                    key={g.id}
-                    type="button"
-                    aria-pressed={selected}
-                    onClick={() => s.setGround(g.id)}
-                    className={`${tileBase} min-h-[56px] ${tileBorder(selected)}`}
-                  >
-                    <span className="block text-[16px] font-medium text-bone">{g.name}</span>
-                    <span className="mt-1.5 block text-[13px] text-steel">{g.desc}</span>
-                  </button>
-                );
-              })}
-            </div>
-          </CollapsibleSection>
-
-          <CollapsibleSection
-            id="extras"
-            title="Anyone or anything else?"
-            summary={extrasSummary}
-            open={!!open.extras}
-            onToggle={toggle("extras")}
-          >
-            <p className="mb-3.5 text-[14px] text-bone-2">
-              Pets fly in cabin on most aircraft. Crew adjusts catering &amp; safety briefing for
-              kids.
-            </p>
-            <div className="grid gap-2.5 md:grid-cols-3">
-              {EXTRAS.map((x) => {
-                const value = s[x.k];
-                return (
-                  <div key={x.k} className="rounded-control border border-line bg-ink-2 p-4">
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="text-[16px] font-medium text-bone">{x.name}</span>
-                      <span className="stepper gap-1.5 max-md:[&>button]:h-11 max-md:[&>button]:w-11">
-                        <button
-                          type="button"
-                          onClick={() => s.setExtra(x.k, value - 1)}
-                          disabled={value <= 0}
-                          aria-label={`Fewer ${x.many}`}
-                        >
-                          −
-                        </button>
-                        <span className="min-w-[20px] text-center text-[17px] text-bone" aria-live="polite">
-                          {value}
-                          <span className="sr-only"> {value === 1 ? x.one : x.many}</span>
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => s.setExtra(x.k, value + 1)}
-                          disabled={value >= x.max}
-                          aria-label={`More ${x.many}`}
-                        >
-                          +
-                        </button>
-                      </span>
-                    </div>
-                    <p className="mt-2 text-[13px] text-steel">{x.desc}</p>
-                  </div>
-                );
-              })}
-            </div>
-          </CollapsibleSection>
-
-          <CollapsibleSection
-            id="notes"
-            title="Anything else dispatch should know?"
-            summary={notesSummary}
-            open={!!open.notes}
-            onToggle={toggle("notes")}
-          >
-            <label htmlFor="notes" className="sr-only">
-              Notes for dispatch
-            </label>
-            <textarea
-              id="notes"
-              value={s.notes}
-              onChange={(e) => s.setNotes(e.target.value)}
-              rows={4}
-              maxLength={NOTES_MAX}
-              placeholder="e.g. Wedding party — need full recline seats and extra cabin baggage. One passenger uses a wheelchair, will need ground assist at both terminals."
-              className="w-full resize-y rounded-control border border-line bg-ink-2 px-3.5 py-3 text-[15px] leading-[1.55] text-bone outline-none transition-shadow placeholder:text-steel focus:shadow-[0_0_0_1px_var(--clearance)]"
-            />
-            <div className="mt-2.5 flex flex-wrap items-center gap-2">
-              <span className="text-[13px] text-steel">Add common:</span>
-              {EXAMPLE_CHIPS.map((c) => (
+        <CollapsibleSection
+          id="catering"
+          title="What’s on board"
+          summary={cateringSummary}
+          open={!!open.catering}
+          onToggle={toggle("catering")}
+        >
+          <p className="mb-3 text-[13px] text-steel">
+            Curated menus from network providers. Custom requests &amp; dietary in notes below.
+          </p>
+          <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,150px),1fr))] gap-2">
+            {CATERING.map((c) => {
+              const selected = s.catering === c.id;
+              return (
                 <button
-                  key={c.key}
+                  key={c.id}
                   type="button"
-                  onClick={() => appendNote(c.text)}
-                  className="chip chip-sm max-md:!h-11"
+                  aria-pressed={selected}
+                  onClick={() => s.setCatering(c.id)}
+                  className={`${tileBase} min-h-[52px] ${tileBorder(selected)}`}
                 >
-                  {c.label}
+                  <span className="flex items-baseline justify-between gap-2">
+                    <span className="text-[15px] font-semibold text-bone">{c.name}</span>
+                    <span className="text-[12px] text-gold">{c.price}</span>
+                  </span>
+                  <span className="mt-1 block text-[13px] text-steel">{c.desc}</span>
                 </button>
-              ))}
-            </div>
-            <div className="mt-2 flex items-center justify-between gap-4 text-[13px] text-steel">
-              <span>Visible to dispatch &amp; operator only</span>
-              <span aria-live="polite">
-                {s.notes.length} / {NOTES_MAX}
-              </span>
-            </div>
-          </CollapsibleSection>
-        </div>
+              );
+            })}
+          </div>
+        </CollapsibleSection>
 
-        <StepFooter
-          step={2}
-          backHref="/quote/mission"
-          error={error}
-          next={{ label: "Continue to contact", onClick: onContinue }}
-        />
+        <CollapsibleSection
+          id="ground"
+          title="Curb to cabin"
+          summary={groundSummary}
+          open={!!open.ground}
+          onToggle={toggle("ground")}
+        >
+          <p className="mb-3 text-[13px] text-steel">
+            Black car or chauffeur to the private terminal at every leg. Independent of the air
+            charter cost.
+          </p>
+          <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,180px),1fr))] gap-2">
+            {GROUND.map((g) => {
+              const selected = s.ground === g.id;
+              return (
+                <button
+                  key={g.id}
+                  type="button"
+                  aria-pressed={selected}
+                  onClick={() => s.setGround(g.id)}
+                  className={`${tileBase} min-h-[52px] ${tileBorder(selected)}`}
+                >
+                  <span className="block text-[15px] font-semibold text-bone">{g.name}</span>
+                  <span className="mt-1 block text-[13px] text-steel">{g.desc}</span>
+                </button>
+              );
+            })}
+          </div>
+        </CollapsibleSection>
+
+        <CollapsibleSection
+          id="extras"
+          title="Anyone or anything else?"
+          summary={extrasSummary}
+          open={!!open.extras}
+          onToggle={toggle("extras")}
+        >
+          <p className="mb-3 text-[13px] text-steel">
+            Pets fly in cabin on most aircraft. Crew adjusts catering &amp; safety briefing for
+            kids.
+          </p>
+          <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,180px),1fr))] gap-2">
+            {EXTRAS.map((x) => {
+              const value = s[x.k];
+              return (
+                <div key={x.k} className="rounded-[3px] border border-line bg-surface p-3.5">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-[15px] font-semibold text-bone">{x.name}</span>
+                    <span className="stepper gap-1.5 [&>button]:h-8 [&>button]:w-8 max-md:[&>button]:h-11 max-md:[&>button]:w-11">
+                      <button
+                        type="button"
+                        onClick={() => s.setExtra(x.k, value - 1)}
+                        disabled={value <= 0}
+                        aria-label={`Fewer ${x.many}`}
+                      >
+                        −
+                      </button>
+                      <span className="min-w-[20px] text-center text-[15px] text-bone" aria-live="polite">
+                        {value}
+                        <span className="sr-only"> {value === 1 ? x.one : x.many}</span>
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => s.setExtra(x.k, value + 1)}
+                        disabled={value >= x.max}
+                        aria-label={`More ${x.many}`}
+                      >
+                        +
+                      </button>
+                    </span>
+                  </div>
+                  <p className="mt-1.5 text-[13px] text-steel">{x.desc}</p>
+                </div>
+              );
+            })}
+          </div>
+        </CollapsibleSection>
+
+        <CollapsibleSection
+          id="notes"
+          title="Anything else dispatch should know?"
+          summary={notesSummary}
+          open={!!open.notes}
+          onToggle={toggle("notes")}
+        >
+          <label htmlFor="notes" className="sr-only">
+            Notes for dispatch
+          </label>
+          <textarea
+            id="notes"
+            value={s.notes}
+            onChange={(e) => s.setNotes(e.target.value)}
+            rows={4}
+            maxLength={NOTES_MAX}
+            placeholder="e.g. Wedding party — need full recline seats and extra cabin baggage. One passenger uses a wheelchair, will need ground assist at both terminals."
+            className="w-full resize-y rounded-[3px] border border-line bg-surface px-3 py-2.5 text-[15px] leading-[1.55] text-bone outline-none transition-[border-color,box-shadow] placeholder:text-steel-dim focus:border-bone focus:shadow-[0_0_0_1px_var(--bone)]"
+          />
+          <div className="mt-2.5 flex flex-wrap items-center gap-2">
+            <span className="text-[13px] text-steel">Add common:</span>
+            {EXAMPLE_CHIPS.map((c) => (
+              <button
+                key={c.key}
+                type="button"
+                onClick={() => appendNote(c.text)}
+                className="chip chip-sm max-md:!h-11"
+              >
+                {c.label}
+              </button>
+            ))}
+          </div>
+          <div className="mt-2 flex items-center justify-between gap-4 text-[13px] text-steel">
+            <span>Visible to dispatch &amp; operator only</span>
+            <span aria-live="polite">
+              {s.notes.length} / {NOTES_MAX}
+            </span>
+          </div>
+        </CollapsibleSection>
       </div>
 
-      <QuoteSidebar step={2} />
-    </>
+      <IndicativeRange className="mt-[18px]" />
+
+      <StepFooter
+        step={2}
+        backHref="/quote/mission"
+        error={error}
+        next={{ label: "Continue to contact details", onClick: onContinue }}
+      />
+    </QuotePanel>
   );
 }

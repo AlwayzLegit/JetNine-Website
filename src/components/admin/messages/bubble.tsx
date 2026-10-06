@@ -5,9 +5,9 @@ import type { ReactNode } from "react";
  * the live thread (client component) and the read-only call / form panes
  * (server components) — it holds no state.
  *
- *   in    client, left, surface card, radius 12 12 12 4
- *   out   dispatch, right, clearance on ink, radius 12 12 4 12
- *   note  team only, full width, gold-tinted dashed card
+ *   in    client, left, white card, radius 8 8 8 0
+ *   out   dispatch, right, sand card, radius 8 8 0 8
+ *   note  team only, right, bronze-tinted card (Light prototype)
  */
 export type BubbleKind = "in" | "out" | "note";
 
@@ -29,19 +29,19 @@ export function Bubble({
   footer?: ReactNode;
   compact?: boolean;
 }) {
-  const align = kind === "in" ? "items-start" : kind === "out" ? "items-end" : "items-stretch";
-  const pad = compact ? "px-3.5 py-2.5" : "px-4 py-3";
+  const align = kind === "in" ? "items-start" : "items-end";
+  const pad = compact ? "px-3 py-2" : "px-3.5 py-2.5";
   const box =
     kind === "in"
-      ? `max-w-[85%] lg:max-w-[70%] rounded-[12px_12px_12px_4px] border border-line bg-surface text-bone ${pad}`
+      ? `max-w-[92%] lg:max-w-[70%] rounded-[8px_8px_8px_0] border border-line bg-surface text-bone ${pad}`
       : kind === "out"
-        ? `max-w-[85%] lg:max-w-[70%] rounded-[12px_12px_4px_12px] bg-clearance text-ink ${pad}`
-        : `rounded-control border border-dashed border-[rgba(201,162,74,0.4)] bg-[rgba(201,162,74,0.08)] text-bone-2 ${pad}`;
+        ? `max-w-[92%] lg:max-w-[70%] rounded-[8px_8px_0_8px] border border-line bg-surface-2 text-bone ${pad}`
+        : `max-w-[92%] lg:max-w-[70%] rounded-[8px_8px_0_8px] border border-[#C9A98A] bg-[#F1EADF] text-bone ${pad}`;
   return (
     <div className={`flex flex-col ${align}`}>
-      {kind === "note" && noteLabel ? <div className="mb-1 text-[13px] text-steel">{noteLabel}</div> : null}
-      <div className={`${box} ${compact ? "text-[14px]" : "text-[15px]"} whitespace-pre-line leading-[1.5]`}>{children}</div>
-      {meta ? <div className="mt-1 text-[13px] text-steel">{meta}</div> : null}
+      {kind === "note" && noteLabel ? <div className="mb-1 text-[12px] text-steel">{noteLabel}</div> : null}
+      <div className={`${box} ${compact ? "text-[13px]" : "text-[14px]"} whitespace-pre-line leading-[1.45]`}>{children}</div>
+      {meta ? <div className="mt-1 text-[12px] text-steel">{meta}</div> : null}
       {footer}
     </div>
   );

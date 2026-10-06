@@ -82,7 +82,7 @@ export default async function AdminAircraftPage() {
         <div className="mt-8 flex flex-col gap-8">
           {Array.from(byCategory.entries()).map(([cat, list]) => (
             <section key={cat}>
-              <h2 className="label-jn mb-2.5 text-[13px]">
+              <h2 className="mb-2.5 text-[12px] font-bold uppercase tracking-[0.2em] text-gold">
                 {CATEGORY_LABEL[cat] ?? cat}
                 <span className="text-steel-dim">
                   {" "}
@@ -91,7 +91,7 @@ export default async function AdminAircraftPage() {
               </h2>
               <div className="card overflow-hidden">
                 <div className="overflow-x-auto">
-                  <table className="table-jn min-w-[1000px]">
+                  <table className="table-jn min-w-[1000px] text-[14px] [&_th]:bg-surface-2 [&_th]:py-2.5 [&_th]:text-[12px] [&_th]:font-bold [&_th]:text-bone">
                     <thead>
                       <tr>
                         {[

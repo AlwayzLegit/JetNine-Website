@@ -1,7 +1,16 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { QuoteLeg } from "@/db/schema/quotes";
-import { ContactButtons, DeskCard, DeskHeader, DeskPage, StatusPill } from "@/components/admin/desk-ui";
+import {
+  ContactButtons,
+  DESK_PANEL,
+  DESK_TINT,
+  DeskCard,
+  DeskHeader,
+  DeskOverline,
+  DeskPage,
+  StatusPill,
+} from "@/components/admin/desk-ui";
 import { StatusSelect } from "@/components/admin/status-select";
 import { MemberAttach, type MemberOption } from "@/components/admin/member-attach";
 import { DispatcherAssign } from "@/components/admin/dispatcher-assign";
@@ -214,6 +223,7 @@ export default async function RequestPage({ params }: Props) {
     <DeskPage>
       <DeskHeader
         back={{ href: "/admin/requests", label: "All requests" }}
+        size="md"
         title={title}
         lead={lead}
         actions={
@@ -225,7 +235,7 @@ export default async function RequestPage({ params }: Props) {
       />
 
       {/* Stage strip */}
-      <ol className="card mt-6 grid grid-cols-1 gap-3 px-5 py-3.5 sm:grid-cols-2 lg:grid-cols-4 lg:gap-4">
+      <ol className={`${DESK_PANEL} mt-4 grid list-none grid-cols-1 gap-3 px-4 py-3 sm:grid-cols-2 lg:grid-cols-4`}>
         {steps.map((label, idx) => {
           const n = idx + 1;
           const state =
@@ -234,31 +244,32 @@ export default async function RequestPage({ params }: Props) {
             <li
               key={label}
               aria-current={state === "current" ? "step" : undefined}
-              className={`flex items-center gap-2.5 ${state === "future" ? "text-steel" : "text-bone"}`}
+              className={`flex items-center gap-2.5 text-[13px] ${state === "future" ? "text-steel-dim" : "text-bone"}`}
             >
               <span
                 aria-hidden="true"
                 className={[
-                  "flex h-[26px] w-[26px] flex-none items-center justify-center rounded-full text-[13px]",
+                  "flex h-[22px] w-[22px] flex-none items-center justify-center rounded-full border text-[12px] font-bold",
                   state === "done"
-                    ? "bg-clearance font-semibold text-ink"
+                    ? "border-gold bg-gold text-white"
                     : state === "current"
-                      ? "border-2 border-gold font-semibold"
-                      : "border border-line-2",
+                      ? `border-gold ${DESK_TINT} text-gold`
+                      : "border-line text-gold",
                 ].join(" ")}
               >
                 {state === "done" ? "✓" : n}
               </span>
-              <span className={state === "current" ? "font-medium" : ""}>{label}</span>
+              <span className={state === "current" ? "font-bold" : ""}>{label}</span>
             </li>
           );
         })}
       </ol>
 
-      <div className="mt-5 grid grid-cols-1 items-start gap-5 lg:grid-cols-[230px_minmax(320px,1fr)_260px]">
-        {/* ─── The trip ─── */}
-        <DeskCard title="The trip" className="min-w-0">
-          <dl className="dl-jn mt-2.5">
+      <div className="mt-4 grid grid-cols-1 items-start gap-4 lg:grid-cols-[220px_minmax(0,1.6fr)_minmax(240px,1fr)]">
+        {/* ─── The trip + the client ─── */}
+        <aside className="flex min-w-0 flex-col gap-3">
+        <DeskCard title="The trip" className="min-w-0 text-[14px] leading-[1.5]">
+          <dl className="mt-2 grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1 [&_dd]:m-0 [&_dt]:text-steel">
             {isMulti ? (
               legs.map((l) => (
                 <LegRows key={l.id} leg={l} />
@@ -318,21 +329,22 @@ export default async function RequestPage({ params }: Props) {
               href={statusPath(quote.statusToken)}
               target="_blank"
               rel="noreferrer"
-              className="text-link mt-3 inline-block text-[14px]"
+              className="text-link mt-2.5 inline-block text-[13px]"
             >
               Client&rsquo;s page <span aria-hidden="true">↗</span>
             </a>
           ) : null}
+        </DeskCard>
 
-          {/* The client */}
-          <div className="mt-[18px] border-t border-line pt-4">
-            <h3 className="label-jn text-[13px]">{first ?? "The client"}</h3>
-            <p className="mt-2 text-[15px] leading-[1.5] text-bone">
+        {/* The client */}
+        <DeskCard title={first ?? "The client"} className="min-w-0 text-[14px] leading-[1.5]">
+          <div>
+            <p className="mt-2 text-bone">
               {prefersLine}
               {phone || email ? (
                 <>
                   <br />
-                  <span className="text-bone-2">{[phone, email].filter(Boolean).join(" · ")}</span>
+                  <span className="break-words">{[phone, email].filter(Boolean).join(" · ")}</span>
                 </>
               ) : null}
               <br />
@@ -358,12 +370,16 @@ export default async function RequestPage({ params }: Props) {
               </div>
             </details>
             {linkedMember ? (
-              <Link href={`/admin/clients/${linkedMember.id}`} className="text-link mt-2.5 inline-block text-[14px]">
-                Client page
+              <Link
+                href={`/admin/clients/${linkedMember.id}`}
+                className="text-link mt-2 inline-block whitespace-nowrap text-[13px]"
+              >
+                Client page →
               </Link>
             ) : null}
           </div>
         </DeskCard>
+        </aside>
 
         {/* ─── Options to send ─── */}
         <SourcedOptions
@@ -387,10 +403,10 @@ export default async function RequestPage({ params }: Props) {
             <summary className="text-link cursor-pointer list-none text-[14px]">Our fleet matches and holds</summary>
             <div className="mt-3.5 flex flex-col gap-5">
               <div>
-                <h3 className="label-jn text-[13px]">
+                <DeskOverline as="h3">
                   Fleet matches
-                  {candidates.length ? <span className="text-steel-dim"> · {candidates.length}</span> : null}
-                </h3>
+                  {candidates.length ? <span> · {candidates.length}</span> : null}
+                </DeskOverline>
                 {!quote.requestedCategory ? (
                   <p className="mt-2 text-[14px] text-steel">
                     No aircraft category on this request, so there is nothing to match yet.
@@ -416,7 +432,7 @@ export default async function RequestPage({ params }: Props) {
                       return (
                         <li
                           key={c.id}
-                          className={`rounded-control border bg-ink px-4 py-3 ${
+                          className={`border bg-surface px-3.5 py-3 ${
                             held ? "border-dashed border-clearance" : "border-line"
                           }`}
                         >
@@ -451,10 +467,10 @@ export default async function RequestPage({ params }: Props) {
                 ) : null}
               </div>
               <div>
-                <h3 className="label-jn text-[13px]">
+                <DeskOverline as="h3">
                   Holds
-                  {heldAircraft.length ? <span className="text-steel-dim"> · {heldAircraft.length}</span> : null}
-                </h3>
+                  {heldAircraft.length ? <span> · {heldAircraft.length}</span> : null}
+                </DeskOverline>
                 <div className="mt-2.5">
                   <SoftHoldList quoteId={quote.id} initial={heldAircraft} />
                 </div>
@@ -464,11 +480,11 @@ export default async function RequestPage({ params }: Props) {
         </SourcedOptions>
 
         {/* ─── Conversation ─── */}
-        <div id="conversation" className="flex min-w-0 flex-col gap-5 scroll-mt-6">
+        <div id="conversation" className="flex min-w-0 flex-col gap-3 scroll-mt-6">
           <PendingApprovalsCard items={waitingOnYou} now={now} />
           <AssistantNotesCard items={notes} now={now} path={`/admin/requests/${id}`} />
-          <DeskCard title="Conversation">
-            <div className="mt-3">
+          <DeskCard title="Conversation" className="lg:min-h-[420px]">
+            <div className="mt-2.5">
               <MarkThreadRead subjectType="quote" subjectId={quote.id} />
               <MessageThread
                 now={now}

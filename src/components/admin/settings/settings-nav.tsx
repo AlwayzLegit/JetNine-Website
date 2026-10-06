@@ -22,7 +22,7 @@ function isActive(pathname: string, href: string): boolean {
 
 /**
  * Secondary nav for Settings: 200px column, sticky on desktop, 40px items
- * with the current one on surface-2. Owner-only items are hidden from Team
+ * with the current one on sand behind a 2px bronze bar (light prototype). Owner-only items are hidden from Team
  * users (the pages themselves still gate with requireAdmin).
  */
 export function SettingsNav({ owner }: { owner: boolean }) {
@@ -31,7 +31,7 @@ export function SettingsNav({ owner }: { owner: boolean }) {
   return (
     <nav
       aria-label="Settings"
-      className="-mx-5 flex gap-0.5 overflow-x-auto px-5 text-[15px] md:mx-0 md:px-0 lg:sticky lg:top-8 lg:flex-col lg:overflow-visible"
+      className="-mx-4 flex gap-0.5 overflow-x-auto border-b border-line px-4 text-[14px] md:mx-0 md:px-0 lg:sticky lg:top-5 lg:flex-col lg:overflow-visible lg:border-b-0"
     >
       {items.map((i) => {
         const active = isActive(pathname, i.href);
@@ -41,8 +41,8 @@ export function SettingsNav({ owner }: { owner: boolean }) {
             href={i.href}
             aria-current={active ? "page" : undefined}
             className={[
-              "flex h-10 flex-none items-center whitespace-nowrap rounded-control px-3 transition-colors",
-              active ? "bg-surface-2 font-medium text-bone" : "text-bone-2 hover:bg-surface-2/60 hover:text-bone",
+              "flex min-h-11 flex-none items-center whitespace-nowrap border-b-2 px-2.5 py-2 text-bone transition-colors lg:-ml-0.5 lg:min-h-0 lg:border-b-0 lg:border-l-2",
+              active ? "border-gold bg-surface-2 font-bold" : "border-transparent hover:bg-surface-2/50",
             ].join(" ")}
           >
             {i.label}

@@ -196,7 +196,7 @@ export function FboEditor({
       )}
 
       <form onSubmit={onAdd} className="rounded-control border border-line bg-surface-2 p-4">
-        <h3 className="label-jn mb-3 text-[13px]">Add FBO</h3>
+        <h3 className="mb-3 text-[12px] font-bold uppercase tracking-[0.2em] text-gold">Add FBO</h3>
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
           <div className="field-jn">
             <label htmlFor="fbo-name">Name</label>

@@ -1,19 +1,15 @@
-import Image from "next/image";
 import Link from "next/link";
 
 type Size = "sm" | "md" | "lg";
 
-// Rendered heights (px). Width follows the wordmark's intrinsic aspect
-// (~1.53:1 — the full mark, including the low-opacity "9" overlay) via
-// `width:auto`, so these never distort. The bone wordmark is a transparent
-// webp keyed from logo-dark.png — it sits seamlessly on any of the app's
-// dark (ink) surfaces, which is everywhere BrandMark renders (site nav,
-// footer, admin shell, quote nav). sm is the mobile header, md the desktop
-// header + footer, lg for anywhere the mark is the subject of the page.
-const heightPx: Record<Size, number> = {
-  sm: 28,
-  md: 36,
-  lg: 48,
+// The light design system's wordmark: "JETNINE" set in the serif with
+// wide tracking, in ink. Text rather than an image, so it stays sharp and
+// takes `currentColor` (white on the navy bands, ink everywhere else).
+// sm is the mobile header, md the desktop header, lg the footer.
+const fontPx: Record<Size, number> = {
+  sm: 18,
+  md: 23,
+  lg: 26,
 };
 
 export function BrandMark({
@@ -25,22 +21,14 @@ export function BrandMark({
   href?: string;
   className?: string;
 }) {
-  const h = heightPx[size];
   return (
     <Link
       href={href}
-      className={`inline-flex items-center ${className}`}
+      className={`inline-flex items-center whitespace-nowrap font-serif leading-none tracking-[0.27em] text-bone transition-colors hover:text-bone ${className}`}
+      style={{ fontSize: `${fontPx[size]}px` }}
       aria-label="JetNine — Home"
     >
-      <Image
-        src="/images/brand/wordmark-bone.webp"
-        alt=""
-        width={1000}
-        height={652}
-        priority
-        sizes="160px"
-        style={{ height: `${h}px`, width: "auto" }}
-      />
+      <span aria-hidden="true">JETNINE</span>
     </Link>
   );
 }

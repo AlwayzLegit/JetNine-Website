@@ -15,7 +15,7 @@ export default async function SettingsLayout({ children }: { children: React.Rea
   const owner = deskRole(user.role) === "owner";
   return (
     <DeskPage>
-      <div className="grid gap-6 lg:grid-cols-[200px_minmax(0,1fr)] lg:items-start lg:gap-10">
+      <div className="grid gap-5 lg:grid-cols-[200px_minmax(0,1fr)] lg:items-start lg:gap-6">
         <SettingsNav owner={owner} />
         <div className="min-w-0">{children}</div>
       </div>

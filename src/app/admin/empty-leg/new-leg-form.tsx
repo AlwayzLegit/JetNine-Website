@@ -193,7 +193,7 @@ function Section({
 }) {
   return (
     <section className="grid gap-3 lg:grid-cols-[160px_1fr] lg:gap-8">
-      <h3 className="label-jn text-[13px] lg:pt-1">{title}</h3>
+      <h3 className="text-[12px] font-bold uppercase tracking-[0.2em] text-gold lg:pt-1">{title}</h3>
       <div>{children}</div>
     </section>
   );

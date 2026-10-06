@@ -46,13 +46,13 @@ export default async function NotificationsPage() {
 
   return (
     <div>
-      <DeskHeader title="Notifications" lead="How the desk gets your attention." />
+      <DeskHeader size="md" title="Notifications" lead="How the desk gets your attention." />
 
       <div className="mt-6">
         <NotificationToggles items={items} />
       </div>
 
-      <section className="card mt-6 px-6 py-5">
+      <section className="card bg-[#FBFAF7] mt-6 px-6 py-5">
         <h2 className="text-[16px] font-medium text-bone">Reply-time promise</h2>
         <p className="mt-1 text-[14px] text-steel">
           Requests turn amber when a reply is due and red when it is late. Every new request gets this much time

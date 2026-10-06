@@ -1,7 +1,8 @@
 import type { MetadataRoute } from "next";
 import { getPublishedPosts } from "@/lib/blog";
 import { FLEET } from "@/lib/fleet";
-import { GUIDE_CHAPTERS } from "@/lib/guides";
+import { GUIDE_CHAPTERS, LONG_GUIDES } from "@/lib/guides";
+import { SHORT_GUIDES, SHORT_GUIDE_STATIC_SLUGS, shortGuideHref } from "@/lib/guides-short";
 import { MODELS } from "@/lib/models";
 import { ROUTES } from "@/lib/routes";
 import { QUESTIONS } from "@/lib/questions";
@@ -20,6 +21,18 @@ const MARKETING_ROUTES: { path: string; priority: number; changeFreq: "daily" | 
   ...GUIDE_CHAPTERS.map((c) => ({
     path: c.href,
     priority: c.chapter === 1 ? 0.8 : 0.6,
+    changeFreq: "monthly" as const,
+  })),
+  // Long-form and short planning guides (Light redesign). Chapters above
+  // already cover the slugs that predate it, so skip those here.
+  ...LONG_GUIDES.filter((g) => !GUIDE_CHAPTERS.some((c) => c.href === g.href)).map((g) => ({
+    path: g.href,
+    priority: 0.6,
+    changeFreq: "monthly" as const,
+  })),
+  ...SHORT_GUIDES.filter((g) => !SHORT_GUIDE_STATIC_SLUGS.includes(g.slug)).map((g) => ({
+    path: shortGuideHref(g.slug),
+    priority: 0.5,
     changeFreq: "monthly" as const,
   })),
   { path: "/how-it-works",     priority: 0.7, changeFreq: "monthly" },

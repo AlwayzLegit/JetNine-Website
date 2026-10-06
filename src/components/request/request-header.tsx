@@ -3,17 +3,17 @@ import { BrandMark } from "@/components/brand-mark";
 import { SITE } from "@/lib/constants";
 
 /**
- * Header for the "Your request" page: back link left, wordmark centre,
- * dispatch number right. Signed-in members get "← My account"; guests
- * get the homepage.
+ * Header for the "Your request" page: white bar with a 1px line under it
+ * (the Light chrome), back link left, wordmark centre, dispatch number
+ * right. Signed-in members get "← My account"; guests get the homepage.
  */
 export function RequestHeader({ signedIn }: { signedIn: boolean }) {
   return (
-    <header className="sticky top-0 z-50 border-b border-line-faint bg-[rgba(7,8,10,0.86)] backdrop-blur-[14px]">
-      <div className="container-jn grid h-header grid-cols-[1fr_auto_1fr] items-center">
+    <header className="sticky top-0 z-50 border-b border-line bg-surface">
+      <div className="container-jn grid h-header grid-cols-[1fr_auto_1fr] items-center gap-3">
         <Link
           href={signedIn ? "/account" : "/"}
-          className="flex min-h-[44px] items-center text-[15px] text-bone-2 transition-colors hover:text-bone"
+          className="flex min-h-[44px] items-center whitespace-nowrap text-[15px] text-bone-2 transition-colors hover:text-bone"
         >
           {signedIn ? "← My account" : "← JetNine home"}
         </Link>

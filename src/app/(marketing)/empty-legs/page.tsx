@@ -2,8 +2,10 @@ import type { Metadata } from "next";
 import { pageMetadata } from "@/lib/page-meta";
 import { asc, desc, eq } from "drizzle-orm";
 import { db } from "@/db";
-import { PageHero } from "@/components/page-hero";
-import { CtaBand } from "@/components/cta-band";
+import Image from "next/image";
+import Link from "next/link";
+import { Breadcrumb } from "@/components/light/breadcrumb";
+import { ChecklistWindow } from "@/components/empty-legs/checklist-window";
 import { LegsBoard, type BoardLeg, type BoardRegion } from "@/components/empty-legs/legs-board";
 import { WatchlistForm } from "@/components/empty-legs/watchlist-form";
 import { emptyLegs } from "@/db/schema/empty-legs";
@@ -11,6 +13,7 @@ import { operators } from "@/db/schema/operators";
 import { aircraft } from "@/db/schema/aircraft";
 import { airports } from "@/db/schema/airports";
 import { findAirport } from "@/lib/airports";
+import { SITE } from "@/lib/constants";
 import type { EmptyLegView, SoldLegView } from "@/lib/empty-legs";
 
 // ISR, not force-dynamic: force-dynamic overrode the revalidate window and
@@ -302,30 +305,54 @@ const EMPTY_LEG_FAQ: { q: string; a: string }[] = [
   },
 ];
 
-const HOW_IT_WORKS = [
+// "Is an empty leg right for your trip?" — the prototype's comparison,
+// written to the site's real terms (fixed route, refund on cancel).
+const COMPARE: [string, string, string][] = [
+  ["Route & timing", "Fixed — the aircraft is already flying it", "Built around your itinerary"],
+  ["Availability", "Surfaces at short notice, first call wins", "Sourced for your trip"],
+  ["Changes or cancellation", "Cancels if the trip behind it cancels — full refund", "Set by your charter agreement"],
+  ["Price", "Typically 30–60% below on-demand", "Quoted for your exact trip"],
+  ["Return flight", "Arranged separately", "Can be included in the request"],
+];
+
+const CONFIRM = [
+  "Exact airports, date and departure window",
+  "Operating carrier, aircraft and actual cabin",
+  "Complete price, currency, taxes and extras",
+  "Cancellation, refund and replacement terms",
+  "Baggage, pets and separate return travel",
+];
+
+const SOURCES = [
   {
-    k: "Dates & route locked",
-    h: "Take it as scheduled.",
-    p: "Empty legs are positioning flights — the aircraft is already going there, with or without you. Departure window typically holds within an hour of the listed time. The route is the route; no diversion to a different city.",
+    title: "FAA · Operator verification",
+    body: "Check the carrier and aircraft authorization.",
+    link: "Read FAA guidance",
+    url: "https://www.faa.gov/about/initiatives/safecharteroperations/thinking-chartering-aircraft",
   },
   {
-    k: "Cancel risk",
-    h: "If the original trip falls through, so does yours.",
-    p: "The reason the leg exists is that an outbound charter is bringing the aircraft to that city. If that outbound cancels, the empty leg cancels too. Your payment is fully refunded and you get a credit toward a regular charter, but you'll need a backup plan.",
+    title: "NBAA · Compare proposals",
+    body: "Ask about the complete price and written terms.",
+    link: "Open quote checklist",
+    url: "https://nbaa.org/flight-department-administration/aircraft-operating-ownership-options/aircraft-charter/",
   },
   {
-    k: "First call wins",
-    h: "One booking per leg.",
-    p: "Empty legs aren't held — they're sold the moment a confirmation comes through. If you see one you want, call the dispatch line and we'll lock it on the spot. No soft-hold, no waitlist.",
+    title: "DOT / eCFR · Broker roles",
+    body: "Understand the broker and operating carrier.",
+    link: "Read Part 295",
+    url: "https://www.ecfr.gov/current/title-14/chapter-II/subchapter-A/part-295",
   },
 ];
 
 const WATCHLIST_POINTS = [
   "Matched against the live board every 15 minutes",
   "One text per match — never a marketing blast",
-  "First-call advantage: the text lands the moment the leg lists",
   "No fees, no account required, cancel with one reply",
 ];
+
+const DOC_ICON = "M7 3h7l5 5v13H7zM14 3v5h5M10 13h6M10 17h6";
+const BRONZE =
+  "btn border-gold bg-gold font-bold text-white hover:border-gold hover:bg-gold hover:text-white hover:opacity-90";
 
 export default async function EmptyLegsPage() {
   const [legs, recentlySold] = await Promise.all([getLiveLegs(), getRecentlySold()]);
@@ -343,135 +370,273 @@ export default async function EmptyLegsPage() {
 
   return (
     <>
-      {/* Live count in the H1 — the "Search 4,792 Empty Leg Flights"
-          credibility device from the page that ranks #1 for this query.
-          Server-rendered on every visit, so the number is real and
-          crawlable. Falls back to the evergreen headline when the board
-          is empty. */}
-      <PageHero
-        eyebrow="Empty legs · live board"
-        title={
-          s.count > 0
-            ? `${s.count} empty leg${s.count === 1 ? "" : "s"}, live now.`
-            : "Empty leg flights. Up to 60% off."
-        }
-      >
-        <div className="mt-5 grid items-end gap-10 lg:grid-cols-[1.4fr_1fr] lg:gap-12">
-          <p className="lead max-w-[58ch]">
+      {/* ─── Hero: paper scrim over the photo (Light - Empty legs) ─── */}
+      <section className="relative overflow-hidden">
+        <Image
+          src="/images/light/page-21-hero.webp"
+          alt=""
+          aria-hidden
+          fill
+          priority
+          sizes="100vw"
+          className="object-cover"
+          style={{ objectPosition: "70% 50%" }}
+        />
+        <div
+          aria-hidden
+          className="absolute inset-0"
+          style={{
+            background:
+              "linear-gradient(90deg,rgba(247,245,240,.98) 0%,rgba(247,245,240,.95) 46%,rgba(247,245,240,.35) 66%,rgba(247,245,240,0) 100%)",
+          }}
+        />
+        {/* Phones: the scrim's clear end sits under the text, so add a flat wash. */}
+        <div aria-hidden className="absolute inset-0 bg-[rgba(247,245,240,.78)] md:hidden" />
+        <div className="container-jn relative pb-[26px] pt-4">
+          <Breadcrumb items={[{ label: "Home", href: "/" }, { label: "Empty legs" }]} />
+          <h1 className="mt-[14px] font-serif text-[clamp(34px,9vw,52px)] font-normal leading-[1.04] tracking-[-0.01em]">
+            Empty Leg Private Jet Flights
+          </h1>
+          <p className="mt-[6px] font-serif text-[26px] leading-[1.2]">
+            {s.count > 0
+              ? `${s.count} empty leg${s.count === 1 ? "" : "s"}, live now.`
+              : "Up to 60% off. A different way to fly."}
+          </p>
+          <p className="mt-[10px] max-w-[50ch] text-[16px]">
             When an aircraft has dropped a passenger somewhere and needs to fly home empty, that
             flight is for sale. Date-locked, route-locked, but priced like nothing else in the air.
             The desk posts them as operators release them.
           </p>
-
-          <div className="card card-pad">
-            <div className="flex items-center gap-2.5 text-[14px] text-bone-2">
-              <span className="dot dot-success" aria-hidden="true" />
-              Live board · refreshed every minute
-            </div>
-            <div
-              className="mt-3 font-serif text-[80px] font-light leading-none text-bone max-md:text-[64px]"
-              style={{ fontVariationSettings: '"opsz" 144', letterSpacing: "-0.02em" }}
-            >
-              {s.count}
-            </div>
-            <p className="mt-3 text-[15px] text-bone-2">
-              Available repositioning legs across the network. Some priced at less than the
-              equivalent first-class commercial fare.
-            </p>
-            <dl className="mt-[18px] grid grid-cols-3 gap-3 border-t border-line pt-4 text-[15px] text-bone">
+          {s.count > 0 ? (
+            <dl className="mt-4 flex flex-wrap gap-x-6 gap-y-1 text-[13px]">
               {[
                 ["Next departs", s.nextHoursOut],
                 ["Furthest", s.farthestDays],
                 ["Best discount", s.bestDiscount],
               ].map(([lbl, val]) => (
-                <div key={lbl}>
-                  <dt className="text-[13px] text-steel">{lbl}</dt>
-                  <dd>{val}</dd>
+                <div key={lbl} className="flex gap-2">
+                  <dt className="text-steel">{lbl}</dt>
+                  <dd className="font-semibold">{val}</dd>
                 </div>
               ))}
             </dl>
+          ) : null}
+          <div className="mt-5 flex flex-wrap gap-3">
+            <a href="#listings" className={`${BRONZE} h-[42px] px-5 text-[14px]`}>
+              See the live board <span aria-hidden="true">↓</span>
+            </a>
+            <a
+              href="#watchlist"
+              className="btn h-[42px] border-bone bg-[rgba(255,255,255,.7)] px-5 text-[14px] font-bold text-bone hover:bg-white"
+            >
+              Create a route alert
+            </a>
           </div>
-        </div>
-      </PageHero>
-
-      <LegsBoard legs={legs} recentlySold={recentlySold} />
-
-      {/* ─── How it works ─── */}
-      <section className="section-jn">
-        <div className="container-jn">
-          <p className="eyebrow">How it works</p>
-          <h2 className="title-section max-w-[22ch]">Repositioning legs are the deal of the year.</h2>
-          <p className="mt-4 max-w-[62ch] text-[18px] text-bone-2">
-            If your dates and route are flexible, you can fly the same aircraft at a fraction of the
-            on-demand charter price. Three things to know before you book.
+          <p className="mt-[10px] text-right text-[12px] text-white [text-shadow:0_1px_2px_rgba(0,0,0,.5)] max-md:hidden">
+            Illustrative imagery
           </p>
-          <div className="mt-8 grid grid-cols-1 gap-4 md:grid-cols-3">
-            {HOW_IT_WORKS.map((c) => (
-              <div key={c.k} className="card card-pad">
-                <p className="text-[13px] font-semibold text-gold">{c.k}</p>
-                <h3 className="title-card-sm mt-3 !text-[22px]">{c.h}</h3>
-                <p className="mt-2.5 text-bone-2">{c.p}</p>
-              </div>
-            ))}
-          </div>
         </div>
       </section>
 
-      {/* ─── Watchlist ─── */}
-      {/* scroll-mt clears the sticky header when the board's empty-state
-          CTA jumps here via the #watchlist anchor. */}
-      <section id="watchlist" className="section-jn scroll-mt-24">
-        <div className="container-jn grid grid-cols-1 items-start gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]">
-          <div>
-            <p className="eyebrow">Watchlist</p>
-            <h2 className="title-section">Set a route. We&rsquo;ll text when one shows up.</h2>
-            <p className="mt-4 text-[18px] text-bone-2">
-              If the lanes you fly are predictable, this is the simplest way to get the discount.
-              Tell us the city pair and date window, we&rsquo;ll match against the live board every
-              fifteen minutes, and text the moment something fits. No spam, only matches.
+      <div className="container-jn mt-[14px]">
+        <div className="flex items-center gap-3 bg-surface-2 px-4 py-[10px] text-[13px]">
+          <svg viewBox="0 0 24 24" fill="none" stroke="var(--gold)" strokeWidth="1.6" aria-hidden="true" className="h-[18px] w-[18px] flex-none">
+            <circle cx="12" cy="12" r="9" />
+            <path d="M12 11v5M12 8h.01" strokeLinecap="round" />
+          </svg>
+          Empty legs cancel if the trip behind them cancels. Your payment is refunded in full, but
+          keep a backup plan for anything time-critical.
+        </div>
+      </div>
+
+      <div className="container-jn flex flex-wrap items-start gap-[22px] pt-5">
+        <div className="min-w-0 flex-[999_1_420px]">
+          <LegsBoard legs={legs} recentlySold={recentlySold} />
+        </div>
+
+        <aside className="flex min-w-0 max-w-full flex-[1_1_300px] flex-col gap-3">
+          {/* scroll-mt clears the sticky header when the board's CTAs jump
+              here via the #watchlist anchor. */}
+          <div id="watchlist" className="scroll-mt-24 border border-line bg-white p-4">
+            <h2 className="font-serif text-[21px] leading-[1.2]">Let the right route find you.</h2>
+            <p className="mb-[10px] mt-[2px] text-[12px] text-steel">
+              Tell us the city pair and date window. We&rsquo;ll text the moment something fits.
             </p>
-            {/* No competitor offers route alerts at all — spell the
-                mechanics out as scannable proof, not just prose. */}
-            <ul className="mt-5 flex flex-col gap-2.5 text-[15px] text-bone-2">
+            <ul className="mb-3 flex flex-col gap-1 text-[12px] text-steel">
               {WATCHLIST_POINTS.map((b) => (
-                <li key={b} className="grid grid-cols-[auto_1fr] gap-2.5">
-                  <span aria-hidden="true" className="text-clearance">✓</span>
+                <li key={b} className="grid grid-cols-[auto_1fr] gap-2">
+                  <span aria-hidden="true" className="text-gold">✓</span>
                   {b}
                 </li>
               ))}
             </ul>
-          </div>
-          <div className="card p-8 max-md:p-5">
             <WatchlistForm />
+          </div>
+          <div className="on-navy bg-navy p-4">
+            <h2 className="font-serif text-[21px] leading-[1.2]">Your timing is essential?</h2>
+            <p className="mt-1 text-[13px] text-navy-on-2">
+              Compare an on-demand charter built around your itinerary.
+            </p>
+            <Link
+              href="/quote/mission"
+              className="btn mt-3 h-[38px] w-full border-white bg-transparent text-[13px] font-bold text-white hover:bg-[rgba(255,255,255,0.08)] hover:text-white"
+            >
+              Request an on-demand quote →
+            </Link>
+            <div className="mt-[10px] flex flex-col">
+              {[
+                ["Compare aircraft", "/aircraft"],
+                ["Explore routes", "/routes"],
+                ["Charter cost guide", "/guides/private-jet-charter-cost"],
+              ].map(([label, href]) => (
+                <Link
+                  key={href}
+                  href={href}
+                  className="flex justify-between border-t border-[rgba(255,255,255,.2)] py-2 text-[13px] text-white hover:text-navy-on-2"
+                >
+                  <span>{label}</span>
+                  <span aria-hidden="true">→</span>
+                </Link>
+              ))}
+              <a
+                href={`tel:${SITE.dispatchPhoneE164}`}
+                className="flex justify-between border-t border-[rgba(255,255,255,.2)] py-2 text-[13px] text-white hover:text-navy-on-2"
+              >
+                <span>Call dispatch · {SITE.dispatchPhone}</span>
+                <span aria-hidden="true">↗</span>
+              </a>
+            </div>
+          </div>
+        </aside>
+      </div>
+
+      {/* ─── Compare ─── */}
+      <section className="container-jn pt-7">
+        <h2 className="font-serif text-[32px] leading-[1.1]">Is an empty leg right for your trip?</h2>
+        <div className="mt-3 border border-line bg-white text-[13px]" role="table" aria-label="Empty leg compared with on-demand charter">
+          <div role="row" className="grid bg-surface-2 px-4 py-2 font-bold [grid-template-columns:repeat(auto-fit,minmax(min(100%,180px),1fr))]">
+            <span role="columnheader">Planning question</span>
+            <span role="columnheader">Empty leg</span>
+            <span role="columnheader">On-demand charter</span>
+          </div>
+          {COMPARE.map(([q, e, o]) => (
+            <div key={q} role="row" className="grid border-t border-surface-2 px-4 py-2 [grid-template-columns:repeat(auto-fit,minmax(min(100%,180px),1fr))]">
+              <span role="cell">{q}</span>
+              <span role="cell" className="text-steel">{e}</span>
+              <span role="cell" className="text-steel">{o}</span>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* ─── Confirm five things ─── */}
+      <section className="container-jn grid items-stretch gap-6 pt-[26px] [grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr))]">
+        <div>
+          <h2 className="font-serif text-[30px] leading-[1.1]">Before you accept, confirm these five things.</h2>
+          <ol className="mt-3 flex flex-col">
+            {CONFIRM.map((t, i) => (
+              <li key={t} className="grid grid-cols-[40px_minmax(0,1fr)] items-center gap-4 border-b border-surface-2 py-[7px] text-[14px]">
+                <span className="flex h-6 items-center justify-center rounded-full bg-surface-2 text-[13px]">
+                  {String(i + 1).padStart(2, "0")}
+                </span>
+                <span>{t}</span>
+              </li>
+            ))}
+          </ol>
+        </div>
+        <div className="relative min-h-[220px] overflow-hidden bg-surface-2">
+          <Image
+            src="/images/light/jet-over-golden-clouds.webp"
+            alt=""
+            fill
+            sizes="(max-width: 768px) 100vw, 600px"
+            className="object-cover"
+          />
+          <div className="absolute bottom-3 right-3">
+            <ChecklistWindow items={CONFIRM} />
           </div>
         </div>
       </section>
 
+      {/* ─── Sources ─── */}
+      <section className="container-jn pt-[26px]">
+        <h2 className="font-serif text-[30px] leading-[1.1]">Independent guidance for a clearer decision.</h2>
+        <div className="mt-3 grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(min(100%,220px),1fr))]">
+          {SOURCES.map((src) => (
+            <div key={src.title} className="grid grid-cols-[52px_minmax(0,1fr)] gap-[14px] border border-line bg-white p-4">
+              <span className="flex h-[52px] w-[52px] items-center justify-center rounded-full bg-surface-2">
+                <svg viewBox="0 0 24 24" fill="none" stroke="var(--gold)" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className="h-6 w-6">
+                  <path d={DOC_ICON} />
+                </svg>
+              </span>
+              <div>
+                <h3 className="font-serif text-[17px] font-normal">{src.title}</h3>
+                <p className="mb-2 mt-[2px] text-[12px] leading-[1.5] text-steel">{src.body}</p>
+                <a href={src.url} target="_blank" rel="noopener noreferrer" className="text-link text-[12px]">
+                  {src.link} <span aria-hidden="true">↗</span>
+                </a>
+              </div>
+            </div>
+          ))}
+        </div>
+        <p className="mt-2 text-[12px] text-steel">Independent references. No endorsement implied.</p>
+      </section>
+
       {/* ─── FAQ ─── */}
-      <section className="section-jn">
+      <section className="container-jn pb-[26px] pt-[22px]">
         <script
           type="application/ld+json"
           // Build-time stringified site copy — not user-controlled.
           dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }}
         />
-        <div className="container-jn">
-          <p className="eyebrow">Before you book</p>
-          <h2 className="title-section max-w-[24ch]">Empty legs, answered straight.</h2>
-          <div className="mt-8 grid grid-cols-1 gap-x-10 gap-y-4 md:grid-cols-2">
-            {EMPTY_LEG_FAQ.map((f) => (
-              <div key={f.q} className="border-t border-line pt-[18px]">
-                <h3 className="text-[19px] font-medium leading-[1.3] text-bone">{f.q}</h3>
-                <p className="mt-2 text-bone-2">{f.a}</p>
-              </div>
-            ))}
-          </div>
+        <h2 className="font-serif text-[30px] leading-[1.1]">Empty-leg questions, answered.</h2>
+        <div className="mt-3 border border-line bg-white">
+          {EMPTY_LEG_FAQ.map((f, i) => (
+            <details key={f.q} open={i === 0} className="group border-b border-surface-2 last:border-b-0">
+              <summary className="grid cursor-pointer list-none grid-cols-[22px_minmax(0,1fr)] items-center gap-[14px] px-4 py-[10px] [&::-webkit-details-marker]:hidden">
+                <span aria-hidden="true" className="flex h-5 w-5 items-center justify-center rounded-full border-[1.5px] border-gold text-[14px] leading-none text-gold">
+                  <span className="group-open:hidden">+</span>
+                  <span className="hidden group-open:inline">−</span>
+                </span>
+                <h3 className="font-sans text-[14px] font-bold">{f.q}</h3>
+              </summary>
+              <p className="pb-3 pl-[52px] pr-4 text-[14px] leading-[1.55] text-steel">{f.a}</p>
+            </details>
+          ))}
         </div>
       </section>
 
-      <CtaBand
-        title="See one you want? Call and we lock it."
-        body="Empty legs sell the moment a confirmation comes through. The desk picks up in under twenty seconds, every hour of every day."
-      />
+      {/* ─── Closing band: paper scrim over the landscape ─── */}
+      <section className="relative overflow-hidden bg-surface-2">
+        <Image
+          src="/images/light/mountain-landscape.webp"
+          alt=""
+          aria-hidden
+          fill
+          sizes="100vw"
+          className="object-cover opacity-75"
+          style={{ objectPosition: "center 60%" }}
+        />
+        <div
+          aria-hidden
+          className="absolute inset-0"
+          style={{
+            background:
+              "linear-gradient(90deg,rgba(247,245,240,.96) 0%,rgba(247,245,240,.9) 48%,rgba(247,245,240,.2) 100%)",
+          }}
+        />
+        <div className="container-jn relative flex flex-wrap items-center gap-6 py-[22px]">
+          <div>
+            <h2 className="font-serif text-[28px] leading-[1.1]">Tell us where you could go.</h2>
+            <p className="mt-1 text-[14px]">
+              See one you want? Call {SITE.dispatchPhone} and we lock it. First call wins.
+            </p>
+          </div>
+          <a href="#watchlist" className={`${BRONZE} h-[42px] px-5 text-[14px]`}>
+            Create a route alert →
+          </a>
+        </div>
+      </section>
     </>
   );
 }

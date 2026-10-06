@@ -46,13 +46,13 @@ export function TopUpForm() {
   }
 
   return (
-    <section className="card card-pad">
-      <h2 className="title-card-sm text-bone">Top up your balance</h2>
-      <p className="mt-2 max-w-[56ch] text-[15px] leading-[1.55] text-bone-2">
+    <section className="border border-line bg-surface px-6 py-[22px] max-md:px-5">
+      <h2 className="font-serif text-[24px] font-normal leading-[1.15] text-bone">Top up your balance</h2>
+      <p className="mt-2 max-w-[56ch] text-[14px] leading-[1.55] text-steel">
         Add funds to your existing card. Same locked rates, same call-out window — the balance
         just lasts longer. Refundable, like the original deposit.
       </p>
-      <form onSubmit={onSubmit} className="mt-6 flex flex-col gap-2.5">
+      <form onSubmit={onSubmit} className="mt-4 flex flex-col gap-2.5">
         <div className="flex flex-wrap gap-2" role="group" aria-label="Preset amounts">
           {PRESETS.map((v) => (
             <button

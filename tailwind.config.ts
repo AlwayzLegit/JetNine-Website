@@ -30,19 +30,22 @@ const config: Config = {
           DEFAULT: "var(--clearance)",
           hover: "var(--clearance-hover)",
         },
-        gold: "var(--gold)",
+        gold: {
+          DEFAULT: "var(--gold)",
+          light: "var(--gold-light)",
+        },
+        navy: {
+          DEFAULT: "var(--navy)",
+          on: "var(--on-navy)",
+          "on-2": "var(--on-navy-2)",
+        },
         success: "var(--success)",
         danger: "var(--danger)",
       },
       fontFamily: {
-        serif: ["var(--font-fraunces)", "Fraunces", "Times New Roman", "serif"],
-        sans: [
-          "var(--font-instrument-sans)",
-          "Instrument Sans",
-          "system-ui",
-          "-apple-system",
-          "sans-serif",
-        ],
+        // System stacks from the light design system — no web fonts.
+        serif: ["'Times New Roman'", "Times", "Georgia", "serif"],
+        sans: ["Arial", "Helvetica", "sans-serif"],
       },
       borderRadius: {
         card: "var(--radius-card)",

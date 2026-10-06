@@ -18,11 +18,11 @@ export function ReviewSubmitCard({
   onSubmit: () => void;
 }) {
   return (
-    <section className="card mt-6 border-clearance p-8 max-md:p-5">
-      <h2 className="font-serif text-[32px] font-light leading-[1.15] text-bone">
+    <section className="mt-3 rounded-[3px] border border-clearance px-5 py-5">
+      <h2 className="font-serif text-[26px] leading-[1.15] text-bone">
         Send it to dispatch.
       </h2>
-      <p className="mt-3 max-w-[72ch] text-[15px] text-bone-2">
+      <p className="mt-2 max-w-[72ch] text-[14px] leading-[1.55] text-steel">
         By submitting, you agree to the{" "}
         <Link href="/legal#part-295" className="text-link-strong">
           Part 295 broker disclosure
@@ -39,7 +39,7 @@ export function ReviewSubmitCard({
         onClick={onSubmit}
         disabled={submitting}
         aria-busy={submitting || undefined}
-        className="btn btn-primary btn-xl mt-6 !text-[17px] max-md:w-full"
+        className="btn btn-primary mt-[18px] !h-12 w-full !text-[16px]"
       >
         {submitting ? "Sending…" : "Submit quote request"}{" "}
         <span className="arrow" aria-hidden>
@@ -47,7 +47,7 @@ export function ReviewSubmitCard({
         </span>
       </button>
       {error ? (
-        <p className="mt-4 text-[15px] text-danger" role="alert">
+        <p className="mt-3 text-[14px] text-danger" role="alert">
           <ErrorSentence error={error} />
         </p>
       ) : null}

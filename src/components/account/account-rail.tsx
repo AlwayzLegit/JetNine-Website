@@ -2,12 +2,12 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { SITE } from "@/lib/constants";
 
 export const ACCOUNT_NAV = [
   { href: "/account", label: "Overview", desc: "Everything at a glance" },
-  { href: "/account/quotes", label: "Quotes", desc: "Submitted & in progress" },
   { href: "/account/trips", label: "Trips", desc: "Past, upcoming, in-flight" },
+  { href: "/account/quotes", label: "Quotes", desc: "Submitted & in progress" },
   { href: "/account/invoices", label: "Invoices", desc: "Outstanding & paid" },
   { href: "/account/members", label: "Membership", desc: "Tier, balance, activity" },
   { href: "/account/memberships", label: "Buy / top up", desc: "Card checkout & reserve top-up" },
@@ -15,7 +15,7 @@ export const ACCOUNT_NAV = [
 ] as const;
 
 function isActive(pathname: string, href: string): boolean {
-  return href === "/account" ? pathname === "/account" : pathname.startsWith(href);
+  return href === "/account" ? pathname === "/account" : pathname === href || pathname.startsWith(`${href}/`);
 }
 
 type Props = {
@@ -28,143 +28,102 @@ type Props = {
 };
 
 /**
- * Member account left rail from the handoff: label, name, email, seven
- * items with 13px descriptions (current one on surface-2), primary
- * "Request a quote →", "Sign out →". Sticky under the header on desktop.
+ * Member account left rail (Light - Account): "My account" eyebrow, serif
+ * name, email, the sections with a 2px bronze bar on the current one,
+ * the dispatch contact block and "Sign out →". Sticky on desktop. Below
+ * lg the same rail stacks above the content, with the sections as a
+ * wrapping row of chips so nothing scrolls sideways.
  */
 export function AccountRail({ name, email, signOutAction, staff }: Props) {
   const pathname = usePathname();
+  const items = [
+    ...ACCOUNT_NAV,
+    ...(staff ? [{ href: "/admin/requests", label: "Dispatch desk", desc: "Staff only" }] : []),
+  ];
   return (
     <nav
       aria-label="Account"
-      className="sticky top-[calc(var(--header-h)+24px)] hidden flex-col gap-0.5 text-[15px] lg:flex"
+      className="min-w-0 lg:sticky lg:top-[calc(var(--header-h)+20px)] lg:border-r lg:border-line lg:pr-3.5"
     >
-      <div className="px-3 pb-4">
-        <div className="label-jn text-[13px]">Member account</div>
-        <div className="mt-1 text-[17px] font-medium text-bone">{name}</div>
-        <div className="truncate text-[14px] text-steel" title={email}>
-          {email}
+      <p className="text-[12px] font-bold uppercase tracking-[.2em] text-gold">My account</p>
+      <div className="mt-1.5 font-serif text-[20px] leading-[1.2] text-bone">{name}</div>
+      <div className="truncate text-[12px] text-steel" title={email}>
+        {email}
+      </div>
+
+      {/* Desktop: vertical list with the bronze bar */}
+      <div className="mt-3.5 hidden flex-col gap-0.5 lg:flex">
+        {items.map((n) => {
+          const active = isActive(pathname, n.href);
+          return (
+            <Link
+              key={n.href}
+              href={n.href}
+              aria-current={active ? "page" : undefined}
+              title={n.desc}
+              className={[
+                "-ml-0.5 flex items-center justify-between border-l-2 px-2.5 py-2 text-[14px] text-bone transition-colors",
+                active ? "border-gold bg-surface-2 font-bold" : "border-transparent hover:bg-surface-2/60",
+              ].join(" ")}
+            >
+              {n.label}
+            </Link>
+          );
+        })}
+      </div>
+
+      {/* Phones and tablets: wrapping chips */}
+      <div className="mt-3.5 flex flex-wrap gap-2 lg:hidden">
+        {items.map((n) => {
+          const active = isActive(pathname, n.href);
+          return (
+            <Link
+              key={n.href}
+              href={n.href}
+              aria-current={active ? "page" : undefined}
+              className={["chip", active ? "is-selected" : ""].join(" ")}
+            >
+              {n.label}
+            </Link>
+          );
+        })}
+      </div>
+
+      <hr className="my-4 border-0 border-t border-line max-lg:hidden" />
+      <div className="max-lg:hidden">
+        <div className="text-[12px] text-steel">Your dispatcher</div>
+        <div className="mt-1.5 flex items-center gap-2.5">
+          <span className="flex h-9 w-9 flex-none items-center justify-center rounded-full bg-surface-2 font-serif text-gold">
+            J
+          </span>
+          <div>
+            <div className="text-[14px] font-bold text-bone">JetNine dispatch</div>
+            <div className="text-[12px] text-success">Answers 24/7</div>
+          </div>
+        </div>
+        <div className="mt-2.5 grid grid-cols-2 gap-1.5">
+          <a
+            href={`tel:${SITE.dispatchPhoneE164}`}
+            className="flex h-[34px] items-center justify-center border border-line bg-surface text-[13px] text-bone transition-colors hover:text-gold"
+          >
+            Call
+          </a>
+          <a
+            href={`mailto:${SITE.email}`}
+            className="flex h-[34px] items-center justify-center border border-line bg-surface text-[13px] text-bone transition-colors hover:text-gold"
+          >
+            Email
+          </a>
         </div>
       </div>
-      {ACCOUNT_NAV.map((n) => {
-        const active = isActive(pathname, n.href);
-        return (
-          <Link
-            key={n.href}
-            href={n.href}
-            aria-current={active ? "page" : undefined}
-            className={[
-              "flex flex-col rounded-control px-3 py-2.5 transition-colors",
-              active ? "bg-surface-2 text-bone" : "text-bone-2 hover:bg-surface-2/60 hover:text-bone",
-            ].join(" ")}
-          >
-            <span className="font-medium">{n.label}</span>
-            <span className="text-[13px] text-steel">{n.desc}</span>
-          </Link>
-        );
-      })}
-      {staff ? (
-        <Link
-          href="/admin/requests"
-          className="mt-1 flex flex-col rounded-control px-3 py-2.5 text-bone-2 transition-colors hover:bg-surface-2/60 hover:text-bone"
-        >
-          <span className="font-medium">Dispatch desk</span>
-          <span className="text-[13px] text-steel">Staff only</span>
-        </Link>
-      ) : null}
-      <Link href="/quote/mission" className="btn btn-primary mt-3 w-full">
-        Request a quote <span aria-hidden="true">→</span>
-      </Link>
-      <form action={signOutAction} className="mt-3">
+      <form action={signOutAction} className="mt-[18px] max-lg:mt-3">
         <button
           type="submit"
-          className="flex min-h-[44px] w-full items-center px-3 text-left text-[14px] text-steel transition-colors hover:text-bone"
+          className="flex min-h-[28px] items-center whitespace-nowrap text-[13px] text-steel transition-colors hover:text-gold"
         >
           Sign out →
         </button>
       </form>
     </nav>
-  );
-}
-
-/**
- * Phone tab bar (Mobile.dc.html, Account frame): Overview · Trips ·
- * Quote · More, 44px targets, pinned to the bottom. "More" opens the
- * remaining sections as a sheet.
- */
-export function AccountTabBar({ signOutAction }: { signOutAction: () => Promise<void> }) {
-  const pathname = usePathname();
-  const [more, setMore] = useState(false);
-  const tabs = [
-    { href: "/account", label: "Overview" },
-    { href: "/account/trips", label: "Trips" },
-    { href: "/quote/mission", label: "Quote" },
-  ];
-  const moreItems = ACCOUNT_NAV.filter((n) => !["/account", "/account/trips"].includes(n.href));
-  const moreActive = moreItems.some((n) => isActive(pathname, n.href));
-  return (
-    <>
-      {more ? (
-        <div className="fixed inset-0 z-40 bg-ink lg:hidden" role="dialog" aria-label="More account sections">
-          <div className="container-jn flex h-full flex-col py-6">
-            <div className="flex items-center justify-between">
-              <span className="label-jn text-[13px]">Account</span>
-              <button
-                type="button"
-                onClick={() => setMore(false)}
-                className="flex h-11 w-11 items-center justify-center rounded-pill border border-line-2 text-bone"
-                aria-label="Close"
-              >
-                ✕
-              </button>
-            </div>
-            <div className="mt-4 flex flex-col">
-              {moreItems.map((n) => (
-                <Link
-                  key={n.href}
-                  href={n.href}
-                  onClick={() => setMore(false)}
-                  className="flex min-h-[52px] flex-col justify-center border-b border-line-faint"
-                >
-                  <span className="text-[18px] font-medium text-bone">{n.label}</span>
-                  <span className="text-[13px] text-steel">{n.desc}</span>
-                </Link>
-              ))}
-            </div>
-            <form action={signOutAction} className="mt-auto">
-              <button type="submit" className="btn btn-secondary w-full">
-                Sign out →
-              </button>
-            </form>
-          </div>
-        </div>
-      ) : null}
-      <nav
-        aria-label="Account"
-        className="fixed inset-x-0 bottom-0 z-50 grid grid-cols-4 border-t border-line-faint bg-ink-2 px-2 pb-[max(10px,env(safe-area-inset-bottom))] pt-2.5 text-center text-[12px] lg:hidden"
-      >
-        {tabs.map((t) => {
-          const active = t.href.startsWith("/account") && isActive(pathname, t.href) && !moreActive;
-          return (
-            <Link
-              key={t.href}
-              href={t.href}
-              aria-current={active ? "page" : undefined}
-              className={["flex h-11 items-center justify-center", active ? "font-medium text-bone" : "text-steel"].join(" ")}
-            >
-              {t.label}
-            </Link>
-          );
-        })}
-        <button
-          type="button"
-          onClick={() => setMore((v) => !v)}
-          aria-expanded={more}
-          className={["flex h-11 items-center justify-center", more || moreActive ? "font-medium text-bone" : "text-steel"].join(" ")}
-        >
-          More
-        </button>
-      </nav>
-    </>
   );
 }

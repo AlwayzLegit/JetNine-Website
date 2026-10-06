@@ -22,21 +22,44 @@ export default async function RequestsPage({ searchParams }: Props) {
   const now = new Date();
   const { tab, q, groups, tabs, visibleStages } = await listRequests({ tab: sp.tab, q: sp.q, now });
 
+  // Headline sentence (prototype): "2 need a reply — 1 overdue, 1 in
+  // progress, 1 waiting on a client." Built from the same counts as the tabs.
+  const count = (k: string) => tabs.find((t) => t.key === k)?.count ?? 0;
+  const replyGroup = groups.find((g) => g.key === "reply");
+  const overdue = replyGroup
+    ? replyGroup.items.filter((r) => r.slaDeadlineAt && r.slaDeadlineAt.getTime() < now.getTime()).length
+    : 0;
+  const headline = `${count("reply")} need${count("reply") === 1 ? "s" : ""} a reply${
+    overdue ? ` — ${overdue} overdue` : ""
+  }, ${count("working")} in progress, ${count("sent")} waiting on a client.`;
+
   return (
     <DeskPage>
       <DeskHeader
         title="Requests"
+        lead={headline}
         actions={
           <>
-            <DeskSearch defaultValue={q} hidden={{ tab: tab !== "reply" ? tab : undefined }} />
-            <Link href="/quote/mission" className="btn btn-primary">
+            <DeskSearch
+              placeholder="Search name or city"
+              defaultValue={q}
+              hidden={{ tab: tab !== "reply" ? tab : undefined }}
+            />
+            <Link href="/quote/mission" className="btn btn-primary btn-sm h-11 rounded-[3px] md:h-10">
               + New request
             </Link>
           </>
         }
       />
 
-      <DeskTabs items={tabs} current={tab} base="/admin/requests" keep={{ q: q || undefined }} className="mt-6" />
+      <DeskTabs
+        variant="band"
+        items={tabs}
+        current={tab}
+        base="/admin/requests"
+        keep={{ q: q || undefined }}
+        className="mt-6"
+      />
 
       {visibleStages.length === 0 ? (
         q ? (
@@ -46,20 +69,41 @@ export default async function RequestsPage({ searchParams }: Props) {
             </Link>
           </DeskEmpty>
         ) : (
-          <DeskEmpty title="All caught up." body="No requests need attention right now." />
+          <DeskEmpty title="All caught up." body="Nothing in this list right now." />
         )
       ) : (
         groups.map((group) => (
-          <DeskGroup key={group.key} title={group.title} count={group.items.length}>
+          <DeskGroup
+            key={group.key}
+            index={GROUP_INDEX[group.key]}
+            title={group.title}
+            hint={GROUP_HINT[group.key]}
+            className="mt-7"
+          >
             {group.items.map((r) => (
               <RequestRow key={r.id} row={r} legs={r.legs} options={r.options} now={now} />
             ))}
           </DeskGroup>
         ))
       )}
+
+      <p className="mt-7 max-w-[80ch] text-[13px] text-steel">
+        Replies are due 30 minutes after a request arrives during operating hours. Sourcing happens in Avinode;
+        paste the quote into the request to send options.
+      </p>
     </DeskPage>
   );
 }
+
+/** "01 / Needs a reply" numbering follows the stage order. */
+const GROUP_INDEX: Record<string, number> = { reply: 1, working: 2, sent: 3, booked: 4, closed: 5 };
+const GROUP_HINT: Record<string, string> = {
+  reply: "Most overdue first",
+  working: "Sourcing in Avinode",
+  sent: "Nudge after 24 hours",
+  booked: "Now in Trips",
+  closed: "Last 30 days",
+};
 
 type Row = RequestListItem;
 type LegRow = RequestListLeg;
@@ -139,29 +183,34 @@ function RequestRow({
         ? "text-danger"
         : line2?.tone === "steel"
           ? "text-steel"
-          : "text-bone-2";
+          : "text-bone";
 
   return (
     <DeskRow>
       <div className="min-w-0">
-        <div className="text-[17px] font-medium text-bone">
-          {name} <span className="font-normal text-steel">· {passengersWords(r.paxCount)}</span>
+        <div className="font-serif text-[21px] leading-[1.2] text-bone">
+          {name}{" "}
+          <span className="font-sans text-[14px] text-steel">· {passengersWords(r.paxCount)}</span>
         </div>
-        <div className="mt-0.5 text-bone-2">{trip}</div>
+        <div className="mt-[3px] text-[15px] text-bone">{trip}</div>
         {noteParts.length ? <div className="mt-0.5 text-[14px] text-steel">{noteParts.join(" · ")}</div> : null}
       </div>
 
       {/* On phones this block sits first in the card (Mobile frame). */}
-      <div className="order-first flex flex-wrap gap-x-2 text-[14px] leading-[1.45] text-bone-2 md:order-none md:block">
-        <span>{line1}</span>
-        {line2 ? <span className={`font-medium ${toneClass} md:block`}>{line2.text}</span> : null}
+      <div className="order-first flex flex-wrap gap-x-2 text-[14px] leading-[1.45] md:order-none md:block">
+        <span className="text-steel">{line1}</span>
+        {line2 ? <span className={`font-semibold ${toneClass} md:mt-0.5 md:block`}>{line2.text}</span> : null}
       </div>
 
       <Link
         href={action.href}
-        className={`btn btn-sm w-full md:w-auto ${action.primary ? "btn-primary" : "btn-secondary"}`}
+        className={`inline-flex h-11 w-full items-center justify-center gap-2 rounded-[3px] border border-clearance text-[14px] font-semibold transition-colors md:h-[38px] ${
+          action.primary
+            ? "bg-clearance text-white hover:bg-clearance-hover"
+            : "bg-surface text-bone hover:bg-surface-2"
+        }`}
       >
-        {action.label}
+        {action.label} <span aria-hidden="true">↗</span>
       </Link>
     </DeskRow>
   );

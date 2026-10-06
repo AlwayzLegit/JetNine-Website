@@ -123,9 +123,9 @@ export function PlaybookEditor({ initial, starter }: { initial: EditorPlaybook; 
 
   return (
     <form onSubmit={onSubmit} className="mt-6 flex flex-col gap-6">
-      <section className="card p-5 md:p-6">
+      <section className="card bg-[#FBFAF7] p-5 md:p-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <h2 className="label-jn text-[13px]">General instructions</h2>
+          <h2 className="text-[12px] font-bold uppercase tracking-[0.2em] text-gold">General instructions</h2>
           <button type="button" className="text-link text-[14px]" onClick={fillFromStarter} disabled={pending}>
             Start from the starter instructions
           </button>
@@ -147,7 +147,7 @@ export function PlaybookEditor({ initial, starter }: { initial: EditorPlaybook; 
 
       <section>
         <div className="mb-2.5 flex items-center justify-between gap-4">
-          <h2 className="label-jn text-[13px]">
+          <h2 className="text-[12px] font-bold uppercase tracking-[0.2em] text-gold">
             Jobs <span className="text-steel-dim">· {jobs.length}</span>
           </h2>
           <button type="button" className="btn btn-secondary btn-sm" onClick={addJob} disabled={pending || jobs.length >= 20}>
@@ -155,7 +155,7 @@ export function PlaybookEditor({ initial, starter }: { initial: EditorPlaybook; 
           </button>
         </div>
         {jobs.length === 0 ? (
-          <p className="card p-6 text-[15px] text-bone-2">No jobs. The assistant will open a run, find nothing to do and close it.</p>
+          <p className="card bg-[#FBFAF7] p-6 text-[15px] text-bone-2">No jobs. The assistant will open a run, find nothing to do and close it.</p>
         ) : (
           <div className="flex flex-col gap-4">
             {jobs.map((j, i) => (
@@ -165,8 +165,8 @@ export function PlaybookEditor({ initial, starter }: { initial: EditorPlaybook; 
         )}
       </section>
 
-      <section className="card p-5 md:p-6">
-        <h2 className="label-jn text-[13px]">Save</h2>
+      <section className="card bg-[#FBFAF7] p-5 md:p-6">
+        <h2 className="text-[12px] font-bold uppercase tracking-[0.2em] text-gold">Save</h2>
         <div className="field-jn mt-4">
           <label htmlFor="pb-note">What changed</label>
           <input
@@ -210,7 +210,7 @@ function JobCard({
 }) {
   const id = `job-${index}`;
   return (
-    <section className={`card p-5 md:p-6 ${job.enabled ? "" : "opacity-80"}`} aria-labelledby={`${id}-title`}>
+    <section className={`card bg-[#FBFAF7] p-5 md:p-6 ${job.enabled ? "" : "opacity-80"}`} aria-labelledby={`${id}-title`}>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <h3 id={`${id}-title`} className="text-[17px] font-medium text-bone">

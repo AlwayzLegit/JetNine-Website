@@ -57,7 +57,7 @@ export default async function ReferenceDataPage() {
 
   return (
     <div>
-      <DeskHeader
+      <DeskHeader size="md"
         title="Reference data"
         lead="The tables behind the empty-leg board and quote matching. Avinode replaces most of this over time."
       />

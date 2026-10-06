@@ -15,6 +15,7 @@ import {
 import { BuyMembershipButton } from "@/components/account/buy-membership-button";
 import { TopUpForm } from "@/components/account/top-up-form";
 import { MembershipActivity, type ActivityRow } from "@/components/account/membership-activity";
+import { BTN_LINE, BTN_PRIMARY, Eyebrow, PANEL, PageHead, SectionTitle, UnderLink } from "@/components/account/panel";
 
 export const dynamic = "force-dynamic";
 
@@ -50,16 +51,15 @@ export default async function AccountMembershipsPage({ searchParams }: Props) {
   if (!member) {
     return (
       <>
-        <h1 className="title-app text-bone">Buy / top up</h1>
-        <p className="mt-2.5 max-w-[60ch] text-[17px] text-bone-2">
-          Memberships unlock once your account is set up. Request a quote or talk to dispatch to
-          get started.
-        </p>
-        <div className="mt-8 flex flex-wrap gap-2.5">
-          <Link href="/quote" className="btn btn-primary">
+        <PageHead
+          title="Buy / top up"
+          sub="Memberships unlock once your account is set up. Request a quote or talk to dispatch to get started."
+        />
+        <div className="mt-[22px] flex flex-wrap gap-2.5">
+          <Link href="/quote" className={BTN_PRIMARY}>
             Request a quote <span aria-hidden="true">→</span>
           </Link>
-          <Link href="/memberships" className="btn btn-secondary">
+          <Link href="/memberships" className={BTN_LINE}>
             See programs
           </Link>
         </div>
@@ -121,19 +121,22 @@ export default async function AccountMembershipsPage({ searchParams }: Props) {
 
   return (
     <>
-      <h1 className="title-app text-bone">Buy / top up</h1>
-      <p className="mt-2.5 max-w-[60ch] text-[17px] text-bone-2">
-        {active && spec
-          ? `You hold the ${spec.name}, active since ${formatDay(active.activatedOn) ?? active.activatedOn}. Add to your balance below.`
-          : "Three card tiers, one locked hourly rate. Pick a deposit level and we'll open checkout — or keep flying on-demand with no commitment."}
-      </p>
+      <PageHead
+        title="Buy / top up"
+        sub={
+          active && spec
+            ? `You hold the ${spec.name}, active since ${formatDay(active.activatedOn) ?? active.activatedOn}. Add to your balance below.`
+            : "Three card tiers, one locked hourly rate. Pick a deposit level and we'll open checkout — or keep flying on-demand with no commitment."
+        }
+      />
 
       {flash ? (
         <div
           role="status"
           className={[
-            "card mt-8 px-6 py-5 text-[15px] leading-[1.5] text-bone",
-            flash.kind === "cancelled" ? "" : "card-highlight",
+            PANEL,
+            "mt-[22px] px-6 py-4 text-[15px] leading-[1.5] text-bone",
+            flash.kind === "cancelled" ? "" : "!border-gold",
           ].join(" ")}
         >
           {flash.kind === "activated"
@@ -146,25 +149,25 @@ export default async function AccountMembershipsPage({ searchParams }: Props) {
 
       {active && spec ? (
         <>
-          <section className="card card-pad mt-8">
-            <h2 className="label-jn text-[13px]">Reserve balance</h2>
+          <section className={`${PANEL} mt-[22px] px-6 py-[22px] max-md:px-5`}>
+            <Eyebrow>Reserve balance</Eyebrow>
             <div
               className={[
-                "mt-2 font-serif text-[40px] font-light leading-none",
+                "mt-2 font-serif text-[36px] leading-[1.1]",
                 balanceUsd < 0 ? "text-danger" : "text-bone",
               ].join(" ")}
             >
               {USD.format(balanceUsd)}
             </div>
-            <p className="mt-3 text-[15px] text-bone-2">
+            <p className="mt-2 text-[14px] text-bone-2">
               <span className="text-success">{STATUS_SENTENCE[active.status] ?? "Active"}</span>
               {" · "}
               {spec.name} · rates locked for {spec.rateLockMonths} months · aircraft guaranteed with{" "}
               {spec.calloutHours} hours&rsquo; notice
             </p>
-            <Link href="/account/members" className="text-link mt-1 inline-flex min-h-11 items-center text-[15px]">
+            <UnderLink href="/account/members" className="mt-3 inline-block">
               See what&rsquo;s included
-            </Link>
+            </UnderLink>
           </section>
 
           <div className="mt-4">
@@ -172,16 +175,16 @@ export default async function AccountMembershipsPage({ searchParams }: Props) {
           </div>
 
           {ledger.length > 0 ? (
-            <section className="mt-8">
-              <h2 className="label-jn text-[13px]">Activity</h2>
+            <section className={`${PANEL} mt-4 px-6 py-5 max-md:px-5`}>
+              <h2 className="font-serif text-[20px] font-normal text-bone">Recent activity</h2>
               <MembershipActivity rows={activity} />
             </section>
           ) : null}
         </>
       ) : (
-        <section className="mt-8">
-          <h2 className="label-jn text-[13px]">JetNine Card</h2>
-          <div className="mt-2.5 grid grid-cols-1 gap-4 md:grid-cols-3">
+        <section className="mt-6">
+          <SectionTitle>JetNine Card</SectionTitle>
+          <div className="mt-2.5 grid grid-cols-[repeat(auto-fit,minmax(min(100%,220px),1fr))] gap-4">
             {CARD_TIERS.map((p) => {
               const s = MEMBERSHIP_SPECS[p];
               const features = [
@@ -194,20 +197,20 @@ export default async function AccountMembershipsPage({ searchParams }: Props) {
                 `Empty legs ${s.emptyLegAdvanceMinutes} minutes before the public board`,
               ];
               return (
-                <div key={p} className="card card-pad flex flex-col gap-5">
+                <div key={p} className={`${PANEL} flex flex-col gap-4 px-5 py-5`}>
                   <div>
-                    <h3 className="title-card-sm text-bone">{s.name}</h3>
-                    <div className="mt-4 border-t border-line pt-4">
-                      <div className="font-serif text-[40px] font-light leading-none text-bone">
+                    <h3 className="font-serif text-[22px] font-normal leading-[1.15] text-bone">{s.name}</h3>
+                    <div className="mt-3 border-t border-line pt-3">
+                      <div className="font-serif text-[34px] leading-none text-bone">
                         {USD.format(s.depositUsd)}
                       </div>
-                      <p className="mt-2 text-[14px] text-bone-2">Refundable deposit</p>
+                      <p className="mt-1.5 text-[13px] text-steel">Refundable deposit</p>
                     </div>
                   </div>
-                  <ul className="flex flex-col gap-2.5 border-t border-line pt-4 text-[15px] leading-[1.45] text-bone">
+                  <ul className="flex flex-col gap-2 border-t border-line pt-3 text-[14px] leading-[1.45] text-bone">
                     {features.map((f) => (
                       <li key={f} className="grid grid-cols-[auto_1fr] gap-2.5">
-                        <span className="text-clearance" aria-hidden="true">
+                        <span className="text-gold" aria-hidden="true">
                           ✓
                         </span>
                         <span>{f}</span>
@@ -222,26 +225,26 @@ export default async function AccountMembershipsPage({ searchParams }: Props) {
         </section>
       )}
 
-      <section className="mt-8">
-        <h2 className="label-jn text-[13px]">Other ways to fly</h2>
-        <div className="mt-2.5 grid grid-cols-1 gap-4 md:grid-cols-2">
-          <div className="card card-pad">
-            <h3 className="title-card-sm text-bone">Reserve</h3>
-            <p className="mt-2 text-[15px] leading-[1.55] text-bone-2">
+      <section className="mt-6">
+        <SectionTitle>Other ways to fly</SectionTitle>
+        <div className="mt-2.5 grid grid-cols-[repeat(auto-fit,minmax(min(100%,260px),1fr))] gap-4">
+          <div className="on-navy bg-navy px-5 py-5">
+            <h3 className="font-serif text-[22px] font-normal leading-[1.15] text-bone">Reserve</h3>
+            <p className="mt-2 text-[14px] leading-[1.55] text-bone-2">
               A dedicated dispatcher, aircraft guaranteed with 8 to 12 hours&rsquo; notice and
               larger allowances. By application — a limited number of seats.
             </p>
-            <Link href="/contact?subject=reserve" className="text-link mt-1.5 inline-flex min-h-11 items-center text-[15px]">
+            <Link href="/contact?subject=reserve" className="btn btn-on-navy btn-sm mt-3">
               Apply for Reserve →
             </Link>
           </div>
-          <div className="card card-pad">
-            <h3 className="title-card-sm text-bone">On-demand</h3>
-            <p className="mt-2 text-[15px] leading-[1.55] text-bone-2">
+          <div className={`${PANEL} px-5 py-5`}>
+            <h3 className="font-serif text-[22px] font-normal leading-[1.15] text-bone">On-demand</h3>
+            <p className="mt-2 text-[14px] leading-[1.55] text-steel">
               No deposit, no commitment. Request a quote and pay per flight — the all-in price is
               locked when you accept.
             </p>
-            <Link href="/quote" className="text-link mt-1.5 inline-flex min-h-11 items-center text-[15px]">
+            <Link href="/quote" className={`${BTN_LINE} mt-3`}>
               Request a quote →
             </Link>
           </div>

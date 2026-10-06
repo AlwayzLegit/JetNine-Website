@@ -62,7 +62,7 @@ test.describe("public marketing surface", () => {
     expect(response?.status()).toBeLessThan(500);
     await expect(page.getByText(/Repositioning legs/i).first()).toBeVisible();
     // Watchlist form is always present regardless of board state.
-    await expect(page.getByText(/Set a route/i).first()).toBeVisible();
+    await expect(page.getByText(/Let the right route find you/i).first()).toBeVisible();
   });
 });
 
@@ -81,7 +81,7 @@ test.describe("contact page", () => {
 
   test("contact form rejects an empty submit client-side", async ({ page }) => {
     await page.goto("/contact");
-    await page.getByRole("button", { name: /send to dispatch/i }).click();
+    await page.locator("section#form").getByRole("button", { name: /request a charter quote/i }).click();
     await expect(page.getByText(/Check —/)).toBeVisible();
   });
 
@@ -90,12 +90,16 @@ test.describe("contact page", () => {
     // insert fails, so "Not sent" here proves validation PASSED
     // without from/to/date — the regression this guards is the form
     // bouncing a Card question with "Check — departing, arriving, date".
+    // In the light redesign a card question is the "General question" tab
+    // with the "Programs and cards" subject (sent as reason=card).
     await page.goto("/contact");
-    await page.getByRole("button", { name: /card \/ reserve/i }).click();
-    await page.getByLabel(/first name/i).fill("Smoke");
-    await page.getByLabel(/last name/i).fill("CardAsk");
-    await page.getByLabel(/^email$/i).fill("smoke@example.com");
-    await page.getByRole("button", { name: /send to dispatch/i }).click();
+    const form = page.locator("section#form");
+    await form.getByRole("tab", { name: /general question/i }).click();
+    await form.getByLabel(/^subject/i).selectOption("Programs and cards");
+    await form.getByLabel(/^first name/i).fill("Smoke");
+    await form.getByLabel(/^last name/i).fill("CardAsk");
+    await form.getByLabel(/^email/i).fill("smoke@example.com");
+    await form.getByRole("button", { name: /send message/i }).click();
     await expect(page.getByText(/Not sent\./)).toBeVisible({
       timeout: 15_000,
     });
@@ -106,13 +110,17 @@ test.describe("contact page", () => {
     // Server Action's insert fails. Contract: the visitor sees an honest
     // error — never a fake success, never a crash page.
     await page.goto("/contact");
-    await page.getByLabel(/first name/i).fill("Smoke");
-    await page.getByLabel(/last name/i).fill("Local");
-    await page.getByLabel(/^email$/i).fill("smoke@example.com");
-    await page.getByLabel(/departing/i).fill("KVNY");
-    await page.getByLabel(/arriving/i).fill("KTEB");
-    await page.getByLabel(/date or window/i).fill("whenever");
-    await page.getByRole("button", { name: /send to dispatch/i }).click();
+    const form = page.locator("section#form");
+    await form.getByRole("textbox", { name: /^from\b/i }).fill("KVNY");
+    await form.getByRole("textbox", { name: /^to\b/i }).fill("KTEB");
+    const date = new Date();
+    date.setDate(date.getDate() + 21);
+    await form.getByLabel(/^departure date/i).fill(date.toISOString().slice(0, 10));
+    await form.getByLabel(/^passengers/i).selectOption("2");
+    await form.getByLabel(/^first name/i).fill("Smoke");
+    await form.getByLabel(/^last name/i).fill("Local");
+    await form.getByLabel(/^email/i).fill("smoke@example.com");
+    await form.getByRole("button", { name: /request a charter quote/i }).click();
     await expect(page.getByText(/Not sent\./)).toBeVisible({
       timeout: 15_000,
     });
@@ -295,6 +303,8 @@ test.describe("api v1", () => {
   });
 
   test("reference and assignment changes are refused without a key", async ({ request }) => {
+    // Each route compiles on first hit by the production server, like the test above.
+    test.slow();
     const id = "00000000-0000-4000-8000-000000000000";
     for (const path of [
       `/api/v1/requests/${id}/assignee`,

@@ -47,12 +47,12 @@ export function InvoicesPayButton({ invoiceId }: { invoiceId: string }) {
         type="button"
         onClick={onClick}
         disabled={busy}
-        className="btn btn-primary disabled:cursor-wait"
+        className="btn btn-primary btn-sm disabled:cursor-wait"
       >
         {busy ? "Opening checkout…" : "Pay"} <span className="arrow">→</span>
       </button>
       {error ? (
-        <p role="alert" className="max-w-[36ch] text-[14px] leading-[1.45] text-danger md:text-right">
+        <p role="alert" className="max-w-[36ch] text-[13px] leading-[1.45] text-danger md:text-right">
           {error}
         </p>
       ) : null}

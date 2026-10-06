@@ -12,7 +12,7 @@ export default function OgImage() {
       kicker: "Memberships",
       title: "Three ways to fly.",
       lead: "On-demand, JetNine Card, or Reserve. Locked rates, refundable deposits, no peak surcharges.",
-      bgImageUrl: `${siteBase()}/images/programs/black-card.webp`,
+      bgImageUrl: `${siteBase()}/images/og/black-card.jpg`,
     }),
     { ...size },
   );

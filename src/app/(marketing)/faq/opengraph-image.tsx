@@ -12,7 +12,7 @@ export default function OgImage() {
       kicker: "JetNine FAQ",
       title: "The questions before the call.",
       lead: "Forty-two answers, written by the dispatch desk, for the questions that come in at 11pm on a Sunday.",
-      bgImageUrl: `${siteBase()}/images/fleet/midsize.webp`,
+      bgImageUrl: `${siteBase()}/images/og/fleet-midsize.jpg`,
     }),
     { ...size },
   );

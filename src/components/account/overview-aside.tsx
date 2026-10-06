@@ -1,10 +1,11 @@
 import Link from "next/link";
 import { SITE } from "@/lib/constants";
 import { USD, formatDay } from "@/lib/request-page";
+import { Eyebrow, PANEL, UnderLink } from "./panel";
 
-// Right-column cards of the account overview (Account.dc.html): Membership,
-// Invoices, Your dispatcher. Each one renders its own empty state so the
-// page can hand it a null when a query failed.
+// Overview cards of the member account (Light - Account): JetNine Card
+// balance, payments, your dispatcher. Each one renders its own empty
+// state so the page can hand it a null when a query failed.
 
 export const PROGRAM_WORDS: Record<string, string> = {
   on_demand: "On-demand",
@@ -35,19 +36,27 @@ export type MembershipSummary = {
   autoRenew: boolean;
 };
 
+const CARD = `${PANEL} px-5 py-[18px]`;
+
+function CardHead({ label, href, linkText }: { label: string; href: string; linkText: string }) {
+  return (
+    <div className="flex items-baseline justify-between gap-3">
+      <Eyebrow>{label}</Eyebrow>
+      <UnderLink href={href}>{linkText}</UnderLink>
+    </div>
+  );
+}
+
 export function MembershipCard({ membership }: { membership: MembershipSummary | null }) {
   if (!membership) {
     return (
-      <div className="card p-6">
-        <div className="label-jn text-[13px]">Membership</div>
-        <div className="mt-2 text-[20px] font-medium text-bone">On-demand · no membership</div>
-        <p className="mt-2 text-[14px] leading-[1.5] text-bone-2">
+      <section className={CARD}>
+        <CardHead label="Membership" href="/memberships" linkText="See programs" />
+        <div className="mt-2 font-serif text-[21px] leading-[1.15] text-bone">On-demand · no membership</div>
+        <p className="mt-1.5 text-[14px] leading-[1.5] text-steel">
           Pay as you fly. A card or reserve program locks your rate and guarantees an aircraft.
         </p>
-        <Link href="/memberships" className="text-link mt-1 inline-flex min-h-11 items-center text-[15px]">
-          See programs
-        </Link>
-      </div>
+      </section>
     );
   }
   const pct = membership.depositUsd > 0 ? Math.max(0, Math.min(100, Math.round((membership.balanceUsd / membership.depositUsd) * 100))) : 0;
@@ -56,34 +65,29 @@ export function MembershipCard({ membership }: { membership: MembershipSummary |
     : null;
   const expires = !renews ? renewWords(membership.expiresOn) : null;
   return (
-    <div className="card p-6">
-      <div className="label-jn text-[13px]">Membership</div>
-      <div className="mt-2 text-[20px] font-medium text-bone">
-        {PROGRAM_WORDS[membership.program] ?? membership.program}
-      </div>
-      <div className="mt-3.5 flex items-baseline justify-between text-[15px]">
-        <span className="text-bone">{USD.format(membership.balanceUsd)} left</span>
-        <span className="text-steel">of {USD.format(membership.depositUsd)}</span>
+    <section className={CARD}>
+      <CardHead label={PROGRAM_WORDS[membership.program] ?? membership.program} href="/account/members" linkText="Manage" />
+      <div className="mt-2 flex flex-wrap items-baseline justify-between gap-x-3">
+        <span className="font-serif text-[28px] leading-[1.15] text-bone">{USD.format(membership.balanceUsd)} left</span>
+        <span className="text-[13px] text-steel">of {USD.format(membership.depositUsd)}</span>
       </div>
       <div
-        className="mt-2 h-1.5 overflow-hidden rounded-[3px] bg-surface-2"
+        className="mt-2 h-1.5 bg-surface-2"
         role="progressbar"
         aria-valuemin={0}
         aria-valuemax={100}
         aria-valuenow={pct}
         aria-label="Deposit remaining"
       >
-        <div className="h-full bg-clearance" style={{ width: `${pct}%` }} />
+        <div className="h-full bg-gold" style={{ width: `${pct}%` }} />
       </div>
-      {renews ? (
-        <div className="mt-2 text-[14px] text-steel">Renews {renews}</div>
-      ) : expires ? (
-        <div className="mt-2 text-[14px] text-steel">Rate locked until {expires}</div>
-      ) : null}
-      <Link href="/account/memberships" className="btn btn-secondary mt-4 w-full">
-        Buy / top up
-      </Link>
-    </div>
+      <div className="mt-2.5 flex flex-wrap justify-between gap-x-4 gap-y-1 text-[13px] text-steel">
+        <span>{renews ? `Renews ${renews}` : expires ? `Rate lock until ${expires}` : "Rate locked"}</span>
+        <Link href="/account/memberships" className="underline underline-offset-[3px] transition-colors hover:text-gold">
+          Buy / top up
+        </Link>
+      </div>
+    </section>
   );
 }
 
@@ -101,18 +105,25 @@ export function InvoicesCard({ summary }: { summary: InvoiceSummary | null }) {
         .join(" · ")
     : null;
   return (
-    <div className="card p-6">
-      <div className="label-jn text-[13px]">Invoices</div>
-      <div className="mt-2 text-[17px] font-medium text-bone">
+    <section className={CARD}>
+      <CardHead label="Invoices" href="/account/invoices" linkText="All invoices" />
+      <div className="mt-2 font-serif text-[21px] leading-[1.15] text-bone">
         {s.dueCount === 0
           ? "Nothing outstanding"
           : `${s.dueCount} invoice${s.dueCount === 1 ? "" : "s"} due · ${USD.format(s.dueTotalUsd)}`}
       </div>
-      {lastPaid ? <div className="mt-1 text-[14px] text-bone-2">Last paid: {lastPaid}</div> : null}
-      <Link href="/account/invoices" className="text-link mt-1 inline-flex min-h-11 items-center text-[15px]">
-        All invoices
-      </Link>
-    </div>
+      {lastPaid ? <div className="mt-1 text-[14px] text-steel">Last paid: {lastPaid}</div> : null}
+      {s.dueCount > 0 ? (
+        <div className="mt-3 flex items-center gap-2.5 bg-surface-2 px-3 py-2.5 text-[13px] text-bone">
+          <span className="text-gold" aria-hidden="true">
+            ●
+          </span>
+          <Link href="/account/invoices" className="underline underline-offset-[3px] hover:text-gold">
+            Pay online with a card
+          </Link>
+        </div>
+      ) : null}
+    </section>
   );
 }
 
@@ -123,29 +134,31 @@ export function DispatcherCard({ dispatcher, subject }: { dispatcher: Dispatcher
   const initial = name.trim().charAt(0).toUpperCase() || "J";
   const phone = dispatcher?.directLineE164 ?? SITE.dispatchPhoneE164;
   const mail = subject ? `mailto:${SITE.email}?subject=${encodeURIComponent(subject)}` : `mailto:${SITE.email}`;
+  const btn =
+    "flex h-[34px] items-center justify-center border border-line bg-surface text-[13px] text-bone transition-colors hover:text-gold";
   return (
-    <div className="card p-6">
-      <div className="label-jn text-[13px]">Your dispatcher</div>
-      <div className="mt-2.5 flex items-center gap-3">
-        <span className="flex h-11 w-11 flex-none items-center justify-center rounded-full bg-surface-2 font-semibold text-clearance">
+    <section className={CARD}>
+      <Eyebrow>Your dispatcher</Eyebrow>
+      <div className="mt-2.5 flex items-center gap-2.5">
+        <span className="flex h-9 w-9 flex-none items-center justify-center rounded-full bg-surface-2 font-serif text-gold">
           {initial}
         </span>
         <div>
-          <div className="text-[17px] font-medium text-bone">{name}</div>
-          <div className="text-[14px] text-success">Dispatch open</div>
+          <div className="text-[14px] font-bold text-bone">{name}</div>
+          <div className="text-[12px] text-success">Dispatch open</div>
         </div>
       </div>
-      <div className="mt-4 grid grid-cols-3 gap-2">
-        <a href={`tel:${phone}`} className="btn btn-secondary px-0">
+      <div className="mt-3 grid grid-cols-3 gap-1.5">
+        <a href={`tel:${phone}`} className={btn}>
           Call
         </a>
-        <a href={`sms:${SITE.dispatchPhoneE164}`} className="btn btn-secondary px-0">
+        <a href={`sms:${SITE.dispatchPhoneE164}`} className={btn}>
           Text
         </a>
-        <a href={mail} className="btn btn-secondary px-0">
+        <a href={mail} className={btn}>
           Email
         </a>
       </div>
-    </div>
+    </section>
   );
 }

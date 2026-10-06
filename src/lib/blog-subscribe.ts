@@ -80,19 +80,19 @@ export function blogDigestEmail(
     .map(
       (p) =>
         `<tr><td style="padding:0 0 22px;">` +
-        `<a href="${SITE_URL}/blog/${p.slug}" style="font-size:17px;color:#111827;font-weight:600;text-decoration:none;">${escapeHtml(p.title)}</a>` +
-        `<p style="margin:6px 0 0;font-size:14px;line-height:1.55;color:#374151;">${escapeHtml(p.description)}</p>` +
+        `<a href="${SITE_URL}/blog/${p.slug}" style="font-size:17px;color:#12232E;font-weight:600;text-decoration:none;">${escapeHtml(p.title)}</a>` +
+        `<p style="margin:6px 0 0;font-size:14px;line-height:1.55;color:#33434D;">${escapeHtml(p.description)}</p>` +
         `</td></tr>`,
     )
     .join("");
 
   const html =
     `<div style="max-width:560px;margin:0 auto;font-family:-apple-system,Segoe UI,Helvetica,Arial,sans-serif;">` +
-    `<p style="font-size:13px;color:#6b7280;margin:0 0 18px;">JetNine · This week from the desk</p>` +
+    `<p style="font-size:13px;color:#56616A;margin:0 0 18px;">JetNine · This week from the desk</p>` +
     `<table role="presentation" width="100%" cellpadding="0" cellspacing="0">${items}</table>` +
-    `<p style="margin:10px 0 0;font-size:12px;color:#9ca3af;">You're getting this because you confirmed a subscription at ` +
-    `<a href="${SITE_URL}/blog" style="color:#9ca3af;">jetnine.com/blog</a>. ` +
-    `<a href="${unsubscribePageUrl}" style="color:#9ca3af;">Unsubscribe</a>.</p>` +
+    `<p style="margin:10px 0 0;font-size:12px;color:#66717A;">You're getting this because you confirmed a subscription at ` +
+    `<a href="${SITE_URL}/blog" style="color:#66717A;">jetnine.com/blog</a>. ` +
+    `<a href="${unsubscribePageUrl}" style="color:#66717A;">Unsubscribe</a>.</p>` +
     `</div>`;
 
   return { subject, html, text };

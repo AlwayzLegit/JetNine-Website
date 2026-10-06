@@ -1,11 +1,13 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { pageMetadata } from "@/lib/page-meta";
-import { GuideShell } from "@/components/guide/guide-shell";
 import { RateTable } from "@/components/rate-table";
 import { getGuideChapter } from "@/lib/guides";
 import { FLEET } from "@/lib/fleet";
 import { CRUISE_KT } from "@/lib/quote-pricing";
+import { ChapterSection, ChapterShell } from "@/components/guide-long/chapter-shell";
+import { FaqJsonLd, FaqList } from "@/components/guide-long/faq";
+import { AutoGrid } from "@/components/guide-long/ui";
 
 export const metadata: Metadata = pageMetadata({
   title: "Private Jet Cost Per Hour — 2026 Rates",
@@ -33,83 +35,63 @@ const FAQ = [
 ];
 
 export default function CostPerHourPage() {
-  const faqJsonLd = {
-    "@context": "https://schema.org",
-    "@type": "FAQPage",
-    mainEntity: FAQ.map((f) => ({
-      "@type": "Question",
-      name: f.q,
-      acceptedAnswer: { "@type": "Answer", text: f.a },
-    })),
-  };
-
   return (
-    <GuideShell
+    <ChapterShell
       chapter={chapter}
+      crumb="Cost per hour"
+      subtitle="The hourly rate, by category — and what the hour includes."
       lead="The hourly rate is the industry's real unit of price — and the number most sites hide. Here's ours by category, what the hour includes, and how the meter actually runs."
+      image="/images/light/cabin-midsize.webp"
+      toc={[
+        { label: "The rate card", href: "#card" },
+        { label: "Rate × speed", href: "#speed" },
+        { label: "Questions", href: "#faqs" },
+      ]}
     >
-      <script
-        type="application/ld+json"
-        // Build-time stringified site copy — not user-controlled.
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }}
-      />
+      <FaqJsonLd items={FAQ} />
 
-      <section className="section-jn">
-        <div className="container-jn">
-          <p className="eyebrow">The card</p>
-          <h2 className="title-section max-w-[26ch]">Six categories, two rates each.</h2>
-          <p className="mt-5 max-w-[68ch] text-[17px] leading-[1.6] text-bone-2">
-            Market is what on-demand missions run today; locked is the 24-month fixed rate for
-            JetNine Card holders. Either way the quote you accept is all-in and doesn&rsquo;t move.
-          </p>
-          <div className="mt-8">
-            <RateTable />
-          </div>
+      <ChapterSection id="card" eyebrow="The card" title="Six categories, two rates each." first>
+        <p className="mt-3 max-w-[68ch] text-[16px] leading-[1.6] text-bone-2">
+          Market is what on-demand missions run today; locked is the 24-month fixed rate for JetNine Card holders. Either way
+          the quote you accept is all-in and doesn&rsquo;t move.
+        </p>
+        <div className="mt-6">
+          <RateTable />
         </div>
-      </section>
+      </ChapterSection>
 
-      <section className="section-jn">
-        <div className="container-jn">
-          <p className="eyebrow">Rate × speed = the real comparison</p>
-          <h2 className="title-section max-w-[26ch]">A cheaper hour isn&rsquo;t always a cheaper trip.</h2>
-          <p className="mt-5 max-w-[68ch] text-[17px] leading-[1.6] text-bone-2">
-            Categories cruise at different speeds, so the hourly rate alone can mislead: a
-            turboprop&rsquo;s lower hourly buys a {CRUISE_KT.turboprop}-knot cruise, while a super-mid
-            covers the same ground at {CRUISE_KT.supermid} knots — fewer billed hours on long
-            legs. Rule of thumb: under about 600 nm the cheaper hourly usually wins; past about
-            1,500 nm the faster aircraft often costs less all-in, and it always costs less of your
-            day. The wizard runs this math per route automatically.
-          </p>
-          <div className="-mx-[var(--pad-x)] mt-8 flex gap-4 overflow-x-auto px-[var(--pad-x)] md:mx-0 md:grid md:grid-cols-3 md:overflow-visible md:px-0 xl:grid-cols-6">
-            {FLEET.map((f) => (
-              <Link key={f.slug} href={f.href} className="card card-pad group min-w-[200px] md:min-w-0 max-md:p-5">
-                <div className="label-jn">{f.shortName}</div>
-                <div className="mt-3 font-serif text-[28px] font-light leading-none tracking-tight text-bone">
-                  {f.speedKt} kt
-                </div>
-                <div className="mt-2 text-[14px] text-bone-2">About {nmFormat.format(f.rangeNm)} nm range</div>
-                <span className="mt-4 block text-[15px] font-medium text-bone">
-                  Rates &amp; specs <span className="arrow">→</span>
-                </span>
-              </Link>
-            ))}
-          </div>
-        </div>
-      </section>
+      <ChapterSection id="speed" eyebrow="Rate × speed = the real comparison" title="A cheaper hour isn’t always a cheaper trip.">
+        <p className="mt-3 max-w-[68ch] text-[16px] leading-[1.6] text-bone-2">
+          Categories cruise at different speeds, so the hourly rate alone can mislead: a turboprop&rsquo;s lower hourly buys a{" "}
+          {CRUISE_KT.turboprop}-knot cruise, while a super-mid covers the same ground at {CRUISE_KT.supermid} knots — fewer
+          billed hours on long legs. Rule of thumb: under about 600 nm the cheaper hourly usually wins; past about 1,500 nm
+          the faster aircraft often costs less all-in, and it always costs less of your day. The wizard runs this math per
+          route automatically.
+        </p>
+        <AutoGrid min={150} className="mt-6">
+          {FLEET.map((f) => (
+            <Link key={f.slug} href={f.href} className="group flex flex-col border border-line bg-white p-4 text-bone hover:border-gold hover:text-bone">
+              <span className="text-[12px] font-bold uppercase tracking-[.14em] text-gold">{f.shortName}</span>
+              <span className="mt-3 font-serif text-[28px] leading-none tracking-tight">{f.speedKt} kt</span>
+              <span className="mt-2 text-[13px] text-bone-2">About {nmFormat.format(f.rangeNm)} nm range</span>
+              <span className="mt-3 text-[13px] font-semibold group-hover:text-gold">
+                Rates &amp; specs <span className="arrow">→</span>
+              </span>
+            </Link>
+          ))}
+        </AutoGrid>
+      </ChapterSection>
 
-      <section className="section-jn">
-        <div className="container-jn">
-          <h2 className="title-section max-w-[24ch]">Asked about hourly rates.</h2>
-          <div className="mt-8 grid grid-cols-1 gap-4 md:grid-cols-3">
-            {FAQ.map((f) => (
-              <div key={f.q} className="card card-pad max-md:p-5">
-                <h3 className="title-card-sm text-bone">{f.q}</h3>
-                <p className="mt-3 text-[16px] leading-[1.6] text-bone-2">{f.a}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-    </GuideShell>
+      <ChapterSection id="faqs" eyebrow="Questions" title="Asked about hourly rates.">
+        <FaqList items={FAQ} name="per-hour-faq" className="mt-5" />
+        <p className="mt-6 text-[14px] text-steel">
+          Fees beyond the hourly rate are covered in{" "}
+          <Link href="/guides/private-jet-charter-fees" className="text-link-strong">
+            charter fees and additional charges
+          </Link>
+          .
+        </p>
+      </ChapterSection>
+    </ChapterShell>
   );
 }

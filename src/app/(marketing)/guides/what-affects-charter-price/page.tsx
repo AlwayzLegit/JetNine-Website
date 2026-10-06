@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { pageMetadata } from "@/lib/page-meta";
-import { GuideShell } from "@/components/guide/guide-shell";
+import { ChapterSection, ChapterShell } from "@/components/guide-long/chapter-shell";
 import { getGuideChapter } from "@/lib/guides";
 import { PRICE_STACK, PRICE_STACK_TOTAL } from "@/lib/rates";
 
@@ -63,56 +63,62 @@ function plainLabel(label: string) {
 
 export default function PriceDriversPage() {
   return (
-    <GuideShell
+    <ChapterShell
       chapter={chapter}
+      crumb="Price drivers"
+      subtitle="Six line items. Which ones you can influence."
       lead={`Every quote is six numbers. Here they are on a real ${PRICE_STACK_TOTAL} coast-to-coast round trip — what moves each one, and which levers are actually yours to pull.`}
+      image="/images/light/leather-duffel-on-seat.webp"
+      toc={[
+        ...DRIVERS.map((d) => ({ label: plainLabel(d.stack.label), href: `#driver-${d.stack.n}` })),
+        { label: "Your route", href: "#next" },
+      ]}
     >
-      <section className="section-jn">
-        <div className="container-jn">
-          <ol className="flex flex-col gap-4">
-            {DRIVERS.map((d) => (
-              <li
-                key={d.stack.n}
-                className="card card-pad grid grid-cols-1 gap-6 lg:grid-cols-[72px_240px_minmax(0,1fr)] max-md:p-5"
-              >
-                <span className="font-serif text-[40px] font-light leading-none text-clearance">
-                  {d.stack.n}
-                </span>
-                <div>
-                  <div className="label-jn">{plainLabel(d.stack.label)}</div>
-                  <div className="mt-2 font-serif text-[32px] font-light leading-none tracking-tight text-bone">
-                    {d.stack.val}
-                  </div>
-                  <div className="mt-2 text-[14px] text-steel">On the {PRICE_STACK_TOTAL} example</div>
-                </div>
-                <div>
-                  <h2 className="title-card text-bone">{d.h}</h2>
-                  <p className="mt-3 max-w-[64ch] text-[17px] leading-[1.6] text-bone-2">{d.p}</p>
-                  <p className="mt-4 text-[15px] leading-[1.6] text-bone">
-                    <span className="font-semibold text-steel">Lever: </span>
-                    {d.lever}
-                  </p>
-                </div>
-              </li>
-            ))}
-          </ol>
-          <p className="mt-8 max-w-[68ch] text-[16px] leading-[1.6] text-bone-2">
-            The full worked example lives in{" "}
-            <Link href="/guides/private-jet-charter-cost" className="text-link-strong">
-              what charter costs
-            </Link>{" "}
-            and on{" "}
-            <Link href="/how-it-works" className="text-link-strong">
-              how it works
-            </Link>
-            . To see the six numbers on your own route,{" "}
-            <Link href="/cost-calculator" className="text-link-strong">
-              the calculator
-            </Link>{" "}
-            takes about ninety seconds.
-          </p>
-        </div>
-      </section>
-    </GuideShell>
+      <ol className="m-0 flex list-none flex-col p-0">
+        {DRIVERS.map((d, i) => (
+          <li
+            key={d.stack.n}
+            id={`driver-${d.stack.n}`}
+            className={`grid grid-cols-1 gap-x-6 gap-y-3 sm:grid-cols-[180px_minmax(0,1fr)] ${i ? "mt-7 border-t border-line pt-7" : ""}`}
+          >
+            <div>
+              <span className="font-serif text-[36px] leading-none text-gold">{d.stack.n}</span>
+              <div className="mt-3 text-[12px] font-bold uppercase tracking-[.14em] text-steel">{plainLabel(d.stack.label)}</div>
+              <div className="mt-1 font-serif text-[30px] leading-none tracking-tight">{d.stack.val}</div>
+              <div className="mt-1 text-[13px] text-steel">On the {PRICE_STACK_TOTAL} example</div>
+            </div>
+            <div>
+              <h2 className="m-0 font-serif text-[24px] font-normal leading-[1.15]">{d.h}</h2>
+              <p className="mt-2 max-w-[64ch] text-[16px] leading-[1.6] text-bone-2">{d.p}</p>
+              <p className="mt-3 border-l-2 border-gold bg-surface-2 px-3 py-2 text-[14px] leading-[1.5] text-bone">
+                <span className="font-semibold">Lever: </span>
+                {d.lever}
+              </p>
+            </div>
+          </li>
+        ))}
+      </ol>
+      <ChapterSection id="next" eyebrow="Your route" title="See the six numbers on your trip.">
+        <p className="mt-3 max-w-[68ch] text-[16px] leading-[1.6] text-bone-2">
+          The full worked example lives in{" "}
+          <Link href="/guides/private-jet-charter-cost" className="text-link-strong">
+            what charter costs
+          </Link>{" "}
+          and on{" "}
+          <Link href="/how-it-works" className="text-link-strong">
+            how it works
+          </Link>
+          ; the extras some quotes leave out are in{" "}
+          <Link href="/guides/private-jet-charter-fees" className="text-link-strong">
+            charter fees
+          </Link>
+          . To see the six numbers on your own route,{" "}
+          <Link href="/cost-calculator" className="text-link-strong">
+            the calculator
+          </Link>{" "}
+          takes about ninety seconds.
+        </p>
+      </ChapterSection>
+    </ChapterShell>
   );
 }

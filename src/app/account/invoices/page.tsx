@@ -7,6 +7,7 @@ import { getCurrentUser, requireUser } from "@/lib/auth";
 import { getMemberByUserId } from "@/lib/member";
 import { USD } from "@/lib/request-page";
 import { InvoicesPayButton } from "@/components/account/invoices-pay-button";
+import { BTN_PRIMARY, EmptyPanel, PANEL, PageHead, UnderLink } from "@/components/account/panel";
 
 export const dynamic = "force-dynamic";
 
@@ -114,11 +115,8 @@ export default async function AccountInvoicesPage({
   if (!member) {
     return (
       <>
-        <h1 className="title-app text-bone">Invoices</h1>
-        <p className="mt-2.5 max-w-[60ch] text-[17px] text-bone-2">
-          Nothing to bill yet. Invoices appear here once you have a flight on the books.
-        </p>
-        <Link href="/quote" className="btn btn-primary mt-8">
+        <PageHead title="Invoices" sub="Nothing to bill yet. Invoices appear here once you have a flight on the books." />
+        <Link href="/quote" className={`${BTN_PRIMARY} mt-[22px]`}>
           Request a quote <span aria-hidden="true">→</span>
         </Link>
       </>
@@ -191,20 +189,37 @@ export default async function AccountInvoicesPage({
         ? `${USD.format(totals.outstanding)} due on one invoice.`
         : `${USD.format(totals.outstanding)} due across ${outstanding.length} invoices.`;
 
+  const lastPaid = paid
+    .filter((r) => r.paidOn)
+    .sort((a, b) => String(b.paidOn).localeCompare(String(a.paidOn)))[0];
+  const stats: [string, string][] = [
+    ["Outstanding", USD.format(totals.outstanding)],
+    ["Paid to date", USD.format(totals.paid)],
+    [
+      "Last payment",
+      lastPaid ? [monthDay(lastPaid.paidOn), lastPaid.totalUsd != null ? USD.format(lastPaid.totalUsd) : null].filter(Boolean).join(" · ") : "—",
+    ],
+  ];
+
   return (
     <>
-      <h1 className="title-app text-bone">Invoices</h1>
-      <p className="mt-2.5 max-w-[60ch] text-[17px] text-bone-2">
-        {summary}
-        {totals.paid > 0 ? ` ${USD.format(totals.paid)} paid to date.` : ""}
-      </p>
+      <PageHead
+        title="Invoices"
+        sub={
+          <>
+            {summary}
+            {totals.paid > 0 ? ` ${USD.format(totals.paid)} paid to date.` : ""} Every receipt in one place.
+          </>
+        }
+      />
 
       {flash ? (
         <div
           role="status"
           className={[
-            "card mt-8 px-6 py-5 text-[15px] leading-[1.5] text-bone",
-            flash.kind === "paid" ? "card-highlight" : "",
+            PANEL,
+            "mt-[22px] px-6 py-4 text-[15px] leading-[1.5] text-bone",
+            flash.kind === "paid" ? "!border-gold" : "",
           ].join(" ")}
         >
           {flash.kind === "paid"
@@ -214,14 +229,19 @@ export default async function AccountInvoicesPage({
       ) : null}
 
       {rows.length === 0 ? (
-        <div className="card card-pad mt-8">
-          <h2 className="title-card-sm text-bone">No invoices yet.</h2>
-          <p className="mt-2 max-w-[52ch] text-[15px] leading-[1.55] text-bone-2">
-            Invoices land here automatically once a quote you accept becomes a trip.
-          </p>
-        </div>
+        <EmptyPanel title="No invoices yet.">
+          Invoices land here automatically once a quote you accept becomes a trip.
+        </EmptyPanel>
       ) : (
         <>
+          <dl className="mt-[22px] grid grid-cols-[repeat(auto-fit,minmax(min(100%,180px),1fr))] gap-3">
+            {stats.map(([k, v]) => (
+              <div key={k} className={`${PANEL} px-4 py-3.5`}>
+                <dt className="text-[12px] text-steel">{k}</dt>
+                <dd className="mt-0.5 font-serif text-[26px] leading-[1.2] text-bone">{v}</dd>
+              </div>
+            ))}
+          </dl>
           <InvoiceGroup
             label="Outstanding"
             empty="Nothing outstanding."
@@ -236,10 +256,17 @@ export default async function AccountInvoicesPage({
         </>
       )}
 
-      <p className="mt-6 max-w-[60ch] text-[14px] leading-[1.55] text-steel">
-        Every total already includes the 7.5% federal excise tax and the $5.20 per-passenger segment
-        fee.
-      </p>
+      <section className={`${PANEL} mt-5 px-5 py-[18px]`}>
+        <h2 className="font-serif text-[20px] font-normal text-bone">Paying online</h2>
+        <p className="mt-2 text-[14px] leading-[1.55] text-bone">
+          Every total already includes the 7.5% federal excise tax and the $5.20 per-passenger segment
+          fee.
+        </p>
+        <p className="mt-2 text-[12px] text-steel">
+          Card payments open in Stripe Checkout. JetNine never sees or stores your full card number. To pay by
+          wire, call dispatch.
+        </p>
+      </section>
     </>
   );
 }
@@ -272,61 +299,68 @@ function InvoiceGroup({
   payable?: boolean;
 }) {
   return (
-    <section className="mt-8">
-      <h2 className="label-jn text-[13px]">
+    <section className="mt-6">
+      <h2 className="font-serif text-[24px] font-normal text-bone">
         {label}
-        {rows.length > 0 ? <span className="text-steel-dim"> · {rows.length}</span> : null}
+        {rows.length > 0 ? <span className="font-sans text-[14px] text-steel"> · {rows.length}</span> : null}
       </h2>
       {rows.length === 0 ? (
-        <div className="card mt-2.5 px-6 py-5 text-[15px] text-bone-2">{empty}</div>
+        <div className={`${PANEL} mt-2.5 px-[18px] py-4 text-[14px] text-steel`}>{empty}</div>
       ) : (
-        <ul className="card mt-2.5 divide-y divide-line-faint">
-          {rows.map((i) => {
-            const status = statusSentence(i);
-            const route = i.tripId ? routeByTrip.get(i.tripId) : undefined;
-            const title = route ?? KIND_LABEL[i.kind] ?? "Invoice";
-            const fees: string[] = [];
-            if (i.fetUsd) fees.push(`${USD.format(i.fetUsd)} federal excise tax`);
-            if (i.segmentFeeUsd) fees.push(`${USD.format(i.segmentFeeUsd)} segment fee`);
-            const issued = monthDay(i.issuedOn);
-            return (
-              <li
-                key={i.id}
-                className="grid gap-4 px-6 py-5 md:grid-cols-[minmax(0,1fr)_auto] md:items-center md:gap-6"
-              >
-                <div className="min-w-0">
-                  <div className="text-[14px] text-steel">{i.invoiceCode}</div>
-                  <div className="mt-1 text-[17px] font-medium text-bone">
-                    {i.tripId ? (
-                      <Link href={`/account/trips/${i.tripId}`} className="transition-colors hover:text-bone-2">
-                        {title}
-                      </Link>
-                    ) : (
-                      title
-                    )}
-                  </div>
-                  <div className="mt-1 text-[14px] leading-[1.5] text-bone-2">
-                    {issued ? `Issued ${issued}` : "Issued"}
-                    {fees.length ? ` · includes ${fees.join(" and ")}` : ""}
-                  </div>
-                </div>
-                <div className="flex flex-wrap items-center justify-between gap-4 md:flex-col md:items-end md:gap-3">
-                  <div className="md:text-right">
-                    <div className="font-serif text-[22px] font-light leading-none text-bone">
-                      {i.totalUsd != null ? USD.format(i.totalUsd) : "—"}
+        <div className={`${PANEL} mt-2.5 text-[14px]`}>
+          <div
+            aria-hidden="true"
+            className="flex flex-wrap gap-4 bg-surface-2 px-[18px] py-2.5 text-[12px] font-bold text-bone max-md:hidden"
+          >
+            <span className="min-w-0 flex-[999_1_200px]">Flight</span>
+            <span className="min-w-0 flex-[999_1_120px]">Issued</span>
+            <span className="min-w-0 flex-[999_1_140px]">Status</span>
+            <span className="min-w-0 flex-[999_1_100px]">Amount</span>
+            <span className="min-w-[120px] flex-none text-right">{payable ? "Pay" : ""}</span>
+          </div>
+          <ul>
+            {rows.map((i) => {
+              const status = statusSentence(i);
+              const route = i.tripId ? routeByTrip.get(i.tripId) : undefined;
+              const title = route ?? KIND_LABEL[i.kind] ?? "Invoice";
+              const fees: string[] = [];
+              if (i.fetUsd) fees.push(`${USD.format(i.fetUsd)} federal excise tax`);
+              if (i.segmentFeeUsd) fees.push(`${USD.format(i.segmentFeeUsd)} segment fee`);
+              const issued = monthDay(i.issuedOn);
+              return (
+                <li key={i.id} className="flex flex-wrap items-center gap-x-4 gap-y-1.5 border-t border-line px-[18px] py-3 first:border-t-0 md:first:border-t">
+                  <div className="min-w-0 flex-[999_1_200px]">
+                    <div className="font-serif text-[17px] text-bone">
+                      {i.tripId ? (
+                        <Link href={`/account/trips/${i.tripId}`} className="transition-colors hover:text-gold">
+                          {title}
+                        </Link>
+                      ) : (
+                        title
+                      )}
                     </div>
-                    <div className={["mt-1.5 text-[14px]", TONE_CLASS[status.tone]].join(" ")}>
-                      {status.text}
+                    <div className="text-[12px] leading-[1.5] text-steel">
+                      {i.invoiceCode}
+                      {fees.length ? ` · includes ${fees.join(" and ")}` : ""}
                     </div>
                   </div>
-                  {payable && (i.status === "due" || i.status === "overdue") ? (
-                    <InvoicesPayButton invoiceId={i.id} />
-                  ) : null}
-                </div>
-              </li>
-            );
-          })}
-        </ul>
+                  <span className="min-w-0 flex-[999_1_120px] text-steel">{issued ? `Issued ${issued}` : "Issued"}</span>
+                  <span className={["min-w-0 flex-[999_1_140px]", TONE_CLASS[status.tone]].join(" ")}>{status.text}</span>
+                  <span className="min-w-0 flex-[999_1_100px] font-serif text-[19px] text-bone">
+                    {i.totalUsd != null ? USD.format(i.totalUsd) : "—"}
+                  </span>
+                  <div className="flex min-w-[120px] max-w-full flex-none justify-end max-md:w-full max-md:justify-start">
+                    {payable && (i.status === "due" || i.status === "overdue") ? (
+                      <InvoicesPayButton invoiceId={i.id} />
+                    ) : i.tripId ? (
+                      <UnderLink href={`/account/trips/${i.tripId}`}>Trip details</UnderLink>
+                    ) : null}
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
       )}
     </section>
   );

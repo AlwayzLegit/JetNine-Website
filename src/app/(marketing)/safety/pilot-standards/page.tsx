@@ -1,9 +1,8 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { pageMetadata } from "@/lib/page-meta";
-import { PageHero } from "@/components/page-hero";
-import { CtaBand } from "@/components/cta-band";
-import { SITE } from "@/lib/constants";
+import { FaqList } from "@/components/company/faq-list";
+import { DisclosureStrip, GoDeeper, SafetyClose, SafetyHero, SourcesRow } from "@/components/safety/parts";
 
 // Safety cluster subpage — expands the pilot line of the /safety floor
 // into a standalone page. All minimums quoted here are the pillar's own
@@ -90,59 +89,55 @@ export default function PilotStandardsPage() {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }}
       />
 
-      <PageHero
-        eyebrow="Safety · pilot standards"
-        title="Who's flying you, exactly."
-        lead="Aircraft get the photographs; crews decide the outcome. These are the pilot minimums behind every JetNine flight — written, audited annually, and re-checked before each booking."
+      <SafetyHero
+        crumbs={[{ label: "Home", href: "/" }, { label: "Safety", href: "/safety" }, { label: "Pilot standards" }]}
+        title="Who’s flying you, exactly."
+        subtitle="Private jet pilot standards."
+        body="Aircraft get the photographs; crews decide the outcome. These are the pilot minimums behind every JetNine flight — written, audited annually, and re-checked before each booking."
+        actions={
+          <>
+            <Link href="/quote/mission" className="btn h-[42px] border-gold bg-gold !text-[14px] !font-bold text-white hover:bg-[#6b4c2b]">
+              Request a quote →
+            </Link>
+            <Link href="/safety" className="btn h-[42px] !border-bone bg-transparent !text-[14px] !font-bold text-bone hover:bg-surface-2">
+              The full safety standard
+            </Link>
+          </>
+        }
+        imageSrc="/images/light/cockpit.webp"
       />
+      <DisclosureStrip />
 
-      <section className="container-jn pt-12">
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+      <section className="container-jn pt-7">
+        <h2 className="font-serif text-[32px] leading-[1.1]">Four crew minimums.</h2>
+        <div className="mt-[14px] grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(min(100%,420px),1fr))]">
           {STANDARDS.map((c) => (
-            <div key={c.num} className="card card-pad">
-              <div className="mb-5 flex items-baseline gap-4">
-                <span className="font-serif text-[42px] font-light leading-none text-clearance">
-                  {c.num}
-                </span>
-                <span className="label-jn">{c.k}</span>
+            <div key={c.num} className="border border-t-2 border-line border-t-gold bg-white px-5 py-[18px]">
+              <div className="flex items-baseline gap-4">
+                <span className="font-serif text-[34px] leading-none text-gold">{c.num}</span>
+                <span className="text-[12px] font-bold uppercase tracking-[0.16em] text-gold">{c.k}</span>
               </div>
-              <h2 className="title-card-sm text-bone">{c.h}</h2>
-              <p className="mt-3 text-[15px] leading-[1.6] text-bone-2">{c.p}</p>
+              <h2 className="mt-3 font-serif text-[22px] leading-[1.2]">{c.h}</h2>
+              <p className="mt-2 text-[14px] leading-[1.6] text-steel">{c.p}</p>
             </div>
           ))}
         </div>
-        <p className="mt-8 max-w-[70ch] text-[16px] leading-[1.6] text-bone-2">
-          Pilot qualification is one line of a seven-part floor — certification, audit standing,
-          insurance, maintenance, safety record, and operator stability are published on the{" "}
-          <Link href="/safety" className="text-link-strong">
-            safety standards page
-          </Link>
-          , and the process that enforces them is on{" "}
-          <Link href="/safety/operator-vetting" className="text-link-strong">
-            operator vetting
-          </Link>
-          .
+        <p className="mt-4 max-w-[70ch] text-[14px] leading-[1.6] text-steel">
+          Pilot qualification is one line of a seven-part floor — certification, audit standing, insurance, maintenance, safety record,
+          and operator stability are published on the{" "}
+          <Link href="/safety#standard" className="text-link text-bone">safety standards page</Link>, and the process that enforces them
+          is on <Link href="/safety/operator-vetting" className="text-link text-bone">operator vetting</Link>.
         </p>
       </section>
 
-      <section className="container-jn section-jn max-md:pt-20">
-        <h2 className="eyebrow">Asked about crews</h2>
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-          {FAQ.map((f) => (
-            <div key={f.q} className="card card-pad">
-              <h3 className="title-card-sm text-bone">{f.q}</h3>
-              <p className="mt-3 text-[15px] leading-[1.6] text-bone-2">{f.a}</p>
-            </div>
-          ))}
-        </div>
+      <section className="container-jn pt-[30px]">
+        <h2 className="font-serif text-[32px] leading-[1.1]">Asked about crews.</h2>
+        <FaqList className="mt-3" joined items={FAQ} />
       </section>
 
-      <CtaBand
-        title="The crew standard rides on every quote."
-        body="Price a trip — the aircraft that come back already meet everything on this page."
-        primary={{ label: "Request a quote", href: "/quote/mission" }}
-        secondary={{ label: "Call dispatch", href: `tel:${SITE.dispatchPhoneE164}` }}
-      />
+      <SourcesRow />
+      <GoDeeper current="/safety/pilot-standards" />
+      <SafetyClose title="The crew standard rides on every quote." label="Request a quote" />
     </>
   );
 }

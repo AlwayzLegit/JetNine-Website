@@ -121,7 +121,7 @@ function ProviderCard({ kind, row, disabled }: { kind: Kind; row: ProviderView |
   const listId = `models-${kind.kind}`;
 
   return (
-    <section className="card p-6">
+    <section className="card bg-[#FBFAF7] p-6">
       <header className="flex items-start justify-between gap-4">
         <h2 className="title-card-sm text-bone">{kind.label}</h2>
         <Status row={row} />
@@ -267,7 +267,7 @@ function RouteCard({ providers, route, disabled }: { providers: ProviderView[]; 
   }
 
   return (
-    <section className="card p-6">
+    <section className="card bg-[#FBFAF7] p-6">
       <header>
         <h2 className="title-card-sm text-bone">Who answers the phone</h2>
         <p className="mt-2 max-w-[64ch] text-[15px] text-bone-2">

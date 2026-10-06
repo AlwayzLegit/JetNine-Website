@@ -17,10 +17,10 @@ type Props = {
 };
 
 /**
- * Public-page hero from the simplification handoff: bottom-aligned text
- * over a photo with the left-dark / bottom-fade scrim, or a plain ink
- * band when no photo is given. Eyebrow 14px 600 bone-2, Fraunces 300
- * title, 19px lead. Sits directly under the sticky header.
+ * Public-page hero from the light handoff. With a photo: a navy band, the
+ * photo under a navy left-to-right scrim, white serif title (the Home hero
+ * grammar). Without one: a plain paper page intro in ink. Sits directly
+ * under the sticky header.
  */
 export function PageHero({
   eyebrow,
@@ -33,11 +33,12 @@ export function PageHero({
   className = "",
   titleClassName = "",
 }: Props) {
+  const onPhoto = Boolean(imageSrc);
   return (
     <section
       className={[
-        "relative flex items-end overflow-hidden bg-ink",
-        imageSrc ? "min-h-[520px] max-md:min-h-[420px]" : "",
+        "relative flex items-end overflow-hidden",
+        onPhoto ? "on-navy min-h-[460px] bg-navy max-md:min-h-[380px]" : "bg-ink",
         className,
       ].join(" ")}
     >
@@ -58,7 +59,7 @@ export function PageHero({
             className="absolute inset-0"
             style={{
               background:
-                "linear-gradient(90deg, rgba(7,8,10,0.92) 0%, rgba(7,8,10,0.7) 45%, rgba(7,8,10,0.3) 100%), linear-gradient(180deg, rgba(7,8,10,0.4) 0%, rgba(7,8,10,0) 40%, #07080A 100%)",
+                "linear-gradient(90deg, rgba(18,35,46,0.97) 0%, rgba(18,35,46,0.9) 30%, rgba(18,35,46,0.35) 62%, rgba(18,35,46,0.08) 100%)",
             }}
           />
         </>
@@ -66,12 +67,18 @@ export function PageHero({
       <div
         className={[
           "container-jn relative z-10 w-full",
-          imageSrc ? "pt-[120px] pb-14 max-md:pt-16 max-md:pb-10" : "pt-[88px] pb-12 max-md:pt-12 max-md:pb-10",
+          onPhoto ? "pb-14 pt-[96px] max-md:pb-10 max-md:pt-14" : "pb-10 pt-14 max-md:pb-8 max-md:pt-10",
         ].join(" ")}
       >
-        <p className="mb-4 text-[14px] font-semibold text-bone-2">{eyebrow}</p>
-        <h1 className={`title-page max-w-[14ch] !text-[clamp(44px,5.5vw,64px)] ${titleClassName}`}>{title}</h1>
-        {lead ? <p className="lead mt-5 max-w-[56ch]">{lead}</p> : null}
+        <p className={`eyebrow mb-4 ${onPhoto ? "!text-navy-on-2" : ""}`}>{eyebrow}</p>
+        <h1 className={`title-page max-w-[16ch] !text-[clamp(34px,7vw,64px)] ${titleClassName}`}>
+          {title}
+        </h1>
+        {lead ? (
+          <p className={`mt-5 max-w-[56ch] font-serif text-[19px] leading-[1.45] ${onPhoto ? "text-bone" : "text-steel"}`}>
+            {lead}
+          </p>
+        ) : null}
         {children}
       </div>
     </section>

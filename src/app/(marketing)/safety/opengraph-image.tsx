@@ -12,7 +12,7 @@ export default function OgImage() {
       kicker: "Safety",
       title: "The floor is high. The ceiling is mandatory.",
       lead: "Every operator audited every twelve months, with spot-checks in between. ARG/US Platinum, Wyvern, IS-BAO Stage 2.",
-      bgImageUrl: `${siteBase()}/images/fleet/heavy.webp`,
+      bgImageUrl: `${siteBase()}/images/og/fleet-heavy.jpg`,
     }),
     { ...size },
   );

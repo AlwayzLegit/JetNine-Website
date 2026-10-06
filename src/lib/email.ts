@@ -176,12 +176,12 @@ const DISPATCH_NOTIFY =
 
 // ─── Plain-words helpers ──────────────────────────────────────────────
 
-const FONT = "-apple-system,BlinkMacSystemFont,'Segoe UI',Inter,sans-serif";
-const WRAP_STYLE = `font-family:${FONT};color:#0F1115;line-height:1.55;max-width:560px;margin:0 auto;padding:24px;`;
-const KICKER_STYLE = "margin:0 0 16px;font-size:13px;color:#6B7280;";
-const LABEL_CELL_STYLE = "padding:4px 16px 4px 0;color:#6B7280;font-size:13px;vertical-align:top;";
+const FONT = "Arial,Helvetica,sans-serif";
+const WRAP_STYLE = `font-family:${FONT};color:#12232E;line-height:1.55;max-width:560px;margin:0 auto;padding:24px;`;
+const KICKER_STYLE = "margin:0 0 16px;font-size:12px;font-weight:700;letter-spacing:0.18em;text-transform:uppercase;color:#805C35;";
+const LABEL_CELL_STYLE = "padding:4px 16px 4px 0;color:#56616A;font-size:13px;vertical-align:top;";
 const BUTTON_STYLE =
-  "display:inline-block;padding:12px 20px;border-radius:8px;background:#0F1115;color:#FFFFFF;font-weight:600;font-size:14px;text-decoration:none;";
+  "display:inline-block;padding:12px 20px;border-radius:2px;background:#12232E;color:#FFFFFF;font-weight:600;font-size:14px;text-decoration:none;";
 const LEGAL_LINE =
   "JetNine LLC · 14 CFR Part 295 indirect air carrier. All flights operated by an FAA Part 135 direct air carrier.";
 
@@ -284,7 +284,7 @@ export async function sendQuoteAcknowledgmentEmail(
   const html = `
     <div style="${WRAP_STYLE}">
       <p style="${KICKER_STYLE}">Reference ${escapeHtml(ctx.quoteCode)}</p>
-      <h1 style="margin:0 0 24px;font-family:'Fraunces',Georgia,serif;font-weight:300;font-size:32px;letter-spacing:-0.01em;">
+      <h1 style="margin:0 0 24px;font-family:'Times New Roman',Times,Georgia,serif;font-weight:400;font-size:32px;letter-spacing:-0.01em;">
         ${escapeHtml(fullName)}, we&rsquo;ve got it.
       </h1>
       <p style="margin:0 0 16px;font-size:15px;">
@@ -297,12 +297,12 @@ export async function sendQuoteAcknowledgmentEmail(
       </table>
       ${
         ctx.statusUrl
-          ? `<p style="margin:0 0 8px;">${button(ctx.statusUrl, "Follow your request →")}</p><p style="margin:0 0 24px;color:#6B7280;font-size:13px;">Your options appear on that page as soon as dispatch sends them.</p>`
+          ? `<p style="margin:0 0 8px;">${button(ctx.statusUrl, "Follow your request →")}</p><p style="margin:0 0 24px;color:#56616A;font-size:13px;">Your options appear on that page as soon as dispatch sends them.</p>`
           : ""
       }
-      <p style="margin:24px 0 8px;font-size:13px;color:#6B7280;">Need us sooner?</p>
-      <p style="margin:0;font-size:14px;"><a href="tel:${SITE.dispatchPhoneE164}" style="color:#0F1115;">${SITE.dispatchPhone}</a> · 24/7</p>
-      <p style="margin:40px 0 0;font-size:11px;color:#9CA3AF;line-height:1.6;">${LEGAL_LINE}</p>
+      <p style="margin:24px 0 8px;font-size:13px;color:#56616A;">Need us sooner?</p>
+      <p style="margin:0;font-size:14px;"><a href="tel:${SITE.dispatchPhoneE164}" style="color:#12232E;">${SITE.dispatchPhone}</a> · 24/7</p>
+      <p style="margin:40px 0 0;font-size:11px;color:#66717A;line-height:1.6;">${LEGAL_LINE}</p>
     </div>
   `.trim();
 
@@ -349,10 +349,10 @@ export async function sendDispatchNewQuoteNotification(
   const html = `
     <div style="${WRAP_STYLE}">
       <p style="${KICKER_STYLE}">New request · Reference ${escapeHtml(ctx.quoteCode)}</p>
-      <h2 style="margin:0 0 16px;font-family:'Fraunces',Georgia,serif;font-weight:300;font-size:24px;letter-spacing:-0.01em;">
+      <h2 style="margin:0 0 16px;font-family:'Times New Roman',Times,Georgia,serif;font-weight:400;font-size:24px;letter-spacing:-0.01em;">
         ${escapeHtml(fullName)} · ${escapeHtml(passengersWords(ctx.paxCount))} · ${escapeHtml(legCount)}
       </h2>
-      <div style="margin:0 0 16px;padding:12px 16px;background:#F5F4F0;border-left:2px solid #C5CDD9;font-size:14px;">
+      <div style="margin:0 0 16px;padding:12px 16px;background:#ECE8DF;border-left:2px solid #805C35;font-size:14px;">
         ${lines.map((l) => `<p style="margin:0 0 4px;">${escapeHtml(l)}</p>`).join("")}
       </div>
       <p style="margin:0 0 16px;font-size:14px;"><strong>Reply due in ${escapeHtml(replyIn)}</strong> — the reply promise starts now.</p>
@@ -432,20 +432,20 @@ export async function sendDispatchContactNotification(
   ].join("\n");
 
   const notesHtml = ctx.notes
-    ? `<p style="margin:12px 0 4px;color:#6B7280;font-size:13px;">Their note</p><p style="margin:0;white-space:pre-wrap;">${escapeHtml(ctx.notes)}</p>`
+    ? `<p style="margin:12px 0 4px;color:#56616A;font-size:13px;">Their note</p><p style="margin:0;white-space:pre-wrap;">${escapeHtml(ctx.notes)}</p>`
     : "";
 
   const html = `
     <div style="${WRAP_STYLE}">
       <p style="${KICKER_STYLE}">Contact form · ${escapeHtml(reason)}</p>
-      <h2 style="margin:0 0 16px;font-family:'Fraunces',Georgia,serif;font-weight:300;font-size:24px;letter-spacing:-0.01em;">
+      <h2 style="margin:0 0 16px;font-family:'Times New Roman',Times,Georgia,serif;font-weight:400;font-size:24px;letter-spacing:-0.01em;">
         ${escapeHtml(fullName)}
       </h2>
-      <div style="margin:0 0 16px;padding:12px 16px;background:#F5F4F0;border-left:2px solid #C5CDD9;font-size:14px;">
+      <div style="margin:0 0 16px;padding:12px 16px;background:#ECE8DF;border-left:2px solid #805C35;font-size:14px;">
         ${lines.map((l) => `<p style="margin:0 0 4px;">${escapeHtml(l)}</p>`).join("")}
         ${notesHtml}
       </div>
-      <p style="margin:0 0 16px;font-size:14px;color:#374151;">The form told them they&rsquo;d hear back ${escapeHtml(replyPromiseWords(ctx.replyMinutes))} during operating hours.</p>
+      <p style="margin:0 0 16px;font-size:14px;color:#33434D;">The form told them they&rsquo;d hear back ${escapeHtml(replyPromiseWords(ctx.replyMinutes))} during operating hours.</p>
       <p style="margin:24px 0 0;">${button(ctx.inquiriesUrl, "Open messages →")}</p>
     </div>
   `.trim();
@@ -500,12 +500,12 @@ export async function sendThreadMessageEmail(ctx: ThreadEmailContext): Promise<S
     <div style="${WRAP_STYLE}">
       <p style="${KICKER_STYLE}">Reference ${escapeHtml(ctx.subjectCode)}</p>
       <div style="font-size:15px;">${bodyHtml}</div>
-      <hr style="margin:32px 0 16px;border:none;border-top:1px solid #E5E7EB;"/>
-      <p style="margin:0;font-size:13px;color:#6B7280;">
+      <hr style="margin:32px 0 16px;border:none;border-top:1px solid #D8D3C9;"/>
+      <p style="margin:0;font-size:13px;color:#56616A;">
         ${escapeHtml(signature)}<br/>
-        <a href="tel:${SITE.dispatchPhoneE164}" style="color:#0F1115;">${SITE.dispatchPhone}</a> · 24/7
+        <a href="tel:${SITE.dispatchPhoneE164}" style="color:#12232E;">${SITE.dispatchPhone}</a> · 24/7
       </p>
-      <p style="margin:24px 0 0;font-size:11px;color:#9CA3AF;line-height:1.6;">
+      <p style="margin:24px 0 0;font-size:11px;color:#66717A;line-height:1.6;">
         JetNine LLC · 14 CFR Part 295 indirect air carrier.
       </p>
     </div>
@@ -639,28 +639,28 @@ export async function sendTripStatusEmail(ctx: TripStatusContext): Promise<SendR
 
   const itineraryHtml = itinerary.length
     ? `<ul style="margin:16px 0;padding:0;list-style:none;">${itinerary
-        .map((l) => `<li style="margin:0 0 6px;font-size:14px;color:#0F1115;">${escapeHtml(l)}</li>`)
+        .map((l) => `<li style="margin:0 0 6px;font-size:14px;color:#12232E;">${escapeHtml(l)}</li>`)
         .join("")}</ul>`
     : "";
   const noteHtml = ctx.note
-    ? `<p style="margin:0 0 16px;font-size:14px;color:#374151;background:#F5F4F0;padding:12px 16px;border-left:2px solid #C5CDD9;">${escapeHtml(ctx.note)}</p>`
+    ? `<p style="margin:0 0 16px;font-size:14px;color:#33434D;background:#ECE8DF;padding:12px 16px;border-left:2px solid #805C35;">${escapeHtml(ctx.note)}</p>`
     : "";
 
   const html = `
     <div style="${WRAP_STYLE}">
       <p style="${KICKER_STYLE}">${escapeHtml(tpl.subjectSuffix)} · Reference ${escapeHtml(ctx.tripCode)}</p>
-      <h1 style="margin:0 0 16px;font-family:'Fraunces',Georgia,serif;font-weight:300;font-size:28px;letter-spacing:-0.01em;line-height:1.2;">
+      <h1 style="margin:0 0 16px;font-family:'Times New Roman',Times,Georgia,serif;font-weight:400;font-size:28px;letter-spacing:-0.01em;line-height:1.2;">
         ${escapeHtml(tpl.headline)}
       </h1>
       <p style="margin:0 0 16px;font-size:15px;">${escapeHtml(tpl.intro)}</p>
       ${itineraryHtml}
       ${noteHtml}
-      <hr style="margin:32px 0 16px;border:none;border-top:1px solid #E5E7EB;"/>
-      <p style="margin:0;font-size:13px;color:#6B7280;">
+      <hr style="margin:32px 0 16px;border:none;border-top:1px solid #D8D3C9;"/>
+      <p style="margin:0;font-size:13px;color:#56616A;">
         JetNine dispatch<br/>
-        <a href="tel:${SITE.dispatchPhoneE164}" style="color:#0F1115;">${SITE.dispatchPhone}</a> · 24/7
+        <a href="tel:${SITE.dispatchPhoneE164}" style="color:#12232E;">${SITE.dispatchPhone}</a> · 24/7
       </p>
-      <p style="margin:24px 0 0;font-size:11px;color:#9CA3AF;line-height:1.6;">
+      <p style="margin:24px 0 0;font-size:11px;color:#66717A;line-height:1.6;">
         JetNine LLC · 14 CFR Part 295 indirect air carrier.
       </p>
     </div>
@@ -763,12 +763,12 @@ export async function sendQuoteOptionsEmail(
     .map((o) => {
       const specs = specsOf(o);
       return `
-        <div style="border:1px solid #E5E7EB;border-radius:8px;padding:16px 20px;margin:0 0 12px;">
-          <p style="margin:0 0 2px;font-size:13px;color:#6B7280;">Option ${o.optionNumber}</p>
-          <p style="margin:0 0 4px;font-family:'Fraunces',Georgia,serif;font-size:20px;font-weight:400;">${escapeHtml(o.aircraftType ?? "Aircraft")}</p>
-          ${specs ? `<p style="margin:0 0 4px;font-size:13px;color:#374151;">${escapeHtml(specs)}</p>` : ""}
-          ${o.vetting ? `<p style="margin:0 0 8px;font-size:13px;color:#6B7280;">Operator safety audits: ${escapeHtml(o.vetting)}</p>` : ""}
-          <p style="margin:8px 0 0;font-size:22px;font-family:'Fraunces',Georgia,serif;font-weight:300;">${usdFmt.format(o.clientPriceUsd)} <span style="font-size:13px;color:#6B7280;font-family:${FONT};">all-in</span></p>
+        <div style="border:1px solid #D8D3C9;border-radius:8px;padding:16px 20px;margin:0 0 12px;">
+          <p style="margin:0 0 2px;font-size:13px;color:#56616A;">Option ${o.optionNumber}</p>
+          <p style="margin:0 0 4px;font-family:'Times New Roman',Times,Georgia,serif;font-size:20px;font-weight:400;">${escapeHtml(o.aircraftType ?? "Aircraft")}</p>
+          ${specs ? `<p style="margin:0 0 4px;font-size:13px;color:#33434D;">${escapeHtml(specs)}</p>` : ""}
+          ${o.vetting ? `<p style="margin:0 0 8px;font-size:13px;color:#56616A;">Operator safety audits: ${escapeHtml(o.vetting)}</p>` : ""}
+          <p style="margin:8px 0 0;font-size:22px;font-family:'Times New Roman',Times,Georgia,serif;font-weight:400;">${usdFmt.format(o.clientPriceUsd)} <span style="font-size:13px;color:#56616A;font-family:${FONT};">all-in</span></p>
         </div>`;
     })
     .join("");
@@ -776,7 +776,7 @@ export async function sendQuoteOptionsEmail(
   const html = `
     <div style="${WRAP_STYLE}">
       <p style="${KICKER_STYLE}">Your options · Reference ${escapeHtml(ctx.quoteCode)}</p>
-      <h1 style="margin:0 0 16px;font-family:'Fraunces',Georgia,serif;font-weight:300;font-size:28px;letter-spacing:-0.01em;line-height:1.2;">
+      <h1 style="margin:0 0 16px;font-family:'Times New Roman',Times,Georgia,serif;font-weight:400;font-size:28px;letter-spacing:-0.01em;line-height:1.2;">
         ${escapeHtml(ctx.firstName)}, your aircraft options are in.
       </h1>
       <p style="margin:0 0 20px;font-size:15px;">
@@ -788,11 +788,11 @@ export async function sendQuoteOptionsEmail(
       ${ctx.statusUrl ? `<p style="margin:20px 0 0;">${button(ctx.statusUrl, "Choose an option →")}</p>` : ""}
       <p style="margin:20px 0 0;font-size:14px;">
         To hold an aircraft, ${ctx.statusUrl ? "pick one on the page above, " : ""}<strong>reply to this email</strong> or call
-        <a href="tel:${SITE.dispatchPhoneE164}" style="color:#0F1115;">${SITE.dispatchPhone}</a> — 24/7.
+        <a href="tel:${SITE.dispatchPhoneE164}" style="color:#12232E;">${SITE.dispatchPhone}</a> — 24/7.
         Availability moves fast, and a hold costs nothing.
       </p>
-      <hr style="margin:32px 0 16px;border:none;border-top:1px solid #E5E7EB;"/>
-      <p style="margin:24px 0 0;font-size:11px;color:#9CA3AF;line-height:1.6;">${LEGAL_LINE}</p>
+      <hr style="margin:32px 0 16px;border:none;border-top:1px solid #D8D3C9;"/>
+      <p style="margin:24px 0 0;font-size:11px;color:#66717A;line-height:1.6;">${LEGAL_LINE}</p>
     </div>
   `.trim();
 
@@ -816,11 +816,11 @@ function brandedShell(kicker: string, headline: string, inner: string): string {
   return `
     <div style="${WRAP_STYLE}">
       <p style="${KICKER_STYLE}">${escapeHtml(kicker)}</p>
-      <h1 style="margin:0 0 16px;font-family:'Fraunces',Georgia,serif;font-weight:300;font-size:28px;letter-spacing:-0.01em;line-height:1.2;">${escapeHtml(headline)}</h1>
+      <h1 style="margin:0 0 16px;font-family:'Times New Roman',Times,Georgia,serif;font-weight:400;font-size:28px;letter-spacing:-0.01em;line-height:1.2;">${escapeHtml(headline)}</h1>
       ${inner}
-      <hr style="margin:32px 0 16px;border:none;border-top:1px solid #E5E7EB;"/>
-      <p style="margin:0;font-size:13px;color:#6B7280;">JetNine dispatch<br/><a href="tel:${SITE.dispatchPhoneE164}" style="color:#0F1115;">${SITE.dispatchPhone}</a> · 24/7</p>
-      <p style="margin:24px 0 0;font-size:11px;color:#9CA3AF;line-height:1.6;">${LEGAL_LINE}</p>
+      <hr style="margin:32px 0 16px;border:none;border-top:1px solid #D8D3C9;"/>
+      <p style="margin:0;font-size:13px;color:#56616A;">JetNine dispatch<br/><a href="tel:${SITE.dispatchPhoneE164}" style="color:#12232E;">${SITE.dispatchPhone}</a> · 24/7</p>
+      <p style="margin:24px 0 0;font-size:11px;color:#66717A;line-height:1.6;">${LEGAL_LINE}</p>
     </div>`.trim();
 }
 
@@ -878,7 +878,7 @@ export async function sendBookingConfirmationEmail(ctx: {
         ctx.drawdown
           ? `<p style="margin:0 0 16px;font-size:14px;">${usdFmt.format(ctx.drawdown.amountUsd)} was charged to your reserve (remaining balance <strong>${usdFmt.format(ctx.drawdown.remainingBalanceUsd)}</strong>) — nothing more to pay.</p>`
           : ctx.invoiceIsDue
-            ? `<p style="margin:0 0 16px;font-size:14px;">Your invoice is ready — <a href="${SITE_URL}/account/invoices" style="color:#0F1115;">view and pay it in your account</a>.</p>`
+            ? `<p style="margin:0 0 16px;font-size:14px;">Your invoice is ready — <a href="${SITE_URL}/account/invoices" style="color:#12232E;">view and pay it in your account</a>.</p>`
             : `<p style="margin:0 0 16px;font-size:14px;">Your invoice follows shortly by email.</p>`
       }
       <p style="margin:0;font-size:14px;">The crew, where to go (the private terminal) and the timing follow from dispatch as the trip firms up. Reply to this email or call any time.</p>
@@ -922,7 +922,7 @@ export async function sendInvoiceIssuedEmail(ctx: {
         ${due ? moneyRow("Due", due) : ""}
       </table>
       <p style="margin:0 0 12px;">${button(`${SITE_URL}/account/invoices`, "View and pay in your account →")}</p>
-      <p style="margin:0;font-size:13px;color:#374151;">Prefer a bank wire, or have a question? Reply here or call dispatch.</p>
+      <p style="margin:0;font-size:13px;color:#33434D;">Prefer a bank wire, or have a question? Reply here or call dispatch.</p>
     `,
   );
 
@@ -950,7 +950,7 @@ export async function sendPaymentReceiptEmail(ctx: {
     `${ctx.firstName}, payment received.`,
     `
       <p style="margin:0 0 16px;font-size:15px;">We&rsquo;ve received <strong>${escapeHtml(amount)}</strong> for invoice ${escapeHtml(ctx.invoiceCode)}${ctx.tripCode ? ` (trip ${escapeHtml(ctx.tripCode)})` : ""}. You&rsquo;re all set.</p>
-      <p style="margin:0;font-size:14px;color:#374151;"><a href="${SITE_URL}/account/invoices" style="color:#0F1115;">See your invoices →</a></p>
+      <p style="margin:0;font-size:14px;color:#33434D;"><a href="${SITE_URL}/account/invoices" style="color:#12232E;">See your invoices →</a></p>
     `,
   );
   return sendEmail({ to: ctx.to, subject, html, text, replyTo: DISPATCH_NOTIFY });
@@ -977,7 +977,7 @@ export async function sendPaymentFailedEmail(ctx: {
     `
       <p style="margin:0 0 16px;font-size:15px;">The card payment for invoice ${escapeHtml(ctx.invoiceCode)} didn&rsquo;t go through${ctx.reason ? ` (<em>${escapeHtml(ctx.reason)}</em>)` : ""}. Nothing was charged.</p>
       <p style="margin:0 0 12px;">${button(`${SITE_URL}/account/invoices`, "Try again →")}</p>
-      <p style="margin:0;font-size:13px;color:#374151;">Or reply to this email or call dispatch — a bank wire works too.</p>
+      <p style="margin:0;font-size:13px;color:#33434D;">Or reply to this email or call dispatch — a bank wire works too.</p>
     `,
   );
   return sendEmail({ to: ctx.to, subject, html, text, replyTo: DISPATCH_NOTIFY });
@@ -1003,7 +1003,7 @@ export async function sendContactAckEmail(ctx: {
     `${ctx.firstName}, we've got it.`,
     `
       <p style="margin:0 0 16px;font-size:15px;">Your message reached the dispatch desk. A person replies <strong>${escapeHtml(when)}</strong> during operating hours — usually much sooner.</p>
-      <p style="margin:0;font-size:14px;">Need us right now? <a href="tel:${SITE.dispatchPhoneE164}" style="color:#0F1115;">${SITE.dispatchPhone}</a>, 24/7.</p>
+      <p style="margin:0;font-size:14px;">Need us right now? <a href="tel:${SITE.dispatchPhoneE164}" style="color:#12232E;">${SITE.dispatchPhone}</a>, 24/7.</p>
     `,
   );
   return sendEmail({ to: ctx.to, subject, html, text, replyTo: DISPATCH_NOTIFY });
@@ -1074,7 +1074,7 @@ export async function sendInvoiceReminderEmail(ctx: {
     `
       <p style="margin:0 0 16px;font-size:15px;">Invoice <strong>${escapeHtml(ctx.invoiceCode)}</strong> (${escapeHtml(amount)}) ${overdue ? `is past its due date${due ? ` of ${escapeHtml(due)}` : ""}` : `is due ${escapeHtml(due ?? "soon")}`}.</p>
       <p style="margin:0 0 12px;">${button(`${SITE_URL}/account/invoices`, "Pay in your account →")}</p>
-      <p style="margin:0;font-size:13px;color:#374151;">Prefer a bank wire, or does something look off? Reply here or call dispatch — 24/7.</p>
+      <p style="margin:0;font-size:13px;color:#33434D;">Prefer a bank wire, or does something look off? Reply here or call dispatch — 24/7.</p>
     `,
   );
   return sendEmail({ to: ctx.to, subject, html, text, replyTo: DISPATCH_NOTIFY });
@@ -1104,7 +1104,7 @@ export async function sendMembershipActivatedEmail(ctx: {
     `
       <p style="margin:0 0 16px;font-size:15px;">Your membership (<strong>${escapeHtml(program)}</strong>) is active, and your <strong>${usdFmt.format(ctx.depositUsd)}</strong> deposit is credited to your reserve.</p>
       <p style="margin:0 0 12px;">${button(`${SITE_URL}/account/members`, "See your balance →")}</p>
-      <p style="margin:0;font-size:13px;color:#374151;">Book any time from your account or with one phone call — the desk answers 24/7.</p>
+      <p style="margin:0;font-size:13px;color:#33434D;">Book any time from your account or with one phone call — the desk answers 24/7.</p>
     `,
   );
   return sendEmail({ to: ctx.to, subject, html, text, replyTo: DISPATCH_NOTIFY });
@@ -1128,7 +1128,7 @@ export async function sendTopUpReceiptEmail(ctx: {
     `${ctx.firstName}, it's in your reserve.`,
     `
       <p style="margin:0 0 16px;font-size:15px;">We&rsquo;ve added <strong>${usdFmt.format(ctx.amountUsd)}</strong> to your reserve.</p>
-      <p style="margin:0;font-size:14px;"><a href="${SITE_URL}/account/members" style="color:#0F1115;font-weight:600;">Balance and history →</a></p>
+      <p style="margin:0;font-size:14px;"><a href="${SITE_URL}/account/members" style="color:#12232E;font-weight:600;">Balance and history →</a></p>
     `,
   );
   return sendEmail({ to: ctx.to, subject, html, text, replyTo: DISPATCH_NOTIFY });
@@ -1188,7 +1188,7 @@ export async function sendRefundIssuedEmail(ctx: {
     `${ctx.firstName}, your refund is on its way.`,
     `
       <p style="margin:0 0 16px;font-size:15px;">With your trip${ctx.tripCode ? ` <strong>${escapeHtml(ctx.tripCode)}</strong>` : ""} cancelled, we&rsquo;ve refunded <strong>${escapeHtml(amount)}</strong> to your card (invoice ${escapeHtml(ctx.invoiceCode)}).</p>
-      <p style="margin:0;font-size:13px;color:#374151;">Refunds usually reach your account in 5–10 business days, depending on your bank. Questions? Reply here or call dispatch — 24/7.</p>
+      <p style="margin:0;font-size:13px;color:#33434D;">Refunds usually reach your account in 5–10 business days, depending on your bank. Questions? Reply here or call dispatch — 24/7.</p>
     `,
   );
   return sendEmail({ to: ctx.to, subject, html, text, replyTo: DISPATCH_NOTIFY });

@@ -40,20 +40,20 @@ function when(iso: string): string {
 }
 
 /**
- * Reserve transactions as one-line sentences inside a card:
+ * Reserve transactions as ruled one-line rows (Light - Account "Recent activity"):
  * "Top-up · $25,000 · Aug 2" / "Flight · Los Angeles → Aspen · −$11,800".
  * Inflows read in success colour, draws in bone.
  */
 export function MembershipActivity({ rows }: { rows: ActivityRow[] }) {
   if (rows.length === 0) {
     return (
-      <div className="card mt-2.5 px-6 py-5 text-[15px] leading-[1.55] text-bone-2">
+      <p className="mt-2 border-t border-line pt-3 text-[14px] leading-[1.55] text-steel">
         Nothing yet. Top-ups, flights drawn from your balance and cashback all show up here.
-      </div>
+      </p>
     );
   }
   return (
-    <ul className="card mt-2.5 divide-y divide-line-faint">
+    <ul className="mt-2 border-t border-line">
       {rows.map((tx) => {
         const positive = tx.amountUsd >= 0;
         const amount = `${positive ? "+" : "−"}${USD.format(Math.abs(tx.amountUsd))}`;
@@ -61,22 +61,22 @@ export function MembershipActivity({ rows }: { rows: ActivityRow[] }) {
         return (
           <li
             key={tx.id}
-            className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1 px-6 py-4 text-[15px]"
+            className="flex flex-wrap items-baseline gap-x-4 gap-y-1 border-b border-line py-2.5 text-[14px]"
           >
-            <div className="min-w-0">
-              <span className="font-medium text-bone">{kind}</span>
+            <div className="min-w-0 flex-[999_1_240px]">
+              <span className="text-bone">{kind}</span>
               {tx.description ? <span className="text-bone-2"> · {tx.description}</span> : null}
               <span className="text-steel"> · {when(tx.occurredAt)}</span>
               {tx.tripId ? (
                 <>
                   <span className="text-steel"> · </span>
-                  <Link href={`/account/trips/${tx.tripId}`} className="text-link text-[14px]">
+                  <Link href={`/account/trips/${tx.tripId}`} className="text-[13px] underline underline-offset-[3px] hover:text-gold">
                     Trip details
                   </Link>
                 </>
               ) : null}
             </div>
-            <span className={["tabular-nums", positive ? "text-success" : "text-bone"].join(" ")}>
+            <span className={["flex-none tabular-nums", positive ? "text-success" : "text-bone"].join(" ")}>
               {amount}
             </span>
           </li>

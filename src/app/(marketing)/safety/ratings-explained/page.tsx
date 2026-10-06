@@ -1,9 +1,8 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { pageMetadata } from "@/lib/page-meta";
-import { PageHero } from "@/components/page-hero";
-import { CtaBand } from "@/components/cta-band";
-import { SITE } from "@/lib/constants";
+import { FaqList } from "@/components/company/faq-list";
+import { DisclosureStrip, GoDeeper, SafetyClose, SafetyHero, SourcesRow } from "@/components/safety/parts";
 
 // Safety cluster subpage — plain-language explainer for the third-party
 // certifications the /safety pillar requires. How JetNine applies each
@@ -91,65 +90,61 @@ export default function RatingsExplainedPage() {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }}
       />
 
-      <PageHero
-        eyebrow="Safety · ratings explained"
+      <SafetyHero
+        crumbs={[{ label: "Home", href: "/" }, { label: "Safety", href: "/safety" }, { label: "Ratings explained" }]}
         title="What the badges actually certify."
-        lead="ARG/US, Wyvern, IS-BAO — every charter site shows the logos. Here's what each rating audits, in plain language, and the difference between displaying a badge and enforcing one."
+        subtitle="ARG/US, Wyvern and IS-BAO, explained."
+        body="Every charter site shows the logos. Here’s what each rating audits, in plain language, and the difference between displaying a badge and enforcing one."
+        actions={
+          <>
+            <Link href="/quote/mission" className="btn h-[42px] border-gold bg-gold !text-[14px] !font-bold text-white hover:bg-[#6b4c2b]">
+              Request a quote →
+            </Link>
+            <Link href="/safety" className="btn h-[42px] !border-bone bg-transparent !text-[14px] !font-bold text-bone hover:bg-surface-2">
+              The full safety standard
+            </Link>
+          </>
+        }
+        imageSrc="/images/light/six-03-reviewing-booking-documents.webp"
       />
+      <DisclosureStrip />
 
-      <section className="container-jn pt-12">
-        <ul className="flex flex-col gap-4">
+      <section className="container-jn pt-7">
+        <h2 className="font-serif text-[32px] leading-[1.1]">Four ratings, and how we apply them.</h2>
+        <p className="mt-1 text-[15px] text-steel">These programs are distinct. Verify current status; a badge alone does not establish suitability for your flight.</p>
+        <ul className="mt-[14px] flex list-none flex-col border border-line bg-white p-0">
           {RATINGS.map((r) => (
-            <li
-              key={r.name}
-              className="card grid grid-cols-1 gap-6 p-7 max-md:p-5 lg:grid-cols-[230px_minmax(0,1fr)_minmax(0,1fr)] lg:gap-8"
-            >
+            <li key={r.name} className="grid gap-x-8 gap-y-4 border-b border-line px-5 py-[18px] last:border-b-0 lg:grid-cols-[220px_minmax(0,1fr)_minmax(0,1fr)] max-sm:px-4">
               <div>
-                <h2 className="text-[22px] font-medium leading-[1.25] text-bone">{r.name}</h2>
-                <p className="mt-1 text-[13px] font-semibold text-gold">{r.role}</p>
+                <h3 className="font-serif text-[22px] leading-[1.2]">{r.name}</h3>
+                <p className="mt-1 text-[12px] font-semibold text-gold">{r.role}</p>
               </div>
               <div>
-                <p className="label-jn">What it certifies</p>
-                <p className="mt-2.5 max-w-[52ch] text-[15px] leading-[1.6] text-bone-2">{r.what}</p>
+                <p className="text-[13px] font-bold">What it certifies</p>
+                <p className="mt-1 max-w-[52ch] text-[14px] leading-[1.6] text-steel">{r.what}</p>
               </div>
               <div>
-                <p className="label-jn">How JetNine applies it</p>
-                <p className="mt-2.5 max-w-[52ch] text-[15px] leading-[1.6] text-bone-2">{r.how}</p>
+                <p className="text-[13px] font-bold">How JetNine applies it</p>
+                <p className="mt-1 max-w-[52ch] text-[14px] leading-[1.6] text-steel">{r.how}</p>
               </div>
             </li>
           ))}
         </ul>
-        <p className="mt-8 max-w-[70ch] text-[16px] leading-[1.6] text-bone-2">
+        <p className="mt-4 max-w-[70ch] text-[14px] leading-[1.6] text-steel">
           The full written floor these ratings plug into is on the{" "}
-          <Link href="/safety" className="text-link-strong">
-            safety standards page
-          </Link>
-          ; the funnel that enforces it is on{" "}
-          <Link href="/safety/operator-vetting" className="text-link-strong">
-            operator vetting
-          </Link>
-          .
+          <Link href="/safety#standard" className="text-link text-bone">safety standards page</Link>; the funnel that enforces it is on{" "}
+          <Link href="/safety/operator-vetting" className="text-link text-bone">operator vetting</Link>.
         </p>
       </section>
 
-      <section className="container-jn section-jn max-md:pt-20">
-        <h2 className="eyebrow">Asked about ratings</h2>
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-          {FAQ.map((f) => (
-            <div key={f.q} className="card card-pad">
-              <h3 className="title-card-sm text-bone">{f.q}</h3>
-              <p className="mt-3 text-[15px] leading-[1.6] text-bone-2">{f.a}</p>
-            </div>
-          ))}
-        </div>
+      <section className="container-jn pt-[30px]">
+        <h2 className="font-serif text-[32px] leading-[1.1]">Asked about ratings.</h2>
+        <FaqList className="mt-3" joined items={FAQ} />
       </section>
 
-      <CtaBand
-        title="Badges enforced, not displayed."
-        body="Every quote we return already clears the ratings on this page. Price a trip and see what comes back."
-        primary={{ label: "Request a quote", href: "/quote/mission" }}
-        secondary={{ label: "Call dispatch", href: `tel:${SITE.dispatchPhoneE164}` }}
-      />
+      <SourcesRow />
+      <GoDeeper current="/safety/ratings-explained" />
+      <SafetyClose title="Badges enforced, not displayed." label="Request a quote" />
     </>
   );
 }

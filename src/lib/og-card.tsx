@@ -27,7 +27,7 @@ export function ogCardJsx(opts: {
   title: string;
   /** Sans secondary line under the headline. ≤140 chars renders well. */
   lead: string;
-  /** Sentence-case sans context line at the top. e.g. "About JetNine". */
+  /** Context line at the top, set uppercase + tracked. e.g. "About JetNine". */
   kicker: string;
   /** Optional absolute URL of a background photo. Renders behind a
    *  diagonal dark gradient so the text stays legible. */
@@ -43,9 +43,9 @@ export function ogCardJsx(opts: {
         height: "100%",
         display: "flex",
         position: "relative",
-        background: "#07080A",
-        color: "#F4F1EA",
-        fontFamily: "ui-serif, Georgia, serif",
+        background: "#12232E",
+        color: "#FFFFFF",
+        fontFamily: '"Times New Roman", Times, Georgia, serif',
       }}
     >
       {opts.bgImageUrl ? (
@@ -56,7 +56,8 @@ export function ogCardJsx(opts: {
           height={630}
           style={{
             position: "absolute",
-            inset: 0,
+            top: 0,
+            left: 0,
             width: "100%",
             height: "100%",
             objectFit: "cover",
@@ -65,15 +66,19 @@ export function ogCardJsx(opts: {
         />
       ) : null}
 
-      {/* Diagonal dark gradient overlay for text legibility on photos */}
+      {/* Navy left-to-right scrim (the light hero grammar) for legibility */}
       {opts.bgImageUrl ? (
         <div
           style={{
             position: "absolute",
-            inset: 0,
+            // Satori ignores the `inset` shorthand — size the scrim explicitly.
+            top: 0,
+            left: 0,
+            width: "100%",
+            height: "100%",
             display: "flex",
             background:
-              "linear-gradient(105deg, rgba(7,8,10,0.92) 0%, rgba(7,8,10,0.72) 38%, rgba(7,8,10,0.18) 70%, rgba(7,8,10,0) 100%)",
+              "linear-gradient(90deg, rgba(18,35,46,0.97) 0%, rgba(18,35,46,0.9) 34%, rgba(18,35,46,0.35) 66%, rgba(18,35,46,0.05) 100%)",
           }}
         />
       ) : null}
@@ -96,10 +101,12 @@ export function ogCardJsx(opts: {
             display: "flex",
             alignItems: "center",
             gap: 16,
-            fontFamily: '"Instrument Sans", ui-sans-serif, system-ui, -apple-system, sans-serif',
+            fontFamily: "Arial, Helvetica, sans-serif",
             fontSize: 16,
-            fontWeight: 600,
-            color: "#E8E2D2",
+            fontWeight: 700,
+            letterSpacing: "0.18em",
+            textTransform: "uppercase",
+            color: "#C9A56E",
           }}
         >
           <span>{opts.kicker}</span>
@@ -111,7 +118,7 @@ export function ogCardJsx(opts: {
             style={{
               display: "flex",
               fontSize: 76,
-              fontWeight: 300,
+              fontWeight: 400,
               lineHeight: 1.04,
               letterSpacing: "-0.018em",
               maxWidth: 820,
@@ -124,9 +131,9 @@ export function ogCardJsx(opts: {
               display: "flex",
               fontSize: 22,
               lineHeight: 1.5,
-              color: "#C9C4B8",
+              color: "#D8D3C9",
               maxWidth: 800,
-              fontFamily: '"Instrument Sans", ui-sans-serif, system-ui, -apple-system, sans-serif',
+              fontFamily: "Arial, Helvetica, sans-serif",
               fontWeight: 400,
             }}
           >
@@ -140,14 +147,16 @@ export function ogCardJsx(opts: {
             display: "flex",
             justifyContent: "space-between",
             alignItems: "flex-end",
-            fontFamily: '"Instrument Sans", ui-sans-serif, system-ui, -apple-system, sans-serif',
+            fontFamily: "Arial, Helvetica, sans-serif",
             fontSize: 14,
-            fontWeight: 500,
-            color: "#E8E2D2",
+            fontWeight: 600,
+            color: "#D8D3C9",
           }}
         >
           <span>{opts.bottomLeft ?? ""}</span>
-          <span style={{ color: "#8A9099" }}>jetnine.com</span>
+          <span style={{ fontFamily: '"Times New Roman", Times, Georgia, serif', fontSize: 24, fontWeight: 400, letterSpacing: "0.27em", color: "#FFFFFF" }}>
+            JETNINE
+          </span>
         </div>
       </div>
     </div>

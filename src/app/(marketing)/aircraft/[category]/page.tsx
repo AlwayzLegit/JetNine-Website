@@ -1,23 +1,33 @@
+import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
-import { BestForIcon } from "@/components/best-for-icon";
-import { PageHero } from "@/components/page-hero";
-import { CtaBand } from "@/components/cta-band";
-import { FleetImage } from "@/components/aircraft/fleet-image";
+import { BEST_FOR_ICON, CATEGORY_COPY, MODEL_SOURCE } from "@/components/aircraft/category-copy";
+import { ChecklistButton } from "@/components/aircraft/checklist-button";
+import { FaqList } from "@/components/aircraft/faq-list";
+import { GalleryButton } from "@/components/aircraft/gallery-button";
+import { LineIcon, type IconName } from "@/components/aircraft/line-icon";
+import { ModelCard, type ModelCardData } from "@/components/aircraft/model-card";
+import { flightTime, kt, nm, plainSpec, plainWords, titleCase } from "@/components/aircraft/plain";
 import { QuoteLink } from "@/components/aircraft/quote-link";
+import { SourceCards } from "@/components/aircraft/source-windows";
 import {
-  flightTime,
-  kt,
-  nm,
-  plainShortName,
-  plainSpec,
-  plainWords,
-  sentence,
-  titleCase,
-  wifiLabel,
-} from "@/components/aircraft/plain";
-import { SITE } from "@/lib/constants";
+  CompareWindowButton,
+  CostList,
+  FitTiles,
+  GlanceBand,
+  NeighborCards,
+  PageRail,
+  RangeSection,
+  RelatedRow,
+  SectionTabs,
+  SplitHero,
+  TemplateCta,
+  h2Cls,
+  neighborsFor,
+  scrollM,
+} from "@/components/aircraft/template-parts";
+import { TripForm } from "@/components/aircraft/trip-form";
 import { FLEET, getFleetEntry } from "@/lib/fleet";
 import { MODELS } from "@/lib/models";
 import { pageMetadata } from "@/lib/page-meta";
@@ -64,13 +74,22 @@ export async function generateMetadata({ params }: RouteParams): Promise<Metadat
   });
 }
 
+const SPEC_ICON: Record<string, IconName> = {
+  Passengers: "people",
+  Range: "plane",
+  Speed: "bolt",
+  Endurance: "clock",
+  "Cruise altitude": "runway",
+  Baggage: "bag",
+};
+
 export default async function AircraftCategoryPage({ params }: RouteParams) {
   const { category } = await params;
   const entry = getFleetEntry(category);
   if (!entry) notFound();
+  const c = CATEGORY_COPY[entry.slug];
 
   const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL || "https://jetnine.com").replace(/\/$/, "");
-  const shortName = plainShortName(entry.shortName, entry.name);
 
   // BreadcrumbList: Home › Aircraft › {Category}. Helps Google
   // surface the breadcrumb trail under the search result and improves
@@ -103,6 +122,30 @@ export default async function AircraftCategoryPage({ params }: RouteParams) {
     url: `${siteUrl}${entry.href}`,
   };
 
+  const models: ModelCardData[] = entry.samples.map((s) => {
+    const m = MODELS.find((mm) => mm.sample.name === s.name);
+    return {
+      ref: m?.manufacturer ?? entry.name,
+      name: s.name,
+      headline: `Up to ${s.pax} passengers · ${nm(s.rangeNm)} published range · ${kt(s.speedKt)} cruise.`,
+      detail: m ? `${plainWords(m.knownFor)} Ask for the exact seating plan and baggage allowance.` : "Ask for the exact seating plan and baggage allowance.",
+      image: s.imageUrl,
+      href: m ? `/aircraft/${m.category}/${m.slug}` : undefined,
+      source: MODEL_SOURCE[s.name] ?? { label: "Ask about this model", href: "/contact" },
+      category: entry.slug,
+      pax: s.pax,
+    };
+  });
+  const sources = models.map((m) => ({ name: m.name, label: m.source.label, href: m.source.href }));
+
+  const gallery = [
+    { src: c.cabinImage, label: "Cabin" },
+    ...entry.cabin.placeholders.map((p, i) => ({
+      src: entry.cabin.imageUrls?.[i] ?? c.cabinImage,
+      label: plainWords(p.charAt(0) + p.slice(1).toLowerCase()),
+    })),
+  ];
+
   return (
     <>
       <script
@@ -110,224 +153,216 @@ export default async function AircraftCategoryPage({ params }: RouteParams) {
         // Built from FLEET catalog at build time — no user input, no XSS.
         dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
       />
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(serviceJsonLd) }}
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(serviceJsonLd) }} />
+
+      <SplitHero
+        crumbs={[{ label: "Home", href: "/" }, { label: "Aircraft", href: "/aircraft" }, { label: c.name }]}
+        title={entry.title.replace(/\.$/, "")}
+        tagline={c.tagline}
+        intro={plainWords(entry.lead)}
+        image={c.hero}
+        actions={
+          <>
+            <QuoteLink
+              context={`aircraft-${entry.slug}`}
+              category={entry.slug}
+              className="inline-flex h-[42px] items-center gap-[10px] rounded-[2px] bg-clearance px-5 text-[14px] font-bold text-white hover:bg-clearance-hover"
+            >
+              {c.cta} →
+            </QuoteLink>
+            <CompareWindowButton slug={entry.slug} label={c.compareLabel} />
+          </>
+        }
       />
 
-      {/* ─── Hero: category photo, title, lead, six headline specs ─── */}
-      <PageHero
-        eyebrow={entry.kicker}
-        title={entry.title}
-        lead={plainWords(entry.lead)}
-        imageSrc={entry.imageUrl}
-        imagePosition="center"
-      >
-        <dl className="mt-10 grid grid-cols-2 gap-x-8 gap-y-6 border-t border-line pt-8 sm:grid-cols-3 lg:grid-cols-6">
-          {entry.heroSpecs.map((raw) => {
-            const s = plainSpec(raw);
-            return (
-              <div key={raw.label}>
-                <dt className="label-jn">{s.label}</dt>
-                <dd className="mt-1 font-serif text-[28px] font-light leading-none">{s.value}</dd>
-                <dd className="mt-1 text-[13px] text-steel">{s.sub}</dd>
-              </div>
-            );
-          })}
-        </dl>
-        <div className="mt-8 flex flex-wrap items-center gap-4">
-          <QuoteLink context={`aircraft-${entry.slug}`} category={entry.slug}>
-            Request a quote <span className="arrow">→</span>
-          </QuoteLink>
-          <Link href="/aircraft" className="btn btn-secondary btn-lg">
-            All categories
-          </Link>
-        </div>
-      </PageHero>
+      <GlanceBand
+        items={entry.heroSpecs.map((raw) => {
+          const s = plainSpec(raw);
+          return { icon: SPEC_ICON[s.label] ?? "doc", k: s.value, v: `${s.label} · ${s.sub}` };
+        })}
+      />
+
+      <div className="container-jn flex flex-wrap items-start gap-7 pt-[18px]">
+        <main className="min-w-0 flex-[999_1_520px]">
+          <SectionTabs
+            tabs={[
+              ["Trip fit", "#fit"],
+              ["Aircraft", "#aircraft"],
+              ["Cabin", "#cabin"],
+              ["Range", "#range"],
+              ["Pricing", "#pricing"],
+            ]}
+          />
+
+          <FitTiles
+            title={c.fitTitle}
+            caveat={c.caveat}
+            items={entry.bestFor.map((t) => ({ title: plainWords(t.title), body: plainWords(t.body), icon: BEST_FOR_ICON[t.iconKey] ?? "check" }))}
+          />
+
+          <section id="aircraft" className={`pt-[26px] ${scrollM}`}>
+            <h2 className="font-serif text-[32px] font-normal leading-[1.1]">{c.modelsTitle}</h2>
+            <p className="mt-1 text-[13px] text-steel">
+              Representative models to discuss — not live aircraft inventory. We source the right aircraft per trip from a network of
+              vetted Part 135 operators.
+            </p>
+            <div className="mt-[14px] flex flex-col gap-3">
+              {models.map((m) => (
+                <ModelCard key={m.name} m={m} />
+              ))}
+            </div>
+            <p className="mt-[10px] text-[12px] text-steel">
+              Model specifications are a starting point. Your quote should identify the actual aircraft and operator.
+            </p>
+          </section>
+        </main>
+
+        <aside className="flex max-w-full flex-[1_1_280px] flex-col gap-[14px] lg:sticky lg:top-[calc(var(--header-h)+20px)]">
+          <TripForm variant="side" title={c.sideTitle} context={`aircraft-${entry.slug}-side`} category={entry.slug} />
+          <PageRail
+            items={[
+              ["Trip fit", "#fit"],
+              ["Aircraft", "#aircraft"],
+              ["Cabin details", "#cabin"],
+              ["Range", "#range"],
+              ["Pricing", "#pricing"],
+              ["Original sources", "#sources"],
+            ]}
+          />
+        </aside>
+      </div>
 
       {/* ─── Cabin ─── */}
-      <section className="section-jn container-jn">
-        <p className="eyebrow">Inside the cabin</p>
-        <h2 className="title-section max-w-[20ch]">
-          {entry.cabin.headline[0]} <br className="max-md:hidden" />
-          {entry.cabin.headline[1]}
-        </h2>
-
-        <div className="mt-10 grid grid-cols-1 gap-4 md:grid-cols-3">
-          {entry.cabin.placeholders.map((cap, i) => (
-            <FleetImage
-              key={cap}
-              src={entry.cabin.imageUrls?.[i]}
-              alt={`${entry.name} cabin — ${cap.toLowerCase()}`}
-              aspect="4/5"
-              sizes="(max-width: 768px) 100vw, 33vw"
-              className="rounded-card border border-line"
-            />
-          ))}
+      <section id="cabin" className={`mt-6 border-y border-line bg-surface ${scrollM}`}>
+        <div className="container-jn grid items-start gap-7 pb-[22px] pt-5 [grid-template-columns:repeat(auto-fit,minmax(min(100%,340px),1fr))]">
+          <div>
+            <GalleryButton
+              images={gallery}
+              ariaLabel="Open cabin gallery"
+              title="A closer look at your cabin."
+              sub={`${entry.cabin.headline[0]} ${entry.cabin.headline[1]}`}
+              className="relative block aspect-[16/9] w-full overflow-hidden border-0 bg-surface-2 p-0"
+            >
+              <Image src={c.cabinImage} alt={`${c.name} cabin`} fill sizes="(max-width: 768px) 100vw, 600px" className="object-cover" />
+              <span className="absolute bottom-[10px] right-[10px] inline-flex h-[30px] items-center bg-[rgba(18,35,46,.85)] px-3 text-[12px] text-white">
+                View gallery ↗
+              </span>
+            </GalleryButton>
+            <p className="mt-1.5 text-[12px] text-steel">Illustrative interior. Layouts and equipment vary.</p>
+          </div>
+          <div>
+            <h2 className={h2Cls}>{c.roomTitle}</h2>
+            <p className="mt-2 text-[13px] leading-[1.55] text-steel">{plainWords(entry.cabin.caption)}</p>
+            <div className="mt-[10px]">
+              {c.room.map(([k, v, icon]) => (
+                <div key={k} className="grid grid-cols-[28px_minmax(90px,120px)_minmax(0,1fr)] items-center gap-3 border-t border-line py-[10px] text-[13px] max-[420px]:grid-cols-[28px_minmax(0,1fr)]">
+                  <LineIcon name={icon} size={22} />
+                  <b>{k}</b>
+                  <span className="text-steel max-[420px]:col-start-2">{v}</span>
+                </div>
+              ))}
+            </div>
+            <div className="mt-4">
+              <ChecklistButton
+                label="Open cabin checklist →"
+                className="h-10 rounded-[2px] border-0 bg-gold px-4 text-[13px] font-bold text-white hover:opacity-90"
+                sub="Confirm these details for the aircraft offered."
+                groups={[{ items: c.checklist }]}
+                note="Review current photos and the seating plan."
+                cta="Add needs to my request"
+                context={`aircraft-${entry.slug}-checklist`}
+                category={entry.slug}
+              />
+            </div>
+          </div>
         </div>
-
-        <p className="mt-8 max-w-[64ch] text-[17px] leading-[1.6] text-bone-2">
-          {plainWords(entry.cabin.caption)}
-        </p>
       </section>
 
-      {/* ─── Reach (ultra only) ─── */}
-      {entry.reach ? (
-        <section className="section-jn container-jn">
-          <p className="eyebrow">Reach</p>
-          <h2 className="title-section max-w-[20ch]">
-            {entry.reach.headline[0]} <br className="max-md:hidden" />
-            {entry.reach.headline[1]}
-          </h2>
-          <p className="lead mt-5 max-w-[58ch]">{plainWords(entry.reach.lead)}</p>
+      {/* ─── Range ─── */}
+      <RangeSection title={c.nonstopTitle} sub={c.nonstopSub} tip={c.nonstopTip} category={entry.slug} context={`aircraft-${entry.slug}-route`}>
+        {entry.reach ? (
+          <div className="mt-6">
+            <h3 className="font-serif text-[24px] font-normal leading-[1.15]">
+              {entry.reach.headline[0]} {entry.reach.headline[1]}
+            </h3>
+            <p className="mt-1 max-w-[70ch] text-[13px] text-steel">{plainWords(entry.reach.lead)}</p>
+            <div className="mt-3 border border-line bg-white text-[13px]">
+              <div className="grid grid-cols-[minmax(0,2fr)_1fr_1fr] gap-3 bg-surface-2 px-[14px] py-[9px] text-[12px] font-bold">
+                <span>City pair</span>
+                <span>Distance</span>
+                <span>Flight time</span>
+              </div>
+              {entry.reach.pairs.map((p) => (
+                <div key={p.pair} className="grid grid-cols-[minmax(0,2fr)_1fr_1fr] items-center gap-3 border-t border-line px-[14px] py-[9px]">
+                  <span className="font-serif text-[16px]">{titleCase(p.pair)}</span>
+                  <span className="text-steel">{plainWords(p.nm)}</span>
+                  <span className="text-steel">{flightTime(p.time)}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : null}
+      </RangeSection>
 
-          <div className="card mt-10 overflow-hidden">
-            <div tabIndex={0} role="region" aria-label="Specifications — scrolls sideways" className="relative overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-              <table className="table-jn min-w-[560px] [&_td:first-child]:pl-6 [&_td:last-child]:pr-6 [&_th:first-child]:pl-6 [&_th:last-child]:pr-6">
-                <thead>
-                  <tr>
-                    <th scope="col">City pair</th>
-                    <th scope="col">Distance</th>
-                    <th scope="col">Flight time</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {entry.reach.pairs.map((p) => (
-                    <tr key={p.pair}>
-                      <td className="font-serif text-[20px] leading-[1.2]">{titleCase(p.pair)}</td>
-                      <td className="text-bone-2">{plainWords(p.nm)}</td>
-                      <td className="text-clearance">{flightTime(p.time)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+      {c.arrival ? (
+        <section id="arrival" className={`container-jn pt-[26px] ${scrollM}`}>
+          <h2 className={h2Cls}>Plan the arrival as carefully as the flight.</h2>
+          <div className="mt-3 grid items-center gap-4 [grid-template-columns:repeat(auto-fit,minmax(200px,1fr))]">
+            {c.arrival.map(([title, body, icon], i) => (
+              <div key={title} className="grid grid-cols-[28px_26px_minmax(0,1fr)] items-start gap-[10px] border-r border-line pr-4">
+                <span className="font-serif text-[22px] leading-none text-gold">0{i + 1}</span>
+                <LineIcon name={icon} size={24} />
+                <span>
+                  <b className="block text-[14px]">{title}</b>
+                  <span className="text-[12px] text-steel">{body}</span>
+                </span>
+              </div>
+            ))}
+            <div className="flex flex-col gap-2 text-[13px]">
+              <Link href="/guides" className="text-link whitespace-nowrap font-bold">
+                International charter guide →
+              </Link>
+              <a href="https://travel.state.gov/content/travel/en/international-travel.html" target="_blank" rel="noopener noreferrer" className="text-link whitespace-nowrap font-bold">
+                U.S. traveler guidance ↗
+              </a>
             </div>
           </div>
         </section>
       ) : null}
 
-      {/* ─── Sample aircraft ─── */}
-      <section className="section-jn container-jn">
-        <p className="eyebrow">Sample aircraft</p>
-        <h2 className="title-section max-w-[22ch]">A few aircraft in the network.</h2>
-        <p className="lead mt-5 max-w-[58ch]">
-          Representative examples — we source the right aircraft per trip from a network of vetted
-          Part 135 operators.
-        </p>
-
-        <div className="mt-10 grid grid-cols-1 gap-4 md:grid-cols-3">
-          {entry.samples.map((s) => {
-            const model = MODELS.find((mm) => mm.sample.name === s.name);
-            const body = (
-              <>
-                <FleetImage
-                  src={s.imageUrl}
-                  alt={`${s.name} exterior`}
-                  aspect="16/10"
-                  sizes="(max-width: 768px) 100vw, (max-width: 1280px) 33vw, 28vw"
-                />
-                <div className="flex flex-1 flex-col gap-5 p-6">
-                  <h3 className="title-card-sm">{s.name}</h3>
-                  <dl className="dl-jn border-t border-line pt-5">
-                    <dt>Passengers</dt>
-                    <dd>{s.pax}</dd>
-                    <dt>Range</dt>
-                    <dd>{nm(s.rangeNm)}</dd>
-                    <dt>Speed</dt>
-                    <dd>{kt(s.speedKt)}</dd>
-                    <dt>Year</dt>
-                    <dd>{s.year}</dd>
-                    <dt>Wi-Fi</dt>
-                    <dd>{wifiLabel(s.wifi)}</dd>
-                  </dl>
-                  {model ? (
-                    <span className="mt-auto text-[15px] font-medium">
-                      Full specs, rates &amp; routes <span className="arrow">→</span>
-                    </span>
-                  ) : null}
-                </div>
-              </>
-            );
-            return model ? (
-              <Link
-                key={s.name}
-                href={`/aircraft/${model.category}/${model.slug}`}
-                className="card flex flex-col overflow-hidden"
-              >
-                {body}
-              </Link>
-            ) : (
-              <div key={s.name} className="card flex flex-col overflow-hidden">
-                {body}
-              </div>
-            );
-          })}
+      {/* ─── Neighbours + cost ─── */}
+      <section id="pricing" className={`container-jn grid items-start gap-x-10 gap-y-8 pt-[26px] [grid-template-columns:repeat(auto-fit,minmax(min(100%,340px),1fr))] ${scrollM}`}>
+        <div>
+          <h2 className="font-serif text-[28px] font-normal leading-[1.1]">Compare the neighboring categories.</h2>
+          <NeighborCards items={neighborsFor(entry.slug)} />
         </div>
+        <CostList title={`What does ${c.name.toLowerCase()} charter cost?`} items={c.cost} />
       </section>
 
-      {/* ─── Best for ─── */}
-      <section className="section-jn container-jn">
-        <p className="eyebrow">Best for</p>
-        <h2 className="title-section max-w-[22ch]">The missions {shortName} does best.</h2>
-
-        <div className="mt-10 grid grid-cols-1 gap-4 md:grid-cols-2">
-          {entry.bestFor.map((t) => (
-            <div key={t.title} className="card card-pad">
-              <div className="mb-5 text-clearance">
-                <BestForIcon name={t.iconKey} />
-              </div>
-              <h3 className="title-card-sm">{plainWords(t.title)}</h3>
-              <p className="mt-2 max-w-[48ch] text-bone-2">{plainWords(t.body)}</p>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* ─── Step down / step up ─── */}
-      <section className="section-jn container-jn">
-        <p className="eyebrow">Considering alternatives</p>
-        <h2 className="title-section max-w-[24ch]">Compare the categories on either side.</h2>
-
-        <div className="mt-10 grid grid-cols-1 gap-4 md:grid-cols-2">
-          {[entry.teaser.left, entry.teaser.right].map((t, i) => (
-            <Link key={t.href + i} href={t.href} className="card card-pad flex flex-col gap-3">
-              <p className="label-jn">{sentence(t.label)}</p>
-              <h3 className="title-card">{t.title}</h3>
-              <p className="text-bone-2">{plainWords(t.body)}</p>
-              <span className="mt-auto pt-2 text-[15px] font-medium">
-                {t.cta} <span className="arrow">→</span>
-              </span>
+      {c.lessRange ? (
+        <div className="container-jn mt-[22px]">
+          <div className="flex flex-wrap items-center gap-5 border border-line bg-surface px-[18px] py-[14px]">
+            <span className="font-serif text-[20px]">Need less range?</span>
+            <span className="flex-1 text-[13px] text-steel">{c.lessRange}</span>
+            <Link href="/aircraft/heavy" className="text-link whitespace-nowrap text-[13px] font-bold">
+              Explore heavy jets →
             </Link>
-          ))}
-        </div>
-      </section>
-
-      {/* ─── Quote handoff (was the inline launcher form) ─── */}
-      <section className="section-jn container-jn">
-        <div className="card card-pad grid gap-6 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
-          <div>
-            <p className="eyebrow">Start a quote</p>
-            <h2 className="title-card">Price a {shortName} mission.</h2>
-            <p className="mt-2 max-w-[52ch] text-bone-2">
-              Route, date, and passenger count — the quote opens with this category already chosen
-              and prices as you type.
-            </p>
+            <Link href="/aircraft" className="text-link whitespace-nowrap text-[13px] font-bold">
+              View all aircraft →
+            </Link>
           </div>
-          <QuoteLink context={`aircraft-${entry.slug}`} category={entry.slug}>
-            Request a quote <span className="arrow">→</span>
-          </QuoteLink>
         </div>
+      ) : null}
+
+      <SourceCards models={sources} />
+
+      <section id="faqs" className={`container-jn pt-[22px] ${scrollM}`}>
+        <h2 className="font-serif text-[24px] font-normal leading-[1.1]">Good questions before you book.</h2>
+        <FaqList items={c.faq.map(([q, a]) => ({ q, a }))} />
+        <RelatedRow />
       </section>
 
-      <CtaBand
-        title={entry.finalCta.heading}
-        body={plainWords(entry.finalCta.body)}
-        primary={{ label: "Request a quote", href: "/quote/mission" }}
-        secondary={{
-          label: `Call dispatch · ${SITE.dispatchPhone}`,
-          href: `tel:${SITE.dispatchPhoneE164}`,
-        }}
-      />
+      <TemplateCta title={c.ctaTitle} image={c.ctaImage} cta={c.cta} />
     </>
   );
 }

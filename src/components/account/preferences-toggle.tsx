@@ -11,31 +11,37 @@ type Props = {
 };
 
 /**
- * A `.switch` row for forms: label and description on the left, the
- * 36×20 switch on the right. The visible control is a button with
- * `role="switch"` + `aria-checked`; a hidden checkbox carries the value
- * so the existing FormData-based actions read it exactly as before.
+ * A yes/no preference as a pill (Light - Account "Preferences"): white
+ * with a line border when off, navy fill when on, `aria-pressed` for
+ * state. The description stays available to assistive tech and as a
+ * tooltip. A hidden checkbox carries the value so the existing
+ * FormData-based actions read it exactly as before.
  */
 export function PreferencesToggle({ name, label, desc, defaultChecked }: Props) {
   const [on, setOn] = useState(defaultChecked);
   const id = useId();
   return (
-    <div className="flex min-h-[44px] items-center justify-between gap-4 py-1">
-      <div className="min-w-0">
-        <div id={id} className="text-[15px] text-bone">
-          {label}
-        </div>
-        {desc ? <div className="mt-0.5 text-[13px] leading-[1.45] text-steel">{desc}</div> : null}
-      </div>
+    <>
       <button
         type="button"
-        role="switch"
-        aria-checked={on}
-        aria-labelledby={id}
+        aria-pressed={on}
+        aria-describedby={desc ? id : undefined}
+        title={desc}
         onClick={() => setOn((v) => !v)}
-        className="switch focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-clearance"
-      />
+        className={[
+          "inline-flex min-h-[34px] items-center rounded-pill border px-3 text-left text-[13px] transition-colors",
+          on ? "border-bone bg-clearance text-white" : "border-line bg-surface text-bone hover:border-steel",
+        ].join(" ")}
+      >
+        {on ? <span aria-hidden="true" className="mr-1.5">✓</span> : null}
+        {label}
+      </button>
+      {desc ? (
+        <span id={id} className="sr-only">
+          {desc}
+        </span>
+      ) : null}
       <input type="checkbox" name={name} checked={on} readOnly tabIndex={-1} aria-hidden className="sr-only" />
-    </div>
+    </>
   );
 }

@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import Link from "next/link";
+import { TOKEN_BTN, TOKEN_CARD } from "@/components/empty-legs/token-page-shell";
 import { unsubscribeAction } from "@/app/(marketing)/empty-legs/unsubscribe/actions";
 
 export function WatchlistUnsubscribeCard({
@@ -31,11 +32,11 @@ export function WatchlistUnsubscribeCard({
 
   if (done) {
     return (
-      <div className="card p-10 text-center max-md:p-6">
-        <h2 className="title-card">
+      <div className={TOKEN_CARD}>
+        <h2 className="title-card-sm">
           {done === "all" ? "All alerts stopped." : "Email alerts stopped."}
         </h2>
-        <p className="mx-auto mt-3 max-w-[52ch] text-bone-2">
+        <p className="mx-auto mt-3 max-w-[52ch] text-steel">
           {done === "all"
             ? "We won't email or text you about this watchlist again."
             : hasSms
@@ -47,13 +48,13 @@ export function WatchlistUnsubscribeCard({
             type="button"
             onClick={() => submit("all")}
             disabled={pending}
-            className="btn btn-secondary btn-lg mt-8 disabled:cursor-wait disabled:opacity-60"
+            className="btn btn-secondary mt-6 disabled:cursor-wait disabled:opacity-60"
           >
             {pending ? "Stopping…" : "Stop the texts as well"}
           </button>
         ) : (
-          <Link href="/empty-legs" className="btn btn-primary btn-lg mt-8">
-            Back to the board <span className="arrow" aria-hidden="true">→</span>
+          <Link href="/empty-legs" className={`${TOKEN_BTN} mt-6`}>
+            Back to the board <span aria-hidden="true">→</span>
           </Link>
         )}
       </div>
@@ -61,24 +62,24 @@ export function WatchlistUnsubscribeCard({
   }
 
   return (
-    <div className="card p-10 text-center max-md:p-6">
-      <h2 className="title-card">Stop empty-leg alerts</h2>
-      <p className="mx-auto mt-3 max-w-[52ch] text-bone-2">{route}</p>
-      <div className="mt-8 flex flex-wrap items-center justify-center gap-4">
+    <div className={TOKEN_CARD}>
+      <h2 className="title-card-sm">Stop empty-leg alerts</h2>
+      <p className="mx-auto mt-3 max-w-[52ch] font-serif text-[20px] text-bone">{route}</p>
+      <div className="mt-6 flex flex-wrap items-center justify-center gap-4">
         <button
           type="button"
           onClick={() => submit("email")}
           disabled={pending}
-          className="btn btn-primary btn-lg disabled:cursor-wait disabled:opacity-60"
+          className={`${TOKEN_BTN} disabled:cursor-wait disabled:opacity-60`}
         >
-          {pending ? "Stopping…" : "Stop email alerts"} <span className="arrow" aria-hidden="true">→</span>
+          {pending ? "Stopping…" : "Stop email alerts"} <span aria-hidden="true">→</span>
         </button>
         {hasSms ? (
           <button
             type="button"
             onClick={() => submit("all")}
             disabled={pending}
-            className="btn btn-secondary btn-lg disabled:cursor-wait disabled:opacity-60"
+            className="btn btn-secondary disabled:cursor-wait disabled:opacity-60"
           >
             Stop email and texts
           </button>

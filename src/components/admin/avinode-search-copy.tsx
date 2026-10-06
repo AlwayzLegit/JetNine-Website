@@ -92,7 +92,7 @@ export function AvinodeSearchCopy({
       onClick={onClick}
       disabled={disabled}
       title="Opens Avinode and copies a paste-ready search: route, date, time, passengers and the smallest category that fits."
-      className="btn btn-secondary h-9 px-3 text-[14px] disabled:cursor-not-allowed"
+      className="inline-flex h-11 items-center whitespace-nowrap border border-line bg-surface px-3 text-[13px] text-bone transition-colors hover:border-bone disabled:cursor-not-allowed disabled:opacity-50 md:h-8"
     >
       {state === "copied" ? (
         "Search copied ✓"

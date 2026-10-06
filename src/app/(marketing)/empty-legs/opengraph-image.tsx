@@ -12,7 +12,7 @@ export default function OgImage() {
       kicker: "Empty legs",
       title: "Repositioning legs. Up to 60% off.",
       lead: "Posted by the desk as operators release them. Watchlist alerts on your lanes included.",
-      bgImageUrl: `${siteBase()}/images/programs/reposition-sector.webp`,
+      bgImageUrl: `${siteBase()}/images/og/reposition-sector.jpg`,
     }),
     { ...size },
   );

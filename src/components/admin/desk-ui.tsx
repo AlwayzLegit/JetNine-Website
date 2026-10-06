@@ -2,20 +2,54 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 
 /**
- * Desk UI primitives (Phase 5). Server components — no state. Every admin
- * section composes these so the desk reads as one product:
+ * Desk UI primitives — light admin grammar (Light - Admin *.dc.html).
+ * Server components — no state. Every admin section composes these so the
+ * desk reads as one product:
  *
- *   <DeskPage>                       main column, 32px/40px padding
- *     <DeskHeader title lead actions />
- *     <DeskTabs items current base />
- *     <DeskGroup title count>        13px steel heading + card list
+ *   <DeskPage>                       main column, 22px/28px padding
+ *     <DeskHeader title lead actions />   serif 40–44px title, steel lead
+ *     <DeskTabs items current base />     bronze-underlined tabs
+ *     <DeskGroup index title hint>        "01 / TITLE" bronze overline + card
  *       <DeskRow … />
  *     </DeskGroup>
  *     <DeskEmpty title body />
+ *
+ * Panels use the prototype's warm off-white (#FBFAF7) on the paper page;
+ * lists sit on white. The two warm tints (#FBFAF7 panel, #F1EADF "now")
+ * have no global token — they live here so every page shares them.
  */
 
+/** Warm panel: hairline border on #FBFAF7 (cards, side panels, KPI tiles). */
+export const DESK_PANEL = "border border-line bg-[#FBFAF7]";
+/** Bronze-tinted fill for "current" stage, internal notes, highlights. */
+export const DESK_TINT = "bg-[#F1EADF]";
+/** Small white bordered button (Call / Text / Email, "Open in Avinode ↗"). */
+export const DESK_MINI_BTN =
+  "inline-flex h-11 items-center justify-center whitespace-nowrap border border-line bg-surface px-3 text-[13px] text-bone transition-colors hover:border-bone md:h-8";
+
 export function DeskPage({ children, className = "" }: { children: ReactNode; className?: string }) {
-  return <div className={`min-w-0 px-5 pb-16 pt-6 md:px-10 md:pt-8 ${className}`}>{children}</div>;
+  return (
+    <div className={`min-w-0 max-w-[1296px] px-4 pb-16 pt-5 md:px-7 md:pb-10 md:pt-[22px] ${className}`}>
+      {children}
+    </div>
+  );
+}
+
+/** 12px bronze uppercase overline used for every section label on the desk. */
+export function DeskOverline({
+  children,
+  as: Tag = "p",
+  className = "",
+}: {
+  children: ReactNode;
+  as?: "p" | "h2" | "h3" | "span";
+  className?: string;
+}) {
+  return (
+    <Tag className={`text-[12px] font-bold uppercase leading-[1.4] tracking-[0.2em] text-gold ${className}`}>
+      {children}
+    </Tag>
+  );
 }
 
 export function DeskHeader({
@@ -23,6 +57,7 @@ export function DeskHeader({
   lead,
   back,
   actions,
+  size = "lg",
   className = "",
 }: {
   title: ReactNode;
@@ -30,21 +65,30 @@ export function DeskHeader({
   /** "← All requests" style link above the title. */
   back?: { href: string; label: string };
   actions?: ReactNode;
+  /** lg = section index (40–44px); md = one record / settings page (32–36px). */
+  size?: "lg" | "md";
   className?: string;
 }) {
+  const titleCls =
+    size === "lg"
+      ? "text-[clamp(32px,4vw,44px)] leading-[1.05] tracking-[-0.01em]"
+      : "text-[clamp(26px,3vw,34px)] leading-[1.1]";
   return (
     <div className={className}>
       {back ? (
-        <Link href={back.href} className="text-[14px] text-steel transition-colors hover:text-bone">
+        <Link
+          href={back.href}
+          className="inline-flex min-h-11 items-center text-[13px] text-steel transition-colors hover:text-bone md:min-h-0"
+        >
           ← {back.label}
         </Link>
       ) : null}
-      <div className={`flex flex-wrap items-end justify-between gap-6 ${back ? "mt-2" : ""}`}>
+      <div className={`flex flex-wrap items-end justify-between gap-x-6 gap-y-4 ${back ? "md:mt-2" : "md:mt-3"}`}>
         <div className="min-w-0">
-          <h1 className="title-app text-bone">{title}</h1>
-          {lead ? <p className="mt-1.5 text-[16px] text-bone-2">{lead}</p> : null}
+          <h1 className={`font-serif font-normal text-bone ${titleCls}`}>{title}</h1>
+          {lead ? <p className="mt-1.5 text-[15px] leading-[1.5] text-steel md:text-[16px]">{lead}</p> : null}
         </div>
-        {actions ? <div className="flex flex-wrap items-center gap-2.5">{actions}</div> : null}
+        {actions ? <div className="flex w-full flex-wrap items-center gap-2.5 sm:w-auto">{actions}</div> : null}
       </div>
     </div>
   );
@@ -57,7 +101,7 @@ export function DeskSearch({
   name = "q",
   action,
   hidden,
-  width = 260,
+  width = 240,
 }: {
   placeholder?: string;
   defaultValue?: string;
@@ -68,28 +112,21 @@ export function DeskSearch({
   width?: number | string;
 }) {
   return (
-    <form action={action} method="get" role="search" className="flex">
+    <form action={action} method="get" role="search" className="flex w-full sm:w-auto">
       {hidden
         ? Object.entries(hidden)
             .filter(([, v]) => v)
             .map(([k, v]) => <input key={k} type="hidden" name={k} value={v} />)
         : null}
-      <label
-        className="flex h-11 items-center gap-2 rounded-control border border-line bg-surface px-3.5 text-[15px] text-bone focus-within:border-steel"
-        style={{ width }}
-      >
-        <span aria-hidden="true" className="text-steel">
-          ⌕
-        </span>
-        <input
-          type="search"
-          name={name}
-          defaultValue={defaultValue}
-          placeholder={placeholder}
-          aria-label={placeholder}
-          className="min-w-0 flex-1 bg-transparent outline-none placeholder:text-steel"
-        />
-      </label>
+      <input
+        type="search"
+        name={name}
+        defaultValue={defaultValue}
+        placeholder={placeholder}
+        aria-label={placeholder}
+        style={{ ["--w" as string]: typeof width === "number" ? `${width}px` : width }}
+        className="h-11 w-full min-w-0 rounded-[3px] border border-line bg-surface px-3 text-[15px] text-bone outline-none placeholder:text-steel-dim focus:border-bone sm:w-[var(--w)] md:h-10"
+      />
     </form>
   );
 }
@@ -97,8 +134,15 @@ export function DeskSearch({
 export type DeskTab = { key: string; label: string; count?: number; href?: string };
 
 /**
- * Underline tabs rendered as links (`?tab=key` on `base` unless `href` is
- * given), so the list filters server-side and the URL is shareable.
+ * Tabs rendered as links (`?tab=key` on `base` unless `href` is given), so
+ * the list filters server-side and the URL is shareable.
+ *
+ *  - `line` (default): 14px labels on a hairline, current one bold with a
+ *    2px bronze underline (Trips / Clients / Messages prototypes).
+ *  - `band`: white 48px band with hairlines top and bottom, equal columns
+ *    split by hairlines (Requests prototype). Scrolls sideways on phones.
+ *  - `chips`: small pill filters that wrap (Messages / Reports prototypes);
+ *    current one filled navy.
  */
 export function DeskTabs({
   items,
@@ -106,6 +150,7 @@ export function DeskTabs({
   base,
   param = "tab",
   keep,
+  variant = "line",
   className = "",
 }: {
   items: DeskTab[];
@@ -114,6 +159,7 @@ export function DeskTabs({
   param?: string;
   /** Other params to keep when switching tabs (q, period…). */
   keep?: Record<string, string | undefined>;
+  variant?: "line" | "band" | "chips";
   className?: string;
 }) {
   const qs = (key: string) => {
@@ -123,9 +169,41 @@ export function DeskTabs({
     const s = p.toString();
     return s ? `${base}?${s}` : base;
   };
+  const band = variant === "band";
+  if (variant === "chips") {
+    return (
+      <div role="tablist" className={`flex flex-wrap gap-1.5 ${className}`}>
+        {items.map((t) => {
+          const active = t.key === current;
+          return (
+            <Link
+              key={t.key}
+              role="tab"
+              aria-selected={active}
+              aria-current={active ? "page" : undefined}
+              href={t.href ?? qs(t.key)}
+              className={`inline-flex h-9 items-center whitespace-nowrap rounded-pill border px-2.5 text-[12px] transition-colors md:h-7 ${
+                active ? "border-clearance bg-clearance text-white" : "border-line bg-surface text-bone hover:border-bone"
+              }`}
+            >
+              {t.label}
+              {typeof t.count === "number" && t.count > 0 ? <span>&nbsp;·&nbsp;{t.count}</span> : null}
+            </Link>
+          );
+        })}
+      </div>
+    );
+  }
   return (
-    <div role="tablist" className={`flex gap-1 overflow-x-auto border-b border-line ${className}`}>
-      {items.map((t) => {
+    <div
+      role="tablist"
+      className={
+        band
+          ? `flex overflow-x-auto border-y border-line bg-surface md:grid md:auto-cols-fr md:grid-flow-col ${className}`
+          : `flex gap-[18px] overflow-x-auto border-b border-line ${className}`
+      }
+    >
+      {items.map((t, i) => {
         const active = t.key === current;
         return (
           <Link
@@ -135,12 +213,13 @@ export function DeskTabs({
             aria-current={active ? "page" : undefined}
             href={t.href ?? qs(t.key)}
             className={[
-              "-mb-px whitespace-nowrap border-b-2 px-3.5 py-3 text-[15px] font-medium transition-colors",
-              active ? "border-clearance text-bone" : "border-transparent text-steel hover:text-bone",
+              "flex flex-none items-center justify-center whitespace-nowrap text-[14px] text-bone transition-colors hover:text-gold",
+              band ? `h-12 px-4 ${i > 0 ? "border-l border-line" : ""}` : "min-h-11 py-2 md:min-h-0",
+              active ? "font-semibold shadow-[inset_0_-2px_0_0_var(--gold)]" : "font-normal",
             ].join(" ")}
           >
             {t.label}
-            {typeof t.count === "number" ? <span className={active ? "text-steel" : ""}> · {t.count}</span> : null}
+            {typeof t.count === "number" ? <span>&nbsp;·&nbsp;{t.count}</span> : null}
           </Link>
         );
       })}
@@ -148,50 +227,77 @@ export function DeskTabs({
   );
 }
 
-/** 13px steel group heading + card that clips its rows. */
+/**
+ * Bronze overline ("01 / Needs a reply") + an optional steel hint on the
+ * right, then either one white card that clips its rows (default) or a
+ * stack of separate row cards (`stack`, Trips prototype).
+ */
 export function DeskGroup({
   title,
   count,
+  index,
+  hint,
   children,
-  className = "mt-8",
+  className = "mt-7",
   aside,
+  stack = false,
 }: {
   title: ReactNode;
   count?: number;
+  /** 1-based position, rendered "01 / ". */
+  index?: number;
+  hint?: ReactNode;
   children: ReactNode;
   className?: string;
   aside?: ReactNode;
+  stack?: boolean;
 }) {
   return (
     <section className={className}>
-      <div className="mb-2.5 flex items-center justify-between gap-4">
-        <h2 className="label-jn text-[13px]">
+      <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+        <DeskOverline as="h2">
+          {typeof index === "number" ? `${String(index).padStart(2, "0")} / ` : null}
           {title}
-          {typeof count === "number" ? <span className="text-steel-dim"> · {count}</span> : null}
-        </h2>
+          {typeof count === "number" ? <span> · {count}</span> : null}
+        </DeskOverline>
+        {hint ? <span className="text-[13px] text-steel">{hint}</span> : null}
         {aside}
       </div>
-      <div className="card overflow-hidden">{children}</div>
+      {stack ? (
+        <div className="mt-2.5 flex flex-col gap-2.5">{children}</div>
+      ) : (
+        <div className="mt-2.5 overflow-hidden rounded-[3px] border border-line bg-surface">{children}</div>
+      )}
     </section>
   );
 }
 
 /**
- * One row inside a DeskGroup. Grid columns are the caller's (prototype uses
- * `minmax(0,1fr) 240px auto`); rows separate with a faint line.
+ * One row inside a DeskGroup. Grid columns are the caller's (Requests uses
+ * `minmax(0,1fr) 230px 110px`); rows separate with a hairline. `card` makes
+ * the row its own warm panel (stacked groups); `hot` gives it a bronze edge.
  */
 export function DeskRow({
   children,
   className = "",
-  cols = "md:grid-cols-[minmax(0,1fr)_240px_auto]",
+  cols = "md:grid-cols-[minmax(0,1fr)_230px_110px]",
   href,
+  card = false,
+  hot = false,
 }: {
   children: ReactNode;
   className?: string;
   cols?: string;
   href?: string;
+  card?: boolean;
+  hot?: boolean;
 }) {
-  const cls = `grid grid-cols-1 items-center gap-3 border-b border-line-faint px-5 py-4 last:border-b-0 md:gap-6 md:px-6 md:py-[18px] ${cols} ${className}`;
+  const shell = card
+    ? `border bg-[#FBFAF7] px-4 py-3.5 md:px-[18px] ${hot ? "border-gold" : "border-line"}`
+    : "border-b border-line px-4 py-4 last:border-b-0 md:px-5";
+  // Callers may set their own phone columns (`grid-cols-[…]`); default to one.
+  const phoneCols = /(^|\s)grid-cols-/.test(cols) ? "" : "grid-cols-1";
+  const cls = `grid ${phoneCols} items-center gap-3 md:gap-6 ${shell} ${cols} ${className}`;
   if (href) {
     return (
       <Link href={href} className={`${cls} transition-colors hover:bg-surface-2/50`}>
@@ -205,7 +311,7 @@ export function DeskRow({
 export function DeskEmpty({
   title = "All caught up.",
   body,
-  className = "mt-8",
+  className = "mt-7",
   children,
 }: {
   title?: ReactNode;
@@ -214,10 +320,10 @@ export function DeskEmpty({
   children?: ReactNode;
 }) {
   return (
-    <div className={`rounded-card border border-dashed border-line-2 bg-surface p-10 text-center ${className}`}>
-      <p className="text-[19px] text-bone">{title}</p>
-      {body ? <p className="mt-1.5 text-bone-2">{body}</p> : null}
-      {children ? <div className="mt-5 flex justify-center gap-2.5">{children}</div> : null}
+    <div className={`rounded-[3px] border border-line bg-surface p-8 text-center ${className}`}>
+      <p className="font-serif text-[24px] leading-[1.2] text-bone">{title}</p>
+      {body ? <p className="mt-1.5 text-[15px] text-steel">{body}</p> : null}
+      {children ? <div className="mt-5 flex flex-wrap justify-center gap-2.5">{children}</div> : null}
     </div>
   );
 }
@@ -241,7 +347,11 @@ export function DotSentence({
   );
 }
 
-/** Pill with a dot, used in page headers ("Needs a reply · due in 18 min"). */
+/**
+ * Status pill in a page header ("Needs a reply · due in 18 min"). Gold =
+ * bronze edge on the warm tint (needs you); success = navy fill (done);
+ * danger = red edge; steel = plain white.
+ */
 export function StatusPill({
   tone,
   children,
@@ -249,9 +359,18 @@ export function StatusPill({
   tone: "gold" | "steel" | "success" | "danger";
   children: ReactNode;
 }) {
+  const cls =
+    tone === "gold"
+      ? "border-gold bg-[#F1EADF] text-bone"
+      : tone === "success"
+        ? "border-clearance bg-clearance text-white"
+        : tone === "danger"
+          ? "border-danger bg-surface text-danger"
+          : "border-line bg-surface text-bone";
   return (
-    <span className="pill pill-outline h-9 gap-2 text-[14px]">
-      <span className={tone === "steel" ? "dot" : `dot dot-${tone}`} aria-hidden="true" />
+    <span
+      className={`inline-flex h-8 items-center gap-2 whitespace-nowrap rounded-pill border px-3 text-[13px] ${cls}`}
+    >
       {children}
     </span>
   );
@@ -269,7 +388,7 @@ export function ContactButtons({
   size?: "sm" | "md";
   className?: string;
 }) {
-  const btn = size === "sm" ? "btn btn-secondary h-9 px-3.5 text-[14px]" : "btn btn-secondary btn-sm";
+  const btn = size === "sm" ? DESK_MINI_BTN : "btn btn-secondary btn-sm";
   if (!phone && !email) return null;
   return (
     <div className={`flex flex-wrap gap-2 ${className}`}>
@@ -292,7 +411,7 @@ export function ContactButtons({
   );
 }
 
-/** Big Fraunces number card for Reports / Clients counters. */
+/** Serif number tile (Reports KPIs, Clients counters, reference totals). */
 export function NumberCard({
   label,
   value,
@@ -311,15 +430,15 @@ export function NumberCard({
         ? "text-steel"
         : `text-${noteTone}`;
   return (
-    <div className="card p-6">
-      <div className="text-[14px] text-steel">{label}</div>
-      <div className="mt-2 font-serif text-[44px] font-light leading-none tracking-[-0.02em] text-bone">{value}</div>
-      {note ? <div className={`mt-2 text-[14px] ${tone}`}>{note}</div> : null}
+    <div className={`${DESK_PANEL} px-5 py-[18px]`}>
+      <div className="text-[12px] text-steel">{label}</div>
+      <div className="mt-1 font-serif text-[clamp(30px,3.4vw,40px)] font-normal leading-none text-bone">{value}</div>
+      {note ? <div className={`mt-1.5 text-[13px] ${tone}`}>{note}</div> : null}
     </div>
   );
 }
 
-/** Section card with a 13px steel heading, as in the one-request page. */
+/** Warm section panel with a bronze overline heading (one-request page). */
 export function DeskCard({
   title,
   children,
@@ -334,10 +453,10 @@ export function DeskCard({
   id?: string;
 }) {
   return (
-    <section id={id} className={`card p-5 ${className}`}>
+    <section id={id} className={`${DESK_PANEL} px-4 py-4 md:px-[18px] ${className}`}>
       {title || actions ? (
         <div className="flex flex-wrap items-center justify-between gap-3">
-          {title ? <h2 className="label-jn text-[13px]">{title}</h2> : <span />}
+          {title ? <DeskOverline as="h2">{title}</DeskOverline> : <span />}
           {actions}
         </div>
       ) : null}

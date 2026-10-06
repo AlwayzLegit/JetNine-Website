@@ -2,11 +2,11 @@ import { ImageResponse } from "next/og";
 
 // Apple Touch Icon. iOS Safari and the home-screen "Add to Home Screen"
 // flow look for this at 180×180. Without it, iOS falls back to a
-// downscaled screenshot of the page, which on the dark JetNine palette
-// is unreadable.
+// downscaled screenshot of the page, which
+// rarely reads well at icon size.
 //
-// Bigger canvas than the favicon icon.tsx, so we can render the 09
-// monogram at a size that scans cleanly on the springboard.
+// Same mark as icon.tsx (white serif "J9" on navy), drawn bigger so it
+// scans cleanly on the springboard.
 
 export const size = { width: 180, height: 180 };
 export const contentType = "image/png";
@@ -21,15 +21,15 @@ export default function AppleIcon() {
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          background: "#0E1014",
-          color: "#F4F1EA",
-          fontFamily: "serif",
-          fontSize: 110,
-          fontWeight: 300,
-          letterSpacing: "-0.04em",
+          background: "#12232E",
+          color: "#FFFFFF",
+          fontFamily: "Georgia, serif",
+          fontSize: 92,
+          fontWeight: 400,
+          letterSpacing: "-0.02em",
         }}
       >
-        09
+        J9
       </div>
     ),
     { ...size },

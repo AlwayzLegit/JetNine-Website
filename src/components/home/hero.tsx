@@ -1,75 +1,57 @@
 import Image from "next/image";
-import Link from "next/link";
-import { SearchCard } from "@/components/home/search-card";
-import { SITE } from "@/lib/constants";
+import { SearchCard } from "./search-card";
 
 /**
- * Home hero from the simplification prototype: full-bleed runway photo
- * with the left-dark / bottom-fade scrim, eyebrow, Fraunces 300 title,
- * 19px lead, primary quote button + phone button, one note line, then
- * the search card inside the same section. Fills the viewport under the
- * sticky header on desktop (720px floor, 920px ceiling); on phones it
- * is as tall as its content, with the buttons folded into the nav.
+ * Home hero from Light - Home: navy band, the jet photo pinned right under
+ * a navy left-to-right scrim, uppercase kicker, 78px serif title, a serif
+ * lead and an underlined link down to "how it works". The search card
+ * overlaps the bottom edge of the band by 78px.
  */
 export function Hero() {
   return (
-    <section className="relative flex items-center overflow-hidden bg-ink md:min-h-[max(720px,min(calc(100vh-var(--header-h)),920px))]">
-      {/* LCP element — preload. The shot is dark on the left where the
-          headline sits, so the scrim only has to guarantee contrast. */}
-      <Image
-        src="/images/hero/runway-night.webp"
-        alt=""
-        aria-hidden
-        fill
-        priority
-        fetchPriority="high"
-        sizes="100vw"
-        className="object-cover object-[60%_center]"
-      />
-      <div
-        aria-hidden
-        className="absolute inset-0"
-        style={{
-          background:
-            "linear-gradient(90deg, rgba(7,8,10,0.94) 0%, rgba(7,8,10,0.78) 45%, rgba(7,8,10,0.35) 100%), linear-gradient(180deg, rgba(7,8,10,0.3) 0%, rgba(7,8,10,0) 40%, rgba(7,8,10,0.95) 100%)",
-        }}
-      />
-
-      <div className="container-jn relative z-10 w-full pt-[88px] pb-16 max-md:pt-10 max-md:pb-10">
-        <p className="mb-5 text-[14px] font-medium text-bone-2 max-md:mb-3">
-          Est. {SITE.legal.foundedYear} — Los Angeles
-        </p>
-        <h1 className="title-page max-w-[14ch] max-md:text-[40px]">Ready when you are.</h1>
-        <p className="lead mt-6 max-w-[48ch] max-md:mt-4 max-md:text-[16px]">
-          Private jet charter, anywhere, anytime — twenty thousand aircraft worldwide, one
-          number to call.
-        </p>
-
-        {/* Phones: the search card's button is the primary action and the
-            nav already carries dispatch, so the button row stays desktop. */}
-        <div className="mt-8 flex flex-wrap items-center gap-5 max-md:hidden">
-          <Link href="/quote/mission" className="btn btn-primary btn-lg">
-            Request a quote <span className="arrow" aria-hidden="true">→</span>
-          </Link>
-          <a
-            href={`tel:${SITE.dispatchPhoneE164}`}
-            className="btn btn-secondary btn-lg border-[rgba(244,241,234,0.35)]"
-          >
-            {SITE.dispatchPhone}
+    <>
+      <section className="on-navy relative bg-navy">
+        <Image
+          src="/images/light/page-01-hero.webp"
+          alt=""
+          aria-hidden
+          fill
+          priority
+          sizes="100vw"
+          className="object-cover"
+          style={{ objectPosition: "80% center" }}
+        />
+        <div
+          aria-hidden
+          className="absolute inset-0"
+          style={{
+            background:
+              "linear-gradient(90deg, rgba(18,35,46,0.97) 0%, rgba(18,35,46,0.9) 30%, rgba(18,35,46,0.35) 58%, rgba(18,35,46,0.05) 100%)",
+          }}
+        />
+        <div className="container-jn relative pb-[170px] pt-[84px]">
+          <p className="mb-4 text-[12px] font-bold uppercase tracking-[0.18em] text-navy-on-2">
+            Private jet charter, considered.
+          </p>
+          <h1 className="title-page !text-[clamp(34px,9vw,78px)]">
+            Your journey.
+            <br />
+            On your terms.
+          </h1>
+          <p className="mt-[18px] max-w-[34ch] font-serif text-[20px] leading-[1.4]">
+            The right aircraft. A clear quote.
+            <br />
+            A journey shaped around you.
+          </p>
+          <a href="#how" className="rule-link rule-link-on-navy mt-[26px] inline-flex items-center gap-2 !text-[17px]">
+            Discover the JetNine approach <span className="arrow-sm !text-[13px]" aria-hidden="true">↗</span>
           </a>
         </div>
-        {/* Counter-position the industry's callback funnel: competitors'
-            "instant quotes" end at an advisor phone call. Ours doesn't. */}
-        <p className="mt-5 text-[15px] text-bone-2 max-md:hidden">
-          Live pricing in 4 steps · rates from $2,950/hr · no callback required
-        </p>
+      </section>
 
+      <div className="container-jn relative z-[2] -mt-[78px]">
         <SearchCard />
-
-        <p className="mt-3 text-center text-[13px] text-steel md:hidden">
-          Live pricing in 4 steps · rates from $2,950/hr · no callback required
-        </p>
       </div>
-    </section>
+    </>
   );
 }

@@ -1,22 +1,8 @@
 import type { Metadata, Viewport } from "next";
-import { Fraunces, Instrument_Sans } from "next/font/google";
 import "./globals.css";
 
-const fraunces = Fraunces({
-  subsets: ["latin"],
-  variable: "--font-fraunces",
-  weight: ["300", "400", "500", "600"],
-  display: "swap",
-});
-
-// Body / UI face. Instrument Sans replaces Inter in the simplification —
-// a humanist grotesk that still reads at 13px on ink. 400 / 500 / 600 only.
-const instrumentSans = Instrument_Sans({
-  subsets: ["latin"],
-  variable: "--font-instrument-sans",
-  weight: ["400", "500", "600"],
-  display: "swap",
-});
+// Type is the light design system's system stacks (Times / Georgia for
+// titles, Arial for UI — see tailwind.config.ts), so no web fonts load.
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://jetnine.com";
 
@@ -79,11 +65,10 @@ export const metadata: Metadata = {
 };
 
 // Mobile browser chrome (iOS status bar, Android URL bar background)
-// pulls from theme-color. Match the brand ink so the chrome blends
-// rather than showing the default white strip above the page.
+// pulls from theme-color. Match the white header so the chrome blends.
 export const viewport: Viewport = {
-  themeColor: "#07080A",
-  colorScheme: "dark",
+  themeColor: "#FFFFFF",
+  colorScheme: "light",
 };
 
 // JSON-LD structured data. Organization gives Google a hook for the
@@ -139,7 +124,7 @@ const supabaseOrigin = supabaseUrl ? new URL(supabaseUrl).origin : null;
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${fraunces.variable} ${instrumentSans.variable}`}>
+    <html lang="en">
       <head>
         {/* Connection hints — start TLS handshakes for third-party
             origins early so the first request to each doesn't pay the

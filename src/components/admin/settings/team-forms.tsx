@@ -48,7 +48,7 @@ export function TeamHeader() {
 
   return (
     <>
-      <DeskHeader
+      <DeskHeader size="md"
         title="Team"
         lead="Who can sign in to the desk and what they can see."
         actions={
@@ -64,8 +64,8 @@ export function TeamHeader() {
         }
       />
       {open ? (
-        <form id="team-invite" onSubmit={onSubmit} className="card mt-6 p-6">
-          <h2 className="text-[17px] font-medium text-bone">Invite someone to the desk</h2>
+        <form id="team-invite" onSubmit={onSubmit} className="card bg-[#FBFAF7] mt-6 p-6">
+          <h2 className="font-serif text-[20px] leading-[1.2] text-bone">Invite someone to the desk</h2>
           <p className="mt-1 text-[14px] text-steel">
             They get an email with a sign-in link. Owners see everything including reports and money; Team
             handles requests, trips, clients and messages.

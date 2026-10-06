@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useId, useRef, useState } from "react";
-import { searchAirports, type Airport } from "@/lib/airports";
+import { findAirport, searchAirports, type Airport } from "@/lib/airports";
 import { CompactField, COMPACT_INPUT_CLASS } from "./compact-field";
 
 type Props = {
@@ -12,8 +12,12 @@ type Props = {
 };
 
 // City first, code in parentheses — the plain-words way to show an airport.
+// A code seeded from another page's trip form (start-quote) arrives
+// without a city; look it up for display only so it reads "New York
+// (TEB)" rather than "(TEB)". The store is untouched until a pick.
 function display(city: string | undefined, iata: string): string {
-  return `${city ?? ""} (${iata})`.trim();
+  const c = city ?? findAirport(iata)?.city;
+  return `${c ?? ""} (${iata})`.trim();
 }
 
 export function AirportInput({ label, value, error, onSelect }: Props) {
@@ -80,7 +84,7 @@ export function AirportInput({ label, value, error, onSelect }: Props) {
           id={listId}
           role="listbox"
           aria-label={`${label} suggestions`}
-          className="card absolute left-0 right-0 top-full z-20 mt-1 max-h-72 overflow-auto shadow-[0_24px_60px_rgba(0,0,0,0.45)]"
+          className="card absolute left-0 right-0 top-full z-20 mt-1 max-h-72 overflow-auto shadow-[0_18px_50px_rgba(18,35,46,0.14)]"
         >
           {results.map((a) => (
             <li key={a.icao} role="option" aria-selected={a.iata === value.iata}>

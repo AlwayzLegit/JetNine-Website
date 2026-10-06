@@ -164,6 +164,15 @@ export function revalidateBlog(slugs: (string | null | undefined)[] = []): void 
   }
 }
 
+// Sitemap refreshes only need metadata, not every article's full body.
+export async function getSitemapPosts() {
+  return db.select({
+    slug: blogPosts.slug,
+    updatedAt: blogPosts.updatedAt,
+    heroImageUrl: blogPosts.heroImageUrl,
+  }).from(blogPosts).where(eq(blogPosts.status, "published"));
+}
+
 export async function getPublishedPosts(): Promise<BlogPost[]> {
   return db
     .select()

@@ -60,3 +60,7 @@ tmp/
 *.zip
 !public/**/*.zip
 .pw.tmp.config.ts
+
+# Sitemap audit artifacts and Python bytecode
+sitemap-audit.json
+__pycache__/

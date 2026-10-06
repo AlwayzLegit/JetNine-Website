@@ -47,7 +47,9 @@ jobs:
         run: pnpm check:api
 
       - name: Sitemap invariants
-        run: pnpm check:sitemap
+        run: |
+          pnpm check:sitemap
+          python3 scripts/test-live-sitemap.py
 
       # Build is the canonical check — catches Next.js / Drizzle issues that
       # lint + typecheck miss. Env values come from GitHub secrets when set;

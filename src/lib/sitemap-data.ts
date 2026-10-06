@@ -82,14 +82,14 @@ export function buildSitemap(posts: SitemapPost[], siteUrl?: string): MetadataRo
 /** A failed runtime refresh must propagate so ISR retains the last good XML. */
 export async function loadSitemap(
   readPosts: () => Promise<SitemapPost[]>,
-  { buildPhase = false, siteUrl }: { buildPhase?: boolean; siteUrl?: string } = {},
+  { buildPhase = false, production = false, siteUrl }: { buildPhase?: boolean; production?: boolean; siteUrl?: string } = {},
 ): Promise<MetadataRoute.Sitemap> {
   let posts: SitemapPost[];
   try {
     posts = await readPosts();
   } catch (error) {
-    if (!buildPhase) throw error;
-    // Credential-free CI builds can seed the catalog; runtime errors cannot
+    if (!buildPhase || production) throw error;
+    // Only non-production offline builds may seed the catalog; errors cannot
     // overwrite a previously successful sitemap with a blog-free fallback.
     posts = [];
   }

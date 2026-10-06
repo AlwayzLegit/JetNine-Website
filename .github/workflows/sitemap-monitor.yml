@@ -1,0 +1,34 @@
+name: Production sitemap audit
+on:
+  schedule:
+    - cron: '23 8 * * *'
+  workflow_dispatch:
+  deployment_status:
+permissions:
+  contents: read
+concurrency:
+  group: production-sitemap-audit
+  cancel-in-progress: false
+jobs:
+  audit:
+    if: >-
+      github.event_name != 'deployment_status' ||
+      (github.event.deployment_status.state == 'success' &&
+       github.event.deployment.environment == 'Production')
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verify sitemap, pages, canonicals, robots and images
+        run: python scripts/check-live-sitemap.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: sitemap-audit
+          path: sitemap-audit.json
+          retention-days: 30

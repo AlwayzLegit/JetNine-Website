@@ -44,6 +44,9 @@ assert.equal(post?.lastModified, changed);
 assert.deepEqual(post?.images, ["https://jetnine.com/images/light/wing-clouds.webp"]);
 assert(!buildSitemap([{ ...posts[0], updatedAt: new Date("invalid") }]).find((entry) => entry.url.endsWith("/blog/charter-pricing"))?.lastModified);
 assert.equal((await loadSitemap(async () => posts)).length, entries.length + 1);
+await assert.rejects(loadSitemap(async () => { throw new Error("database unavailable"); }, {
+  buildPhase: true, production: true,
+}), /database unavailable/, "Production builds must fail instead of dropping blog URLs");
 const offline = async () => { throw new Error("database unavailable"); };
 await assert.rejects(loadSitemap(offline), /database unavailable/, "Runtime outages must not publish a truncated sitemap");
 assert.deepEqual(await loadSitemap(offline, { buildPhase: true }), entries, "Offline builds should retain catalog coverage");
@@ -51,3 +54,20 @@ const escaped = sitemapMetadata(buildSitemap([{ ...posts[0], heroImageUrl: "http
 assert.equal(escaped.find((entry) => entry.url.endsWith("/blog/charter-pricing"))?.images?.[0], "https://cdn.example.com/hero.jpg?w=1200&amp;fit=crop", "Image query strings must remain valid XML");
 assert.throws(() => buildSitemap([{ ...posts[0], heroImageUrl: "data:image/png,invalid" }]));
 console.log(`Sitemap invariants passed: ${entries.length} public catalog URLs, accurate blog dates, images, exclusions, and outage policy.`);
+
+// Vercel preview builds also have NODE_ENV=production; they must stay blocked.
+const { default: robots } = await import("../src/app/robots");
+const originalVercel = process.env.VERCEL_ENV;
+const originalNodeEnv = process.env.NODE_ENV;
+try {
+  Object.assign(process.env, { NODE_ENV: "production" });
+  process.env.VERCEL_ENV = "preview";
+  assert.deepEqual(robots().rules, { userAgent: "*", disallow: "/" });
+  process.env.VERCEL_ENV = "production";
+  assert(Array.isArray(robots().rules));
+} finally {
+  if (originalNodeEnv === undefined) Reflect.deleteProperty(process.env, "NODE_ENV");
+  else Object.assign(process.env, { NODE_ENV: originalNodeEnv });
+  if (originalVercel === undefined) delete process.env.VERCEL_ENV;
+  else process.env.VERCEL_ENV = originalVercel;
+}

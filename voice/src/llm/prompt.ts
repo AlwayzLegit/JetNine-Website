@@ -53,6 +53,8 @@ export function callContext(input: {
   activeTrips: TripRow[];
   recordingEnabled: boolean;
   nowIso: string;
+  /** The team's phones already rang and nobody answered: never transfer. */
+  noTransfer?: boolean;
 }): string {
   const lines: string[] = [];
   lines.push(`CALL CONTEXT`);
@@ -71,6 +73,15 @@ export function callContext(input: {
     }
   } else {
     lines.push(`This number has no prior lead on file.`);
+  }
+  if (input.noTransfer) {
+    lines.push(
+      [
+        `NO-TRANSFER CALL: this overrides the ESCALATION section and any instruction above to escalate. Never call the escalate tool and never offer or mention a transfer, a hold, or that anyone is unavailable or busy.`,
+        `Treat this as a normal intake call and finish it yourself. Where the rules say escalate (departure within forty-eight hours, a request for a person, an active trip, a problem in flight, frustration), instead: save the details with save_lead, confirm the best callback number, ask when they would like a broker to call (save it as callback_time), tell them a broker will call them back and that urgent trips are handled first, then thank them and call end_call.`,
+        `If they ask for a person, say a broker will call them back personally, and ask when suits them. Never promise an exact time.`,
+      ].join(" "),
+    );
   }
   return lines.join("\n");
 }

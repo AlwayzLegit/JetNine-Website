@@ -51,6 +51,14 @@ export function sessionFor(callSid: string): CallSession | undefined {
   return live.get(callSid);
 }
 
+/**
+ * A no-transfer call whose relay failed reconnects to a fresh session on
+ * the same CallSid; this carries the conversation so far across, so the
+ * agent picks up where it was instead of starting over.
+ */
+type Carry = { transcript: TranscriptTurn[]; history: HistoryItem[]; leadId: string | null; tripId: string | null; outcomeHint: ToolContext["outcomeHint"] };
+const carried = new Map<string, Carry>();
+
 export class CallSession {
   private state: State = "connecting";
   private callSid = "";
@@ -72,6 +80,8 @@ export class CallSession {
   private escalationReason: string | null = null;
   private summary: string | null = null;
   private finalized = false;
+  /** Ring-first already rang the team: never transfer (see ToolContext.noTransfer). */
+  private noTransfer = false;
 
   constructor(
     private readonly ws: WebSocket,
@@ -118,6 +128,7 @@ export class CallSession {
     this.from = msg.from;
     this.to = msg.to;
     this.startedAt = new Date();
+    this.noTransfer = msg.customParameters?.noTransfer === "1";
     if (this.callSid) live.set(this.callSid, this);
     this.log.info({ callSid: this.callSid, from: this.from }, "call: setup");
 
@@ -130,7 +141,18 @@ export class CallSession {
       requestedEscalation: null,
       requestedEnd: null,
       outcomeHint: null,
+      noTransfer: this.noTransfer,
     };
+    const carry = carried.get(this.callSid);
+    if (carry) {
+      carried.delete(this.callSid);
+      this.transcript = carry.transcript;
+      this.history = carry.history;
+      this.toolCtx.leadId = carry.leadId;
+      this.toolCtx.tripId = carry.tripId;
+      this.toolCtx.outcomeHint = carry.outcomeHint;
+      this.log.info({ callSid: this.callSid, turns: carry.transcript.length }, "call: resumed after relay failure");
+    }
     this.contextBlock = this.buildContext();
     this.state = "active";
 
@@ -151,6 +173,7 @@ export class CallSession {
       activeTrips: this.trips,
       recordingEnabled: config.voice.recordingEnabled,
       nowIso: new Date().toISOString(),
+      noTransfer: this.noTransfer,
     });
   }
 
@@ -201,8 +224,9 @@ export class CallSession {
     this.transcript.push({ role: "user", text, at: new Date().toISOString() });
     this.history.push({ role: "user", text });
 
-    // Hard rule: ask for a human → transfer on the first ask.
-    if (HUMAN_ASK.test(text)) {
+    // Hard rule: ask for a human → transfer on the first ask. Not on a
+    // no-transfer call: the model offers a broker callback instead.
+    if (!this.noTransfer && HUMAN_ASK.test(text)) {
       const line = "Of course. Let me connect you with our on-call broker right now.";
       this.speak(line, true);
       this.transcript.push({ role: "assistant", text: line, at: new Date().toISOString() });
@@ -222,14 +246,23 @@ export class CallSession {
     } catch (err) {
       this.log.error({ err }, "turn: model call failed");
       this.confusedTurns += 1;
-      const line =
-        this.confusedTurns >= 2
-          ? "I am having trouble on my end. Let me connect you with our on-call broker."
-          : "Sorry, I missed that. Could you say it once more?";
+      const giveUp = this.confusedTurns >= 2;
+      const line = !giveUp
+        ? "Sorry, I missed that. Could you say it once more?"
+        : this.noTransfer
+          ? "I am having trouble on my end. We have your number, and a broker will call you back shortly. Thank you for calling JetNine."
+          : "I am having trouble on my end. Let me connect you with our on-call broker.";
       this.speak(line, true);
       this.transcript.push({ role: "assistant", text: line, at: new Date().toISOString() });
       this.history.push({ role: "assistant", text: line });
-      if (this.confusedTurns >= 2) await this.escalate("agent_failing", "Two consecutive model failures");
+      if (giveUp && this.noTransfer) {
+        this.escalationReason = "agent_failing";
+        this.summary = "Two consecutive model failures; caller promised a broker callback.";
+        await this.finishSpeaking(line);
+        await this.end("hangup", "escalated");
+      } else if (giveUp) {
+        await this.escalate("agent_failing", "Two consecutive model failures");
+      }
       return;
     } finally {
       this.inflight = null;
@@ -330,10 +363,10 @@ export class CallSession {
     this.send({ type: "end", handoffData: JSON.stringify(handoff) });
   }
 
-  private async end(action: "hangup") {
+  private async end(action: "hangup", outcomeOverride?: CallOutcome) {
     if (this.state === "closed") return;
     this.state = "ending";
-    const outcome: CallOutcome = this.toolCtx.outcomeHint ?? "other";
+    const outcome: CallOutcome = outcomeOverride ?? this.toolCtx.outcomeHint ?? "other";
     await this.finalize(outcome);
     const handoff: HandoffData = { action, callSid: this.callSid, leadId: this.toolCtx.leadId, summary: this.summary ?? undefined };
     this.send({ type: "end", handoffData: JSON.stringify(handoff) });
@@ -344,12 +377,31 @@ export class CallSession {
    * still on the line. Save what we have as an escalation (the desk gets
    * the lead SMS) before /relay/action transfers the caller to the broker.
    */
-  async relayFailed(detail: string) {
+  async relayFailed(detail: string, opts: { reconnecting?: boolean } = {}) {
     if (this.inflight) this.inflight.abort();
     if (this.finalized) return;
-    this.state = "escalating";
     this.escalationReason = "relay_failed";
-    this.summary = this.summary ?? `The voice agent's connection failed mid-call (${detail}). Transferred to the broker.`;
+    if (opts.reconnecting) {
+      // Hand the conversation to the session that reconnects; save what we
+      // have now (no alert yet) in case the caller hangs up in between.
+      carried.set(this.callSid, {
+        transcript: this.transcript,
+        history: this.history,
+        leadId: this.toolCtx?.leadId ?? null,
+        tripId: this.toolCtx?.tripId ?? null,
+        outcomeHint: this.toolCtx?.outcomeHint ?? null,
+      });
+      setTimeout(() => carried.delete(this.callSid), 120_000).unref();
+      await this.finalize(this.toolCtx?.outcomeHint ?? "other", { alert: false });
+      this.state = "closed";
+      return;
+    }
+    this.state = "escalating";
+    this.summary =
+      this.summary ??
+      (this.noTransfer
+        ? `The voice agent's connection failed mid-call (${detail}). Caller promised a broker callback.`
+        : `The voice agent's connection failed mid-call (${detail}). Transferred to the broker.`);
     await this.finalize("escalated");
   }
 
@@ -367,7 +419,7 @@ export class CallSession {
     this.state = "closed";
   }
 
-  private async finalize(outcome: CallOutcome) {
+  private async finalize(outcome: CallOutcome, opts: { alert?: boolean } = {}) {
     if (this.finalized || !this.callId) {
       this.finalized = true;
       return;
@@ -387,7 +439,7 @@ export class CallSession {
       this.log.error({ err }, "call: finalize failed");
     }
     // Every completed quote-request call alerts the desk, escalated or not.
-    if (outcome === "lead" || outcome === "escalated") {
+    if (opts.alert !== false && (outcome === "lead" || outcome === "escalated")) {
       await sendAlertSms(
         leadSummarySms({
           from: this.from,

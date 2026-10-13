@@ -40,8 +40,9 @@ export default async function VoiceAgentSettingsPage() {
             connects only when they press 1. The caller keeps hearing ringing meanwhile.
           </li>
           <li>
-            If nobody answers (or presses 1) in time, the agent picks up: &ldquo;Thanks for holding. The team couldn&apos;t get to
-            the phone, so this is JetNine&apos;s virtual assistant…&rdquo;
+            If nobody answers (or presses 1) in time, the agent picks up with the normal greeting and handles the call
+            itself: it takes the trip details and the best callback number and arranges a broker callback. It never
+            transfers these calls back to you.
           </li>
           <li>
             If the agent is waking up, the caller hears &ldquo;One moment while I connect you&rdquo; for up to about

@@ -5,7 +5,7 @@ process.env.TWILIO_NUMBER = "+15550001111";
 process.env.ESCALATION_PHONE = "+15550002222";
 process.env.RECORDING_ENABLED = "true";
 
-const { relayTwiml, escalationDialTwiml, escalationFallbackTwiml, escalationScreenTwiml, GREETING, MISSED_GREETING, RELAY_FAILED_LINE } =
+const { relayTwiml, escalationDialTwiml, escalationFallbackTwiml, escalationScreenTwiml, GREETING, RECONNECT_GREETING, RELAY_FAILED_LINE, callbackReassuranceTwiml } =
   await import("../src/twiml.js");
 
 describe("relay TwiML", () => {
@@ -26,12 +26,28 @@ describe("relay TwiML", () => {
   });
 });
 
-describe("missed-call TwiML", () => {
-  it("greets a caller the team missed, as an assistant, with the recording notice", () => {
+describe("ring-first (no-transfer) TwiML", () => {
+  it("uses the normal greeting and marks the session no-transfer", () => {
     const xml = relayTwiml({ missed: true });
-    expect(MISSED_GREETING).toMatch(/virtual assistant/);
-    expect(MISSED_GREETING).toMatch(/recorded/);
-    expect(xml).toContain(`welcomeGreeting="${MISSED_GREETING}"`);
+    expect(xml).toContain(`welcomeGreeting="${GREETING}"`);
+    expect(xml).not.toMatch(/unavailable|couldn|holding/i);
+    expect(xml).toContain('<Parameter name="noTransfer" value="1" />');
+    expect(xml).toContain('<Connect action="https://voice.example.com/relay/action?missed=1">');
+  });
+  it("a reconnect apologises for the drop and is marked as the retry", () => {
+    const xml = relayTwiml({ missed: true, reconnect: true });
+    expect(xml).toContain(`welcomeGreeting="${RECONNECT_GREETING}"`);
+    expect(xml).toContain("/relay/action?missed=1&amp;reconnect=1");
+  });
+  it("an ordinary call has no parameter and a bare action", () => {
+    const xml = relayTwiml();
+    expect(xml).not.toContain("<Parameter");
+    expect(xml).toContain('<Connect action="https://voice.example.com/relay/action">');
+  });
+  it("the last resort reassures without a transfer", () => {
+    const xml = callbackReassuranceTwiml();
+    expect(xml).toMatch(/call you back/);
+    expect(xml).not.toContain("<Dial");
   });
 });
 

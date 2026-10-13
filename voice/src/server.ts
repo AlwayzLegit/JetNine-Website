@@ -6,6 +6,7 @@ import { config, isConfigured, missingEnv, urls } from "./config.js";
 import { CallSession, sessionFor } from "./relay/session.js";
 import type { HandoffData } from "./relay/messages.js";
 import {
+  callbackReassuranceTwiml,
   escalationAcceptTwiml,
   escalationDialTwiml,
   escalationFallbackTwiml,
@@ -113,15 +114,38 @@ app.post("/relay/action", async (req, reply) => {
     "relay/action",
   );
   if (handoff?.action === "escalate") {
+    // A no-transfer call never goes back to the team (the session refuses
+    // to escalate; this is the belt to that brace).
+    if ((req.query as { missed?: string }).missed === "1") return xml(reply, callbackReassuranceTwiml());
     return xml(reply, escalationDialTwiml(body.CallSid));
   }
   // The relay failed (Twilio, the speech providers or our socket) while the
-  // caller is still on the line: never drop them. Save the call, then
-  // transfer to the broker with press 1 to accept; an unanswered transfer
-  // gets the callback reassurance and the "broker unanswered" SMS.
+  // caller is still on the line: never drop them.
+  //   ring-first call (?missed=1, the team already passed on it): never
+  //     back to the team. Reconnect the agent once, carrying the
+  //     conversation; if that fails too, reassure, alert the desk, hang up.
+  //   otherwise: save the call, then transfer to the broker with press 1 to
+  //     accept; an unanswered transfer gets the callback reassurance and the
+  //     "broker unanswered" SMS.
   if (body.SessionStatus === "failed" && body.CallStatus !== "completed") {
-    req.log.error({ callSid: body.CallSid, errorCode: body.ErrorCode, error: body.ErrorMessage }, "relay: session failed mid-call, transferring");
+    const q = req.query as { missed?: string; reconnect?: string };
     const detail = [body.ErrorCode, body.ErrorMessage].filter(Boolean).join(" ") || "no error code";
+    if (q.missed === "1") {
+      const reconnect = q.reconnect !== "1";
+      req.log.error({ callSid: body.CallSid, errorCode: body.ErrorCode, error: body.ErrorMessage, reconnect }, "relay: session failed mid-call (no-transfer call)");
+      try {
+        const session = sessionFor(body.CallSid);
+        if (session) await session.relayFailed(detail, { reconnecting: reconnect });
+        else if (!reconnect) {
+          const call = await getCallBySid(body.CallSid);
+          if (call) await updateCall(call.id, { escalation_reason: "relay_failed", outcome: "escalated" });
+        }
+      } catch (err) {
+        req.log.error({ err }, "relay: failed-session bookkeeping failed");
+      }
+      return xml(reply, reconnect ? relayTwiml({ missed: true, reconnect: true }) : callbackReassuranceTwiml());
+    }
+    req.log.error({ callSid: body.CallSid, errorCode: body.ErrorCode, error: body.ErrorMessage }, "relay: session failed mid-call, transferring");
     try {
       const session = sessionFor(body.CallSid);
       if (session) {

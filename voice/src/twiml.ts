@@ -10,16 +10,20 @@ export const GREETING = config.voice.recordingEnabled
   ? "Thank you for calling JetNine. This call may be recorded. How can I help with your flight?"
   : "Thank you for calling JetNine. How can I help with your flight?";
 
-/** After the team's phones rang out (the site's ring-first routing sends `?missed=1`). */
-export const MISSED_GREETING = config.voice.recordingEnabled
-  ? "Thanks for holding. The team couldn't get to the phone, so this is JetNine's virtual assistant. This call may be recorded. How can I help with your flight?"
-  : "Thanks for holding. The team couldn't get to the phone, so this is JetNine's virtual assistant. How can I help with your flight?";
+/** The line dropped and the agent reconnected (a no-transfer call cannot go to the broker). */
+export const RECONNECT_GREETING = "Sorry about that, the line dropped for a moment. Could you tell me again how I can help with your flight?";
 
 /** TwiML for the inbound call: connect the caller to our relay WebSocket. */
-export function relayTwiml(opts: { missed?: boolean } = {}): string {
+/**
+ * `missed`: the site's ring-first routing already rang the team, so this is
+ * a no-transfer call. The caller hears the normal greeting; the session is
+ * told through a <Parameter>. `reconnect`: the previous relay failed and
+ * this is the one retry.
+ */
+export function relayTwiml(opts: { missed?: boolean; reconnect?: boolean } = {}): string {
   const attrs: Record<string, string> = {
     url: urls.wss,
-    welcomeGreeting: opts.missed ? MISSED_GREETING : GREETING,
+    welcomeGreeting: opts.reconnect ? RECONNECT_GREETING : GREETING,
     welcomeGreetingInterruptible: "true",
     ttsProvider: config.voice.ttsProvider,
     transcriptionProvider: config.voice.sttProvider,
@@ -33,10 +37,15 @@ export function relayTwiml(opts: { missed?: boolean } = {}): string {
   const attrString = Object.entries(attrs)
     .map(([k, v]) => `${k}="${esc(v)}"`)
     .join(" ");
+  const q = new URLSearchParams();
+  if (opts.missed) q.set("missed", "1");
+  if (opts.reconnect) q.set("reconnect", "1");
+  const action = urls.https(`/relay/action${q.size ? `?${q}` : ""}`);
+  const params = opts.missed ? `\n      <Parameter name="noTransfer" value="1" />\n    ` : "";
   return `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
-  <Connect action="${esc(urls.https("/relay/action"))}">
-    <ConversationRelay ${attrString} />
+  <Connect action="${esc(action)}">
+    <ConversationRelay ${attrString}>${params}</ConversationRelay>
   </Connect>
 </Response>`;
 }
@@ -83,6 +92,15 @@ export function escalationAcceptTwiml(): string {
 
 /** The agent's session failed mid-call: apologise and transfer rather than drop the caller. */
 export const RELAY_FAILED_LINE = "Sorry, I lost the connection on my end. Let me connect you with our broker now.";
+
+/** A no-transfer call whose relay failed twice: reassure and hang up. Lead + alert already saved. */
+export function callbackReassuranceTwiml(): string {
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<Response>
+  <Say voice="Polly.Matthew-Neural">Sorry, we are having trouble with the line. We have your number and a broker will call you back shortly. Thank you for calling JetNine.</Say>
+  <Hangup/>
+</Response>`;
+}
 
 /** Broker did not answer: reassure and hang up. Lead + alert already saved. */
 export function escalationFallbackTwiml(): string {

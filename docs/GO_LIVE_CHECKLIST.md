@@ -25,7 +25,8 @@ from long-code numbers only, so Phase A does not wait on it.
      call to the mobile). Never use a `*.vercel.app` URL.
   3. **You — three test calls**, tell me after each: answer it (a normal
      call, caller's number on your screen); let it ring out (the agent
-     answers with "Thanks for holding… virtual assistant"); after 20 idle
+     answers with the normal greeting and finishes the call itself, never
+     transferring it back); after 20 idle
      minutes, let it ring out again (Render wakes during the rings; at
      worst the caller hears "One moment while I connect you").
   - **Press 1 to accept** (on by default, also for the row saved before it

@@ -147,9 +147,14 @@ Twilio's "A call comes in" can point at the site instead of this service:
 `https://jetnine.com/api/voice/inbound`. The site reads Admin › Settings ›
 Voice agent › Routing and either rings the team's numbers first
 (`<Dial timeout=rings×6 answerOnBridge>`) or goes straight on. A missed
-call is redirected here as `POST /twiml?missed=1`, which swaps the greeting
-for `MISSED_GREETING` (identifies the virtual assistant, keeps the
-recording notice). The site pings `/health` the moment a call arrives so a
+call is redirected here as `POST /twiml?missed=1`: a **no-transfer call**.
+The caller hears the normal greeting; a `<Parameter name="noTransfer">`
+tells the session, which skips the human-ask transfer, makes the escalate
+tool refuse, and adds a NO-TRANSFER block to the call context so the agent
+takes the details and arranges a broker callback instead. If the relay
+fails on such a call the agent reconnects once with the conversation
+carried over (`?reconnect=1`), then reassures and hangs up; it never
+dials the team. The site pings `/health` the moment a call arrives so a
 sleeping Free-plan instance boots during the rings, holds the caller while
 it wakes, and takes a voicemail if it never does. Ring-first and the
 agent's transfer to the broker both use press 1 to accept (`<Number url>`

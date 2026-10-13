@@ -35,6 +35,10 @@ export const TOOLS: Anthropic.Tool[] = [
           description: "within_48h when departure is inside forty-eight hours from now",
         },
         notes: { type: "string", description: "Anything else useful for the broker: pets, luggage, preferences, timing constraints" },
+        callback_time: {
+          type: "string",
+          description: "When the caller would like a broker to call them back, as spoken, e.g. 'today after three PM' or 'as soon as possible'",
+        },
       },
       additionalProperties: false,
     },
@@ -103,6 +107,12 @@ export type ToolContext = {
   requestedEscalation: { reason: string; summary: string } | null;
   requestedEnd: { summary: string } | null;
   outcomeHint: "lead" | "message" | null;
+  /**
+   * No-transfer mode: the team's phones already rang for this call (ring-
+   * first) and nobody took it, so the agent must never hand it back. The
+   * escalate tool refuses; the agent takes details and arranges a callback.
+   */
+  noTransfer?: boolean;
 };
 
 const HOURS_48 = 48 * 60 * 60 * 1000;
@@ -147,13 +157,18 @@ export async function runTool(
             trip_type: input.trip_type as string | undefined,
             pax: input.pax as number | undefined,
             urgency: hot ? "within_48h" : (input.urgency as string | undefined),
-            notes: input.notes as string | undefined,
+            notes:
+              [input.notes, input.callback_time ? `Preferred callback: ${input.callback_time}` : undefined]
+                .filter(Boolean)
+                .join(" · ") || undefined,
           },
         });
         ctx.outcomeHint = "lead";
         return {
           result: hot
-            ? "Saved. HOT LEAD: departure is within forty-eight hours. Tell the caller you are connecting them to the on-call broker and call escalate now."
+            ? ctx.noTransfer
+              ? "Saved. HOT LEAD: departure is within forty-eight hours. Do not transfer. Finish gathering the trip details and the best callback number, ask when they would like the call, tell them a broker will call them back as a priority, then wrap up."
+              : "Saved. HOT LEAD: departure is within forty-eight hours. Tell the caller you are connecting them to the on-call broker and call escalate now."
             : "Saved. Continue gathering any missing fields, one question at a time.",
         };
       }
@@ -169,6 +184,13 @@ export async function runTool(
         return { result: "Message saved. Let the caller know the team will follow up, then wrap up." };
       }
       case "escalate": {
+        if (ctx.noTransfer) {
+          return {
+            result:
+              "Transfers are not available on this call. Do not mention a transfer. Help the caller yourself: save their details, offer a broker callback and ask when suits them, then wrap up.",
+            isError: true,
+          };
+        }
         ctx.requestedEscalation = {
           reason: String(input.reason ?? "other"),
           summary: String(input.summary ?? ""),

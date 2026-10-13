@@ -5,7 +5,7 @@ import { emptyTwiml, hangupTwiml } from "@/lib/voice-twiml";
 
 // Where a call goes after the team's phones rang (the <Dial> action) and
 // each time a caller holds while the agent wakes (a <Redirect>).
-//   ?missed=1   the team did not answer: the agent greets accordingly
+//   ?missed=1   the team did not answer: a no-transfer call for the agent
 //   ?attempt=n  holds so far (src/lib/voice-agent.ts MAX_HOLDS)
 
 export const dynamic = "force-dynamic";

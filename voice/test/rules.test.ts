@@ -58,3 +58,36 @@ describe("alert SMS", () => {
     expect(body).toContain("broker missed");
   });
 });
+
+describe("no-transfer calls (ring-first already rang the team)", async () => {
+  const { runTool } = await import("../src/llm/tools.js");
+  const { callContext } = await import("../src/llm/prompt.js");
+  const ctx = () => ({
+    callId: "",
+    callerNumber: "+15550001111",
+    leadId: null,
+    tripId: null,
+    requestedEscalation: null,
+    requestedEnd: null,
+    outcomeHint: null,
+    noTransfer: true,
+  });
+  it("the escalate tool refuses and never starts a transfer", async () => {
+    const c = ctx();
+    const r = await runTool("escalate", { reason: "caller_requested_human", summary: "x" }, c);
+    expect(c.requestedEscalation).toBeNull();
+    expect(r.result).toMatch(/not available/);
+  });
+  it("an ordinary call still transfers", async () => {
+    const c = { ...ctx(), noTransfer: false };
+    await runTool("escalate", { reason: "caller_requested_human", summary: "x" }, c);
+    expect(c.requestedEscalation).not.toBeNull();
+  });
+  it("the call context overrides the escalation rules", () => {
+    const block = callContext({ from: "+15550001111", to: "+15550002222", lead: null, activeTrips: [], recordingEnabled: true, nowIso: "2026-10-13T00:00:00Z", noTransfer: true });
+    expect(block).toMatch(/NO-TRANSFER CALL/);
+    expect(block).toMatch(/Never call the escalate tool/);
+    const normal = callContext({ from: "+15550001111", to: "+15550002222", lead: null, activeTrips: [], recordingEnabled: true, nowIso: "2026-10-13T00:00:00Z" });
+    expect(normal).not.toMatch(/NO-TRANSFER/);
+  });
+});

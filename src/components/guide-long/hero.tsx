@@ -25,7 +25,6 @@ export function SplitHero({
   actions,
   image,
   imagePosition = "center",
-  caption = "Illustrative aviation imagery",
   titleMax = "14ch",
   subtitleSerif = true,
 }: {
@@ -37,7 +36,6 @@ export function SplitHero({
   actions?: ReactNode;
   image: string;
   imagePosition?: string;
-  caption?: string;
   titleMax?: string;
   subtitleSerif?: boolean;
 }) {
@@ -63,9 +61,6 @@ export function SplitHero({
       </div>
       <div className="relative min-h-[380px] bg-surface-2 max-md:min-h-[260px]">
         <Image src={image} alt="" fill priority sizes="(max-width: 768px) 100vw, 50vw" className="object-cover" style={{ objectPosition: imagePosition }} />
-        <span className="absolute bottom-[10px] right-[14px] whitespace-nowrap text-[12px] text-white [text-shadow:0_1px_2px_rgba(0,0,0,.5)]">
-          {caption}
-        </span>
       </div>
     </section>
   );
@@ -134,7 +129,6 @@ export function BleedHero({
                 {t.label}
               </Link>
             ))}
-            <span className="ml-auto text-[12px] text-steel max-md:hidden">Illustrative image</span>
           </nav>
         ) : (
           <div className="h-[26px]" />

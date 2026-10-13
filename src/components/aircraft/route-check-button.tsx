@@ -94,7 +94,6 @@ export function RouteCheckButton({
           </div>
           <div className="relative mt-4 aspect-[16/6] overflow-hidden rounded-[3px] bg-surface-2">
             <Image src="/images/light/jet-ultra-flight.webp" alt="" fill sizes="600px" className="object-cover" />
-            <span className="absolute bottom-1.5 left-2 text-[12px] text-white [text-shadow:0_1px_2px_rgba(0,0,0,.6)]">Illustrative imagery</span>
           </div>
           <div className="mt-4 grid grid-cols-[26px_minmax(0,1fr)] gap-3 bg-surface-2 px-4 py-3 text-[13px] leading-[1.5]">
             <LineIcon name="plane" size={22} />

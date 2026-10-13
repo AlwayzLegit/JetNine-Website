@@ -432,9 +432,6 @@ export default async function EmptyLegsPage() {
               Create a route alert
             </a>
           </div>
-          <p className="mt-[10px] text-right text-[12px] text-white [text-shadow:0_1px_2px_rgba(0,0,0,.5)] max-md:hidden">
-            Illustrative imagery
-          </p>
         </div>
       </section>
 

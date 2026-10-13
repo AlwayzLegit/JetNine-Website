@@ -261,7 +261,6 @@ export default async function CityPage({ params }: RouteParams) {
         title={<span className="[text-wrap:balance]">Private jet charter, {city.name}.</span>}
         body={<p>{city.lead}</p>}
         imageSrc={photo}
-        caption={CITY_PHOTOS.has(city.slug) ? "Illustrative imagery" : null}
       >
         {cheapest ? (
           <div className="mt-6 max-w-[460px] border border-line bg-white p-5">

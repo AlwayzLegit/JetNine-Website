@@ -150,7 +150,6 @@ export default function CharterCostPage() {
         }
         image="/images/light/page-02-hero.webp"
         imagePosition="center 60%"
-        caption="A clearer picture of your complete itinerary."
         actions={
           <>
             <Link href="/quote/mission" className="btn btn-primary h-[46px]">

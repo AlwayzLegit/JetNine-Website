@@ -191,11 +191,6 @@ export default async function BlogPostPage({ params }: Props) {
               loading="eager"
               fetchPriority="high"
             />
-            {post.heroImageAlt ? (
-              <figcaption className="absolute bottom-[10px] right-[14px] max-w-[80%] truncate font-serif text-[12px] text-white [text-shadow:0_1px_2px_rgba(0,0,0,.5)]">
-                {post.heroImageAlt}
-              </figcaption>
-            ) : null}
           </figure>
         ) : null}
       </section>

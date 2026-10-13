@@ -300,9 +300,6 @@ export default function AboutPage() {
             sizes="(max-width: 768px) 100vw, 50vw"
             className="object-cover"
           />
-          <span className="absolute bottom-[10px] right-[14px] whitespace-nowrap font-serif text-[12px] text-white [text-shadow:0_1px_2px_rgba(0,0,0,.5)]">
-            Illustrative aviation imagery
-          </span>
         </div>
       </section>
 

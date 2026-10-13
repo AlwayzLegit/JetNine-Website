@@ -109,9 +109,6 @@ export default function CharterFeesPage() {
           </div>
           <div className="relative aspect-[16/8.5] overflow-hidden bg-surface-2">
             <Image src="/images/light/leather-duffel-on-seat.webp" alt="" fill sizes="(max-width: 768px) 100vw, 640px" className="object-cover" />
-            <span className="absolute bottom-2 left-[10px] whitespace-nowrap text-[12px] text-white [text-shadow:0_1px_2px_rgba(0,0,0,.5)]">
-              Illustrative cabin imagery
-            </span>
           </div>
         </div>
 

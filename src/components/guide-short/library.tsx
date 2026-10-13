@@ -138,7 +138,6 @@ export function GuideLibrary({ guides, chapters }: { guides: LibraryGuide[]; cha
               </div>
             ) : null}
           </div>
-          <p className="mt-[10px] text-right text-[12px] text-steel">Illustrative cabin</p>
         </div>
       </section>
 

@@ -109,7 +109,6 @@ export function CategoryBoard({ cats }: { cats: BoardCategory[] }) {
           <>
             <div className="relative mt-[14px] aspect-[16/9] overflow-hidden rounded-[3px] bg-surface-2">
               <Image src={q.image} alt="" fill sizes="440px" className="object-cover" />
-              <span className="absolute bottom-1.5 left-2 text-[12px] text-white [text-shadow:0_1px_2px_rgba(0,0,0,.6)]">Illustrative imagery</span>
             </div>
             <div className="mt-4 grid grid-cols-[26px_minmax(0,1fr)] gap-3">
               <LineIcon name="check" size={22} />

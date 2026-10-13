@@ -38,9 +38,6 @@ export function ModelCard({ m }: { m: ModelCardData }) {
         className="relative aspect-[16/10] max-w-full flex-[1_1_230px] cursor-pointer overflow-hidden border-0 bg-surface-2 p-0"
       >
         {m.image ? <Image src={m.image} alt={`${m.name} exterior`} fill sizes="(max-width: 640px) 100vw, 300px" className="object-cover" /> : null}
-        <span className="absolute bottom-1.5 right-2 whitespace-nowrap font-serif text-[12px] text-white [text-shadow:0_1px_2px_rgba(0,0,0,.6)]">
-          Illustrative
-        </span>
       </button>
       <div className="min-w-0 flex-[999_1_260px] py-1.5 pr-2">
         <div className="flex items-center justify-between gap-3">
@@ -76,7 +73,6 @@ export function ModelCard({ m }: { m: ModelCardData }) {
         <p className="eyebrow mt-2">Model preview · {m.ref}</p>
         <div className="relative aspect-[16/9] overflow-hidden bg-surface-2">
           {m.image ? <Image src={m.image} alt="" fill sizes="440px" className="object-cover" /> : null}
-          <span className="absolute bottom-1.5 right-2 font-serif text-[12px] text-white [text-shadow:0_1px_2px_rgba(0,0,0,.6)]">Illustrative imagery</span>
         </div>
         <p className="mt-[14px] font-serif text-[15px] font-bold">{m.headline}</p>
         <p className="mt-1 text-[13px] leading-[1.5] text-steel">{m.detail}</p>

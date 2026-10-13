@@ -218,9 +218,6 @@ export default async function BlogIndexPage() {
         </div>
         <div className="relative min-h-[280px] bg-surface-2">
           <Image src="/images/light/page-15-hero.webp" alt="" fill priority sizes="(max-width: 768px) 100vw, 50vw" className="object-cover" />
-          <span className="absolute bottom-[10px] right-[14px] whitespace-nowrap font-serif text-[12px] text-white [text-shadow:0_1px_2px_rgba(0,0,0,.5)]">
-            Illustrative aviation imagery
-          </span>
         </div>
       </section>
 

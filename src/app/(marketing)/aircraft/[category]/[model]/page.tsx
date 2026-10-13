@@ -433,7 +433,6 @@ export default async function ModelPage({ params }: RouteParams) {
               start={m.sample.imageUrl ? 1 : 0}
               ariaLabel="Open cabin gallery"
               title={`A closer look at the ${m.shortName}.`}
-              sub={`Representative ${c.name.toLowerCase()} imagery. Request photos of the quoted aircraft.`}
               className="relative block aspect-[16/9] w-full overflow-hidden border-0 bg-surface-2 p-0"
             >
               <Image src={c.cabinImage} alt={`${c.name} cabin`} fill sizes="(max-width: 768px) 100vw, 600px" className="object-cover" />
@@ -441,7 +440,6 @@ export default async function ModelPage({ params }: RouteParams) {
                 View gallery ↗
               </span>
             </GalleryButton>
-            <p className="mt-1.5 text-[12px] text-steel">Illustrative interior. Layouts and equipment vary by aircraft.</p>
           </div>
           <div>
             <h2 className={h2Cls}>Inside the {m.shortName}.</h2>

@@ -151,7 +151,10 @@ call is redirected here as `POST /twiml?missed=1`, which swaps the greeting
 for `MISSED_GREETING` (identifies the virtual assistant, keeps the
 recording notice). The site pings `/health` the moment a call arrives so a
 sleeping Free-plan instance boots during the rings, holds the caller while
-it wakes, and takes a voicemail if it never does. `VOICE_AGENT_URL` on
+it wakes, and takes a voicemail if it never does. Ring-first and the
+agent's transfer to the broker both use press 1 to accept (`<Number url>`
+screening): only a 1 bridges, and the Dial action reads `DialBridged`
+because an unaccepted screened leg still reports `DialCallStatus=completed`. `VOICE_AGENT_URL` on
 Vercel overrides `https://jetnine-voice.onrender.com`.
 
 ## Going live — runbook

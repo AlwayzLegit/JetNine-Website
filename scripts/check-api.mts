@@ -285,6 +285,14 @@ function check(name: string, cond: boolean, detail?: unknown) {
   check("form: rings bounded", !VoiceRoutingInput.safeParse({ ringFirst: false, numbers: [], rings: 11 }).success);
   check("form: at most 3 numbers", !VoiceRoutingInput.safeParse({ ringFirst: true, numbers: ["8185550101", "8185550102", "8185550103", "8185550104"], rings: 4 }).success);
 
+  check("stored rows without screen get press 1", vr.parseVoiceRouting({ ringFirst: true, numbers: ["+18185550123"], rings: 4 }).screen === true);
+  check("screen off is kept", vr.parseVoiceRouting({ ringFirst: true, numbers: ["+18185550123"], rings: 4, screen: false }).screen === false);
+  const screened = vt.ringFirstTwiml({ numbers: ["+18185550123", "+18185550124"], rings: 4, action: "/api/voice/connect?missed=1", screen: "/api/voice/screen" });
+  check("press 1: every number carries the screening url",
+    (screened.match(/<Number url="\/api\/voice\/screen" method="POST">/g) ?? []).length === 2);
+  const ask = vt.screenTwiml({ from: "8 1 8", action: "/api/voice/screen/answer" });
+  check("press 1: asks twice, then hangs up unbridged",
+    (ask.match(/<Gather input="dtmf" numDigits="1"/g) ?? []).length === 2 && ask.trim().endsWith("<Hangup/></Response>") && !ask.includes("<Dial"));
   const dial = vt.ringFirstTwiml({ numbers: ["+18185550123"], rings: 5, action: "/api/voice/connect?missed=1&x=<y>" });
   check("ring-first TwiML: 5 rings = 30 s, rings through, escaped action",
     dial.includes('timeout="30"') && dial.includes('answerOnBridge="true"') && dial.includes("<Number>+18185550123</Number>") && dial.includes("missed=1&amp;x=&lt;y&gt;"));

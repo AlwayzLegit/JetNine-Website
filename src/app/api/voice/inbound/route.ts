@@ -1,6 +1,6 @@
 import { NextResponse, after, type NextRequest } from "next/server";
 import { voiceRouting } from "@/domain/settings/queries";
-import { connectPath, toAgent, wakeAgent } from "@/lib/voice-agent";
+import { SCREEN_PATH, connectPath, toAgent, wakeAgent } from "@/lib/voice-agent";
 import { readTwilioWebhook } from "@/lib/twilio-webhook";
 import { ringFirstApplies } from "@/lib/voice-routing";
 import { emptyTwiml, ringFirstTwiml } from "@/lib/voice-twiml";
@@ -32,10 +32,16 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     callSid: read.params.CallSid,
     ringFirst: ringFirstApplies(routing),
     rings: routing.rings,
+    screen: routing.screen,
   });
   if (ringFirstApplies(routing)) {
     return xml(
-      ringFirstTwiml({ numbers: routing.numbers, rings: routing.rings, action: connectPath({ missed: true }) }),
+      ringFirstTwiml({
+        numbers: routing.numbers,
+        rings: routing.rings,
+        action: connectPath({ missed: true }),
+        screen: routing.screen ? SCREEN_PATH : undefined,
+      }),
     );
   }
   return xml(await toAgent({ missed: false, attempt: 0, callSid: read.params.CallSid }));

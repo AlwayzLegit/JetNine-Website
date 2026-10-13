@@ -18,13 +18,37 @@ const say = (text: string) => `<Say voice="${SAY_VOICE}">${esc(text)}</Say>`;
 /**
  * Ring every number at once for `rings` rings. The caller hears ringing
  * throughout (answerOnBridge), and the person rung sees the caller's own
- * number. Whatever happens, Twilio then posts the outcome to `action`.
+ * number. With `screen`, whoever answers first hears screenTwiml() and
+ * must press 1 before the call connects. Whatever happens, Twilio then
+ * posts the outcome to `action`.
  */
-export function ringFirstTwiml(args: { numbers: string[]; rings: number; action: string }): string {
-  const numbers = args.numbers.map((n) => `<Number>${esc(n)}</Number>`).join("");
+export function ringFirstTwiml(args: { numbers: string[]; rings: number; action: string; screen?: string }): string {
+  const url = args.screen ? ` url="${esc(args.screen)}" method="POST"` : "";
+  const numbers = args.numbers.map((n) => `<Number${url}>${esc(n)}</Number>`).join("");
   return doc(
     `<Dial timeout="${ringSeconds(args.rings)}" answerOnBridge="true" action="${esc(args.action)}" method="POST">${numbers}</Dial>`,
   );
+}
+
+/**
+ * Press 1 to accept, played to the person who picked up (the caller still
+ * hears ringing). A phone's own voicemail never presses 1, so the leg ends
+ * unbridged and the call goes on to the agent. Asked twice, about 12 s.
+ */
+export function screenTwiml(args: { from: string; action: string }): string {
+  const ask = (text: string) =>
+    `<Gather input="dtmf" numDigits="1" timeout="5" action="${esc(args.action)}" method="POST">${say(text)}</Gather>`;
+  return doc(
+    ask(`JetNine call, press 1 to accept. Caller ${args.from}.`) +
+      ask("Press 1 to accept the call.") +
+      say("Sending it to the assistant.") +
+      "<Hangup/>",
+  );
+}
+
+/** Pressed 1: an empty document ends the screening and bridges the call. */
+export function screenAcceptTwiml(): string {
+  return doc("");
 }
 
 /** Hand the call to another TwiML document (the agent, or a retry of ours). */

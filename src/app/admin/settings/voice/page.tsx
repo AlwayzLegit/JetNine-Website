@@ -36,7 +36,11 @@ export default async function VoiceAgentSettingsPage() {
         <ol className="mt-3 flex list-decimal flex-col gap-1.5 pl-5 text-[15px] text-bone-2">
           <li>Ringing, while the numbers above ring at the same time. You see the caller&apos;s own number.</li>
           <li>
-            If nobody answers in time, the agent picks up: &ldquo;Thanks for holding. The team couldn&apos;t get to
+            With press 1 to accept on, whoever answers hears &ldquo;JetNine call, press 1 to accept&rdquo; and the call
+            connects only when they press 1. The caller keeps hearing ringing meanwhile.
+          </li>
+          <li>
+            If nobody answers (or presses 1) in time, the agent picks up: &ldquo;Thanks for holding. The team couldn&apos;t get to
             the phone, so this is JetNine&apos;s virtual assistant…&rdquo;
           </li>
           <li>

@@ -23,6 +23,7 @@ export async function saveVoiceRouting(formData: FormData): Promise<VoiceActionR
     numbers,
     rings: Number(formData.get("rings")),
     schedule: "always",
+    screen: formData.get("screen") === "on",
   });
   if (!r.ok) {
     // The schema's messages are whole sentences ("Add a number to ring first…").

@@ -28,13 +28,21 @@ from long-code numbers only, so Phase A does not wait on it.
      answers with "Thanks for holding… virtual assistant"); after 20 idle
      minutes, let it ring out again (Render wakes during the rings; at
      worst the caller hears "One moment while I connect you").
+  - **Press 1 to accept** (on by default, also for the row saved before it
+    existed): whoever answers hears "JetNine call, press 1 to accept" and
+    the call connects only on 1. Their voicemail, declining, no key, a
+    wrong key or hanging up all send the caller on to the agent
+    (`DialBridged=false` on the Dial action). Agent-to-broker transfers ask
+    the same ("JetNine transfer… press 1 to accept"); an unaccepted
+    transfer gets the callback reassurance and the "broker unanswered" SMS.
+    The emergency fallback (TwiML Bin) is a plain forward with no press 1.
   - **How it works:** the site answers Twilio, rings your phone for the
     window and wakes the agent at the same moment, then redirects a missed
     call to the agent with `?missed=1`. If the agent is still booting the
     caller holds (up to six holds of about 7 s); if it never comes up, the
     caller leaves a voicemail, texted to the ring-first numbers and emailed
     to dispatch. Declining on your phone sends the caller to your own
-    voicemail, so let it ring out.
+    voicemail, so let it ring out (with press 1 off).
   - **Switching back:** turn ring-first off (agent answers everything), or
     put "A call comes in" back on the Render webhook or the TwiML Bin.
 

@@ -247,7 +247,7 @@ test.describe("voice call webhooks", () => {
   // Unsigned requests are refused with TwiML (a 403 makes Twilio use the
   // number's fallback, which forwards to a mobile). No auth token in CI,
   // so nothing can verify: every path answers 403 before any database read.
-  for (const path of ["/api/voice/inbound", "/api/voice/connect?missed=1", "/api/voice/voicemail"]) {
+  for (const path of ["/api/voice/inbound", "/api/voice/connect?missed=1", "/api/voice/voicemail", "/api/voice/screen", "/api/voice/screen/answer"]) {
     test(`${path} refuses an unsigned request`, async ({ request }) => {
       const response = await request.post(path, {
         form: { CallSid: "CA00000000000000000000000000000000", From: "+15551234567" },

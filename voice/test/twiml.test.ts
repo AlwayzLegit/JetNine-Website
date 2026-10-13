@@ -5,7 +5,8 @@ process.env.TWILIO_NUMBER = "+15550001111";
 process.env.ESCALATION_PHONE = "+15550002222";
 process.env.RECORDING_ENABLED = "true";
 
-const { relayTwiml, escalationDialTwiml, escalationFallbackTwiml, GREETING, MISSED_GREETING } = await import("../src/twiml.js");
+const { relayTwiml, escalationDialTwiml, escalationFallbackTwiml, escalationScreenTwiml, GREETING, MISSED_GREETING } =
+  await import("../src/twiml.js");
 
 describe("relay TwiML", () => {
   const xml = relayTwiml();
@@ -37,9 +38,18 @@ describe("missed-call TwiML", () => {
 describe("escalation TwiML", () => {
   it("dials the broker with caller ID and a result callback", () => {
     const xml = escalationDialTwiml("CA123");
-    expect(xml).toContain("<Number>+15550002222</Number>");
+    expect(xml).toContain(">+15550002222</Number>");
     expect(xml).toContain('callerId="+15550001111"');
     expect(xml).toContain("/escalation/result?callSid=CA123");
+  });
+  it("asks the broker to press 1 before connecting", () => {
+    const xml = escalationDialTwiml("CA123");
+    expect(xml).toContain('<Number url="https://voice.example.com/escalation/screen" method="POST">+15550002222</Number>');
+    const screen = escalationScreenTwiml();
+    expect(screen.match(/<Gather input="dtmf" numDigits="1"/g)).toHaveLength(2);
+    expect(screen).toContain('action="https://voice.example.com/escalation/screen/answer"');
+    expect(screen).toMatch(/<Hangup\/><\/Response>$/);
+    expect(screen).not.toContain("<Dial");
   });
   it("fallback reassures and hangs up", () => {
     expect(escalationFallbackTwiml()).toMatch(/call you back.*<Hangup\/>/s);

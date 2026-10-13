@@ -93,6 +93,7 @@ export const VoiceRoutingInput = z
       .max(RINGS_MAX, { error: `Ring at most ${RINGS_MAX} times` })
       .describe(`Rings before the agent picks up, about ${SECONDS_PER_RING} seconds each.`),
     schedule: z.enum(SCHEDULES).default("always"),
+    screen: z.boolean().default(true).describe("Press 1 to accept: whoever answers must press 1 before the call connects."),
   })
   .refine((v) => !v.ringFirst || v.numbers.length > 0, {
     error: "Add a number to ring first, or turn ring-first off",

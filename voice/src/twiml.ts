@@ -41,16 +41,41 @@ export function relayTwiml(opts: { missed?: boolean } = {}): string {
 </Response>`;
 }
 
-/** Warm transfer: ring the on-call broker; the result URL decides the fallback. */
+/**
+ * Warm transfer: ring the on-call broker; the result URL decides the
+ * fallback. Press 1 to accept: whoever answers hears escalationScreenTwiml()
+ * and the caller is connected only after they press 1, so the broker's own
+ * voicemail cannot take the call.
+ */
 export function escalationDialTwiml(callSid: string): string {
   const result = urls.https(`/escalation/result?callSid=${encodeURIComponent(callSid)}`);
+  const screen = urls.https("/escalation/screen");
   return `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
   <Say voice="Polly.Matthew-Neural">Connecting you with our on-call broker now.</Say>
   <Dial timeout="${config.escalation.dialTimeoutSeconds}" callerId="${esc(config.twilio.number)}" action="${esc(result)}" method="POST">
-    <Number>${esc(config.escalation.phone)}</Number>
+    <Number url="${esc(screen)}" method="POST">${esc(config.escalation.phone)}</Number>
   </Dial>
 </Response>`;
+}
+
+/**
+ * Played to the broker's phone before the transfer connects. Only 1
+ * connects; any other key, no key (a voicemail) or hanging up ends this leg
+ * unbridged, and /escalation/result treats the transfer as unanswered.
+ */
+export function escalationScreenTwiml(): string {
+  const action = esc(urls.https("/escalation/screen/answer"));
+  const ask = (text: string) =>
+    `<Gather input="dtmf" numDigits="1" timeout="5" action="${action}" method="POST"><Say voice="Polly.Matthew-Neural">${esc(text)}</Say></Gather>`;
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<Response>${ask("JetNine transfer. A caller is asking for a broker. Press 1 to accept.")}${ask("Press 1 to accept the transfer.")}<Hangup/></Response>`;
+}
+
+/** Pressed 1: an empty document ends screening and bridges the transfer. */
+export function escalationAcceptTwiml(): string {
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<Response></Response>`;
 }
 
 /** Broker did not answer: reassure and hang up. Lead + alert already saved. */

@@ -5,7 +5,15 @@ import twilio from "twilio";
 import { config, isConfigured, missingEnv, urls } from "./config.js";
 import { CallSession } from "./relay/session.js";
 import type { HandoffData } from "./relay/messages.js";
-import { escalationDialTwiml, escalationFallbackTwiml, hangupTwiml, relayTwiml, unavailableTwiml } from "./twiml.js";
+import {
+  escalationAcceptTwiml,
+  escalationDialTwiml,
+  escalationFallbackTwiml,
+  escalationScreenTwiml,
+  hangupTwiml,
+  relayTwiml,
+  unavailableTwiml,
+} from "./twiml.js";
 import { getCallBySid, setRecording, updateCall } from "./db/queries.js";
 import { leadSummarySms, sendAlertSms } from "./escalation.js";
 import { describeRouting, resolveRouting } from "./llm/providers.js";
@@ -15,6 +23,7 @@ import { describeRouting, resolveRouting } from "./llm/providers.js";
 //   POST /twiml               inbound call → <Connect><ConversationRelay> (?missed=1: after ring-first)
 //   WS   /relay               the conversation
 //   POST /relay/action        relay session ended → <Dial> broker or <Hangup>
+//   POST /escalation/screen   broker's leg: "press 1 to accept" (+ /answer)
 //   POST /escalation/result   after <Dial>: fallback if the broker missed it
 //   POST /recording-status    Twilio recording callback
 //   GET  /health
@@ -103,8 +112,12 @@ app.post("/escalation/result", async (req, reply) => {
   if (!assertTwilioSignature(req, reply)) return;
   const body = req.body as TwilioBody;
   const callSid = (req.query as { callSid?: string }).callSid ?? body.CallSid;
-  const answered = body.DialCallStatus === "completed";
-  req.log.info({ callSid, dialStatus: body.DialCallStatus }, "escalation: dial result");
+  // With press 1 to accept, a leg that picked up but never pressed 1 (the
+  // broker's voicemail, a wrong key, a hang-up) also reports "completed",
+  // with DialBridged=false: that transfer was not answered.
+  const answered =
+    body.DialBridged === undefined ? body.DialCallStatus === "completed" : body.DialBridged === "true";
+  req.log.info({ callSid, dialStatus: body.DialCallStatus, bridged: body.DialBridged }, "escalation: dial result");
   if (answered) return xml(reply, hangupTwiml());
 
   try {
@@ -127,6 +140,20 @@ app.post("/escalation/result", async (req, reply) => {
     req.log.error({ err }, "escalation: fallback bookkeeping failed");
   }
   return xml(reply, escalationFallbackTwiml());
+});
+
+// The broker picked up: ask for 1 before connecting the caller.
+app.post("/escalation/screen", async (req, reply) => {
+  if (!assertTwilioSignature(req, reply)) return;
+  return xml(reply, escalationScreenTwiml());
+});
+
+app.post("/escalation/screen/answer", async (req, reply) => {
+  if (!assertTwilioSignature(req, reply)) return;
+  const body = req.body as TwilioBody;
+  const accepted = body.Digits === "1";
+  req.log.info({ callSid: body.CallSid, accepted }, "escalation: screen answer");
+  return xml(reply, accepted ? escalationAcceptTwiml() : hangupTwiml());
 });
 
 app.post("/recording-status", async (req, reply) => {

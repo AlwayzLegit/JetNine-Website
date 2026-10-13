@@ -16,6 +16,7 @@ export function VoiceRoutingForm({
   maxNumbers: number;
 }) {
   const [ringFirst, setRingFirst] = useState(routing.ringFirst);
+  const [screen, setScreen] = useState(routing.screen);
   const [msg, setMsg] = useState<Msg>(null);
   const [pending, start] = useTransition();
   const slots = Array.from({ length: maxNumbers }, (_, i) => routing.numbers[i] ?? "");
@@ -86,15 +87,41 @@ export function VoiceRoutingForm({
           </select>
         </div>
 
+        <label className="flex items-start gap-3 text-[15px] text-bone">
+          <input
+            type="checkbox"
+            name="screen"
+            className="mt-1"
+            checked={screen}
+            onChange={(e) => setScreen(e.currentTarget.checked)}
+          />
+          <span>
+            Press 1 to accept <span className="text-steel">· recommended</span>
+            <span className="mt-0.5 block text-[14px] text-steel">
+              When you answer you hear &ldquo;JetNine call, press 1 to accept.&rdquo; Any other key, no key, or hanging up sends the caller to the agent. Your phone&apos;s voicemail
+              can&apos;t press 1, so a call it picks up still goes to the agent.
+            </span>
+          </span>
+        </label>
+
         <div className="rounded-md border border-line px-4 py-3 text-[14px] text-bone-2">
-          <p>
-            <strong className="font-medium text-bone">Let it ring out.</strong> If you decline, most phones send the
-            caller to your own voicemail and the agent never answers.
-          </p>
-          <p className="mt-1.5">
-            Keep the window shorter than your phone&apos;s voicemail, which usually answers after 25 to 30 seconds. If
-            your voicemail answers first, the caller hears your voicemail, not the agent.
-          </p>
+          {screen ? (
+            <p>
+              <strong className="font-medium text-bone">Declining is fine.</strong> If you decline or don&apos;t press
+              1, the caller goes to the agent, not your voicemail.
+            </p>
+          ) : (
+            <>
+              <p>
+                <strong className="font-medium text-bone">Let it ring out.</strong> If you decline, most phones send
+                the caller to your own voicemail and the agent never answers.
+              </p>
+              <p className="mt-1.5">
+                Keep the window shorter than your phone&apos;s voicemail, which usually answers after 20 to 30 seconds.
+                If your voicemail answers first, the caller hears your voicemail, not the agent.
+              </p>
+            </>
+          )}
         </div>
 
         <div className="flex flex-wrap items-center gap-2.5">

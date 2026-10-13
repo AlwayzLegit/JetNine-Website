@@ -20,10 +20,19 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   if (!read.ok) return xml(emptyTwiml(), 403);
   const p = read.params;
 
-  // Someone on the team answered and the call has ended, or the caller
-  // hung up while it rang: nothing left to do.
-  if (p.DialCallStatus === "completed" || p.DialCallStatus === "canceled" || p.CallStatus === "completed") {
-    console.log("[voice:connect] done", { callSid: p.CallSid, dial: p.DialCallStatus, call: p.CallStatus });
+  // The caller hung up (while it rang, or after talking to the team), or
+  // someone on the team took the call and it has ended: nothing left to do.
+  // With press 1 to accept, a leg that answered but never pressed 1 (a
+  // phone's own voicemail) also reports "completed", with DialBridged=false:
+  // that call was missed and goes on to the agent.
+  const bridged = p.DialBridged === undefined ? p.DialCallStatus === "completed" : p.DialBridged === "true";
+  if (p.CallStatus === "completed" || p.DialCallStatus === "canceled" || bridged) {
+    console.log("[voice:connect] done", {
+      callSid: p.CallSid,
+      dial: p.DialCallStatus,
+      bridged: p.DialBridged,
+      call: p.CallStatus,
+    });
     return xml(hangupTwiml());
   }
 
@@ -31,7 +40,11 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   const attemptN = Number(read.url.searchParams.get("attempt") ?? 0);
   const attempt = Number.isInteger(attemptN) && attemptN >= 0 ? attemptN : 0;
   if (p.DialCallStatus) {
-    console.log("[voice:connect] team missed the call", { callSid: p.CallSid, dial: p.DialCallStatus });
+    console.log("[voice:connect] team missed the call", {
+      callSid: p.CallSid,
+      dial: p.DialCallStatus,
+      bridged: p.DialBridged,
+    });
   }
   return xml(await toAgent({ missed, attempt, callSid: p.CallSid }));
 }

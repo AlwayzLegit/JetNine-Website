@@ -77,6 +77,7 @@ function sameRouting(a: VoiceRouting, b: VoiceRouting): boolean {
     a.ringFirst === b.ringFirst &&
     a.rings === b.rings &&
     a.schedule === b.schedule &&
+    a.screen === b.screen &&
     a.numbers.join(",") === b.numbers.join(",")
   );
 }
@@ -96,6 +97,7 @@ export async function setVoiceRouting(
     numbers: input.numbers,
     rings: input.rings,
     schedule: input.schedule,
+    screen: input.screen,
   };
   if (sameRouting(routing, state.before)) return ok({ routing, changed: false });
 

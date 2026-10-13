@@ -35,6 +35,12 @@ export type VoiceRouting = {
   rings: number;
   /** When ring-first applies. Only "always" today. */
   schedule: VoiceSchedule;
+  /**
+   * Press 1 to accept: the person who answers hears who is calling and
+   * must press 1 before the call connects. A phone's own voicemail cannot,
+   * so a call it picks up still reaches the agent.
+   */
+  screen: boolean;
 };
 
 /** Until someone saves the page, every call goes straight to the agent, as before. */
@@ -43,6 +49,7 @@ export const VOICE_ROUTING_DEFAULT: VoiceRouting = {
   numbers: [],
   rings: RINGS_DEFAULT,
   schedule: "always",
+  screen: true,
 };
 
 const E164_RE = /^\+[1-9]\d{7,14}$/;
@@ -100,6 +107,8 @@ export function parseVoiceRouting(raw: unknown): VoiceRouting {
     numbers,
     rings,
     schedule,
+    // Rows saved before screening existed get it: it is what makes ring-first work.
+    screen: r.screen !== false,
   };
 }
 
@@ -111,5 +120,6 @@ export function ringFirstApplies(routing: VoiceRouting): boolean {
 /** One line for History and approval cards. Numbers are masked. */
 export function routingWords(r: VoiceRouting): string {
   if (!r.ringFirst || r.numbers.length === 0) return "the agent answers every call";
-  return `ring ${r.numbers.map(maskPhone).join(", ")} for ${ringsWords(r.rings)}, then the agent answers`;
+  const screen = r.screen ? " (press 1 to accept)" : "";
+  return `ring ${r.numbers.map(maskPhone).join(", ")} for ${ringsWords(r.rings)}${screen}, then the agent answers`;
 }

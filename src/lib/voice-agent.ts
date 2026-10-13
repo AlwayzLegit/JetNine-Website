@@ -64,6 +64,8 @@ export function connectPath(args: { missed: boolean; attempt?: number }): string
 }
 
 export const VOICEMAIL_PATH = "/api/voice/voicemail";
+export const SCREEN_PATH = "/api/voice/screen";
+export const SCREEN_ANSWER_PATH = "/api/voice/screen/answer";
 
 /** The agent if it is ready, a hold while it wakes, or voicemail. */
 export async function toAgent(args: { missed: boolean; attempt: number; callSid?: string }): Promise<string> {

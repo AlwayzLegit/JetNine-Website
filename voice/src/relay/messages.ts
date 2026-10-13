@@ -76,4 +76,6 @@ export type HandoffData = {
   callSid: string;
   leadId?: string | null;
   summary?: string;
+  /** The agent's transfer number (Settings › Voice agent); empty = ESCALATION_PHONE. */
+  transferTo?: string;
 };

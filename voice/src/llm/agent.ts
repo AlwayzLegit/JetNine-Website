@@ -33,10 +33,22 @@ function runWith(
   toolCtx: ToolContext,
   callbacks: TurnCallbacks,
   signal: AbortSignal,
+  persona?: string,
 ): Promise<TurnResult> {
   return p.provider === "openai"
-    ? runOpenAiTurn(p, history, contextBlock, toolCtx, callbacks, signal)
-    : runAnthropicTurn(p, history, contextBlock, toolCtx, callbacks, signal);
+    ? runOpenAiTurn(p, history, contextBlock, toolCtx, callbacks, signal, persona)
+    : runAnthropicTurn(p, history, contextBlock, toolCtx, callbacks, signal, persona);
+}
+
+/**
+ * The agent's model override (Settings › Voice agent) applies to the
+ * provider it belongs to: claude-* to Anthropic, gpt-* / o* to OpenAI.
+ * Anything else is ignored so a typo can't take the phone down.
+ */
+export function withModel(p: ProviderConfig | null, model: string | undefined): ProviderConfig | null {
+  if (!p || !model) return p;
+  const fits = p.provider === "anthropic" ? /^claude-/.test(model) : /^(gpt-|o\d)/.test(model);
+  return fits ? { ...p, model } : p;
 }
 
 export async function runTurn(
@@ -46,8 +58,15 @@ export async function runTurn(
   callbacks: TurnCallbacks,
   signal: AbortSignal,
   log?: FastifyBaseLogger,
+  agent?: { persona: string; model: string },
 ): Promise<TurnResult> {
-  const routing = await resolveRouting();
+  const resolved = await resolveRouting();
+  const routing = {
+    ...resolved,
+    primary: withModel(resolved.primary, agent?.model),
+    fallback: resolved.fallback,
+  };
+  const persona = agent?.persona;
   if (!routing.primary) {
     throw new Error(`No LLM provider configured (${routing.note})`);
   }
@@ -68,7 +87,7 @@ export async function runTurn(
 
   const historyLen = history.length;
   try {
-    const r = await runWith(routing.primary, history, callContextBlock, toolCtx, watched, signal);
+    const r = await runWith(routing.primary, history, callContextBlock, toolCtx, watched, signal, persona);
     return { ...r, provider: `${routing.primary.provider}/${routing.primary.model}` };
   } catch (err) {
     if (signal.aborted) return { spokenText: "", aborted: true };
@@ -80,7 +99,7 @@ export async function runTurn(
     // Undo anything the failed attempt appended so the fallback sees the
     // turn exactly as the primary did.
     history.length = historyLen;
-    const r = await runWith(routing.fallback, history, callContextBlock, toolCtx, watched, signal);
+    const r = await runWith(routing.fallback, history, callContextBlock, toolCtx, watched, signal, persona);
     return { ...r, provider: `${routing.fallback.provider}/${routing.fallback.model} (fallback)` };
   }
 }

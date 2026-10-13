@@ -298,6 +298,20 @@ function check(name: string, cond: boolean, detail?: unknown) {
     dial.includes('timeout="30"') && dial.includes('answerOnBridge="true"') && dial.includes("<Number>+18185550123</Number>") && dial.includes("missed=1&amp;x=&lt;y&gt;"));
 }
 
+// ─── Voice agents: site and voice service agree ──────────────────────────
+{
+  const site = await import("../src/lib/voice-agent-config.ts");
+  const voice = await import("../voice/src/agent-config.ts");
+  check("voice agent defaults match between the site and the voice service",
+    JSON.stringify(site.DEFAULT_AGENT_CONFIG) === JSON.stringify(voice.DEFAULT_AGENT_CONFIG));
+  check("the default config passes the site's schema", site.VoiceAgentConfigSchema.safeParse(site.DEFAULT_AGENT_CONFIG).success);
+  const tuned = { ...site.DEFAULT_AGENT_CONFIG.voice, voiceId: "abc123", speed: 0.9 };
+  check("voice attribute is built the same way on both sides", site.voiceAttribute(tuned) === voice.voiceAttribute(tuned) && site.voiceAttribute(tuned) === "abc123-flash_v2_5-0.9_0.5_0.75");
+  const junk = { voice: { speed: 5 }, profile: { greeting: "" } };
+  check("a bad stored row falls back to the defaults", JSON.stringify(site.parseAgentConfig(junk)) === JSON.stringify(site.DEFAULT_AGENT_CONFIG));
+  check("transfer number must be E.164", !site.VoiceAgentConfigSchema.shape.calls.safeParse({ ...site.DEFAULT_AGENT_CONFIG.calls, transferNumber: "818 555" }).success);
+}
+
 if (failures) {
   console.error(`\n${failures} check(s) failed.`);
   process.exit(1);

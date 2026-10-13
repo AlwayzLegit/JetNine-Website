@@ -113,7 +113,32 @@ export type ToolContext = {
    * escalate tool refuses; the agent takes details and arranges a callback.
    */
   noTransfer?: boolean;
+  /**
+   * The agent's transfer switches (Settings › Voice agent › Call handling).
+   * Absent = every reason allowed unless noTransfer.
+   */
+  canTransfer?: (reason: string) => boolean;
 };
+
+function transferOk(ctx: ToolContext, reason: string): boolean {
+  if (ctx.noTransfer) return false;
+  return ctx.canTransfer ? ctx.canTransfer(reason) : true;
+}
+
+/**
+ * A callback number as heard → E.164, or why it can't be one. US numbers
+ * need exactly ten digits (or eleven starting with 1); a leading + keeps an
+ * international number of 8 to 15 digits.
+ */
+export function checkCallbackNumber(raw: string): { ok: true; e164: string } | { ok: false; digits: number } {
+  const digits = raw.replace(/\D/g, "");
+  if (raw.trim().startsWith("+")) {
+    return digits.length >= 8 && digits.length <= 15 && !digits.startsWith("0") ? { ok: true, e164: `+${digits}` } : { ok: false, digits: digits.length };
+  }
+  if (digits.length === 10) return { ok: true, e164: `+1${digits}` };
+  if (digits.length === 11 && digits.startsWith("1")) return { ok: true, e164: `+${digits}` };
+  return { ok: false, digits: digits.length };
+}
 
 const HOURS_48 = 48 * 60 * 60 * 1000;
 
@@ -134,7 +159,15 @@ export async function runTool(
   try {
     switch (name) {
       case "save_lead": {
-        const phone = (input.callback_number as string) || ctx.callerNumber;
+        // A short or long number is never saved: the caller is asked again.
+        let badNumber: number | null = null;
+        // An existing lead keeps its number unless a valid new one arrives.
+        let phone = ctx.leadId ? "" : ctx.callerNumber;
+        if (input.callback_number) {
+          const checked = checkCallbackNumber(String(input.callback_number));
+          if (checked.ok) phone = checked.e164;
+          else badNumber = checked.digits;
+        }
         ctx.leadId = await upsertLead({
           leadId: ctx.leadId,
           phone,
@@ -164,12 +197,17 @@ export async function runTool(
           },
         });
         ctx.outcomeHint = "lead";
+        const numberNote =
+          badNumber === null
+            ? ""
+            : ` The callback number was NOT saved: you heard ${badNumber} digits and a US number has ten. Tell the caller you missed a digit and ask for the number again, slowly, then read it back in groups of three, three and four.`;
         return {
-          result: hot
-            ? ctx.noTransfer
-              ? "Saved. HOT LEAD: departure is within forty-eight hours. Do not transfer. Finish gathering the trip details and the best callback number, ask when they would like the call, tell them a broker will call them back as a priority, then wrap up."
-              : "Saved. HOT LEAD: departure is within forty-eight hours. Tell the caller you are connecting them to the on-call broker and call escalate now."
-            : "Saved. Continue gathering any missing fields, one question at a time.",
+          result:
+            (hot
+              ? transferOk(ctx, "departure_within_48h")
+                ? "Saved. HOT LEAD: departure is within forty-eight hours. Tell the caller you are connecting them to the on-call broker and call escalate now."
+                : "Saved. HOT LEAD: departure is within forty-eight hours. Do not transfer. Finish gathering the trip details and the best callback number, ask when they would like the call, tell them a broker will call them back as a priority, then wrap up."
+              : "Saved. Continue gathering any missing fields, one question at a time.") + numberNote,
         };
       }
       case "save_message": {
@@ -184,7 +222,7 @@ export async function runTool(
         return { result: "Message saved. Let the caller know the team will follow up, then wrap up." };
       }
       case "escalate": {
-        if (ctx.noTransfer) {
+        if (!transferOk(ctx, String(input.reason ?? "other"))) {
           return {
             result:
               "Transfers are not available on this call. Do not mention a transfer. Help the caller yourself: save their details, offer a broker callback and ask when suits them, then wrap up.",

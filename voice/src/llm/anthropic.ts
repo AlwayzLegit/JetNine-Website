@@ -27,10 +27,11 @@ export async function runAnthropicTurn(
   toolCtx: ToolContext,
   callbacks: TurnCallbacks,
   signal: AbortSignal,
+  persona: string = PERSONA,
 ): Promise<TurnResult> {
   let spokenText = "";
   const system: Anthropic.TextBlockParam[] = [
-    { type: "text", text: PERSONA, cache_control: { type: "ephemeral" } },
+    { type: "text", text: persona, cache_control: { type: "ephemeral" } },
     { type: "text", text: callContextBlock },
   ];
 

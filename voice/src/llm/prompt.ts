@@ -55,6 +55,8 @@ export function callContext(input: {
   nowIso: string;
   /** The team's phones already rang and nobody answered: never transfer. */
   noTransfer?: boolean;
+  /** The agent may transfer a client with an active trip (Call handling). Default true. */
+  activeTripTransfer?: boolean;
 }): string {
   const lines: string[] = [];
   lines.push(`CALL CONTEXT`);
@@ -68,7 +70,11 @@ export function callContext(input: {
     if (input.activeTrips.length > 0) {
       const t = input.activeTrips[0];
       lines.push(
-        `ACTIVE TRIP ON FILE: ${t.origin ?? "?"} to ${t.destination ?? "?"}, departing ${t.depart_date ?? "date unknown"}${t.pax ? `, ${t.pax} passengers` : ""}, status ${t.status}. This is an existing client with an active trip: confirm you see it in one sentence and escalate to the on-call broker immediately.`,
+        `ACTIVE TRIP ON FILE: ${t.origin ?? "?"} to ${t.destination ?? "?"}, departing ${t.depart_date ?? "date unknown"}${t.pax ? `, ${t.pax} passengers` : ""}, status ${t.status}. ${
+          input.activeTripTransfer === false || input.noTransfer
+            ? "This is an existing client with an active trip: confirm you see it in one sentence and arrange a broker callback."
+            : "This is an existing client with an active trip: confirm you see it in one sentence and escalate to the on-call broker immediately."
+        } Never invent trip details you were not given (times, aircraft, tail numbers).`,
       );
     }
   } else {

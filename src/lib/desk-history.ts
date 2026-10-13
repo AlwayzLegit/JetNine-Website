@@ -216,6 +216,11 @@ const VERBS: Record<string, Entry> = {
     return [`${c.actor} set `, "the reply-time promise", ` to ${to ?? "a new value"} minutes`];
   },
 
+  "system.voice_agent.create": (c) => [`${c.actor} created `, "a voice agent", after(c.diff, "name") ? ` (${after(c.diff, "name")})` : ""],
+  "system.voice_agent.update": (c) => [`${c.actor} saved `, "a voice agent", after(c.diff, "version") ? ` as version ${after(c.diff, "version")}` : ""],
+  "system.voice_agent.live": (c) => [`${c.actor} made `, "a voice agent", ` live${after(c.diff, "name") ? ` (${after(c.diff, "name")})` : ""}`],
+  "system.voice_agent.archive": (c) => [`${c.actor} archived `, "a voice agent"],
+  "system.voice_agent.unarchive": (c) => [`${c.actor} restored `, "a voice agent"],
   "system.voice_routing.update": (c) => {
     const to = after(c.diff, "routing");
     return [`${c.actor} set `, "call routing", to ? `: ${to}` : ""];

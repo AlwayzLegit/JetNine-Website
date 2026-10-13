@@ -21,7 +21,7 @@ describe("relay TwiML", () => {
     expect(xml).toContain('interruptible="any"');
   });
   it("discloses recording in the greeting when enabled", () => {
-    expect(GREETING).toMatch(/recorded/);
+    expect(GREETING).toMatch(/This call may be recorded/);
     expect(xml).toContain(`welcomeGreeting="${GREETING}"`);
   });
 });

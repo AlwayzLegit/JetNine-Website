@@ -141,6 +141,19 @@ once registration clears. Voice webhooks need no registration.
    `completed` plays the callback reassurance, hangs up, and sends the
    "broker missed" SMS.
 
+## Ring-first routing (the site in front of the agent)
+
+Twilio's "A call comes in" can point at the site instead of this service:
+`https://jetnine.com/api/voice/inbound`. The site reads Admin › Settings ›
+Voice agent › Routing and either rings the team's numbers first
+(`<Dial timeout=rings×6 answerOnBridge>`) or goes straight on. A missed
+call is redirected here as `POST /twiml?missed=1`, which swaps the greeting
+for `MISSED_GREETING` (identifies the virtual assistant, keeps the
+recording notice). The site pings `/health` the moment a call arrives so a
+sleeping Free-plan instance boots during the rings, holds the caller while
+it wakes, and takes a voicemail if it never does. `VOICE_AGENT_URL` on
+Vercel overrides `https://jetnine-voice.onrender.com`.
+
 ## Going live — runbook
 
 1. **Render** (done): service `jetnine-voice`, https://jetnine-voice.onrender.com,

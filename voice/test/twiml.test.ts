@@ -5,7 +5,7 @@ process.env.TWILIO_NUMBER = "+15550001111";
 process.env.ESCALATION_PHONE = "+15550002222";
 process.env.RECORDING_ENABLED = "true";
 
-const { relayTwiml, escalationDialTwiml, escalationFallbackTwiml, GREETING } = await import("../src/twiml.js");
+const { relayTwiml, escalationDialTwiml, escalationFallbackTwiml, GREETING, MISSED_GREETING } = await import("../src/twiml.js");
 
 describe("relay TwiML", () => {
   const xml = relayTwiml();
@@ -22,6 +22,15 @@ describe("relay TwiML", () => {
   it("discloses recording in the greeting when enabled", () => {
     expect(GREETING).toMatch(/recorded/);
     expect(xml).toContain(`welcomeGreeting="${GREETING}"`);
+  });
+});
+
+describe("missed-call TwiML", () => {
+  it("greets a caller the team missed, as an assistant, with the recording notice", () => {
+    const xml = relayTwiml({ missed: true });
+    expect(MISSED_GREETING).toMatch(/virtual assistant/);
+    expect(MISSED_GREETING).toMatch(/recorded/);
+    expect(xml).toContain(`welcomeGreeting="${MISSED_GREETING}"`);
   });
 });
 

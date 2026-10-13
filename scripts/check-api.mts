@@ -255,6 +255,41 @@ function check(name: string, cond: boolean, detail?: unknown) {
   }
 }
 
+// ─── Voice routing: phone numbers, stored rows, the form's schema ────────
+{
+  const vr = await import("../src/lib/voice-routing.ts");
+  const vt = await import("../src/lib/voice-twiml.ts");
+  const { VoiceRoutingInput } = await import("../src/domain/settings/schemas.ts");
+  const phones: [string, string | null][] = [
+    ["818 900 5278", "+18189005278"],
+    ["(818) 900-5278", "+18189005278"],
+    ["1-818-900-5278", "+18189005278"],
+    ["+44 20 7946 0958", "+442079460958"],
+    ["900 5278", null],
+    ["", null],
+    ["call me", null],
+  ];
+  for (const [input, want] of phones) check(`normalizePhone(${JSON.stringify(input)}) = ${want}`, vr.normalizePhone(input) === want);
+
+  const d = vr.parseVoiceRouting(null);
+  check("no stored routing → the agent answers", !d.ringFirst && d.numbers.length === 0 && d.rings === vr.RINGS_DEFAULT);
+  const junk = vr.parseVoiceRouting({ ringFirst: true, numbers: ["nope", 5], rings: 99, schedule: "weekends" });
+  check("malformed row → ring-first off, defaults", !junk.ringFirst && junk.rings === vr.RINGS_DEFAULT && junk.schedule === "always");
+  const good = vr.parseVoiceRouting({ ringFirst: true, numbers: ["+18185550123"], rings: 5, schedule: "always" });
+  check("stored routing applies", vr.ringFirstApplies(good) && good.rings === 5);
+
+  const ok = VoiceRoutingInput.safeParse({ ringFirst: true, numbers: ["818 555 0123", "+1 818 555 0123"], rings: 5 });
+  check("form: numbers normalised and de-duplicated", ok.success && ok.data.numbers.length === 1 && ok.data.numbers[0] === "+18185550123");
+  check("form: ring-first needs a number", !VoiceRoutingInput.safeParse({ ringFirst: true, numbers: [], rings: 4 }).success);
+  check("form: bad number refused", !VoiceRoutingInput.safeParse({ ringFirst: false, numbers: ["123"], rings: 4 }).success);
+  check("form: rings bounded", !VoiceRoutingInput.safeParse({ ringFirst: false, numbers: [], rings: 11 }).success);
+  check("form: at most 3 numbers", !VoiceRoutingInput.safeParse({ ringFirst: true, numbers: ["8185550101", "8185550102", "8185550103", "8185550104"], rings: 4 }).success);
+
+  const dial = vt.ringFirstTwiml({ numbers: ["+18185550123"], rings: 5, action: "/api/voice/connect?missed=1&x=<y>" });
+  check("ring-first TwiML: 5 rings = 30 s, rings through, escaped action",
+    dial.includes('timeout="30"') && dial.includes('answerOnBridge="true"') && dial.includes("<Number>+18185550123</Number>") && dial.includes("missed=1&amp;x=&lt;y&gt;"));
+}
+
 if (failures) {
   console.error(`\n${failures} check(s) failed.`);
   process.exit(1);

@@ -12,7 +12,7 @@ import { describeRouting, resolveRouting } from "./llm/providers.js";
 
 // HTTP: Twilio webhooks (TwiML). WS: ConversationRelay sessions.
 //
-//   POST /twiml               inbound call → <Connect><ConversationRelay>
+//   POST /twiml               inbound call → <Connect><ConversationRelay> (?missed=1: after ring-first)
 //   WS   /relay               the conversation
 //   POST /relay/action        relay session ended → <Dial> broker or <Hangup>
 //   POST /escalation/result   after <Dial>: fallback if the broker missed it
@@ -70,8 +70,11 @@ app.post("/twiml", async (req, reply) => {
     req.log.error({ missingEnv, llm }, "twiml: call received but service is not configured");
     return xml(reply, unavailableTwiml());
   }
-  req.log.info({ callSid: body.CallSid, from: body.From }, "twiml: inbound call");
-  return xml(reply, relayTwiml());
+  // The site's ring-first routing (jetnine.com/api/voice/*) redirects here
+  // with ?missed=1 once the team's phones have rung out.
+  const missed = (req.query as { missed?: string }).missed === "1";
+  req.log.info({ callSid: body.CallSid, from: body.From, missed }, "twiml: inbound call");
+  return xml(reply, relayTwiml({ missed }));
 });
 
 // ConversationRelay ended (we sent `end`, or the caller hung up). Twilio

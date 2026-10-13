@@ -4,6 +4,40 @@ Plain-text mirror of the checklist page shared on 2026-09-11. **You** items
 need Jet's accounts; **Me** items I do once pinged. A2P 10DLC covers SMS
 from long-code numbers only, so Phase A does not wait on it.
 
+## Status 2026-10-13 — voice desk live; ring-first routing ready to switch on
+
+- **Voice desk is live** on `jetnine-voice` (Render, Free plan by the
+  owner's choice). "A call comes in" is the Webhook
+  `https://jetnine-voice.onrender.com/twiml`; "Primary handler fails" is
+  the TwiML Bin **Forward to Mobile**. Test call and transfer verified.
+  `ALERT_PHONE` on Render corrected to the owner's mobile (2026-10-13).
+- **Ring-first routing** (Admin › Settings › Voice agent) ships with the
+  routing PR. Once it is deployed:
+  1. **You — settings.** Admin › Settings › Voice agent: tick "Ring these
+     numbers first", enter your mobile, pick the rings (4 = about 24 s is
+     the default; 5 = about 30 s risks your phone's own voicemail answering
+     first), Save. Until saved, every call goes straight to the agent, as
+     today. The number lives in the database, not the repo.
+  2. **You — Twilio.** Phone Numbers → +1 (424) 487-2707 → Voice
+     Configuration → "A call comes in": Webhook
+     `https://jetnine.com/api/voice/inbound`, HTTP POST. Leave "Primary
+     handler fails" on the TwiML Bin (a 403 or outage there forwards the
+     call to the mobile). Never use a `*.vercel.app` URL.
+  3. **You — three test calls**, tell me after each: answer it (a normal
+     call, caller's number on your screen); let it ring out (the agent
+     answers with "Thanks for holding… virtual assistant"); after 20 idle
+     minutes, let it ring out again (Render wakes during the rings; at
+     worst the caller hears "One moment while I connect you").
+  - **How it works:** the site answers Twilio, rings your phone for the
+    window and wakes the agent at the same moment, then redirects a missed
+    call to the agent with `?missed=1`. If the agent is still booting the
+    caller holds (up to six holds of about 7 s); if it never comes up, the
+    caller leaves a voicemail, texted to the ring-first numbers and emailed
+    to dispatch. Declining on your phone sends the caller to your own
+    voicemail, so let it ring out.
+  - **Switching back:** turn ring-first off (agent answers everything), or
+    put "A call comes in" back on the Render webhook or the TwiML Bin.
+
 ## Status 2026-10-06 — calls forward to the owner's mobile
 
 - **Incoming calls are live, by plain forwarding (not the voice desk).**

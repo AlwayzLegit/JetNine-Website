@@ -4,12 +4,16 @@ import { defineOp } from "@/domain/ops/registry";
 import { loadNotificationPref, type NotificationPrefState,
   loadNothing,
   loadReplyPromise,
+  loadVoiceRouting,
   sendTestEmailTo,
   setNotificationPref,
   setReplyPromise,
+  setVoiceRouting,
   type ReplyPromiseState,
+  type VoiceRoutingState,
 } from "./commands";
-import { NOTIFICATION_WORDS, NotificationPrefInput, ReplyPromiseInput, TestEmailInput } from "./schemas";
+import { NOTIFICATION_WORDS, NotificationPrefInput, ReplyPromiseInput, TestEmailInput, VoiceRoutingInput } from "./schemas";
+import { routingWords } from "@/lib/voice-routing";
 
 /**
  * Operations under Settings. The reply-time promise is desk-wide and a
@@ -62,4 +66,25 @@ export const testEmailOp = defineOp<TestEmailInput, Nothing>({
   run: (actor) => sendTestEmailTo(actor),
 });
 
-export const SETTINGS_OPS: AnyOp[] = [replyPromiseOp, notificationPrefOp, testEmailOp];
+export const VOICE_PATH = "/admin/settings/voice";
+
+/** Who an inbound call rings before the agent answers. Desk-wide: owners only. */
+export const voiceRoutingOp = defineOp<VoiceRoutingInput, VoiceRoutingState>({
+  id: "settings.voiceRouting",
+  scope: "settings",
+  schema: VoiceRoutingInput,
+  load: loadVoiceRouting,
+  risk: () => "settings",
+  summary: (input) =>
+    `Call routing: ${routingWords({ ...input, ringFirst: input.ringFirst && input.numbers.length > 0 })}`,
+  preview: (input, state) => {
+    const before = routingWords(state.before);
+    const after = routingWords({ ...input, ringFirst: input.ringFirst && input.numbers.length > 0 });
+    return before === after ? null : `call routing: ${before} → ${after}`;
+  },
+  subject: () => ({ type: "system", id: null, code: "voice_routing" }),
+  run: setVoiceRouting,
+  revalidate: () => [VOICE_PATH],
+});
+
+export const SETTINGS_OPS: AnyOp[] = [replyPromiseOp, notificationPrefOp, testEmailOp, voiceRoutingOp];

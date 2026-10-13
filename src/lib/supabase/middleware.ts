@@ -16,8 +16,10 @@ function isProtected(pathname: string): { kind: "account" | "admin" } | null {
 
 export async function updateSession(request: NextRequest) {
   // The desk API is Bearer-key only: no session refresh, no cookies, and no
-  // `?code=` forwarding on its paths.
-  if (request.nextUrl.pathname.startsWith("/api/v1/")) return NextResponse.next();
+  // `?code=` forwarding on its paths. Twilio's call webhooks are signed
+  // and answer a ringing call, so they skip the session lookup too.
+  const path = request.nextUrl.pathname;
+  if (path.startsWith("/api/v1/") || path.startsWith("/api/voice/")) return NextResponse.next();
 
   // Auth resilience: a magic link sometimes lands its auth params on a page
   // other than the callback — e.g. when Supabase falls back to the Site URL

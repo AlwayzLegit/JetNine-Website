@@ -12,6 +12,7 @@ import { staff } from "@/db/schema/staff";
 import { users } from "@/db/schema/users";
 import { deskRole, personName, type DeskRole } from "@/lib/desk-status";
 import { snapshot, type HealthSnapshot } from "@/lib/health";
+import { VOICE_ROUTING_KEY, parseVoiceRouting, type VoiceRouting } from "@/lib/voice-routing";
 
 /**
  * Settings: desk-wide facts shared by the admin pages and /api/v1. Nothing
@@ -42,6 +43,25 @@ export async function replyPromiseMinutes(): Promise<number> {
     return Math.round(n);
   } catch {
     return REPLY_PROMISE_DEFAULT;
+  }
+}
+
+/**
+ * Settings › Voice agent › Routing. Never throws: a missing row, a missing
+ * table or a database that does not answer all mean "the agent answers",
+ * which is how the line behaved before the setting existed.
+ */
+export async function voiceRouting(): Promise<VoiceRouting> {
+  try {
+    const [row] = await db
+      .select({ value: deskSettingsTable.value })
+      .from(deskSettingsTable)
+      .where(eq(deskSettingsTable.key, VOICE_ROUTING_KEY))
+      .limit(1);
+    return parseVoiceRouting(row?.value);
+  } catch (e) {
+    console.error("[settings/voice] routing read failed", e);
+    return parseVoiceRouting(null);
   }
 }
 

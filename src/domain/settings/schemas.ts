@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { NOTIFICATION_DEFAULTS, REPLY_PROMISE_CHOICES } from "@/db/schema/desk";
+import { NUMBERS_MAX, RINGS_MAX, RINGS_MIN, SCHEDULES, SECONDS_PER_RING, normalizePhone } from "@/lib/voice-routing";
 
 /**
  * Input shapes for the settings operations: the desk-wide reply-time
@@ -59,3 +60,42 @@ export const DeskSettingsBody = z.object({
   reason,
 });
 export type DeskSettingsBody = z.infer<typeof DeskSettingsBody>;
+
+/**
+ * Settings › Voice agent › Routing: ring these numbers first, then let the
+ * agent answer. Numbers arrive as typed and are normalised to E.164 here,
+ * so the page, the API and a stored proposal all go through one check.
+ */
+export const VoiceRoutingInput = z
+  .object({
+    ringFirst: z.boolean().describe("Ring the numbers below before the agent answers."),
+    numbers: z
+      .array(
+        z
+          .string()
+          .trim()
+          .transform((s, ctx) => {
+            const n = normalizePhone(s);
+            if (!n) {
+              ctx.addIssue({ code: "custom", message: `“${s}” is not a phone number` });
+              return z.NEVER;
+            }
+            return n;
+          }),
+      )
+      .max(NUMBERS_MAX, { error: `Ring at most ${NUMBERS_MAX} numbers` })
+      .transform((ns) => [...new Set(ns)])
+      .describe("Numbers rung together, US numbers in any format or E.164."),
+    rings: z
+      .number()
+      .int()
+      .min(RINGS_MIN, { error: `Ring at least ${RINGS_MIN} time` })
+      .max(RINGS_MAX, { error: `Ring at most ${RINGS_MAX} times` })
+      .describe(`Rings before the agent picks up, about ${SECONDS_PER_RING} seconds each.`),
+    schedule: z.enum(SCHEDULES).default("always"),
+  })
+  .refine((v) => !v.ringFirst || v.numbers.length > 0, {
+    error: "Add a number to ring first, or turn ring-first off",
+    path: ["numbers"],
+  });
+export type VoiceRoutingInput = z.infer<typeof VoiceRoutingInput>;

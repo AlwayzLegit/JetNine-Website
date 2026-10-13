@@ -216,6 +216,11 @@ const VERBS: Record<string, Entry> = {
     return [`${c.actor} set `, "the reply-time promise", ` to ${to ?? "a new value"} minutes`];
   },
 
+  "system.voice_routing.update": (c) => {
+    const to = after(c.diff, "routing");
+    return [`${c.actor} set `, "call routing", to ? `: ${to}` : ""];
+  },
+
   // Reference data
   "operator.create": (c) => [`${c.actor} added `, "an operator"],
   "operator.update": (c) => [`${c.actor} updated `, "an operator"],

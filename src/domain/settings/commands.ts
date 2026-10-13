@@ -5,8 +5,10 @@ import { logAudit } from "@/lib/audit";
 import { sendEmail } from "@/lib/email";
 import { auditFields, type Actor } from "@/domain/actor";
 import { err, ok, type Result } from "@/domain/result";
-import { replyPromiseMinutes } from "./queries";
-import type { NotificationPrefInput, ReplyPromiseInput } from "./schemas";
+import { VOICE_ROUTING_KEY, routingWords, type VoiceRouting } from "@/lib/voice-routing";
+import { deskSettings } from "@/db/schema/desk";
+import { replyPromiseMinutes, voiceRouting } from "./queries";
+import type { NotificationPrefInput, ReplyPromiseInput, VoiceRoutingInput } from "./schemas";
 
 /**
  * Settings commands, shared by the admin's Server Actions, the API and the
@@ -60,6 +62,69 @@ export async function setReplyPromise(
   });
 
   return ok({ minutes, before, changed: true });
+}
+
+// ─── Voice agent routing ─────────────────────────────────────────────────
+
+export type VoiceRoutingState = { before: VoiceRouting };
+
+export async function loadVoiceRouting(): Promise<Result<VoiceRoutingState>> {
+  return ok({ before: await voiceRouting() });
+}
+
+function sameRouting(a: VoiceRouting, b: VoiceRouting): boolean {
+  return (
+    a.ringFirst === b.ringFirst &&
+    a.rings === b.rings &&
+    a.schedule === b.schedule &&
+    a.numbers.join(",") === b.numbers.join(",")
+  );
+}
+
+/**
+ * Desk-wide: who an inbound call rings before the agent answers. The audit
+ * row keeps the routing in words with the numbers masked; the numbers
+ * themselves live only in the settings row.
+ */
+export async function setVoiceRouting(
+  actor: Actor,
+  input: VoiceRoutingInput,
+  state: VoiceRoutingState,
+): Promise<Result<{ routing: VoiceRouting; changed: boolean }>> {
+  const routing: VoiceRouting = {
+    ringFirst: input.ringFirst && input.numbers.length > 0,
+    numbers: input.numbers,
+    rings: input.rings,
+    schedule: input.schedule,
+  };
+  if (sameRouting(routing, state.before)) return ok({ routing, changed: false });
+
+  const now = new Date();
+  try {
+    await db
+      .insert(deskSettings)
+      .values({ key: VOICE_ROUTING_KEY, value: routing, updatedBy: actor.userId, updatedAt: now })
+      .onConflictDoUpdate({
+        target: deskSettings.key,
+        set: { value: routing, updatedBy: actor.userId, updatedAt: now },
+      });
+  } catch (e) {
+    console.error("[settings/voice] routing save failed", e);
+    return err("unavailable", "Call routing could not be saved. Try again.");
+  }
+
+  const a = auditFields(actor);
+  await logAudit({
+    actorUserId: a.actorUserId,
+    actorRole: a.actorRole,
+    action: "system.voice_routing.update",
+    subjectType: "system",
+    subjectCode: VOICE_ROUTING_KEY,
+    diff: { routing: { before: routingWords(state.before), after: routingWords(routing) } },
+    metadata: a.metadata,
+  });
+
+  return ok({ routing, changed: true });
 }
 
 // ─── A person's own notification toggles ─────────────────────────────────

@@ -198,7 +198,7 @@ test.describe("auth surface", () => {
   });
 
   test("desk sections redirect to sign-in when signed out", async ({ page }) => {
-    for (const path of ["/admin", "/admin/requests", "/admin/messages", "/admin/messages?tab=approvals", "/admin/settings", "/admin/settings/api-keys", "/admin/settings/assistant"]) {
+    for (const path of ["/admin", "/admin/requests", "/admin/messages", "/admin/messages?tab=approvals", "/admin/settings", "/admin/settings/api-keys", "/admin/settings/assistant", "/admin/settings/voice"]) {
       const response = await page.goto(path);
       expect(response?.status(), path).toBeLessThan(500);
       expect(page.url(), path).toMatch(/sign-in/);
@@ -241,6 +241,22 @@ test.describe("twilio inbound webhook", () => {
     });
     expect([403, 503]).toContain(response.status());
   });
+});
+
+test.describe("voice call webhooks", () => {
+  // Unsigned requests are refused with TwiML (a 403 makes Twilio use the
+  // number's fallback, which forwards to a mobile). No auth token in CI,
+  // so nothing can verify: every path answers 403 before any database read.
+  for (const path of ["/api/voice/inbound", "/api/voice/connect?missed=1", "/api/voice/voicemail"]) {
+    test(`${path} refuses an unsigned request`, async ({ request }) => {
+      const response = await request.post(path, {
+        form: { CallSid: "CA00000000000000000000000000000000", From: "+15551234567" },
+      });
+      expect(response.status()).toBe(403);
+      expect(response.headers()["content-type"]).toContain("text/xml");
+      expect(await response.text()).toContain("<Response>");
+    });
+  }
 });
 
 test.describe("api v1", () => {

@@ -10,11 +10,16 @@ export const GREETING = config.voice.recordingEnabled
   ? "Thank you for calling JetNine. This call may be recorded. How can I help with your flight?"
   : "Thank you for calling JetNine. How can I help with your flight?";
 
+/** After the team's phones rang out (the site's ring-first routing sends `?missed=1`). */
+export const MISSED_GREETING = config.voice.recordingEnabled
+  ? "Thanks for holding. The team couldn't get to the phone, so this is JetNine's virtual assistant. This call may be recorded. How can I help with your flight?"
+  : "Thanks for holding. The team couldn't get to the phone, so this is JetNine's virtual assistant. How can I help with your flight?";
+
 /** TwiML for the inbound call: connect the caller to our relay WebSocket. */
-export function relayTwiml(): string {
+export function relayTwiml(opts: { missed?: boolean } = {}): string {
   const attrs: Record<string, string> = {
     url: urls.wss,
-    welcomeGreeting: GREETING,
+    welcomeGreeting: opts.missed ? MISSED_GREETING : GREETING,
     welcomeGreetingInterruptible: "true",
     ttsProvider: config.voice.ttsProvider,
     transcriptionProvider: config.voice.sttProvider,

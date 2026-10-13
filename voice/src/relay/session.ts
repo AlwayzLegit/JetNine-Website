@@ -41,6 +41,16 @@ function withTimeout<T>(p: Promise<T>, ms: number, label: string): Promise<T> {
 }
 const DB_TIMEOUT_MS = 2500;
 
+/**
+ * Live sessions by CallSid, so /relay/action can close out a session that
+ * Twilio ended with SessionStatus=failed (the socket may close later, or
+ * not cleanly, and the transcript would be lost).
+ */
+const live = new Map<string, CallSession>();
+export function sessionFor(callSid: string): CallSession | undefined {
+  return live.get(callSid);
+}
+
 export class CallSession {
   private state: State = "connecting";
   private callSid = "";
@@ -108,6 +118,7 @@ export class CallSession {
     this.from = msg.from;
     this.to = msg.to;
     this.startedAt = new Date();
+    if (this.callSid) live.set(this.callSid, this);
     this.log.info({ callSid: this.callSid, from: this.from }, "call: setup");
 
     // Usable defaults right away so an early utterance is never dropped.
@@ -328,8 +339,23 @@ export class CallSession {
     this.send({ type: "end", handoffData: JSON.stringify(handoff) });
   }
 
+  /**
+   * Twilio ended the relay with SessionStatus=failed while the caller is
+   * still on the line. Save what we have as an escalation (the desk gets
+   * the lead SMS) before /relay/action transfers the caller to the broker.
+   */
+  async relayFailed(detail: string) {
+    if (this.inflight) this.inflight.abort();
+    if (this.finalized) return;
+    this.state = "escalating";
+    this.escalationReason = "relay_failed";
+    this.summary = this.summary ?? `The voice agent's connection failed mid-call (${detail}). Transferred to the broker.`;
+    await this.finalize("escalated");
+  }
+
   /** Socket closed by Twilio (caller hung up, or transfer completed). */
   async onClose() {
+    if (this.callSid && live.get(this.callSid) === this) live.delete(this.callSid);
     if (this.inflight) this.inflight.abort();
     if (this.finalized) {
       this.state = "closed";

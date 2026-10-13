@@ -3,7 +3,7 @@ import formbody from "@fastify/formbody";
 import websocket from "@fastify/websocket";
 import twilio from "twilio";
 import { config, isConfigured, missingEnv, urls } from "./config.js";
-import { CallSession } from "./relay/session.js";
+import { CallSession, sessionFor } from "./relay/session.js";
 import type { HandoffData } from "./relay/messages.js";
 import {
   escalationAcceptTwiml,
@@ -11,6 +11,7 @@ import {
   escalationFallbackTwiml,
   escalationScreenTwiml,
   hangupTwiml,
+  RELAY_FAILED_LINE,
   relayTwiml,
   unavailableTwiml,
 } from "./twiml.js";
@@ -99,9 +100,40 @@ app.post("/relay/action", async (req, reply) => {
       req.log.warn({ raw: body.HandoffData }, "relay/action: bad HandoffData");
     }
   }
-  req.log.info({ callSid: body.CallSid, action: handoff?.action, status: body.SessionStatus }, "relay/action");
+  req.log.info(
+    {
+      callSid: body.CallSid,
+      action: handoff?.action,
+      status: body.SessionStatus,
+      callStatus: body.CallStatus,
+      seconds: body.SessionDuration,
+      errorCode: body.ErrorCode,
+      error: body.ErrorMessage,
+    },
+    "relay/action",
+  );
   if (handoff?.action === "escalate") {
     return xml(reply, escalationDialTwiml(body.CallSid));
+  }
+  // The relay failed (Twilio, the speech providers or our socket) while the
+  // caller is still on the line: never drop them. Save the call, then
+  // transfer to the broker with press 1 to accept; an unanswered transfer
+  // gets the callback reassurance and the "broker unanswered" SMS.
+  if (body.SessionStatus === "failed" && body.CallStatus !== "completed") {
+    req.log.error({ callSid: body.CallSid, errorCode: body.ErrorCode, error: body.ErrorMessage }, "relay: session failed mid-call, transferring");
+    const detail = [body.ErrorCode, body.ErrorMessage].filter(Boolean).join(" ") || "no error code";
+    try {
+      const session = sessionFor(body.CallSid);
+      if (session) {
+        await session.relayFailed(detail);
+      } else {
+        const call = await getCallBySid(body.CallSid);
+        if (call) await updateCall(call.id, { escalation_reason: "relay_failed", outcome: "escalated" });
+      }
+    } catch (err) {
+      req.log.error({ err }, "relay: failed-session bookkeeping failed");
+    }
+    return xml(reply, escalationDialTwiml(body.CallSid, RELAY_FAILED_LINE));
   }
   return xml(reply, hangupTwiml());
 });
@@ -174,7 +206,8 @@ app.get("/relay", { websocket: true }, (socket, req) => {
   socket.on("message", (data) => {
     void session.handle(data.toString());
   });
-  socket.on("close", () => {
+  socket.on("close", (code, reason) => {
+    req.log.info({ code, reason: reason.toString().slice(0, 200) }, "relay: socket closed");
     void session.onClose();
   });
   socket.on("error", (err) => req.log.error({ err }, "relay: socket error"));

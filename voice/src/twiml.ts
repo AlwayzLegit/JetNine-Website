@@ -47,12 +47,15 @@ export function relayTwiml(opts: { missed?: boolean } = {}): string {
  * and the caller is connected only after they press 1, so the broker's own
  * voicemail cannot take the call.
  */
-export function escalationDialTwiml(callSid: string): string {
+export function escalationDialTwiml(
+  callSid: string,
+  line = "Connecting you with our on-call broker now.",
+): string {
   const result = urls.https(`/escalation/result?callSid=${encodeURIComponent(callSid)}`);
   const screen = urls.https("/escalation/screen");
   return `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
-  <Say voice="Polly.Matthew-Neural">Connecting you with our on-call broker now.</Say>
+  <Say voice="Polly.Matthew-Neural">${esc(line)}</Say>
   <Dial timeout="${config.escalation.dialTimeoutSeconds}" callerId="${esc(config.twilio.number)}" action="${esc(result)}" method="POST">
     <Number url="${esc(screen)}" method="POST">${esc(config.escalation.phone)}</Number>
   </Dial>
@@ -77,6 +80,9 @@ export function escalationAcceptTwiml(): string {
   return `<?xml version="1.0" encoding="UTF-8"?>
 <Response></Response>`;
 }
+
+/** The agent's session failed mid-call: apologise and transfer rather than drop the caller. */
+export const RELAY_FAILED_LINE = "Sorry, I lost the connection on my end. Let me connect you with our broker now.";
 
 /** Broker did not answer: reassure and hang up. Lead + alert already saved. */
 export function escalationFallbackTwiml(): string {

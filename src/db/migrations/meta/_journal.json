@@ -379,6 +379,13 @@
       "when": 1783100000000,
       "tag": "0053_approvals",
       "breakpoints": true
+    },
+    {
+      "idx": 54,
+      "version": "7",
+      "when": 1783200000000,
+      "tag": "0054_voice_agents",
+      "breakpoints": true
     }
   ]
 }

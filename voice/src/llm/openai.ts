@@ -38,9 +38,10 @@ export async function runOpenAiTurn(
   toolCtx: ToolContext,
   callbacks: TurnCallbacks,
   signal: AbortSignal,
+  persona: string = PERSONA,
 ): Promise<TurnResult> {
   let spokenText = "";
-  const system = `${PERSONA}\n\n${callContextBlock}`;
+  const system = `${persona}\n\n${callContextBlock}`;
 
   for (let iteration = 0; iteration < 6; iteration++) {
     if (signal.aborted) return { spokenText, aborted: true };

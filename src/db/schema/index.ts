@@ -22,3 +22,4 @@ export * from "./desk";
 export * from "./api";
 export * from "./agent";
 export * from "./approvals";
+export * from "./voice-agents";

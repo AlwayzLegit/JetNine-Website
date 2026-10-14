@@ -18,6 +18,8 @@ import {
 } from "../db/queries.js";
 import { leadSummarySms, sendAlertSms, startRecording } from "../escalation.js";
 import type { HandoffData, InboundMessage, OutboundMessage, SetupMessage } from "./messages.js";
+import { agentPersona, transferAllowed } from "../agent-config.js";
+import { agentById, builtInAgent, type LoadedAgent } from "../agent-store.js";
 
 // One CallSession per ConversationRelay WebSocket. States:
 //   connecting → active → (ending | escalating) → closed
@@ -82,6 +84,19 @@ export class CallSession {
   private finalized = false;
   /** Ring-first already rang the team: never transfer (see ToolContext.noTransfer). */
   private noTransfer = false;
+  /** The voice agent this call runs as (Settings › Voice agent), and its system prompt. */
+  private agent: LoadedAgent = builtInAgent();
+  private persona = agentPersona(this.agent.config);
+  private agentLoad: Promise<LoadedAgent> = Promise.resolve(this.agent);
+
+  /** Where a transfer goes: the agent's number, else ESCALATION_PHONE. */
+  get transferNumber(): string {
+    return this.agent.config.calls.transferNumber;
+  }
+
+  private canTransfer(reason: string): boolean {
+    return transferAllowed(this.agent.config, reason, this.noTransfer);
+  }
 
   constructor(
     private readonly ws: WebSocket,
@@ -129,6 +144,7 @@ export class CallSession {
     this.to = msg.to;
     this.startedAt = new Date();
     this.noTransfer = msg.customParameters?.noTransfer === "1";
+    this.agentLoad = agentById(msg.customParameters?.agentId);
     if (this.callSid) live.set(this.callSid, this);
     this.log.info({ callSid: this.callSid, from: this.from }, "call: setup");
 
@@ -142,6 +158,7 @@ export class CallSession {
       requestedEnd: null,
       outcomeHint: null,
       noTransfer: this.noTransfer,
+      canTransfer: (reason) => this.canTransfer(reason),
     };
     const carry = carried.get(this.callSid);
     if (carry) {
@@ -174,11 +191,19 @@ export class CallSession {
       recordingEnabled: config.voice.recordingEnabled,
       nowIso: new Date().toISOString(),
       noTransfer: this.noTransfer,
+      activeTripTransfer: this.canTransfer("existing_client_active_trip"),
     });
   }
 
   private async prepareContext(): Promise<void> {
     const t0 = Date.now();
+    try {
+      this.agent = await withTimeout(this.agentLoad, DB_TIMEOUT_MS, "agent");
+    } catch (err) {
+      this.log.warn({ err: err instanceof Error ? err.message : err }, "call: agent settings unavailable, using defaults");
+    }
+    this.persona = agentPersona(this.agent.config);
+    this.log.info({ callSid: this.callSid, agent: this.agent.name, version: this.agent.version }, "call: agent");
     try {
       this.callId = await withTimeout(
         createCall({ callSid: this.callSid, from: this.from, to: this.to }),
@@ -226,7 +251,7 @@ export class CallSession {
 
     // Hard rule: ask for a human → transfer on the first ask. Not on a
     // no-transfer call: the model offers a broker callback instead.
-    if (!this.noTransfer && HUMAN_ASK.test(text)) {
+    if (this.canTransfer("caller_requested_human") && HUMAN_ASK.test(text)) {
       const line = "Of course. Let me connect you with our on-call broker right now.";
       this.speak(line, true);
       this.transcript.push({ role: "assistant", text: line, at: new Date().toISOString() });
@@ -238,24 +263,48 @@ export class CallSession {
     const controller = new AbortController();
     this.inflight = controller;
     let result;
+    // Past the agent's longest call: ask the model to wrap up.
+    const minutes = (Date.now() - this.startedAt.getTime()) / 60_000;
+    const maxMinutes = this.agent.config.calls.maxCallMinutes;
+    const context =
+      minutes > maxMinutes
+        ? `${this.contextBlock}\nTIME: this call has run past ${maxMinutes} minutes. Summarise what happens next in one sentence, thank the caller, and call end_call now.`
+        : this.contextBlock;
+    const t0 = Date.now();
+    let firstTokenMs: number | null = null;
     try {
-      result = await runTurn(this.history, this.contextBlock, this.toolCtx, {
-        onText: (delta) => this.send({ type: "text", token: delta, last: false }),
-        onFiller: () => this.send({ type: "text", token: FILLER + " ", last: false }),
-      }, controller.signal, this.log);
+      result = await runTurn(
+        this.history,
+        context,
+        this.toolCtx,
+        {
+          onText: (delta) => {
+            if (firstTokenMs === null && delta) firstTokenMs = Date.now() - t0;
+            this.send({ type: "text", token: delta, last: false });
+          },
+          onFiller: () => {
+            if (firstTokenMs === null) firstTokenMs = Date.now() - t0;
+            this.send({ type: "text", token: FILLER + " ", last: false });
+          },
+        },
+        controller.signal,
+        this.log,
+        { persona: this.persona, model: this.agent.config.llm.model },
+      );
+      this.log.info({ callSid: this.callSid, firstTokenMs, totalMs: Date.now() - t0, provider: result.provider }, "turn: timing");
     } catch (err) {
       this.log.error({ err }, "turn: model call failed");
       this.confusedTurns += 1;
       const giveUp = this.confusedTurns >= 2;
       const line = !giveUp
         ? "Sorry, I missed that. Could you say it once more?"
-        : this.noTransfer
+        : !this.canTransfer("agent_failing")
           ? "I am having trouble on my end. We have your number, and a broker will call you back shortly. Thank you for calling JetNine."
           : "I am having trouble on my end. Let me connect you with our on-call broker.";
       this.speak(line, true);
       this.transcript.push({ role: "assistant", text: line, at: new Date().toISOString() });
       this.history.push({ role: "assistant", text: line });
-      if (giveUp && this.noTransfer) {
+      if (giveUp && !this.canTransfer("agent_failing")) {
         this.escalationReason = "agent_failing";
         this.summary = "Two consecutive model failures; caller promised a broker callback.";
         await this.finishSpeaking(line);
@@ -359,6 +408,7 @@ export class CallSession {
       callSid: this.callSid,
       leadId: this.toolCtx.leadId,
       summary,
+      transferTo: this.transferNumber || undefined,
     };
     this.send({ type: "end", handoffData: JSON.stringify(handoff) });
   }

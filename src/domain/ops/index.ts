@@ -8,6 +8,7 @@ import { SCHEDULE_OPS } from "@/domain/schedule/ops";
 import { SETTINGS_OPS } from "@/domain/settings/ops";
 import { TEAM_OPS } from "@/domain/team/ops";
 import { TRIP_OPS } from "@/domain/trips/ops";
+import { VOICE_AGENT_OPS } from "@/domain/voice-agents/ops";
 import type { OpDef } from "./registry";
 
 /**
@@ -29,6 +30,7 @@ const ALL: AnyOp[] = [
   ...SETTINGS_OPS,
   ...TEAM_OPS,
   ...BLOG_OPS,
+  ...VOICE_AGENT_OPS,
 ];
 
 const byId = new Map<string, AnyOp>();

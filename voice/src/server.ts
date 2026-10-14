@@ -4,6 +4,7 @@ import websocket from "@fastify/websocket";
 import twilio from "twilio";
 import { config, isConfigured, missingEnv, urls } from "./config.js";
 import { CallSession, sessionFor } from "./relay/session.js";
+import { liveAgent } from "./agent-store.js";
 import type { HandoffData } from "./relay/messages.js";
 import {
   callbackReassuranceTwiml,
@@ -85,7 +86,9 @@ app.post("/twiml", async (req, reply) => {
   // with ?missed=1 once the team's phones have rung out.
   const missed = (req.query as { missed?: string }).missed === "1";
   req.log.info({ callSid: body.CallSid, from: body.From, missed }, "twiml: inbound call");
-  return xml(reply, relayTwiml({ missed }));
+  const agent = await liveAgent();
+  req.log.info({ callSid: body.CallSid, agent: agent.name, version: agent.version }, "twiml: agent");
+  return xml(reply, relayTwiml({ missed, agent }));
 });
 
 // ConversationRelay ended (we sent `end`, or the caller hung up). Twilio
@@ -117,7 +120,7 @@ app.post("/relay/action", async (req, reply) => {
     // A no-transfer call never goes back to the team (the session refuses
     // to escalate; this is the belt to that brace).
     if ((req.query as { missed?: string }).missed === "1") return xml(reply, callbackReassuranceTwiml());
-    return xml(reply, escalationDialTwiml(body.CallSid));
+    return xml(reply, escalationDialTwiml(body.CallSid, undefined, handoff.transferTo));
   }
   // The relay failed (Twilio, the speech providers or our socket) while the
   // caller is still on the line: never drop them.
@@ -143,7 +146,7 @@ app.post("/relay/action", async (req, reply) => {
       } catch (err) {
         req.log.error({ err }, "relay: failed-session bookkeeping failed");
       }
-      return xml(reply, reconnect ? relayTwiml({ missed: true, reconnect: true }) : callbackReassuranceTwiml());
+      return xml(reply, reconnect ? relayTwiml({ missed: true, reconnect: true, agent: await liveAgent() }) : callbackReassuranceTwiml());
     }
     req.log.error({ callSid: body.CallSid, errorCode: body.ErrorCode, error: body.ErrorMessage }, "relay: session failed mid-call, transferring");
     try {
@@ -157,7 +160,7 @@ app.post("/relay/action", async (req, reply) => {
     } catch (err) {
       req.log.error({ err }, "relay: failed-session bookkeeping failed");
     }
-    return xml(reply, escalationDialTwiml(body.CallSid, RELAY_FAILED_LINE));
+    return xml(reply, escalationDialTwiml(body.CallSid, RELAY_FAILED_LINE, sessionFor(body.CallSid)?.transferNumber));
   }
   return xml(reply, hangupTwiml());
 });

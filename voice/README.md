@@ -162,6 +162,28 @@ screening): only a 1 bridges, and the Dial action reads `DialBridged`
 because an unaccepted screened leg still reports `DialCallStatus=completed`. `VOICE_AGENT_URL` on
 Vercel overrides `https://jetnine-voice.onrender.com`.
 
+## Voice agents (Settings › Voice agent › Agents)
+
+Everything about how the agent sounds and behaves is edited on the site,
+not in env vars: greeting and language; voice (provider, voice ID, model,
+speed, stability, similarity); listening (speech model, end-of-speech
+wait, interruption sensitivity, backchannel filter, greeting
+interruptible, hints); the AI model override; instructions, personality,
+knowledge and never-say list; and call handling (which transfer triggers
+are on, the transfer number, asking for a callback time, longest call).
+Every save is a version that can be restored; one agent is live.
+
+This service reads the live agent from `voice_agents` (cached 30 s, last
+good answer kept if Supabase is down), builds the `<ConversationRelay>`
+from it and passes the agent id to the session as a `<Parameter>`. The
+session builds the system prompt from the agent (`agentPersona`), enforces
+the transfer switches in the escalate tool and the human-ask rule, uses
+the agent's transfer number, and logs `turn: timing` (first token and
+total ms) for every reply. With no live agent it runs the built-in
+defaults (`src/agent-config.ts`) with TTS/STT from the env as before. The
+site and this service share those defaults; `pnpm check:api` on the site
+fails if they drift.
+
 ## Going live — runbook
 
 1. **Render** (done): service `jetnine-voice`, https://jetnine-voice.onrender.com,

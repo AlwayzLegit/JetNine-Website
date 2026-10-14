@@ -13,6 +13,7 @@ import { users } from "@/db/schema/users";
 import { deskRole, personName, type DeskRole } from "@/lib/desk-status";
 import { snapshot, type HealthSnapshot } from "@/lib/health";
 import { VOICE_ROUTING_KEY, parseVoiceRouting, type VoiceRouting } from "@/lib/voice-routing";
+import { SOCIAL_LINKS_KEY, parseSocialLinks, type SocialLinks } from "@/lib/social-links";
 
 /**
  * Settings: desk-wide facts shared by the admin pages and /api/v1. Nothing
@@ -62,6 +63,21 @@ export async function voiceRouting(): Promise<VoiceRouting> {
   } catch (e) {
     console.error("[settings/voice] routing read failed", e);
     return parseVoiceRouting(null);
+  }
+}
+
+/** Settings › Social links. Never throws: no row, no table or no database all read as no links. */
+export async function socialLinks(): Promise<SocialLinks> {
+  try {
+    const [row] = await db
+      .select({ value: deskSettingsTable.value })
+      .from(deskSettingsTable)
+      .where(eq(deskSettingsTable.key, SOCIAL_LINKS_KEY))
+      .limit(1);
+    return parseSocialLinks(row?.value);
+  } catch (e) {
+    console.error("[settings/social] read failed", e);
+    return {};
   }
 }
 

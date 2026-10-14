@@ -1,5 +1,8 @@
 import Link from "next/link";
 import { BrandMark } from "./brand-mark";
+import { SocialIcon } from "./social-icons";
+import { cachedSocialLinks } from "@/lib/social-links-cache";
+import { socialLinkList } from "@/lib/social-links";
 
 type FooterLink = { label: string; href: string };
 
@@ -36,8 +39,10 @@ const LEGAL_LINKS: FooterLink[] = [
 
 const linkClass = "text-bone transition-colors hover:text-gold max-md:inline-flex max-md:min-h-[28px] max-md:items-center";
 
-export function SiteFooter() {
+export async function SiteFooter() {
   const year = new Date().getFullYear();
+  // Settings › Social links; nothing renders until the owner adds one.
+  const socials = socialLinkList(await cachedSocialLinks());
   return (
     <footer className="border-t border-line bg-ink font-serif max-md:bg-white max-md:font-sans">
       <div className="container-jn pb-[18px] pt-[22px] max-md:pb-[26px]">
@@ -62,11 +67,30 @@ export function SiteFooter() {
           </nav>
         </div>
 
-        <div className="mt-4 flex flex-wrap justify-between gap-4 border-t border-line pt-3 text-[12px] leading-[1.5] text-steel max-md:mt-[14px] max-md:block max-md:border-0 max-md:pt-0">
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-4 border-t border-line pt-3 text-[12px] leading-[1.5] text-steel max-md:mt-[14px] max-md:block max-md:border-0 max-md:pt-0">
           <span className="max-md:block">
             JetNine is a Part 295 indirect air carrier. Flights are operated by FAA Part 135 certificated air carriers.
           </span>
-          <span className="max-md:block">© {year} JetNine. All rights reserved.</span>
+          <span className="flex flex-wrap items-center gap-4 max-md:mt-3">
+            {socials.length > 0 ? (
+              <nav aria-label="JetNine on social media" className="flex items-center gap-3">
+                {socials.map((s) => (
+                  <a
+                    key={s.platform}
+                    href={s.url}
+                    target="_blank"
+                    rel="noopener noreferrer me"
+                    aria-label={`JetNine on ${s.label}`}
+                    title={s.label}
+                    className="inline-flex h-7 w-7 items-center justify-center text-bone transition-colors hover:text-gold"
+                  >
+                    <SocialIcon platform={s.platform} className="h-4 w-4" />
+                  </a>
+                ))}
+              </nav>
+            ) : null}
+            <span className="max-md:block">© {year} JetNine. All rights reserved.</span>
+          </span>
         </div>
       </div>
     </footer>

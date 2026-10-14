@@ -198,7 +198,7 @@ test.describe("auth surface", () => {
   });
 
   test("desk sections redirect to sign-in when signed out", async ({ page }) => {
-    for (const path of ["/admin", "/admin/requests", "/admin/messages", "/admin/messages?tab=approvals", "/admin/settings", "/admin/settings/api-keys", "/admin/settings/assistant", "/admin/settings/voice", "/admin/settings/voice?tab=routing", "/admin/settings/voice/agents/00000000-0000-4000-8000-000000000000"]) {
+    for (const path of ["/admin", "/admin/requests", "/admin/messages", "/admin/messages?tab=approvals", "/admin/settings", "/admin/settings/api-keys", "/admin/settings/assistant", "/admin/settings/voice", "/admin/settings/voice?tab=routing", "/admin/settings/voice/agents/00000000-0000-4000-8000-000000000000", "/admin/settings/social"]) {
       const response = await page.goto(path);
       expect(response?.status(), path).toBeLessThan(500);
       expect(page.url(), path).toMatch(/sign-in/);

@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { NOTIFICATION_DEFAULTS, REPLY_PROMISE_CHOICES } from "@/db/schema/desk";
 import { NUMBERS_MAX, RINGS_MAX, RINGS_MIN, SCHEDULES, SECONDS_PER_RING, normalizePhone } from "@/lib/voice-routing";
+import { SOCIAL_META, SOCIAL_PLATFORMS, normalizeSocialLink, type SocialLinks, type SocialPlatform } from "@/lib/social-links";
 
 /**
  * Input shapes for the settings operations: the desk-wide reply-time
@@ -100,3 +101,29 @@ export const VoiceRoutingInput = z
     path: ["numbers"],
   });
 export type VoiceRoutingInput = z.infer<typeof VoiceRoutingInput>;
+
+/**
+ * Settings › Social links: one field per platform, as typed (a link or a
+ * handle). Normalised to the profile URL here, so the page, the API and a
+ * stored proposal all go through one check; an empty field removes it.
+ */
+export const SocialLinksInput = z
+  .object(
+    Object.fromEntries(SOCIAL_PLATFORMS.map((p) => [p, z.string().trim().max(300).optional()])) as Record<
+      SocialPlatform,
+      z.ZodOptional<z.ZodString>
+    >,
+  )
+  .transform((v, ctx) => {
+    const out: SocialLinks = {};
+    for (const p of SOCIAL_PLATFORMS) {
+      const r = normalizeSocialLink(p, v[p] ?? "");
+      if (!r.ok) {
+        ctx.addIssue({ code: "custom", path: [p], message: `${SOCIAL_META[p].label}: ${r.error}` });
+        continue;
+      }
+      if (r.url) out[p] = r.url;
+    }
+    return out;
+  });
+export type SocialLinksInput = z.infer<typeof SocialLinksInput>;

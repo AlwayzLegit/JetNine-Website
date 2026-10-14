@@ -8,6 +8,7 @@ export const SETTINGS_NAV = [
   { href: "/admin/settings/team", label: "Team", ownerOnly: true },
   { href: "/admin/settings/notifications", label: "Notifications", ownerOnly: false },
   { href: "/admin/settings/voice", label: "Voice agent", ownerOnly: true },
+  { href: "/admin/settings/social", label: "Social links", ownerOnly: true },
   { href: "/admin/settings/connections", label: "Connections", ownerOnly: true },
   { href: "/admin/settings/api-keys", label: "API keys", ownerOnly: true },
   { href: "/admin/settings/assistant", label: "Assistant", ownerOnly: true },

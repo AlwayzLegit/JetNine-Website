@@ -55,7 +55,6 @@ export default function CityHubPage() {
         }
         imageSrc="/images/light/boarding-golden-hour.webp"
         imageAlt="Passengers boarding a private jet at golden hour"
-        caption={null}
       />
 
       <TripBrief />

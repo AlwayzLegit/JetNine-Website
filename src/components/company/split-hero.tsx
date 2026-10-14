@@ -17,8 +17,6 @@ type Props = {
   minHeight?: number;
   /** "paper" = page paper, "sand" = the warmer contact band. */
   tone?: "paper" | "sand";
-  /** "Illustrative aviation imagery" caption on the photo. */
-  caption?: string | null;
   /** Extra content under the actions (e.g. a price card). */
   children?: React.ReactNode;
   titleClassName?: string;
@@ -47,7 +45,6 @@ export function SplitHero({
   imagePosition = "center",
   minHeight = 440,
   tone = "paper",
-  caption = "Illustrative aviation imagery",
   children,
   titleClassName = "",
 }: Props) {
@@ -87,11 +84,6 @@ export function SplitHero({
           style={{ objectPosition: imagePosition }}
         />
         <div aria-hidden className="absolute inset-0 max-md:hidden" style={{ background: FADE[tone] }} />
-        {caption ? (
-          <span className="absolute bottom-[10px] right-[14px] whitespace-nowrap font-serif text-[12px] text-white [text-shadow:0_1px_2px_rgba(0,0,0,.5)]">
-            {caption}
-          </span>
-        ) : null}
       </div>
     </section>
   );

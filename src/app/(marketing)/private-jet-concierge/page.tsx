@@ -133,7 +133,6 @@ export default function ConciergePage() {
         }
         imageSrc="/images/concierge/hero.webp"
         imageAlt="Travellers walking to a private jet at sunset as a chauffeur waits beside the car."
-        caption="Illustrative imagery"
       />
 
       <BrokerNote>JetNine arranges your travel. The licensed operator retains operational control of the flight.</BrokerNote>

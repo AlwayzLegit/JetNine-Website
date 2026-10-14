@@ -122,7 +122,6 @@ export default function AircraftPage() {
             <p className="mt-2 max-w-[40ch] text-[13px] leading-[1.5]">
               Explore six aircraft categories. Compare the cabin, baggage space and route requirements that matter to your trip.
             </p>
-            <p className="mt-14 text-[12px] text-steel max-lg:mt-6">Illustrative aircraft imagery</p>
           </div>
           <TripForm variant="hub" title="Start with your trip" context="aircraft-hub" />
         </div>
@@ -206,7 +205,6 @@ export default function AircraftPage() {
               </GalleryButton>
             ))}
           </div>
-          <p className="mt-1 text-[12px] text-steel">Illustrative cabin</p>
         </div>
         <div>
           <h2 className={sectionTitle}>Choose the details that make the trip.</h2>

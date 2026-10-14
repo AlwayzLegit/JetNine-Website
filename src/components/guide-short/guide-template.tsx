@@ -125,9 +125,6 @@ export function ShortGuideTemplate({
         ) : (
           <div className="relative aspect-[16/10] min-w-0 flex-[1_1_380px] overflow-hidden bg-surface-2">
             <Photo src={g.hero} sizes="(max-width: 768px) 100vw, 640px" priority />
-            <span className="absolute bottom-2 right-[10px] whitespace-nowrap text-[12px] text-white [text-shadow:0_1px_2px_rgba(0,0,0,.5)]">
-              Illustrative aviation imagery
-            </span>
           </div>
         )}
       </section>
@@ -181,9 +178,6 @@ export function ShortGuideTemplate({
               {g.inline ? (
                 <div className="relative mt-3 aspect-[16/7] overflow-hidden bg-surface-2">
                   <Photo src={g.inline} sizes="(max-width: 768px) 100vw, 720px" />
-                  <span className="absolute bottom-2 left-[10px] whitespace-nowrap text-[12px] text-white [text-shadow:0_1px_2px_rgba(0,0,0,.5)]">
-                    Illustrative cabin imagery
-                  </span>
                 </div>
               ) : null}
             </>

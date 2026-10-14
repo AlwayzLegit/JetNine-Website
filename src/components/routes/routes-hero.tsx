@@ -42,7 +42,6 @@ export function RoutesHero({
         </h1>
         {subline ? <p className="mt-2 font-serif text-[24px] leading-[1.2]">{subline}</p> : null}
         {lead ? <p className="mt-2 max-w-[52ch] text-[14px] leading-[1.55]">{lead}</p> : null}
-        <p className="mt-[10px] text-right text-[12px] text-steel">Illustrative imagery</p>
       </div>
     </section>
   );

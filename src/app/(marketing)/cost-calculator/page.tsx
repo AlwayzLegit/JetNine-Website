@@ -224,7 +224,6 @@ export default function CostCalculatorPage() {
             Explore a planning estimate from published category rates, see what affects the total, then request an
             aircraft-specific quote — no callback required.
           </p>
-          <p className="mt-3 text-right text-[12px] text-steel">Illustrative aircraft imagery</p>
         </div>
       </section>
 
@@ -315,7 +314,6 @@ export default function CostCalculatorPage() {
           <div className="relative aspect-[16/8] overflow-hidden bg-surface-2">
             <Image src="/images/light/cabin-golden-hour.webp" alt="" fill sizes="(max-width: 768px) 100vw, 600px" className="object-cover" />
           </div>
-          <p className="mt-1 text-[12px] text-steel">Illustrative cabin imagery</p>
         </div>
         <div>
           <h2 className="font-serif text-[28px] leading-[1.1]">Choose the cabin your trip needs.</h2>

@@ -16,7 +16,6 @@ export function GalleryButton({
   start = 0,
   title = "A closer look at the cabin",
   sub = "Explore the cabin and features that make the trip more comfortable.",
-  note = "Illustrative imagery · Request photos of the quoted aircraft.",
   ariaLabel,
   className = "",
   aside,
@@ -26,7 +25,6 @@ export function GalleryButton({
   start?: number;
   title?: string;
   sub?: string;
-  note?: string;
   ariaLabel?: string;
   className?: string;
   /** Optional panel beside the slides (the model window's "What to confirm"). */
@@ -84,7 +82,7 @@ export function GalleryButton({
               </button>
             </div>
             <p className="mt-2 font-serif text-[13px] text-steel">
-              {note} · {((i % n) + n) % n + 1} of {n}
+              {((i % n) + n) % n + 1} of {n}
             </p>
             <div className="mt-3 grid gap-3" style={{ gridTemplateColumns: `repeat(${n}, minmax(0, 1fr))` }}>
               {images.map((t, j) => {

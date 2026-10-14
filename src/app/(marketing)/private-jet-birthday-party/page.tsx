@@ -131,7 +131,6 @@ export default function BirthdayPartyPage() {
         imageSrc="/images/concierge/birthday-hero.webp"
         imageAlt="Four friends celebrating a birthday around a cake in a private jet cabin."
         imagePosition="center 45%"
-        caption="Illustrative imagery"
       />
 
       <BrokerNote>JetNine is your charter broker. The licensed operator retains operational control and approves onboard arrangements.</BrokerNote>

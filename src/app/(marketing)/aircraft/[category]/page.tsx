@@ -256,7 +256,6 @@ export default async function AircraftCategoryPage({ params }: RouteParams) {
                 View gallery ↗
               </span>
             </GalleryButton>
-            <p className="mt-1.5 text-[12px] text-steel">Illustrative interior. Layouts and equipment vary.</p>
           </div>
           <div>
             <h2 className={h2Cls}>{c.roomTitle}</h2>

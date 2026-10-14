@@ -49,9 +49,6 @@ export function SplitHero({
       </div>
       <div className="relative min-h-[240px] bg-surface-2">
         {image ? <Image src={image} alt={imageAlt} fill priority sizes="(max-width: 780px) 100vw, 50vw" className="object-cover" /> : null}
-        <span className="absolute bottom-[10px] right-[14px] whitespace-nowrap font-serif text-[12px] text-white [text-shadow:0_1px_2px_rgba(0,0,0,.5)]">
-          Illustrative aircraft imagery.
-        </span>
       </div>
     </section>
   );

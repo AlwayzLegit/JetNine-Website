@@ -16,7 +16,6 @@ export function EdgeHero({
   imageSrc,
   imagePosition = "center",
   imageAlt = "",
-  caption = "Illustrative imagery",
   children,
 }: {
   crumbs: Crumb[];
@@ -27,7 +26,6 @@ export function EdgeHero({
   imageSrc: string;
   imagePosition?: string;
   imageAlt?: string;
-  caption?: string | null;
   children?: React.ReactNode;
 }) {
   return (
@@ -45,11 +43,6 @@ export function EdgeHero({
       </div>
       <div className="absolute bottom-0 right-0 top-0 w-[max(36%,calc(50%-620px+1240px*.36+32px))] bg-surface-2 max-md:relative max-md:h-[240px] max-md:w-full">
         <Image src={imageSrc} alt={imageAlt} aria-hidden={imageAlt ? undefined : true} fill priority sizes="(max-width: 768px) 100vw, 50vw" className="object-cover" style={{ objectPosition: imagePosition }} />
-        {caption ? (
-          <span className="absolute bottom-2 right-[14px] whitespace-nowrap text-[12px] text-white [text-shadow:0_1px_2px_rgba(0,0,0,.5)]">
-            {caption}
-          </span>
-        ) : null}
       </div>
     </section>
   );

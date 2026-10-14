@@ -1,3 +1,4 @@
+import { cachedSocialLinks } from "@/lib/social-links-cache";
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
@@ -122,7 +123,11 @@ const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 // auth check on /account, /admin, /quote etc. doesn't pay that cost.
 const supabaseOrigin = supabaseUrl ? new URL(supabaseUrl).origin : null;
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  // Settings › Social links → Organization.sameAs, so search engines tie
+  // the profiles to the business. Cached with the footer's read.
+  const sameAs = Object.values(await cachedSocialLinks());
+  const organization = sameAs.length > 0 ? { ...organizationJsonLd, sameAs } : organizationJsonLd;
   return (
     <html lang="en">
       <head>
@@ -149,7 +154,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <script
           type="application/ld+json"
           // Stringified at build time, not user-controlled — no XSS risk.
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationJsonLd) }}
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(organization) }}
         />
         <script
           type="application/ld+json"

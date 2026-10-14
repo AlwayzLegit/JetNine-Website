@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import type { z } from "zod";
 import type { ApprovalRisk } from "@/db/schema/approvals";
 import type { Scope } from "@/lib/api-keys";
@@ -40,6 +40,8 @@ export type OpDef<I, S = unknown> = {
   run: (actor: Actor, input: I, state: S) => Promise<Result<unknown>>;
   /** Paths to revalidate after a successful run. */
   revalidate?: (input: I, state: S) => string[];
+  /** Data-cache tags to revalidate after a successful run (prerendered public pages). */
+  revalidateTags?: (input: I, state: S) => string[];
 };
 
 export type PendingInfo = { approvalId: string; summary: string; url: string; risk: ApprovalRisk };
@@ -72,10 +74,17 @@ export function dedupeKeyFor(opId: string, subject: OpSubject, payload: unknown)
 }
 
 /** Revalidate quietly: works in route handlers and Server Actions, no-op elsewhere. */
-export function revalidateQuietly(paths: string[]): void {
+export function revalidateQuietly(paths: string[], tags: string[] = []): void {
   for (const p of paths) {
     try {
       revalidatePath(p);
+    } catch {
+      // outside a request scope (scripts, tests)
+    }
+  }
+  for (const t of tags) {
+    try {
+      revalidateTag(t);
     } catch {
       // outside a request scope (scripts, tests)
     }
@@ -125,7 +134,7 @@ export async function runOp<I, S>(
 
   const result = await op.run(actor, input, state);
   if (!result.ok) return result;
-  revalidateQuietly(op.revalidate?.(input, state) ?? []);
+  revalidateQuietly(op.revalidate?.(input, state) ?? [], op.revalidateTags?.(input, state) ?? []);
   return ok({ kind: "done", value: result.value });
 }
 

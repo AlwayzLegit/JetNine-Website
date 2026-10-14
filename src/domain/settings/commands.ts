@@ -6,9 +6,10 @@ import { sendEmail } from "@/lib/email";
 import { auditFields, type Actor } from "@/domain/actor";
 import { err, ok, type Result } from "@/domain/result";
 import { VOICE_ROUTING_KEY, routingWords, type VoiceRouting } from "@/lib/voice-routing";
+import { SOCIAL_LINKS_KEY, socialLinksWords, type SocialLinks } from "@/lib/social-links";
 import { deskSettings } from "@/db/schema/desk";
-import { replyPromiseMinutes, voiceRouting } from "./queries";
-import type { NotificationPrefInput, ReplyPromiseInput, VoiceRoutingInput } from "./schemas";
+import { replyPromiseMinutes, socialLinks, voiceRouting } from "./queries";
+import type { NotificationPrefInput, ReplyPromiseInput, SocialLinksInput, VoiceRoutingInput } from "./schemas";
 
 /**
  * Settings commands, shared by the admin's Server Actions, the API and the
@@ -127,6 +128,51 @@ export async function setVoiceRouting(
   });
 
   return ok({ routing, changed: true });
+}
+
+// ─── Social links ────────────────────────────────────────────────────────
+
+export type SocialLinksState = { before: SocialLinks };
+
+export async function loadSocialLinks(): Promise<Result<SocialLinksState>> {
+  return ok({ before: await socialLinks() });
+}
+
+/** Desk-wide: the profiles in the footer and the Organization's sameAs. */
+export async function setSocialLinks(
+  actor: Actor,
+  input: SocialLinksInput,
+  state: SocialLinksState,
+): Promise<Result<{ links: SocialLinks; changed: boolean }>> {
+  const links = input;
+  if (JSON.stringify(links) === JSON.stringify(state.before)) return ok({ links, changed: false });
+
+  const now = new Date();
+  try {
+    await db
+      .insert(deskSettings)
+      .values({ key: SOCIAL_LINKS_KEY, value: links, updatedBy: actor.userId, updatedAt: now })
+      .onConflictDoUpdate({
+        target: deskSettings.key,
+        set: { value: links, updatedBy: actor.userId, updatedAt: now },
+      });
+  } catch (e) {
+    console.error("[settings/social] save failed", e);
+    return err("unavailable", "The social links could not be saved. Try again.");
+  }
+
+  const a = auditFields(actor);
+  await logAudit({
+    actorUserId: a.actorUserId,
+    actorRole: a.actorRole,
+    action: "system.social_links.update",
+    subjectType: "system",
+    subjectCode: SOCIAL_LINKS_KEY,
+    diff: { links: { before: socialLinksWords(state.before), after: socialLinksWords(links) } },
+    metadata: a.metadata,
+  });
+
+  return ok({ links, changed: true });
 }
 
 // ─── A person's own notification toggles ─────────────────────────────────

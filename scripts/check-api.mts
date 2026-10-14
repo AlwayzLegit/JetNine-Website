@@ -312,6 +312,37 @@ function check(name: string, cond: boolean, detail?: unknown) {
   check("transfer number must be E.164", !site.VoiceAgentConfigSchema.shape.calls.safeParse({ ...site.DEFAULT_AGENT_CONFIG.calls, transferNumber: "818 555" }).success);
 }
 
+// ─── Social links: what people type → profile URLs ───────────────────────
+{
+  const sl = await import("../src/lib/social-links.ts");
+  const { SocialLinksInput } = await import("../src/domain/settings/schemas.ts");
+  const cases: [typeof sl.SOCIAL_PLATFORMS[number], string, string | null][] = [
+    ["instagram", "@jetnine", "https://www.instagram.com/jetnine/"],
+    ["instagram", "jetnine", "https://www.instagram.com/jetnine/"],
+    ["instagram", "instagram.com/jetnine?igsh=abc", "https://instagram.com/jetnine"],
+    ["instagram", "jet.nine", "https://www.instagram.com/jet.nine/"],
+    ["x", "https://twitter.com/jetnine", "https://twitter.com/jetnine"],
+    ["x", "@jetnine", "https://x.com/jetnine"],
+    ["linkedin", "https://www.linkedin.com/company/jetnine/", "https://www.linkedin.com/company/jetnine/"],
+    ["tiktok", "jetnine", "https://www.tiktok.com/@jetnine"],
+    ["youtube", "https://youtube.com/@jetnine", "https://youtube.com/@jetnine"],
+    ["facebook", "", null],
+  ];
+  for (const [p, input, want] of cases) {
+    const r = sl.normalizeSocialLink(p, input);
+    check(`social ${p} ${JSON.stringify(input)} → ${want}`, r.ok && r.url === want, r);
+  }
+  check("social: a link on the wrong site is refused", !sl.normalizeSocialLink("instagram", "https://facebook.com/jetnine").ok);
+  check("social: the bare domain is refused", !sl.normalizeSocialLink("linkedin", "linkedin.com").ok);
+  check("social: nonsense is refused", !sl.normalizeSocialLink("x", "not a link!").ok);
+  const parsed = sl.parseSocialLinks({ instagram: "https://www.instagram.com/jetnine/", x: "https://evil.example/jetnine", bogus: "https://x.com/a" });
+  check("social: stored row keeps only valid platforms", JSON.stringify(parsed) === JSON.stringify({ instagram: "https://www.instagram.com/jetnine/" }));
+  const form = SocialLinksInput.safeParse({ instagram: "@jetnine", linkedin: "", x: "https://x.com/jetnine" });
+  check("social form: normalises and drops empties", form.success && JSON.stringify(form.data) === JSON.stringify({ instagram: "https://www.instagram.com/jetnine/", x: "https://x.com/jetnine" }));
+  check("social form: bad field named", !SocialLinksInput.safeParse({ tiktok: "https://instagram.com/x" }).success);
+  check("social words", sl.socialLinksWords({ instagram: "a", x: "b", youtube: "c" }) === "Instagram, X and YouTube");
+}
+
 if (failures) {
   console.error(`\n${failures} check(s) failed.`);
   process.exit(1);

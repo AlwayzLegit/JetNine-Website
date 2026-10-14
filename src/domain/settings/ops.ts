@@ -4,15 +4,19 @@ import { defineOp } from "@/domain/ops/registry";
 import { loadNotificationPref, type NotificationPrefState,
   loadNothing,
   loadReplyPromise,
+  loadSocialLinks,
   loadVoiceRouting,
   sendTestEmailTo,
   setNotificationPref,
   setReplyPromise,
+  setSocialLinks,
   setVoiceRouting,
   type ReplyPromiseState,
+  type SocialLinksState,
   type VoiceRoutingState,
 } from "./commands";
-import { NOTIFICATION_WORDS, NotificationPrefInput, ReplyPromiseInput, TestEmailInput, VoiceRoutingInput } from "./schemas";
+import { NOTIFICATION_WORDS, NotificationPrefInput, ReplyPromiseInput, SocialLinksInput, TestEmailInput, VoiceRoutingInput } from "./schemas";
+import { socialLinksWords } from "@/lib/social-links";
 import { routingWords } from "@/lib/voice-routing";
 
 /**
@@ -87,4 +91,26 @@ export const voiceRoutingOp = defineOp<VoiceRoutingInput, VoiceRoutingState>({
   revalidate: () => [VOICE_PATH],
 });
 
-export const SETTINGS_OPS: AnyOp[] = [replyPromiseOp, notificationPrefOp, testEmailOp, voiceRoutingOp];
+export const SOCIAL_PATH = "/admin/settings/social";
+
+/** The profiles in the footer and the Organization's sameAs. Desk-wide: owners only. */
+export const socialLinksOp = defineOp<SocialLinksInput, SocialLinksState>({
+  id: "settings.socialLinks",
+  scope: "settings",
+  schema: SocialLinksInput,
+  load: loadSocialLinks,
+  risk: () => "settings",
+  summary: (input) => `Set the footer's social links: ${socialLinksWords(input)}`,
+  preview: (input, state) => {
+    const before = socialLinksWords(state.before);
+    const after = socialLinksWords(input);
+    return before === after ? null : `social links: ${before} → ${after}`;
+  },
+  subject: () => ({ type: "system", id: null, code: "social_links" }),
+  run: setSocialLinks,
+  revalidate: () => [SOCIAL_PATH],
+  // The footer is on every prerendered public page.
+  revalidateTags: () => ["social-links"],
+});
+
+export const SETTINGS_OPS: AnyOp[] = [replyPromiseOp, notificationPrefOp, testEmailOp, voiceRoutingOp, socialLinksOp];

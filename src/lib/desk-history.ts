@@ -109,12 +109,16 @@ function num(v: unknown): number | null {
   return typeof v === "number" && Number.isFinite(v) ? v : null;
 }
 
+/**
+ * What a diff entry changed to, as words. Numbers count too: the reply
+ * promise and agent versions are stored as numbers, and "to a new value
+ * minutes" is not a sentence.
+ */
 function after(diff: Record<string, unknown> | null, key: string): string | null {
   const d = diff?.[key];
-  if (d && typeof d === "object" && "after" in (d as Record<string, unknown>)) {
-    return str((d as Record<string, unknown>).after);
-  }
-  return str(d);
+  const v = d && typeof d === "object" && "after" in (d as Record<string, unknown>) ? (d as Record<string, unknown>).after : d;
+  const n = num(v);
+  return n === null ? str(v) : String(n);
 }
 
 function plural(n: number, one: string, many = `${one}s`): string {

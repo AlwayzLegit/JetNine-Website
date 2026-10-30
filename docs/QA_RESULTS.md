@@ -1,5 +1,47 @@
 # QA results
 
+## 2026-10-30 — signed-in half (local build of `main` at 52caa3b)
+
+Production is not reachable from the cloud session and the owner's sign-in
+cannot be scripted, so the desk was exercised on a local production build
+with a fresh Postgres 16: all 56 migrations applied from scratch, a stub
+of Supabase Auth returning one owner session, and a Playwright walk as
+that owner. Rows, History lines and screenshots are in the session
+scratchpad (`qa/`). Nothing here touched production.
+
+### Result: one wording defect, fixed in this change
+
+| Check | Result |
+|---|---|
+| Migrations 0001–0055 on an empty database | all apply; 68 airports seeded, KEDC present |
+| Every desk page, signed in as the owner (27 routes, desktop; 7 also at 390 px) | all 200 with the expected heading; 0 console errors; 0 horizontal overflow; nothing under the phone tab bar |
+| Settings › Social links | handle, full link and a tracking-tagged link all normalise to the profile URL; a link on the wrong domain is refused with a plain message; footer icons and the Organization `sameAs` update on the next public page load |
+| Settings › Voice agent › Agents | create → edit model and greeting → save as version 2 → make live; list shows "Live · Version 2"; a bad model ID is refused; History has created / saved / made live |
+| Settings › Voice agent › Routing | ring first, one number, 4 rings, press 1 saves and reloads; a 6-digit number is refused; History: "ring •••0123 for 4 rings (about 24 seconds) (press 1 to accept), then the agent answers" |
+| Settings › Notifications | reply promise 30 → 15 → 30, each persisted and reflected in the next request's deadline |
+| Quote wizard at 390 px → desk | KVNY → KEDC request lands in "Needs a reply" with a due time; detail page shows the route, extras, Call / Text / Email links; status → Triaged moves it to "Working on it"; History: "marked … as Working on it" |
+| Quote safety net | with KEDC deleted from the table, a submission still succeeds and re-creates the row (name, time zone, country) |
+| History | every action above reads as a sentence with a resolving link |
+
+### Fixed here
+
+1. **History said "set the reply-time promise to a new value minutes".**
+   The sentence reader ignored numeric diff values, so the minutes (and
+   the version number in "saved a voice agent") were dropped. It now reads
+   "to 15 minutes" and "as version 2".
+
+### Notes (not changed)
+
+1. **"Who is on it" lists dispatchers only.** The assign picker on a
+   request shows staff whose role is `dispatcher`; an owner or admin
+   without that role cannot take a request from the desk. Expected if
+   owners never work requests themselves; otherwise widen the filter.
+2. **Status and assignment sit under "Desk tools"**, a collapsed panel
+   below the conversation. Deliberate, but two clicks away.
+3. Not covered: real email and text delivery, Stripe, invites, the member
+   account, and the API with a live key. Those still need the owner's
+   browser on the live site (`QA_E2E.md` sections 3.8–3.19, 4).
+
 ## 2026-10-03 — automated half (build of `main` at 7f6673b)
 
 Ran on a local production build with no database, so DB-backed sections

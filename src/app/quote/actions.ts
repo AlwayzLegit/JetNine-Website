@@ -6,7 +6,9 @@ import { revalidatePath } from "next/cache";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { quotes, quoteLegs, type NewQuote, type NewQuoteLeg } from "@/db/schema/quotes";
-import { findAirport } from "@/lib/airports";
+import { findAirport, type Airport } from "@/lib/airports";
+import { airportRowFromCatalog, type AirportRow } from "@/lib/airport-rows";
+import { airports } from "@/db/schema/airports";
 import { toE164 } from "@/lib/phone";
 import type { QuoteDraft } from "@/lib/quote-store";
 import { categoryFits } from "@/lib/quote-fit";
@@ -242,6 +244,22 @@ export async function submitQuote(draft: QuoteDraft): Promise<SubmitResult> {
           distanceNm: l.distanceNm ?? null,
         };
       });
+
+      // quote_legs FKs its ICAOs to airports.icao, and the picker has
+      // outgrown the seeds before (migration 0055): a destination missing
+      // from the table failed the whole submit and lost the lead. Add what
+      // this quote needs first; existing rows are untouched.
+      const needed = new Map<string, Airport>();
+      for (const l of draft.legs) {
+        for (const code of [l.fromIata, l.toIata]) {
+          const a = code ? findAirport(code) : undefined;
+          if (a) needed.set(a.icao, a);
+        }
+      }
+      const airportRows = [...needed.values()].map(airportRowFromCatalog).filter((r): r is AirportRow => r !== null);
+      if (airportRows.length > 0) {
+        await tx.insert(airports).values(airportRows).onConflictDoNothing({ target: airports.icao });
+      }
 
       if (legRows.length > 0) {
         await tx.insert(quoteLegs).values(legRows);

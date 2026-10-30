@@ -343,6 +343,26 @@ function check(name: string, cond: boolean, detail?: unknown) {
   check("social words", sl.socialLinksWords({ instagram: "a", x: "b", youtube: "c" }) === "Instagram, X and YouTube");
 }
 
+// ─── Airports: the picker never outgrows the seeds again ─────────────────
+{
+  const { AIRPORTS } = await import("../src/lib/airports.ts");
+  const { airportRowFromCatalog } = await import("../src/lib/airport-rows.ts");
+  const seeded = new Set<string>();
+  for (const f of readdirSync(join(process.cwd(), "src/db/migrations")).filter((f) => f.endsWith(".sql"))) {
+    const sql = readFileSync(join(process.cwd(), "src/db/migrations", f), "utf8");
+    if (!/insert into public\.airports/i.test(sql)) continue;
+    for (const m of sql.matchAll(/\(\s*'([A-Z0-9]{4})'\s*,/g)) seeded.add(m[1]);
+  }
+  const unseeded = AIRPORTS.filter((a) => !seeded.has(a.icao)).map((a) => a.icao);
+  check(`every picker airport is seeded in a migration (quote_legs FK airports.icao)${unseeded.length ? `: missing ${unseeded.join(", ")}` : ""}`, unseeded.length === 0);
+  const rows = AIRPORTS.map((a) => [a.icao, airportRowFromCatalog(a)] as const).filter(([, r]) => r === null).map(([i]) => i);
+  check(`every picker airport maps to an airports row${rows.length ? `: not ${rows.join(", ")}` : ""}`, rows.length === 0);
+  const edc = airportRowFromCatalog(AIRPORTS.find((a) => a.icao === "KEDC")!);
+  check("KEDC row: US, Chicago tz, 5-dp coords", edc?.countryIso2 === "US" && edc.tz === "America/Chicago" && edc.lat === "30.40000" && edc.iata === "EDC");
+  const hnd = airportRowFromCatalog(AIRPORTS.find((a) => a.icao === "RJTT")!);
+  check("RJTT row: JP, a non-3-letter IATA tag becomes null", hnd?.countryIso2 === "JP" && hnd.iata === null);
+}
+
 if (failures) {
   console.error(`\n${failures} check(s) failed.`);
   process.exit(1);

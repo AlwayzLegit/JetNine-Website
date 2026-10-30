@@ -386,6 +386,13 @@
       "when": 1783200000000,
       "tag": "0054_voice_agents",
       "breakpoints": true
+    },
+    {
+      "idx": 55,
+      "version": "7",
+      "when": 1783300000000,
+      "tag": "0055_airports_catalog_sync",
+      "breakpoints": true
     }
   ]
 }

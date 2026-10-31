@@ -1,9 +1,10 @@
 import { describe, expect, it } from "vitest";
+import { vars } from "../src/env.js";
 
-process.env.PUBLIC_HOST = "voice.example.com";
-process.env.TWILIO_NUMBER = "+15550001111";
-process.env.ESCALATION_PHONE = "+15550002222";
-process.env.RECORDING_ENABLED = "true";
+vars.PUBLIC_HOST = "voice.example.com";
+vars.TWILIO_NUMBER = "+15550001111";
+vars.ESCALATION_PHONE = "+15550002222";
+vars.RECORDING_ENABLED = "true";
 
 const { relayTwiml, escalationDialTwiml, escalationFallbackTwiml, escalationScreenTwiml, GREETING, RECONNECT_GREETING, RELAY_FAILED_LINE, callbackReassuranceTwiml } =
   await import("../src/twiml.js");
@@ -13,6 +14,11 @@ describe("relay TwiML", () => {
   it("connects to the relay WebSocket with an action URL", () => {
     expect(xml).toContain('<ConversationRelay url="wss://voice.example.com/relay"');
     expect(xml).toContain('<Connect action="https://voice.example.com/relay/action">');
+  });
+  it("puts the CallSid in the relay path so the socket reaches the call's Durable Object", () => {
+    expect(relayTwiml({ callSid: "CA0123456789abcdef0123456789abcdef" })).toContain(
+      'url="wss://voice.example.com/relay/CA0123456789abcdef0123456789abcdef"',
+    );
   });
   it("uses documented provider/model names", () => {
     expect(xml).toContain('ttsProvider="ElevenLabs"');

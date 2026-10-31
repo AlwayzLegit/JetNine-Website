@@ -1,9 +1,10 @@
 import { describe, expect, it } from "vitest";
+import { vars } from "../src/env.js";
 
-process.env.PUBLIC_HOST = "voice.example.com";
-process.env.TWILIO_NUMBER = "+15550001111";
-process.env.ESCALATION_PHONE = "+15550002222";
-process.env.RECORDING_ENABLED = "true";
+vars.PUBLIC_HOST = "voice.example.com";
+vars.TWILIO_NUMBER = "+15550001111";
+vars.ESCALATION_PHONE = "+15550002222";
+vars.RECORDING_ENABLED = "true";
 
 const ac = await import("../src/agent-config.js");
 const { relayTwiml } = await import("../src/twiml.js");

@@ -1,7 +1,8 @@
 # voice — JetNine inbound AI voice agent
 
-Lives in `voice/` of the JetNine website repo; it is its own Node project with
-its own dependencies and deploys separately (Render, not Vercel).
+Lives in `voice/` of the JetNine website repo; it is its own project with
+its own dependencies and deploys separately, as a Cloudflare Worker
+(`jetnine-voice`, at `voice.jetnine.com`) with one Durable Object per call.
 
 Inbound AI voice agent for JetNine. Twilio answers the call, ConversationRelay
 handles speech in both directions, and this service runs the conversation
@@ -11,7 +12,7 @@ with Claude over a WebSocket — text only, no audio handling.
 caller ──▶ Twilio number ──▶ POST /twiml ──▶ <Connect><ConversationRelay>
                                                     │ wss://…/relay (JSON text frames)
                                                     ▼
-                                      this service: per-call session
+                     Worker → CallRelay Durable Object (one per CallSid)
                                         ├─ Claude (streaming, tools)
                                         ├─ Supabase (calls, leads, trips, messages)
                                         └─ escalation → end session with handoffData
@@ -41,16 +42,21 @@ caller ──▶ Twilio number ──▶ POST /twiml ──▶ <Connect><Convers
 
 ```
 src/
-  server.ts          Fastify: /twiml, /relay (WS), /relay/action, /escalation/result, /recording-status, /health
+  worker.ts          Worker entry: /twiml, /relay (WS), /relay/action, /escalation/*, /recording-status, /health
+  call-relay.ts      CallRelay Durable Object: holds the relay WebSocket + CallSession for one call
+  twilio.ts          signature validation (WebCrypto HMAC-SHA1) and REST calls (fetch); no twilio SDK
+  env.ts             Worker vars + secrets (replaces process.env)
+  log.ts             JSON console logger (Workers Logs)
   twiml.ts           <Connect><ConversationRelay>, <Dial> transfer, fallback, hangup
-  config.ts          env parsing — TTS/STT settings live here
+  config.ts          config parsing — TTS/STT settings live here
   relay/session.ts   per-call state machine (setup → turns → interrupt → end/escalate)
   relay/messages.ts  ConversationRelay message types
   llm/agent.ts       Claude streaming tool loop, abortable for barge-in
   llm/prompt.ts      persona + per-call context block
   llm/tools.ts       save_lead, save_message, escalate, lookup_caller, end_call
   db/                Supabase service-role client + queries
-  escalation.ts      recording start, SMS alert
+  escalation.ts      recording start, SMS alert (Twilio REST via twilio.ts)
+wrangler.jsonc       Worker config: nodejs_compat, Durable Object, vars, voice.jetnine.com route
 (schema)             ../src/db/migrations/0038_voice_agent.sql — voice_calls, voice_leads, voice_trip_requests, voice_messages
 ```
 
@@ -58,19 +64,41 @@ Tables carry a `voice_` prefix because they live in the shared JetNine
 Supabase project, which already has a `messages` table. RLS is on with no
 policies: only the service-role key can read or write them.
 
+## How a call maps onto Workers
+
+- Twilio webhooks (`/twiml`, `/relay/action`, `/escalation/*`,
+  `/recording-status`) are plain Worker requests. Each is checked against
+  `X-Twilio-Signature` (HMAC-SHA1 over `https://<PUBLIC_HOST><path+query>`
+  plus the sorted form params; see `src/twilio.ts`) when
+  `TWILIO_VALIDATE_SIGNATURES` is on. That is the default with
+  `NODE_ENV=production`, which `wrangler.jsonc` sets.
+- `/twiml` puts the CallSid in the relay URL: `wss://<PUBLIC_HOST>/relay/<CallSid>`.
+  The Worker routes that upgrade to the `CallRelay` Durable Object named by
+  the CallSid, which accepts the socket and runs `CallSession`
+  (`src/relay/session.ts`) as the Node process did. A bare `/relay` (from an
+  old TwiML document) still works, in a one-off object.
+- `/relay/action` with `SessionStatus=failed` calls that same object over
+  RPC (`relayFailed`) to save the transcript before transferring or
+  reconnecting. The one reconnect of a no-transfer call lands in the same
+  object, so the conversation carries over.
+- No cold start: Workers start in milliseconds, so Render's free-plan
+  sleep after 15 idle minutes is gone.
+
 ## Local development
 
-1. `cd voice`, then `cp .env.example .env` and fill it in. `PUBLIC_HOST` must be the public
-   hostname Twilio can reach — for local dev, an ngrok host.
-2. `pnpm install && pnpm dev`
-3. Tunnel: `ngrok http 3000` → set `PUBLIC_HOST=<subdomain>.ngrok-free.app`.
-4. In the Twilio console, point the number's Voice webhook (HTTP POST) at
-   `https://<PUBLIC_HOST>/twiml`.
-5. Call the number. `LOG_RELAY_MESSAGES=true` (default outside production)
-   logs every raw ConversationRelay frame — keep it on while iterating.
-
-Signature validation is enforced in production
-(`TWILIO_VALIDATE_SIGNATURES` defaults to true when `NODE_ENV=production`).
+1. `cd voice && pnpm install`
+2. `cp .env.example .dev.vars` and fill it in. `PUBLIC_HOST` must be a host
+   Twilio can reach, e.g. a tunnel to the dev server
+   (`cloudflared tunnel --url http://localhost:8787`, or ngrok).
+3. `pnpm dev` (`wrangler dev`, port 8787). `GET /health` reports what is missing.
+4. To take real calls locally, point a **test** number's Voice webhook at
+   `https://<PUBLIC_HOST>/twiml`. `LOG_RELAY_MESSAGES=true` logs every raw
+   ConversationRelay frame.
+5. `pnpm typecheck` and `pnpm test`. Tests run inside workerd through
+   `@cloudflare/vitest-plugin` (the renamed `@cloudflare/vitest-pool-workers`)
+   with the bindings from `wrangler.jsonc`, overridden in `vitest.config.ts`.
+   After changing `wrangler.jsonc`, run `pnpm types` to regenerate
+   `worker-configuration.d.ts`.
 
 ## Which model answers
 
@@ -94,7 +122,7 @@ turn (cached 60 s, last good answer kept through a database blip).
 
 ## Changing the voice
 
-Everything speech-related is in `.env` and read once in `src/config.ts`:
+The env defaults below are `vars` in `wrangler.jsonc` (`.dev.vars` locally), read once in `src/config.ts`:
 
 | Variable | Meaning |
 | --- | --- |
@@ -108,20 +136,64 @@ Leave `TTS_VOICE` empty to use the provider default. Jet's cloned ElevenLabs
 voice is a later phase: the native integration only exposes Twilio's
 catalog, so the swap will be a single env change once available.
 
-## Deploy (Render)
+## Deploy (Cloudflare Workers)
 
-The WebSocket server needs a long-lived process: deploy as a Render **Web
-Service** (not Vercel).
+This needs the Workers Paid plan, for Durable Objects that hold a
+WebSocket for a whole call. Non-secret settings are `vars` in
+`wrangler.jsonc`. The route is the custom domain `voice.jetnine.com` on the
+`jetnine.com` zone, and `wrangler deploy` creates it.
 
-- Repository: this repo, **Root Directory `voice`**. Runtime: Node 22.
-  Build: `pnpm install && pnpm build`. Start: `pnpm start`.
-- Vercel skips site builds for commits that only touch `voice/` (see `vercel.json` → `ignoreCommand`).
-- Health check path: `/health`.
-- Set every variable from `.env.example`; `PUBLIC_HOST` is the Render
-  hostname (`<service>.onrender.com`). Render terminates TLS, so `wss://` works
-  with no extra config.
-- Then point the Twilio number's Voice webhook at
-  `https://<service>.onrender.com/twiml`.
+```bash
+cd voice
+pnpm install
+npx wrangler login
+npx wrangler secret put TWILIO_ACCOUNT_SID
+npx wrangler secret put TWILIO_AUTH_TOKEN
+npx wrangler secret put TWILIO_NUMBER
+npx wrangler secret put SUPABASE_URL
+npx wrangler secret put SUPABASE_SERVICE_ROLE_KEY
+npx wrangler secret put AI_KEYS_ENCRYPTION_KEY      # same value as the site
+npx wrangler secret put ESCALATION_PHONE
+npx wrangler secret put ALERT_PHONE
+npx wrangler secret put ANTHROPIC_API_KEY           # optional fallback
+npx wrangler deploy
+curl https://voice.jetnine.com/health               # 200 once call-ready
+```
+
+If the Worker does not exist yet, the first `wrangler secret put` creates it
+with only the secret, and `wrangler deploy` then uploads the code. To change
+a non-secret setting (`TTS_VOICE`, `SMS_ALERTS_ENABLED`, ...), edit `vars` in
+`wrangler.jsonc` and deploy again. For logs, run `npx wrangler tail` or open
+Workers Logs in the dashboard.
+
+## Cutover from Render (zero downtime)
+
+Render keeps answering until the last step. Both services read and write
+the same Supabase tables, so they can run side by side.
+
+1. Deploy as above. Check that `https://voice.jetnine.com/health` returns 200
+   with the expected `llm.primary`.
+2. Test with a **second Twilio number** pointed at
+   `https://voice.jetnine.com/twiml`. Run the three scripted calls from the
+   runbook below, plus a transfer and a broker no-answer.
+3. **Twilio number webhook.** Go to Console → Phone Numbers → the JetNine
+   number → Voice → *A call comes in*. If it points at this service
+   directly, change `https://jetnine-voice.onrender.com/twiml` to
+   `https://voice.jetnine.com/twiml` (HTTP POST). If it points at the site
+   (`https://jetnine.com/api/voice/inbound`, ring-first), leave it and do
+   step 4. Calls already in progress finish on Render, because their
+   callback URLs carry the Render host. New calls go to the Worker.
+4. **Site redirect.** The main app's ring-first routes
+   (`src/app/api/voice/*`) redirect missed calls to the agent and ping its
+   `/health`. Set `VOICE_AGENT_URL=https://voice.jetnine.com` wherever the
+   site runs, or change the `https://jetnine-voice.onrender.com` default in
+   those routes, then redeploy the site. This change belongs to the main
+   app, not to this directory. The site's wake-up ping and voicemail
+   fallback can stay; with no cold start they do no harm.
+5. Watch `npx wrangler tail` through a few real calls, then suspend the
+   Render service. Delete it after a quiet week.
+
+To roll back, point the webhook (or `VOICE_AGENT_URL`) back at Render.
 
 ## SMS alerts and A2P
 
@@ -155,12 +227,12 @@ takes the details and arranges a broker callback instead. If the relay
 fails on such a call the agent reconnects once with the conversation
 carried over (`?reconnect=1`), then reassures and hangs up; it never
 dials the team. The site pings `/health` the moment a call arrives so a
-sleeping Free-plan instance boots during the rings, holds the caller while
+sleeping instance (Render's free plan; the Worker has no cold start) boots during the rings, holds the caller while
 it wakes, and takes a voicemail if it never does. Ring-first and the
 agent's transfer to the broker both use press 1 to accept (`<Number url>`
 screening): only a 1 bridges, and the Dial action reads `DialBridged`
 because an unaccepted screened leg still reports `DialCallStatus=completed`. `VOICE_AGENT_URL` on
-Vercel overrides `https://jetnine-voice.onrender.com`.
+the site overrides `https://jetnine-voice.onrender.com` (see Cutover).
 
 ## Voice agents (Settings › Voice agent › Agents)
 
@@ -186,20 +258,15 @@ fails if they drift.
 
 ## Going live — runbook
 
-1. **Render** (done): service `jetnine-voice`, https://jetnine-voice.onrender.com,
-   root directory `voice`. `/health` returns 503 with `missingEnv` until every
-   secret is set, then 200. Move the plan from free to starter before pointing
-   real traffic at it — free instances sleep after 15 idle minutes and a
-   sleeping service misses Twilio's webhook timeout.
-2. **Secrets** in Render → Environment: `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`,
-   `TWILIO_NUMBER`, `SUPABASE_SERVICE_ROLE_KEY`, `ESCALATION_PHONE`,
-   `ALERT_PHONE`, `AI_KEYS_ENCRYPTION_KEY` (same value as on Vercel). Then
-   store the model vendor key at `/admin/settings/ai` and route the Voice
-   desk to it; `ANTHROPIC_API_KEY` on Render is only a fallback. Render
-   redeploys on save.
+1. **Worker**: `jetnine-voice` at https://voice.jetnine.com (see Deploy).
+   `/health` returns 503 with `missingEnv` until every secret is set, then 200.
+2. **Secrets** with `wrangler secret put` (see Deploy), `AI_KEYS_ENCRYPTION_KEY`
+   with the same value as the site. Then store the model vendor key at
+   `/admin/settings/ai` and route the Voice desk to it; `ANTHROPIC_API_KEY`
+   is only a fallback.
 3. **Twilio number.** Buy a voice-capable number (a fresh one for testing is
    fine). Console → Phone Numbers → the number → Voice → *A call comes in*:
-   Webhook, `https://jetnine-voice.onrender.com/twiml`, HTTP POST. Save.
+   Webhook, `https://voice.jetnine.com/twiml`, HTTP POST. Save.
    ConversationRelay needs the account's AI/ML features addendum accepted once
    (Console prompts for it on first use).
 4. **Existing JetNine number on a SIM.** Keep it. Set carrier call forwarding
@@ -214,7 +281,7 @@ fails if they drift.
    - Ordinary quote, dates next month → lead saved, call ends with `lead`.
    - "Let me talk to a person" → immediate transfer.
 6. **Voice.** Audition with `TTS_VOICE` set to each candidate (see
-   `.env.example`), one redeploy per voice. Empty means Twilio's default.
+   `.env.example`), one `wrangler deploy` per voice. Empty means Twilio's default.
 7. **SMS alerts.** Complete A2P 10DLC or toll-free verification for the number,
    then set `SMS_ALERTS_ENABLED=true`.
 

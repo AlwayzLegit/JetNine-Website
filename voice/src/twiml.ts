@@ -22,12 +22,14 @@ export const RECONNECT_GREETING = "Sorry about that, the line dropped for a mome
  * `missed`: the site's ring-first routing already rang the team, so this is
  * a no-transfer call; the session is told through a <Parameter>.
  * `reconnect`: the previous relay failed and this is the one retry.
+ * `callSid`: put in the relay URL path (/relay/<CallSid>) so the Worker can
+ * route the socket to that call's Durable Object before `setup` arrives.
  */
-export function relayTwiml(opts: { missed?: boolean; reconnect?: boolean; agent?: LoadedAgent } = {}): string {
+export function relayTwiml(opts: { missed?: boolean; reconnect?: boolean; agent?: LoadedAgent; callSid?: string } = {}): string {
   const agent = opts.agent ?? builtInAgent();
   const c = agent.config;
   const attrs: Record<string, string> = {
-    url: urls.wss,
+    url: opts.callSid ? `${urls.wss}/${encodeURIComponent(opts.callSid)}` : urls.wss,
     welcomeGreeting: opts.reconnect ? RECONNECT_GREETING : spokenGreeting(c.profile.greeting, config.voice.recordingEnabled),
     welcomeGreetingInterruptible: c.speech.greetingInterruptible ? "any" : "none",
     ttsProvider: c.voice.provider,

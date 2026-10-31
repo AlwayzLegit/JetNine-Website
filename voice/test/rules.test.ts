@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
+import { vars } from "../src/env.js";
 
-process.env.PUBLIC_HOST = "voice.example.com";
+vars.PUBLIC_HOST = "voice.example.com";
 const { HUMAN_ASK } = await import("../src/relay/session.js");
 const { withinFortyEightHours } = await import("../src/llm/tools.js");
 const { leadSummarySms } = await import("../src/escalation.js");

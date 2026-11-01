@@ -122,7 +122,7 @@ function LegacyKeyCard({ usage, now }: { usage: LegacyKeyUsage; now: Date }) {
         <div className="min-w-0">
           <div className="text-[16px] font-medium text-bone">The old blog key</div>
           <div className="mt-1 text-[14px] text-bone-2">
-            <code className="text-bone-2">BLOG_ADMIN_API_KEY</code> in Vercel · {usage.configured ? "still set" : "removed"} · {used} · {calls}
+            <code className="text-bone-2">BLOG_ADMIN_API_KEY</code> in the Worker secrets · {usage.configured ? "still set" : "removed"} · {used} · {calls}
           </div>
         </div>
         <DotSentence tone={usage.retirable ? "success" : usage.configured ? "gold" : "steel"} className="text-[14px] text-bone">
@@ -131,9 +131,9 @@ function LegacyKeyCard({ usage, now }: { usage: LegacyKeyUsage; now: Date }) {
       </div>
       <p className="mt-3 text-[14px] text-steel">
         {usage.retirable
-          ? "Nothing has used it for a week. Remove the variable in Vercel and delete the old Cowork task; the daily assistant runs on its own key."
+          ? "Nothing has used it for a week. Remove the secret (wrangler secret delete BLOG_ADMIN_API_KEY) and delete the old Cowork task; the daily assistant runs on its own key."
           : usage.configured
-            ? "The old Cowork task still posts with it. Once the daily assistant has run on its own key for a week and this shows no calls, remove the variable in Vercel."
+            ? "The old Cowork task still posts with it. Once the daily assistant has run on its own key for a week and this shows no calls, remove the secret (wrangler secret delete BLOG_ADMIN_API_KEY)."
             : "The variable is gone. The last calls above are the tail of the old task's log and will age out after 30 days."}
       </p>
     </div>

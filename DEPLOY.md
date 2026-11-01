@@ -8,7 +8,8 @@ The codebase already reflects the design decisions; this doc is just the order o
 
 ## 0. Prerequisites
 
-- Vercel account with the `jet-nine-website` project linked to the GitHub repo `AlwayzLegit/JetNine-Website`. Production branch: `main`. Region pinned to `cle1` (colocated with Supabase `us-east-2`).
+- Cloudflare account on **Workers Paid** (the bundle is over the free plan's 3 MB limit) with the `jetnine.com` zone. The site runs as the Worker `jetnine-web` (staging: `jetnine-web-staging`), built with the OpenNext adapter. Smart Placement keeps it near Supabase `us-east-2`.
+- Until the cutover in §2 is finished, the Vercel project `jet-nine-website` still serves production and is the rollback target.
 - Supabase project `szuztxfhkudcjzhrkfld` in `us-east-2`. All 31 migrations applied; check `drizzle.__drizzle_migrations` if drift is suspected.
 - GitHub repo write access for whoever is running this.
 
@@ -26,28 +27,94 @@ What you need from the dashboard:
 | `DATABASE_URL` | Settings → Database → Connection string → **Transaction pooler** (port 6543). Append `?sslmode=require&pgbouncer=true`. |
 | `DIRECT_URL` | Settings → Database → Connection string → **Direct connection** (port 5432). Append `?sslmode=require`. Used by migrations only. |
 
-The DB password is the one you set when the project was created. If you've lost it, regenerate it in Settings → Database → Reset database password (this rotates `DATABASE_URL` + `DIRECT_URL` everywhere — update Vercel after).
+The DB password is the one you set when the project was created. If you've lost it, regenerate it in Settings → Database → Reset database password (this rotates `DATABASE_URL` + `DIRECT_URL` everywhere — update the Hyperdrive config and Worker secrets after — see §2).
 
-## 2. Vercel env vars
+## 2. Cloudflare (Workers)
 
-Easiest: edit `scripts/set-vercel-env.sh`, fill in the four placeholders (fresh Vercel token + DB password + service-role key + prod domain), run `bash scripts/set-vercel-env.sh`. Sets all six required vars across production / preview / development scopes.
+### One-time setup
 
-Or paste manually into the Vercel dashboard → Settings → Environment Variables.
+Run these from the repo root after `pnpm exec wrangler login` (or with `CLOUDFLARE_API_TOKEN` set).
 
-After env is set, trigger a redeploy from the dashboard's Deployments tab → ⋯ → Redeploy.
+1. **Hyperdrive** pools database connections for the Worker.
+   - Use the Supabase **session pooler** URL: Settings → Database → Connection string → Session pooler. That's port **5432** on host `aws-0-us-east-2.pooler.supabase.com`, user `postgres.szuztxfhkudcjzhrkfld`.
+   - Don't use the 6543 transaction pooler, because Hyperdrive already does its own pooling.
+   ```
+   pnpm exec wrangler hyperdrive create jetnine-db --connection-string="postgresql://postgres.szuztxfhkudcjzhrkfld:PASSWORD@aws-0-us-east-2.pooler.supabase.com:5432/postgres"
+   ```
+   Put the printed id into both `<HYPERDRIVE_ID>` placeholders in `wrangler.jsonc`.
+2. **Cache storage** backs ISR, `revalidate` and `revalidateTag`:
+   ```
+   pnpm exec wrangler r2 bucket create jetnine-next-cache
+   pnpm exec wrangler r2 bucket create jetnine-next-cache-staging
+   pnpm exec wrangler d1 create jetnine-tag-cache
+   pnpm exec wrangler d1 create jetnine-tag-cache-staging
+   ```
+   Put the two D1 ids into `<D1_TAG_CACHE_ID>` and `<D1_TAG_CACHE_STAGING_ID>`.
+3. **Images** handles next/image optimisation and blog hero resizing. Enable Images in the dashboard (Images → Overview). The `IMAGES` binding needs nothing else.
+4. **Secrets.** Put the production values in a dotenv file that isn't committed. `vercel env pull .env.cloudflare --environment=production` copies them from Vercel. Then run:
+   ```
+   bash scripts/set-wrangler-secrets.sh .env.cloudflare            # production Worker
+   bash scripts/set-wrangler-secrets.sh .env.cloudflare staging    # staging Worker
+   rm .env.cloudflare
+   ```
+5. **GitHub** (Settings → Secrets and variables → Actions):
+   - Secrets:
+     - `CLOUDFLARE_API_TOKEN`: create it from the "Edit Cloudflare Workers" template and add D1, R2 and Hyperdrive permissions.
+     - `CLOUDFLARE_ACCOUNT_ID`
+     - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+     - `DATABASE_URL`: the transaction pooler URL. The build prerenders pages that read the database, as Vercel builds did.
+   - Variables: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_POSTHOG_KEY`, `NEXT_PUBLIC_SENTRY_DSN`, `NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION`.
+   - The `NEXT_PUBLIC_*` values are compiled into the build, so they must be set here, not only in Worker secrets.
+
+**Deploys**
+- Every push to `main` deploys **staging** through `.github/workflows/deploy-cloudflare.yml`, then runs the post-deploy smoke test against `https://staging.jetnine.com`.
+- Until the cutover, deploy production by running that workflow manually (workflow_dispatch) with target `production`. After the cutover, change the push target in the workflow to production.
+
+**Local**
+- `pnpm dev` is unchanged and still talks to `DATABASE_URL`.
+- `pnpm cf:preview` builds the Worker and serves it in workerd. It needs `CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE=<DATABASE_URL>` in the environment.
+- Build on Linux, WSL or in CI. OpenNext warns that builds on Windows are unreliable.
+
+### Cutover (zero downtime)
+
+DNS for `jetnine.com` is already on Cloudflare, so switching over is a route change. There's no DNS propagation to wait for.
+
+1. **Get staging green.**
+   - The smoke workflow passes on `staging.jetnine.com`.
+   - Check by hand: sign-in, the quote wizard, the admin desk, and invoice → Stripe Checkout (stop before paying).
+   - Staging runs no crons.
+2. **Deploy production once** (workflow_dispatch → production). At this point it's only reachable on its `*.workers.dev` URL.
+3. **Do these together, in this order:**
+   1. Remove the `crons` array from `vercel.json` and push. Vercel stops scheduling the jobs from that deploy on.
+   2. In `wrangler.jsonc`, uncomment the production `routes` (jetnine.com and www).
+   3. Delete the DNS records for `jetnine.com` and `www` that point at Vercel. Cloudflare won't attach a custom domain over an existing record. Write down their values first; you need them to roll back.
+   4. Deploy production again. The Worker takes over both hostnames and its crons start running.
+   5. Change the push target in `deploy-cloudflare.yml` to production.
+4. **Check the switch worked:**
+   - `curl -sI https://jetnine.com | grep -i server` shows `cloudflare`, and there's no `x-vercel-id` header.
+   - `/api/health` returns 200 with `region: cloudflare`.
+   - Workers logs show the next `*/10` cron (`sla-watch`) returning 200.
+5. **Webhooks need no edits.** Their URLs don't change (`/api/stripe/webhook`, `/api/twilio/inbound`, `/api/email/inbound/…`, `/api/voice/*`), so Stripe, Twilio and Postmark keep working as they are.
+
+**Rollback**
+1. Remove the custom domains from the Worker, or comment out `routes` and redeploy.
+2. Recreate the two DNS records pointing at Vercel.
+3. Restore `crons` in `vercel.json`.
+
+Keep the Vercel project for two weeks after the cutover before deleting it.
 
 ## 3. Stripe (optional — payments + member purchase)
 
 Without Stripe keys, the Pay-now button on `/account/invoices` returns `STRIPE_NOT_CONFIGURED` and the Activate buttons on `/account/memberships` do the same. The rest of the app is unaffected.
 
 1. Create a Stripe account at https://dashboard.stripe.com. Toggle Test mode for first-pass verification.
-2. Set in Vercel:
+2. Set as Worker secrets (`pnpm exec wrangler secret put NAME`):
    - `STRIPE_SECRET_KEY` — Dashboard → Developers → API keys → Secret key (`sk_test_…` / `sk_live_…`).
 3. Create the webhook:
    - Dashboard → Developers → Webhooks → Add endpoint.
    - URL: `https://YOUR_DOMAIN/api/stripe/webhook`.
    - Events: `checkout.session.completed`, `payment_intent.payment_failed`, `charge.refunded`.
-4. Copy the signing secret (`whsec_…`) into Vercel as `STRIPE_WEBHOOK_SECRET`.
+4. Copy the signing secret (`whsec_…`) as the Worker secret `STRIPE_WEBHOOK_SECRET`.
 5. Test: from `/account/invoices`, click Pay-now on a due invoice. From `/account/memberships`, click Activate on Card · 100.
 
 ## 4. Email (optional — transactional sends)
@@ -127,7 +194,7 @@ fallback provider. The page tests a key by listing the vendor's models with it.
 
 | Env var | Notes |
 |---|---|
-| `AI_KEYS_ENCRYPTION_KEY` | `openssl rand -hex 32`. Encrypts the stored keys. **Same value on Vercel and on the Render voice service.** |
+| `AI_KEYS_ENCRYPTION_KEY` | `openssl rand -hex 32`. Encrypts the stored keys. **Same value in the site's Worker secrets and on the voice service.** |
 | `ANTHROPIC_API_KEY` (Render only) | Optional fallback when nothing is routed in the admin. |
 
 Schema: migration `0047_ai_providers.sql` (tables `ai_providers`, `ai_routes`,
@@ -203,16 +270,14 @@ No schema or env changes. The runbook, in order:
    it proposed.
 4. Watch Settings › API keys for a week: the assistant key "used today" every
    day, and **The old blog key** card showing no calls. When it reads
-   "Safe to remove", delete `BLOG_ADMIN_API_KEY` in Vercel, redeploy, and
+   "Safe to remove", run `pnpm exec wrangler secret delete BLOG_ADMIN_API_KEY` and
    delete the old task. The legacy `/api/admin/blog/*` routes go in phase 10.
 
 ## 9. Custom domain
 
-In Vercel → Domains → Add. Point your registrar's `A` record at Vercel's anycast IP (or `CNAME` for subdomain). Vercel issues a Let's Encrypt cert automatically.
+`jetnine.com` and `www` are Worker custom domains (see §2 → Cutover), and Cloudflare issues their certificates.
 
-After DNS resolves:
-- Update `NEXT_PUBLIC_SITE_URL` in Vercel to the canonical domain (e.g. `https://jetnine.com`).
-- Redeploy — sitemap, OG URLs, Stripe redirects, and canonical tags all pick up the new host.
+`NEXT_PUBLIC_SITE_URL` comes from the `wrangler.jsonc` vars at runtime and from the deploy workflow at build time. The sitemap, OG URLs, Stripe redirects and canonical tags all use it.
 
 ## First-deploy verification checklist
 
@@ -229,7 +294,7 @@ Expected response shape:
   "ok": true,
   "status": "healthy",       // or "degraded" if some optional integration is unconfigured
   "env": "production",
-  "region": "cle1",
+  "region": "cloudflare",
   "sha": "abc123def456",
   "checks": {
     "db":        { "ok": true,  "latencyMs": 12 },
@@ -262,9 +327,11 @@ For broader verification, also check:
 
 If `/api/health` returns `status: "unhealthy"`, the only check that can flip it is `db`. Three causes, in order of likelihood:
 
-1. **`DATABASE_URL` missing or wrong on Vercel.** Open Project Settings → Environment Variables. Confirm `DATABASE_URL` is set for the right scope (Production / Preview / Development). If you rotated the Supabase DB password, both `DATABASE_URL` and `DIRECT_URL` need the new password — they're independent strings.
+1. **Hyperdrive is misconfigured.** On Workers, the app connects through the `HYPERDRIVE` binding, not `DATABASE_URL`. If the Supabase password was rotated:
+   - Run `pnpm exec wrangler hyperdrive update <HYPERDRIVE_ID> --origin-password=NEW`.
+   - Also update the `DATABASE_URL` and `DIRECT_URL` secrets. Scripts, migrations and `pnpm dev` still use them.
 2. **Supabase project paused.** Free tier auto-pauses after 7 days of zero queries. Resume from the Supabase dashboard; deploys start working again within seconds.
-3. **Region mismatch.** `DATABASE_URL` should be the **Transaction pooler** URL (port 6543), not the direct connection (port 5432). The pooler region must match your Supabase region — for us-east-2, that's `aws-0-us-east-2.pooler.supabase.com`.
+3. **Hyperdrive points at the wrong pooler.** It must use the **session pooler**: port 5432 on `aws-0-us-east-2.pooler.supabase.com`. `DATABASE_URL`, which is used outside Workers, stays on the transaction pooler URL (port 6543).
 
 If `/api/health` returns `status: "degraded"`, the DB is fine but at least one optional integration (Stripe / email / Twilio / Sentry / PostHog) is unconfigured. Visit `/admin/health` for a per-integration breakdown with fix hints, or read `checks.*` in the JSON.
 
@@ -275,6 +342,6 @@ The post-deploy smoke workflow (`.github/workflows/smoke-after-deploy.yml`) fail
 If you need to rotate a secret:
 
 1. Generate the new value in the provider's dashboard.
-2. Update Vercel env (script or dashboard).
-3. Trigger a fresh deploy — env changes don't apply to running serverless functions until they cold-start.
+2. Run `pnpm exec wrangler secret put NAME` (add `--env staging` for staging). Workers use the new value from the next request on, with no redeploy.
+3. `NEXT_PUBLIC_*` values are the exception, because they're compiled into the build. Change the GitHub variable and redeploy.
 4. Revoke the old value in the provider.

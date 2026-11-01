@@ -22,6 +22,7 @@ import {
   sendQuoteAcknowledgmentEmail,
 } from "@/lib/email";
 import { getReplyPromiseMinutes, recipientsFor } from "@/lib/desk-settings";
+import { clientIpFrom } from "@/lib/client-ip";
 
 export type SubmitResult =
   | { ok: true; ref: string; id: string; statusUrl: string; deduped?: true }
@@ -83,7 +84,7 @@ export async function submitQuote(draft: QuoteDraft): Promise<SubmitResult> {
   let clientIp = "unknown";
   try {
     const hdrs = await headers();
-    clientIp = hdrs.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
+    clientIp = clientIpFrom(hdrs) ?? "unknown";
   } catch {
     // headers() can throw outside a request scope; allow the action to
     // proceed without rate-limiting in that case (e.g. unit tests).

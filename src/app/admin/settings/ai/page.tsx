@@ -46,7 +46,7 @@ export default async function AdminAiSettingsPage() {
 
       {!keyStorageReady ? (
         <Notice>
-          Keys cannot be stored on this deployment because AI_KEYS_ENCRYPTION_KEY is not set. Set it on Vercel
+          Keys cannot be stored on this deployment because AI_KEYS_ENCRYPTION_KEY is not set. Set it as a Worker secret
           (production) and redeploy.
         </Notice>
       ) : null}

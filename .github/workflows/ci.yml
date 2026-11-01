@@ -13,7 +13,7 @@ jobs:
   build:
     name: lint · typecheck · build
     runs-on: ubuntu-24.04
-    timeout-minutes: 10
+    timeout-minutes: 20
 
     steps:
       - name: Checkout
@@ -55,8 +55,10 @@ jobs:
       # lint + typecheck miss. Env values come from GitHub secrets when set;
       # the build's runtime code falls back to dummy values when env is
       # missing so it can compile without contacting Supabase.
-      - name: Build
-        run: pnpm build
+      # Builds the Next app and the Cloudflare Worker bundle (OpenNext).
+      # Runs here on Linux because OpenNext's Windows builds are unreliable.
+      - name: Build (Next + Worker)
+        run: pnpm cf:build
         env:
           # Dummy values let next build succeed without DB access. Real
           # values are required for the deployed app, not for the CI build.
@@ -65,6 +67,12 @@ jobs:
           SUPABASE_SERVICE_ROLE_KEY: ci-placeholder
           DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
           DIRECT_URL: postgresql://ci:ci@localhost:5432/ci
+
+      # Bundles worker.ts + the OpenNext output the way `wrangler deploy`
+      # would and prints the upload size (Workers Paid limit: 10 MB gzip),
+      # without credentials or touching any account.
+      - name: Worker bundle dry run
+        run: pnpm exec wrangler deploy --dry-run --outdir .wrangler/dry-run
 
   e2e:
     name: playwright smoke

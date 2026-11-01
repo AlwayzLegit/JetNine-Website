@@ -12,7 +12,7 @@ import {
 } from "@/lib/blog-subscribe";
 import { unsubscribeHeaders } from "@/lib/watchlist-confirm";
 
-// Weekly blog digest — Fridays (vercel.json), one email per confirmed
+// Weekly blog digest — Fridays (wrangler.jsonc cron), one email per confirmed
 // subscriber with the posts published in the last 7 days.
 //
 // Delivery is claim-then-send: the run first stamps last_digest_at on the

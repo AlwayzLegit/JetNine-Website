@@ -1,5 +1,6 @@
 import "server-only";
 import Stripe from "stripe";
+import { platformBaseUrl } from "@/lib/deploy-env";
 
 /**
  * Stripe client + helpers. Ships dark without `STRIPE_SECRET_KEY` — the
@@ -21,9 +22,12 @@ export function getStripe(): Stripe {
   if (!key) {
     throw new Error("STRIPE_SECRET_KEY not configured");
   }
+  // Fetch-based HTTP client: the default Node http client is not available
+  // on Cloudflare Workers, and fetch works the same on Node.
   _stripe = new Stripe(key, {
     apiVersion: STRIPE_API_VERSION,
     typescript: true,
+    httpClient: Stripe.createFetchHttpClient(),
   });
   return _stripe;
 }
@@ -67,19 +71,13 @@ export function getWebhookSecret(): string {
 /**
  * Build the absolute base URL for return / cancel redirects. Stripe
  * requires absolute URLs; we derive from NEXT_PUBLIC_SITE_URL when set,
- * else fall back to the Vercel auto-assigned URL, else localhost.
+ * else fall back to the platform-assigned URL, else localhost.
  */
 export function getBaseUrl(): string {
   if (process.env.NEXT_PUBLIC_SITE_URL) {
     return process.env.NEXT_PUBLIC_SITE_URL.replace(/\/$/, "");
   }
-  if (process.env.VERCEL_PROJECT_PRODUCTION_URL) {
-    return `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`;
-  }
-  if (process.env.VERCEL_URL) {
-    return `https://${process.env.VERCEL_URL}`;
-  }
-  return "http://localhost:3000";
+  return platformBaseUrl() ?? "http://localhost:3000";
 }
 
 type CheckoutInput = {
@@ -194,10 +192,23 @@ export async function retrieveCheckoutSession(sessionId: string): Promise<{
  * route handler converts the throw into a 400 response so Stripe stops
  * retrying corrupt deliveries.
  */
-export function constructWebhookEvent(rawBody: string, signature: string | null): Stripe.Event {
+export async function constructWebhookEvent(
+  rawBody: string,
+  signature: string | null,
+): Promise<Stripe.Event> {
   if (!signature) throw new Error("missing Stripe-Signature header");
-  return getStripe().webhooks.constructEvent(rawBody, signature, getWebhookSecret());
+  // Async + Web Crypto: the sync variant needs Node's crypto HMAC, which the
+  // Workers build of the Stripe SDK does not use.
+  return getStripe().webhooks.constructEventAsync(
+    rawBody,
+    signature,
+    getWebhookSecret(),
+    undefined,
+    webhookCrypto,
+  );
 }
+
+const webhookCrypto = Stripe.createSubtleCryptoProvider();
 
 type MembershipTopUpInput = {
   memberId: string;

@@ -1,4 +1,3 @@
-import sharp from "sharp";
 import { desc, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { blogPosts, type BlogPost } from "@/db/schema/blog";
@@ -11,6 +10,7 @@ import { safeFetch } from "@/lib/safe-fetch";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { auditFields, type Actor } from "@/domain/actor";
 import { err, ok, type Result } from "@/domain/result";
+import { ImageResizeUnavailable, toWebpCover } from "@/lib/image-resize";
 
 /**
  * Blog commands and queries. Shared by /api/v1/blog/* and the legacy
@@ -267,8 +267,11 @@ export async function ingestHero(actor: Actor, body: unknown): Promise<Result<He
 
   let webp: Buffer;
   try {
-    webp = await sharp(raw).resize(1536, 864, { fit: "cover" }).webp({ quality: 82 }).toBuffer();
-  } catch {
+    webp = await toWebpCover(raw, 1536, 864, 82);
+  } catch (e) {
+    if (e instanceof ImageResizeUnavailable) {
+      return err("unavailable", "Image processing is not configured (IMAGES binding missing).", { library: HERO_LIBRARY });
+    }
     return err("invalid", "That file is not an image we can read.");
   }
 

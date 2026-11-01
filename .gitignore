@@ -64,3 +64,9 @@ tmp/
 # Sitemap audit artifacts and Python bytecode
 sitemap-audit.json
 __pycache__/
+
+# cloudflare / opennext
+.open-next/
+.wrangler/
+.dev.vars*
+!.dev.vars.example

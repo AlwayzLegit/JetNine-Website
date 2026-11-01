@@ -1,6 +1,7 @@
 import { headers } from "next/headers";
 import { db } from "@/db";
 import { auditLog, type NewAuditLog } from "@/db/schema/audit";
+import { clientIpFrom } from "@/lib/client-ip";
 
 type SubjectType = NewAuditLog["subjectType"];
 
@@ -31,7 +32,7 @@ export async function logAudit(input: LogInput): Promise<void> {
     let ua: string | null = null;
     try {
       const hdrs = await headers();
-      ip = hdrs.get("x-forwarded-for")?.split(",")[0]?.trim() ?? null;
+      ip = clientIpFrom(hdrs);
       ua = hdrs.get("user-agent")?.slice(0, 500) ?? null;
     } catch {
       // headers() throws outside a request scope (e.g. from a background

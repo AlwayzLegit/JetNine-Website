@@ -7,3 +7,6 @@
 *.pdf binary
 *.tar binary
 *.gz binary
+*.webp binary
+*.avif binary
+*.woff2 binary

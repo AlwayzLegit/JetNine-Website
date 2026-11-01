@@ -15,6 +15,7 @@ import { checkRateLimit } from "@/lib/rate-limit";
 import { sendContactAckEmail, sendDispatchContactNotification } from "@/lib/email";
 import { getReplyPromiseMinutes } from "@/lib/desk-settings";
 import { replyPromiseWords } from "@/lib/desk-status";
+import { clientIpFrom } from "@/lib/client-ip";
 
 export type ContactResult =
   | { ok: true; message: string }
@@ -75,7 +76,7 @@ export async function submitContactInquiry(formData: FormData): Promise<ContactR
   let clientIp = "unknown";
   try {
     const hdrs = await headers();
-    clientIp = hdrs.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
+    clientIp = clientIpFrom(hdrs) ?? "unknown";
   } catch {
     // headers() can throw outside a request scope (unit tests); proceed
     // without rate-limiting in that case.

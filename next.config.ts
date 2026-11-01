@@ -22,6 +22,8 @@ const supabaseHost = (() => {
 //   - 'unsafe-inline' for style-src covers Tailwind's component primitives
 //     in globals.css and inline `style={...}` props the design system uses.
 //   - connect-src whitelists the Supabase REST + Realtime sockets.
+//   - Sentry ingest hosts are allowed so browser errors can be reported;
+//     without them the client SDK's requests were blocked by this policy.
 //   - PostHog hosts are allowed unconditionally; the SDK only initializes
 //     when NEXT_PUBLIC_POSTHOG_KEY is set (instrumentation-client.ts), so
 //     the policy entries are a no-op when analytics is dark. us-assets
@@ -37,7 +39,7 @@ const csp = [
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   "font-src 'self' data: https://fonts.gstatic.com",
   `img-src 'self' data: blob: https://jetnine.com https://${supabaseHost}`,
-  `connect-src 'self' https://${supabaseHost} wss://${supabaseHost}${devConnect} https://us.i.posthog.com https://us-assets.i.posthog.com`,
+  `connect-src 'self' https://${supabaseHost} wss://${supabaseHost}${devConnect} https://us.i.posthog.com https://us-assets.i.posthog.com https://*.ingest.sentry.io https://*.ingest.us.sentry.io`,
   "frame-ancestors 'none'",
   "base-uri 'self'",
   "form-action 'self'",
@@ -123,3 +125,14 @@ const nextConfig: NextConfig = {
 };
 
 export default nextConfig;
+
+// Opt-in: `CF_DEV_BINDINGS=1 pnpm dev` gives `next dev` the Cloudflare
+// bindings from wrangler.jsonc (Hyperdrive, Images, R2 …). Hyperdrive then
+// needs CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE in .env.
+// Without it, dev talks to DATABASE_URL directly (src/db/index.ts) and only
+// blog hero resizing is unavailable.
+if (process.env.NODE_ENV === "development" && process.env.CF_DEV_BINDINGS === "1") {
+  void import("@opennextjs/cloudflare").then(({ initOpenNextCloudflareForDev }) =>
+    initOpenNextCloudflareForDev(),
+  );
+}

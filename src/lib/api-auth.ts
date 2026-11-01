@@ -7,6 +7,7 @@ import { checkRateLimit } from "@/lib/rate-limit";
 import { effectiveScopes, hashToken, hashesEqual, parseToken } from "@/lib/api-keys";
 import type { Actor } from "@/domain/actor";
 import { err, ok, type Result } from "@/domain/result";
+import { clientIpFrom } from "@/lib/client-ip";
 
 /**
  * Authenticate an /api/v1 request from its `Authorization: Bearer` key.
@@ -22,7 +23,7 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 const STAFF_ROLES = new Set(["dispatcher", "admin", "superadmin"]);
 
 export function clientIp(req: Request): string {
-  return req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || req.headers.get("x-real-ip") || "unknown";
+  return clientIpFrom(req.headers) ?? "unknown";
 }
 
 export function bearerToken(req: Request): string | null {

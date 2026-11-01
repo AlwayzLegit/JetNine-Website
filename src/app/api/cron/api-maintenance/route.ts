@@ -6,7 +6,7 @@ import { apiRequests } from "@/db/schema/api";
 import { failStaleRuns } from "@/domain/agent/commands";
 import { expirePending } from "@/domain/approvals/commands";
 
-// Daily API housekeeping (vercel.json: "20 9 * * *" UTC). Prunes the
+// Daily API housekeeping (wrangler.jsonc cron "20 9 * * *" UTC). Prunes the
 // per-call request log after 30 days, marks assistant runs left open for
 // a day as failed and expires proposals nobody decided within 7 days. Keys themselves are never deleted:
 // revoked and expired keys stay listed in Settings › API keys for the record.

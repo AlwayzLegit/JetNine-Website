@@ -8,6 +8,7 @@
 // Functions rather than constants: on Workers, process.env is filled in per
 // request, after module evaluation.
 
+/** The declared environment, or a guess from NODE_ENV when none is set. */
 export function deployEnv(): string {
   return (
     process.env.DEPLOY_ENV ??
@@ -16,8 +17,14 @@ export function deployEnv(): string {
   );
 }
 
+/**
+ * True only when the deployment explicitly declares itself production.
+ * `next build` always runs with NODE_ENV=production, so an offline CI build
+ * must not count: the sitemap would refuse its seeded fallback and IndexNow
+ * would ping from previews.
+ */
 export function isProductionDeploy(): boolean {
-  return deployEnv() === "production";
+  return (process.env.DEPLOY_ENV ?? process.env.VERCEL_ENV) === "production";
 }
 
 export function commitSha(): string {

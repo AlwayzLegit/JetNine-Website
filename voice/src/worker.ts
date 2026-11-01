@@ -47,6 +47,32 @@ async function twilioSigned(c: Ctx): Promise<boolean> {
   return ok;
 }
 
+/**
+ * The ConversationRelay handshake. Twilio signs it over the socket URL with
+ * no params, but which form it signs (wss:// or https://, trailing slash)
+ * is unconfirmed, so all are tried, and a mismatch is only logged until
+ * TWILIO_VALIDATE_RELAY_SIGNATURE=true (turn it on once a live call logs
+ * "relay: handshake signature verified"). Returns false only to reject.
+ */
+async function relaySigned(req: Request, url: URL, callSid: string): Promise<boolean> {
+  const signature = req.headers.get("x-twilio-signature");
+  const path = url.pathname + url.search;
+  const token = config.twilio.authToken;
+  const signed =
+    (await validateTwilioRequest(token, signature, `wss://${config.publicHost}${path}`, {}, { trailingSlash: true })) ||
+    (await validateTwilioRequest(token, signature, urls.https(path), {}, { trailingSlash: true }));
+  if (signed) {
+    log.info({ callSid }, "relay: handshake signature verified");
+    return true;
+  }
+  if (config.twilio.validateRelaySignature) {
+    log.warn({ callSid, hasSignature: !!signature }, "relay: bad handshake signature");
+    return false;
+  }
+  log.warn({ callSid, hasSignature: !!signature }, "relay: handshake signature did not verify (report-only)");
+  return true;
+}
+
 /** Call-ready = every env var present AND an LLM provider resolvable (db route or env key). */
 async function callReady(): Promise<{ ready: boolean; llm: ReturnType<typeof describeRouting> }> {
   const routing = await resolveRouting();
@@ -229,6 +255,7 @@ export default {
     if (path === "/relay" || path.startsWith("/relay/")) {
       if (req.headers.get("upgrade")?.toLowerCase() === "websocket") {
         const callSid = path.startsWith("/relay/") ? decodeURIComponent(path.slice("/relay/".length)) : "";
+        if (!(await relaySigned(req, url, callSid))) return new Response("forbidden", { status: 403 });
         const id = /^CA[0-9a-f]{32}$/i.test(callSid) ? env.CALL_RELAY.idFromName(callSid) : env.CALL_RELAY.newUniqueId();
         return env.CALL_RELAY.get(id).fetch(req);
       }

@@ -72,6 +72,9 @@ policies: only the service-role key can read or write them.
   plus the sorted form params; see `src/twilio.ts`) when
   `TWILIO_VALIDATE_SIGNATURES` is on. That is the default with
   `NODE_ENV=production`, which `wrangler.jsonc` sets.
+- The `/relay` WebSocket handshake is checked too, over the socket URL with
+  no params (`wss://` or `https://`, with or without a trailing slash). It
+  is report-only until `TWILIO_VALIDATE_RELAY_SIGNATURE=true` (see Cutover).
 - `/twiml` puts the CallSid in the relay URL: `wss://<PUBLIC_HOST>/relay/<CallSid>`.
   The Worker routes that upgrade to the `CallRelay` Durable Object named by
   the CallSid, which accepts the socket and runs `CallSession`
@@ -176,6 +179,11 @@ the same Supabase tables, so they can run side by side.
 2. Test with a **second Twilio number** pointed at
    `https://voice.jetnine.com/twiml`. Run the three scripted calls from the
    runbook below, plus a transfer and a broker no-answer.
+   After a staging test call logs `relay: handshake signature verified`
+   (`npx wrangler tail`), set `TWILIO_VALIDATE_RELAY_SIGNATURE` to `"true"`
+   in `wrangler.jsonc` and deploy again, so an unsigned relay handshake gets
+   403. Until then a mismatch is only logged
+   (`relay: handshake signature did not verify (report-only)`).
 3. **Twilio number webhook.** Go to Console → Phone Numbers → the JetNine
    number → Voice → *A call comes in*. If it points at this service
    directly, change `https://jetnine-voice.onrender.com/twiml` to

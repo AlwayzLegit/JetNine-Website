@@ -24,20 +24,40 @@ export async function twilioSignature(authToken: string, url: string, params: Re
   return btoa(bin);
 }
 
-/** Constant-time compare of the expected signature with the header. */
+function safeEqual(a: string, b: string): boolean {
+  const x = enc.encode(a);
+  const y = enc.encode(b);
+  if (x.length !== y.length) return false;
+  let diff = 0;
+  for (let i = 0; i < x.length; i++) diff |= x[i] ^ y[i];
+  return diff === 0;
+}
+
+/**
+ * Constant-time compare of the expected signature with the header.
+ * `trailingSlash`: also accept the URL with a `/` after the path, which
+ * Twilio's docs suggest for WebSocket handshakes.
+ */
 export async function validateTwilioRequest(
   authToken: string,
   signature: string | null,
   url: string,
   params: Record<string, string>,
+  opts: { trailingSlash?: boolean } = {},
 ): Promise<boolean> {
   if (!authToken || !signature) return false;
-  const expected = enc.encode(await twilioSignature(authToken, url, params));
-  const got = enc.encode(signature);
-  if (expected.length !== got.length) return false;
-  let diff = 0;
-  for (let i = 0; i < expected.length; i++) diff |= expected[i] ^ got[i];
-  return diff === 0;
+  const candidates = [url];
+  if (opts.trailingSlash) {
+    const u = new URL(url);
+    if (!u.pathname.endsWith("/")) {
+      u.pathname += "/";
+      candidates.push(u.toString());
+    }
+  }
+  for (const candidate of candidates) {
+    if (safeEqual(await twilioSignature(authToken, candidate, params), signature)) return true;
+  }
+  return false;
 }
 
 /** POST a form to the 2010-04-01 REST API, e.g. path `/Calls/CA…/Recordings.json`. Throws on non-2xx. */

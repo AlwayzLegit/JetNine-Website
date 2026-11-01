@@ -1,6 +1,7 @@
 import { exports } from "cloudflare:workers";
-import { describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
 import { twilioSignature } from "../src/twilio.js";
+import { config } from "../src/config.js";
 
 // The Worker end to end in workerd. wrangler.jsonc sets NODE_ENV=production,
 // so signatures are enforced; vitest.config.ts sets the test auth token and
@@ -18,6 +19,12 @@ async function signedPost(path: string, params: Record<string, string>) {
 }
 
 describe("worker routes", () => {
+  // The first request loads the Worker's SDK module graph, which can take
+  // tens of seconds on a busy machine; keep that out of any one test.
+  beforeAll(async () => {
+    await worker.fetch("https://voice.example.com/health");
+  }, 180_000);
+
   it("GET /health reports missing configuration with 503", async () => {
     const res = await worker.fetch("https://voice.example.com/health");
     expect(res.status).toBe(503);
@@ -75,6 +82,62 @@ describe("worker routes", () => {
     ws.accept();
     ws.send(JSON.stringify({ type: "info" }));
     ws.close(1000, "done");
+  });
+
+  describe("relay handshake signature", () => {
+    const sid = "CA33333333333333333333333333333333";
+    const upgrade = (headers: Record<string, string> = {}) =>
+      worker.fetch(`https://voice.example.com/relay/${sid}`, { headers: { upgrade: "websocket", ...headers } });
+    const accepted = (res: Response) => {
+      expect(res.status).toBe(101);
+      res.webSocket!.accept();
+      res.webSocket!.close(1000, "done");
+    };
+    const enforce = (on: boolean) => {
+      (config.twilio as { validateRelaySignature: boolean }).validateRelaySignature = on;
+    };
+
+    it("is report-only by default", () => {
+      expect(config.twilio.validateRelaySignature).toBe(false);
+    });
+
+    it("a handshake signed over the wss:// URL (no params) passes, also when enforced", async () => {
+      const signature = await twilioSignature(TOKEN, `wss://voice.example.com/relay/${sid}`, {});
+      accepted(await upgrade({ "x-twilio-signature": signature }));
+      enforce(true);
+      try {
+        accepted(await upgrade({ "x-twilio-signature": signature }));
+      } finally {
+        enforce(false);
+      }
+    });
+
+    it("the https:// form and a trailing slash are accepted when enforced", async () => {
+      enforce(true);
+      try {
+        accepted(await upgrade({ "x-twilio-signature": await twilioSignature(TOKEN, `https://voice.example.com/relay/${sid}`, {}) }));
+        accepted(await upgrade({ "x-twilio-signature": await twilioSignature(TOKEN, `wss://voice.example.com/relay/${sid}/`, {}) }));
+      } finally {
+        enforce(false);
+      }
+    });
+
+    it("an unsigned or wrongly signed handshake passes in report mode", async () => {
+      accepted(await upgrade());
+      accepted(await upgrade({ "x-twilio-signature": "bogus=" }));
+    });
+
+    it("an unsigned or wrongly signed handshake gets 403 when enforced", async () => {
+      enforce(true);
+      try {
+        expect((await upgrade()).status).toBe(403);
+        expect((await upgrade({ "x-twilio-signature": "bogus=" })).status).toBe(403);
+        const otherToken = await twilioSignature("not-the-token", `wss://voice.example.com/relay/${sid}`, {});
+        expect((await upgrade({ "x-twilio-signature": otherToken })).status).toBe(403);
+      } finally {
+        enforce(false);
+      }
+    });
   });
 
   it("unknown paths are 404", async () => {

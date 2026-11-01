@@ -33,6 +33,8 @@ export const config = {
     authToken: required("TWILIO_AUTH_TOKEN"),
     number: required("TWILIO_NUMBER"),
     validateSignatures: flag("TWILIO_VALIDATE_SIGNATURES", vars.NODE_ENV === "production"),
+    /** Enforce the signature on the ConversationRelay handshake (until then a mismatch is only logged). */
+    validateRelaySignature: flag("TWILIO_VALIDATE_RELAY_SIGNATURE", false),
   },
 
   // Which vendor answers is decided by the ai_routes / ai_providers tables

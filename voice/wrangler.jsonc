@@ -23,6 +23,8 @@
   "vars": {
     "PUBLIC_HOST": "voice.jetnine.com",
     "NODE_ENV": "production",
+    // Relay handshake signature: logged only until a staging call verifies it (README › Cutover).
+    "TWILIO_VALIDATE_RELAY_SIGNATURE": "false",
     "LOG_RELAY_MESSAGES": "false",
     "ANTHROPIC_MODEL": "claude-sonnet-5",
     "LLM_MAX_TOKENS": "600",

@@ -2,7 +2,7 @@
 // Setup and cutover steps: DEPLOY.md → "Cloudflare".
 //
 // Placeholder still to fill (see DEPLOY.md):
-//   <HYPERDRIVE_ID>          wrangler hyperdrive create jetnine-db --connection-string=...
+//   05bdaa66695d43c08fc02b22e39bca77          wrangler hyperdrive create jetnine-db --connection-string=...
 // Secrets (DATABASE_URL, SUPABASE_SERVICE_ROLE_KEY, STRIPE_*, CRON_SECRET, …)
 // are set with `wrangler secret put` / `wrangler secret bulk`, never here.
 {
@@ -45,7 +45,7 @@
     ]
   },
 
-  "hyperdrive": [{ "binding": "HYPERDRIVE", "id": "<HYPERDRIVE_ID>" }],
+  "hyperdrive": [{ "binding": "HYPERDRIVE", "id": "05bdaa66695d43c08fc02b22e39bca77" }],
   "images": { "binding": "IMAGES" },
   "r2_buckets": [{ "binding": "NEXT_INC_CACHE_R2_BUCKET", "bucket_name": "jetnine-next-cache" }],
   "d1_databases": [
@@ -70,7 +70,7 @@
         "NEXT_PUBLIC_SITE_URL": "https://staging.jetnine.com"
       },
       "triggers": { "crons": [] },
-      "hyperdrive": [{ "binding": "HYPERDRIVE", "id": "<HYPERDRIVE_ID>" }],
+      "hyperdrive": [{ "binding": "HYPERDRIVE", "id": "05bdaa66695d43c08fc02b22e39bca77" }],
       "images": { "binding": "IMAGES" },
       "r2_buckets": [{ "binding": "NEXT_INC_CACHE_R2_BUCKET", "bucket_name": "jetnine-next-cache-staging" }],
       "d1_databases": [

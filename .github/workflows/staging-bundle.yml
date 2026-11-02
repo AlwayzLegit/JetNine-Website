@@ -44,7 +44,7 @@ jobs:
           NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION: ${{ vars.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION }}
         run: pnpm cf:build
       - name: Pack
-        run: tar -czf open-next-staging.tgz .open-next
+        run: tar -czhf open-next-staging.tgz .open-next
       - uses: actions/upload-artifact@v4
         with:
           name: open-next-staging

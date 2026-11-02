@@ -1,10 +1,8 @@
 // Cloudflare Workers config for the JetNine site (OpenNext adapter).
 // Setup and cutover steps: DEPLOY.md → "Cloudflare".
 //
-// Placeholders to fill once per account (see DEPLOY.md):
+// Placeholder still to fill (see DEPLOY.md):
 //   <HYPERDRIVE_ID>          wrangler hyperdrive create jetnine-db --connection-string=...
-//   <D1_TAG_CACHE_ID>        wrangler d1 create jetnine-tag-cache
-//   <D1_TAG_CACHE_STAGING_ID> wrangler d1 create jetnine-tag-cache-staging
 // Secrets (DATABASE_URL, SUPABASE_SERVICE_ROLE_KEY, STRIPE_*, CRON_SECRET, …)
 // are set with `wrangler secret put` / `wrangler secret bulk`, never here.
 {
@@ -51,7 +49,7 @@
   "images": { "binding": "IMAGES" },
   "r2_buckets": [{ "binding": "NEXT_INC_CACHE_R2_BUCKET", "bucket_name": "jetnine-next-cache" }],
   "d1_databases": [
-    { "binding": "NEXT_TAG_CACHE_D1", "database_name": "jetnine-tag-cache", "database_id": "<D1_TAG_CACHE_ID>" }
+    { "binding": "NEXT_TAG_CACHE_D1", "database_name": "jetnine-tag-cache", "database_id": "af5350ae-1014-421c-86a0-c60a4f8d3a39" }
   ],
   "durable_objects": {
     "bindings": [{ "name": "NEXT_CACHE_DO_QUEUE", "class_name": "DOQueueHandler" }]
@@ -79,7 +77,7 @@
         {
           "binding": "NEXT_TAG_CACHE_D1",
           "database_name": "jetnine-tag-cache-staging",
-          "database_id": "<D1_TAG_CACHE_STAGING_ID>"
+          "database_id": "deaba576-77b3-429f-b9ee-1c5a0b1eb60a"
         }
       ],
       "durable_objects": {

@@ -1,0 +1,52 @@
+name: Staging bundle
+
+# Builds the staging Worker bundle with the real NEXT_PUBLIC_* values and
+# uploads it as an artifact, so it can be deployed from a machine that is
+# logged in to wrangler but cannot run the OpenNext build (Windows).
+# Temporary: used until CLOUDFLARE_API_TOKEN exists and deploy-cloudflare.yml
+# takes over.
+
+on:
+  push:
+    branches: [cloudflare-migration]
+    paths-ignore: ["voice/**", "**/*.md", "docs/**"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  bundle:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+          run_install: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Build (OpenNext, staging)
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          DEPLOY_ENV: staging
+          NEXT_PUBLIC_DEPLOY_ENV: staging
+          NEXT_PUBLIC_GIT_COMMIT_SHA: ${{ github.sha }}
+          NEXT_PUBLIC_SITE_URL: https://staging.jetnine.com
+          NEXT_PUBLIC_SUPABASE_URL: ${{ vars.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          NEXT_PUBLIC_POSTHOG_KEY: ${{ vars.NEXT_PUBLIC_POSTHOG_KEY }}
+          NEXT_PUBLIC_SENTRY_DSN: ${{ vars.NEXT_PUBLIC_SENTRY_DSN }}
+          NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION: ${{ vars.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION }}
+        run: pnpm cf:build
+      - name: Pack
+        run: tar -czf open-next-staging.tgz .open-next
+      - uses: actions/upload-artifact@v4
+        with:
+          name: open-next-staging
+          path: open-next-staging.tgz
+          retention-days: 3

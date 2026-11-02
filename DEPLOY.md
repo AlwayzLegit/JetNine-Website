@@ -36,10 +36,10 @@ The DB password is the one you set when the project was created. If you've lost 
 Run these from the repo root after `pnpm exec wrangler login` (or with `CLOUDFLARE_API_TOKEN` set).
 
 1. **Hyperdrive** pools database connections for the Worker.
-   - Use the Supabase **session pooler** URL: Settings → Database → Connection string → Session pooler. That's port **5432** on host `aws-0-us-east-2.pooler.supabase.com`, user `postgres.szuztxfhkudcjzhrkfld`.
+   - Use the Supabase **session pooler** URL: Settings → Database → Connection string → Session pooler. That's port **5432** on host `aws-1-us-east-2.pooler.supabase.com`, user `postgres.szuztxfhkudcjzhrkfld`.
    - Don't use the 6543 transaction pooler, because Hyperdrive already does its own pooling.
    ```
-   pnpm exec wrangler hyperdrive create jetnine-db --connection-string="postgresql://postgres.szuztxfhkudcjzhrkfld:PASSWORD@aws-0-us-east-2.pooler.supabase.com:5432/postgres"
+   pnpm exec wrangler hyperdrive create jetnine-db --connection-string="postgresql://postgres.szuztxfhkudcjzhrkfld:PASSWORD@aws-1-us-east-2.pooler.supabase.com:5432/postgres"
    ```
    Put the printed id into both `<HYPERDRIVE_ID>` placeholders in `wrangler.jsonc`.
 2. **Cache storage** backs ISR, `revalidate` and `revalidateTag`:
@@ -331,7 +331,7 @@ If `/api/health` returns `status: "unhealthy"`, the only check that can flip it 
    - Run `pnpm exec wrangler hyperdrive update <HYPERDRIVE_ID> --origin-password=NEW`.
    - Also update the `DATABASE_URL` and `DIRECT_URL` secrets. Scripts, migrations and `pnpm dev` still use them.
 2. **Supabase project paused.** Free tier auto-pauses after 7 days of zero queries. Resume from the Supabase dashboard; deploys start working again within seconds.
-3. **Hyperdrive points at the wrong pooler.** It must use the **session pooler**: port 5432 on `aws-0-us-east-2.pooler.supabase.com`. `DATABASE_URL`, which is used outside Workers, stays on the transaction pooler URL (port 6543).
+3. **Hyperdrive points at the wrong pooler.** It must use the **session pooler**: port 5432 on `aws-1-us-east-2.pooler.supabase.com`. `DATABASE_URL`, which is used outside Workers, stays on the transaction pooler URL (port 6543).
 
 If `/api/health` returns `status: "degraded"`, the DB is fine but at least one optional integration (Stripe / email / Twilio / Sentry / PostHog) is unconfigured. Visit `/admin/health` for a per-integration breakdown with fix hints, or read `checks.*` in the JSON.
 

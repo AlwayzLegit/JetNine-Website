@@ -2,7 +2,9 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
+import { safeNext } from "@/lib/safe-next";
 import { SignInForm } from "./sign-in-form";
+import { PasswordSignInForm } from "./password-form";
 
 export const metadata: Metadata = {
   title: "Sign in",
@@ -27,7 +29,7 @@ export default async function SignInPage({ searchParams }: Props) {
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (user) redirect(next ?? "/account");
+  if (user) redirect(safeNext(next));
 
   return (
     <section className="container-jn">
@@ -35,11 +37,11 @@ export default async function SignInPage({ searchParams }: Props) {
         <div className="min-w-0 pt-2">
           <p className="eyebrow">Sign in</p>
           <h1 className="font-serif text-[clamp(34px,6vw,48px)] font-normal leading-[1.05] text-bone">
-            One link, in your inbox.
+            Your account, your way in.
           </h1>
           <p className="mt-4 max-w-[46ch] text-[17px] leading-[1.55] text-bone-2">
-            We don&rsquo;t do passwords. Enter your email, click the link we send, and you&rsquo;re
-            in. The link works once — if it expires, just request another.
+            Sign in with your email and password. No password yet, or prefer not to type one? We&rsquo;ll
+            email you a one-time link instead.
           </p>
           <p className="mt-3 max-w-[46ch] text-[15px] leading-[1.55] text-steel">
             Accounts are set up by dispatch when you fly with us. New to JetNine?{" "}
@@ -63,10 +65,21 @@ export default async function SignInPage({ searchParams }: Props) {
 
         <div className="border border-line bg-surface px-6 py-7 sm:px-8">
           <p className="text-[12px] font-bold uppercase tracking-[.2em] text-gold">Member account</p>
-          <h2 className="mt-2 font-serif text-[24px] font-normal leading-[1.15] text-bone">Email me a sign-in link</h2>
+          <h2 className="mt-2 font-serif text-[24px] font-normal leading-[1.15] text-bone">Sign in</h2>
           <div className="mt-5">
-            <SignInForm next={next} initialError={errorWords(error)} />
+            <PasswordSignInForm next={next} initialError={errorWords(error)} />
           </div>
+
+          <div className="mt-7 border-t border-line pt-6">
+            <h2 className="font-serif text-[20px] font-normal leading-[1.15] text-bone">Or email me a sign-in link</h2>
+            <p className="mt-1.5 text-[14px] leading-[1.55] text-steel">
+              One-time link, works once. Handy if you haven&rsquo;t set a password.
+            </p>
+            <div className="mt-4">
+              <SignInForm next={next} />
+            </div>
+          </div>
+
           <p className="mt-6 border-t border-line pt-5 text-[13px] leading-[1.55] text-steel">
             Trouble signing in? Email{" "}
             <a href="mailto:dispatch@jetnine.com" className="text-link">

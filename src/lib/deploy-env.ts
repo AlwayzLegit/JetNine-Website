@@ -30,6 +30,9 @@ export function isProductionDeploy(): boolean {
 export function commitSha(): string {
   return (
     process.env.GIT_COMMIT_SHA ??
+    // Inlined at build time by the CI bundle, so a Worker deployed without
+    // `--var GIT_COMMIT_SHA` (a local deploy) still reports its commit.
+    process.env.NEXT_PUBLIC_GIT_COMMIT_SHA ??
     process.env.VERCEL_GIT_COMMIT_SHA ??
     process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA ??
     ""

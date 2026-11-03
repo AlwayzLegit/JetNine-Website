@@ -1,16 +1,26 @@
-name: Staging bundle
+name: Worker bundle
 
-# Builds the staging Worker bundle with the real NEXT_PUBLIC_* values and
-# uploads it as an artifact, so it can be deployed from a machine that is
-# logged in to wrangler but cannot run the OpenNext build (Windows).
+# Builds the Worker bundle with the real NEXT_PUBLIC_* values and uploads it
+# as an artifact, so it can be deployed from a machine that is logged in to
+# wrangler but cannot run the OpenNext build (Windows). DEPLOY.md → "Deploying
+# from the bundle" has the unpack-and-deploy steps.
 # Temporary: used until CLOUDFLARE_API_TOKEN exists and deploy-cloudflare.yml
 # takes over.
+#
+#   push to cloudflare-migration → staging bundle
+#   workflow_dispatch            → staging or production bundle
 
 on:
   push:
     branches: [cloudflare-migration]
     paths-ignore: ["voice/**", "**/*.md", "docs/**"]
   workflow_dispatch:
+    inputs:
+      target:
+        description: Which Worker the bundle is for
+        type: choice
+        options: [staging, production]
+        default: staging
 
 permissions:
   contents: read
@@ -20,6 +30,16 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
+      - name: Resolve target
+        id: target
+        run: |
+          TARGET="${{ github.event.inputs.target || 'staging' }}"
+          echo "environment=$TARGET" >> "$GITHUB_OUTPUT"
+          if [ "$TARGET" = "production" ]; then
+            echo "url=https://jetnine.com" >> "$GITHUB_OUTPUT"
+          else
+            echo "url=https://staging.jetnine.com" >> "$GITHUB_OUTPUT"
+          fi
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
         with:
@@ -30,13 +50,13 @@ jobs:
           node-version: "22"
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - name: Build (OpenNext, staging)
+      - name: Build (OpenNext)
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
-          DEPLOY_ENV: staging
-          NEXT_PUBLIC_DEPLOY_ENV: staging
+          DEPLOY_ENV: ${{ steps.target.outputs.environment }}
+          NEXT_PUBLIC_DEPLOY_ENV: ${{ steps.target.outputs.environment }}
           NEXT_PUBLIC_GIT_COMMIT_SHA: ${{ github.sha }}
-          NEXT_PUBLIC_SITE_URL: https://staging.jetnine.com
+          NEXT_PUBLIC_SITE_URL: ${{ steps.target.outputs.url }}
           NEXT_PUBLIC_SUPABASE_URL: ${{ vars.NEXT_PUBLIC_SUPABASE_URL }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
           NEXT_PUBLIC_POSTHOG_KEY: ${{ vars.NEXT_PUBLIC_POSTHOG_KEY }}
@@ -44,9 +64,10 @@ jobs:
           NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION: ${{ vars.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION }}
         run: pnpm cf:build
       - name: Pack
-        run: tar -czhf open-next-staging.tgz .open-next
+        # -h dereferences pnpm's symlinks; Windows can't extract them.
+        run: tar -czhf open-next-${{ steps.target.outputs.environment }}.tgz .open-next
       - uses: actions/upload-artifact@v4
         with:
-          name: open-next-staging
-          path: open-next-staging.tgz
+          name: open-next-${{ steps.target.outputs.environment }}
+          path: open-next-${{ steps.target.outputs.environment }}.tgz
           retention-days: 3

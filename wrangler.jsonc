@@ -1,8 +1,6 @@
 // Cloudflare Workers config for the JetNine site (OpenNext adapter).
 // Setup and cutover steps: DEPLOY.md → "Cloudflare".
 //
-// Placeholder still to fill (see DEPLOY.md):
-//   05bdaa66695d43c08fc02b22e39bca77          wrangler hyperdrive create jetnine-db --connection-string=...
 // Secrets (DATABASE_URL, SUPABASE_SERVICE_ROLE_KEY, STRIPE_*, CRON_SECRET, …)
 // are set with `wrangler secret put` / `wrangler secret bulk`, never here.
 {

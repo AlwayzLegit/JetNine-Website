@@ -70,6 +70,12 @@ Run these from the repo root after `pnpm exec wrangler login` (or with `CLOUDFLA
 - Every push to `main` deploys **staging** through `.github/workflows/deploy-cloudflare.yml`, then runs the post-deploy smoke test against `https://staging.jetnine.com`.
 - Until the cutover, deploy production by running that workflow manually (workflow_dispatch) with target `production`. After the cutover, change the push target in the workflow to production.
 
+**Deploying from the bundle** (until `CLOUDFLARE_API_TOKEN` exists)
+- Run `.github/workflows/staging-bundle.yml` (workflow_dispatch, target staging or production) and download the `open-next-<target>` artifact. It is built on Linux because OpenNext can't build on Windows.
+- Unpack it over `.open-next/` in the checkout, then rewrite the runner's absolute paths that the build bakes into `handler.mjs` wasm imports: replace `/home/runner/work/JetNine-Website/JetNine-Website` with the local checkout path (forward slashes) in every file under `.open-next/`.
+- `wrangler deploy --dry-run --env staging` (or no `--env` for production) must list every binding before you deploy for real.
+- Deploy with `CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE=postgresql://placeholder:placeholder@127.0.0.1:5432/placeholder pnpm exec opennextjs-cloudflare deploy --env staging`. The variable is only parsed by the local Miniflare proxy that populates the cache; any valid URL works, it is never connected to.
+
 **Local**
 - `pnpm dev` is unchanged and still talks to `DATABASE_URL`.
 - `pnpm cf:preview` builds the Worker and serves it in workerd. It needs `CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE=<DATABASE_URL>` in the environment.
@@ -83,18 +89,18 @@ DNS for `jetnine.com` is already on Cloudflare, so switching over is a route cha
    - The smoke workflow passes on `staging.jetnine.com`.
    - Check by hand: sign-in, the quote wizard, the admin desk, and invoice → Stripe Checkout (stop before paying).
    - Staging runs no crons.
-2. **Deploy production once** (workflow_dispatch → production). At this point it's only reachable on its `*.workers.dev` URL.
-3. **Do these together, in this order:**
-   1. Remove the `crons` array from `vercel.json` and push. Vercel stops scheduling the jobs from that deploy on.
-   2. In `wrangler.jsonc`, uncomment the production `routes` (jetnine.com and www).
-   3. Delete the DNS records for `jetnine.com` and `www` that point at Vercel. Cloudflare won't attach a custom domain over an existing record. Write down their values first; you need them to roll back.
-   4. Deploy production again. The Worker takes over both hostnames and its crons start running.
-   5. Change the push target in `deploy-cloudflare.yml` to production.
-4. **Check the switch worked:**
+2. **Stop the Vercel crons first.** Remove the `crons` array from `vercel.json` and push; wait for that Vercel deploy to finish. The production Worker's crons are live from its first deploy, so this has to happen before step 3 or every job runs twice for a while. The gap is a few minutes of no `sla-watch`, which is fine.
+3. **Deploy production once** (workflow_dispatch → production, or from the bundle, see below). It's only reachable on its `*.workers.dev` URL, but its crons are already running against the shared database. Check `/api/health` and the first `*/10` cron in Workers logs.
+4. **Do these together, in this order:**
+   1. In `wrangler.jsonc`, uncomment the production `routes` (jetnine.com and www).
+   2. Delete the DNS records for `jetnine.com` and `www` that point at Vercel. Cloudflare won't attach a custom domain over an existing record. Write down their values first; you need them to roll back.
+   3. Deploy production again. The Worker takes over both hostnames.
+   4. Change the push target in `deploy-cloudflare.yml` to production.
+5. **Check the switch worked:**
    - `curl -sI https://jetnine.com | grep -i server` shows `cloudflare`, and there's no `x-vercel-id` header.
    - `/api/health` returns 200 with `region: cloudflare`.
    - Workers logs show the next `*/10` cron (`sla-watch`) returning 200.
-5. **Webhooks need no edits.** Their URLs don't change (`/api/stripe/webhook`, `/api/twilio/inbound`, `/api/email/inbound/…`, `/api/voice/*`), so Stripe, Twilio and Postmark keep working as they are.
+6. **Webhooks need no edits.** Their URLs don't change (`/api/stripe/webhook`, `/api/twilio/inbound`, `/api/email/inbound/…`, `/api/voice/*`), so Stripe, Twilio and Postmark keep working as they are.
 
 **Rollback**
 1. Remove the custom domains from the Worker, or comment out `routes` and redeploy.

@@ -29,7 +29,8 @@ function pages(directory: string): string[] {
   );
 }
 for (const file of pages("src/app/(marketing)")) {
-  const relative = file.replace("src/app/(marketing)", "").replace(/\/page\.tsx$/, "");
+  // readdirSync joins with the platform separator; normalise so the check also runs on Windows.
+  const relative = file.replaceAll("\\", "/").replace("src/app/(marketing)", "").replace(/\/page\.tsx$/, "");
   if (!relative.includes("[")) assert(urls.has(`https://jetnine.com${relative || "/"}`), `Missing public page: ${file}`);
 }
 assert.equal(sitemapOrigin("https://jetnine.com/"), "https://jetnine.com");

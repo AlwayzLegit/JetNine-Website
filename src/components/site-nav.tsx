@@ -52,6 +52,15 @@ export function SiteNav() {
         </nav>
 
         <div className="flex items-center gap-2">
+          {/* The dispatch line, one click away on wide screens. Below xl the
+              six links leave no room; phones get it in the panel below. */}
+          <a
+            href={`tel:${SITE.dispatchPhoneE164}`}
+            className="mr-3 hidden items-center gap-2 whitespace-nowrap text-[14px] font-semibold text-bone transition-colors hover:text-gold xl:inline-flex"
+          >
+            <span className="sr-only">Call dispatch: </span>
+            {SITE.dispatchPhone}
+          </a>
           <Link href="/quote/mission" className="btn btn-primary h-[42px] px-[18px] max-lg:h-9 max-lg:px-3 max-lg:text-[12px] max-lg:font-bold">
             Request a quote<span className="max-lg:hidden" aria-hidden="true"> ↗</span>
           </Link>

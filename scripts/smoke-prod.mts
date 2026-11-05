@@ -328,8 +328,15 @@ async function checkHealthEndpoint(): Promise<void> {
   // Against any other host the smoke runner expects a healthy 200.
   const isLocal = /^https?:\/\/(localhost|127\.0\.0\.1)/.test(TARGET);
 
+  // Anonymous callers get ok / status / env / failing only. With the
+  // deployment's CRON_SECRET in the environment the endpoint returns the
+  // full snapshot (commit, region, per-check detail) for the log.
+  const healthAuth: Record<string, string> = process.env.CRON_SECRET
+    ? { authorization: `Bearer ${process.env.CRON_SECRET}` }
+    : {};
+
   await check("GET /api/health", "required", async () => {
-    const r = await fetchWithTimeout(`${TARGET}/api/health`);
+    const r = await fetchWithTimeout(`${TARGET}/api/health`, { headers: healthAuth });
     if (r.status !== 200 && r.status !== 503) {
       return { ok: false, detail: `expected 200 or 503, got ${r.status}` };
     }
@@ -342,6 +349,7 @@ async function checkHealthEndpoint(): Promise<void> {
       env?: string;
       region?: string;
       sha?: string;
+      failing?: string[];
       checks?: Record<string, { ok?: boolean }>;
     };
     try {
@@ -353,12 +361,14 @@ async function checkHealthEndpoint(): Promise<void> {
       return { ok: false, detail: "missing .ok field" };
     }
     if (!body.ok && !isLocal) {
-      const failed = Object.entries(body.checks ?? {})
-        .filter(([, v]) => v && v.ok === false)
-        .map(([k, v]) => {
-          const err = (v as { error?: string }).error;
-          return err ? `${k}(${err})` : k;
-        });
+      const failed = body.checks
+        ? Object.entries(body.checks)
+            .filter(([, v]) => v && v.ok === false)
+            .map(([k, v]) => {
+              const err = (v as { error?: string }).error;
+              return err ? `${k}(${err})` : k;
+            })
+        : (body.failing ?? []);
       // Echo the full diagnostic body so CI logs have ground truth
       // without an extra curl. Indent so it stands out from the
       // single-line check rows above.
@@ -373,7 +383,9 @@ async function checkHealthEndpoint(): Promise<void> {
         detail: `unhealthy; failing: ${failed.length ? failed.join(", ") : "unknown"}`,
       };
     }
-    const detail = `${body.status} · ${body.env}/${body.region} · sha ${body.sha}`;
+    const detail = body.sha
+      ? `${body.status} · ${body.env}/${body.region} · sha ${body.sha}`
+      : `${body.status} · ${body.env}`;
     return { ok: true, detail };
   });
 }

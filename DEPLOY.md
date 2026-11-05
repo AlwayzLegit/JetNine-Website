@@ -98,7 +98,7 @@ DNS for `jetnine.com` is already on Cloudflare, so switching over is a route cha
    4. Change the push target in `deploy-cloudflare.yml` to production.
 5. **Check the switch worked:**
    - `curl -sI https://jetnine.com | grep -i server` shows `cloudflare`, and there's no `x-vercel-id` header.
-   - `/api/health` returns 200 with `region: cloudflare`.
+   - `/api/health` returns 200 with `"ok": true`. With `Authorization: Bearer $CRON_SECRET` it also reports `region: cloudflare` and the commit.
    - Workers logs show the next `*/10` cron (`sla-watch`) returning 200.
 6. **Webhooks need no edits.** Their URLs don't change (`/api/stripe/webhook`, `/api/twilio/inbound`, `/api/email/inbound/…`, `/api/voice/*`), so Stripe, Twilio and Postmark keep working as they are.
 

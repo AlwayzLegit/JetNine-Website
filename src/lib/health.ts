@@ -7,6 +7,7 @@
 
 import { sql as drizzleSql } from "drizzle-orm";
 import { db } from "@/db";
+import { commitSha, deployEnv, deployRegion, platformBaseUrl } from "@/lib/deploy-env";
 
 export type CheckResult = { ok: boolean } & Record<string, unknown>;
 
@@ -72,11 +73,7 @@ export async function checkDb(): Promise<CheckResult> {
  */
 export function checkSite(): CheckResult {
   const explicit = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") || "";
-  const prodUrl = process.env.VERCEL_PROJECT_PRODUCTION_URL;
-  const vercelUrl = process.env.VERCEL_URL;
-  const base =
-    explicit ||
-    (prodUrl ? `https://${prodUrl}` : vercelUrl ? `https://${vercelUrl}` : "http://localhost:3000");
+  const base = explicit || platformBaseUrl() || "http://localhost:3000";
   let host = "";
   try {
     host = new URL(base).host;
@@ -165,11 +162,9 @@ export function checkPosthog(): CheckResult {
 }
 
 export async function snapshot(): Promise<HealthSnapshot> {
-  const env = process.env.VERCEL_ENV ?? process.env.NODE_ENV ?? "unknown";
-  const region = process.env.VERCEL_REGION ?? "local";
-  const sha =
-    (process.env.VERCEL_GIT_COMMIT_SHA ?? process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA ?? "")
-      .slice(0, 12) || "unknown";
+  const env = deployEnv();
+  const region = deployRegion();
+  const sha = commitSha().slice(0, 12) || "unknown";
 
   const [db, stripe, email, twilio, sentry, posthog] = await Promise.all([
     checkDb(),

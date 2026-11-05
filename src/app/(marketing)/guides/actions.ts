@@ -7,6 +7,7 @@ import { checkRateLimit } from "@/lib/rate-limit";
 import { sendDispatchAlert, sendEmail } from "@/lib/email";
 import { GUIDE_PDF_PATH, GUIDE_PDF_TITLE } from "@/lib/guide-download";
 import { SITE } from "@/lib/constants";
+import { clientIpFrom } from "@/lib/client-ip";
 
 export type GuideRequestResult =
   | { ok: true; url: string }
@@ -46,7 +47,7 @@ export async function requestPricingGuide(formData: FormData): Promise<GuideRequ
   let clientIp = "unknown";
   try {
     const hdrs = await headers();
-    clientIp = hdrs.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
+    clientIp = clientIpFrom(hdrs) ?? "unknown";
   } catch {
     // Outside a request scope (unit tests) — proceed without limiting.
   }

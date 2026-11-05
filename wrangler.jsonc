@@ -1,0 +1,86 @@
+// Cloudflare Workers config for the JetNine site (OpenNext adapter).
+// Setup and cutover steps: DEPLOY.md → "Cloudflare".
+//
+// Secrets (DATABASE_URL, SUPABASE_SERVICE_ROLE_KEY, STRIPE_*, CRON_SECRET, …)
+// are set with `wrangler secret put` / `wrangler secret bulk`, never here.
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "jetnine-web",
+  "main": "worker.ts",
+  "compatibility_date": "2026-08-01",
+  "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+  "assets": { "directory": ".open-next/assets", "binding": "ASSETS" },
+
+  // Run near Supabase (us-east-2) instead of near each visitor; replaces the
+  // Vercel cle1 region pin. Cache hits are still served from the edge.
+  "placement": { "mode": "smart" },
+  "limits": { "cpu_ms": 60000 },
+  "observability": { "enabled": true },
+  "workers_dev": true,
+
+  // Custom domains: Cloudflare manages the DNS records and certificates.
+  "routes": [
+    { "pattern": "jetnine.com", "custom_domain": true },
+    { "pattern": "www.jetnine.com", "custom_domain": true }
+  ],
+
+  "vars": {
+    "DEPLOY_ENV": "production",
+    "DEPLOY_REGION": "cloudflare",
+    "NEXT_PUBLIC_SITE_URL": "https://jetnine.com"
+  },
+
+  "triggers": {
+    // Keep in sync with CRON_ROUTES in worker.ts.
+    "crons": [
+      "*/15 * * * *",
+      "*/10 * * * *",
+      "0 15 * * *",
+      "0 16 * * 5",
+      "0 14,15 * * *",
+      "20 9 * * *"
+    ]
+  },
+
+  "hyperdrive": [{ "binding": "HYPERDRIVE", "id": "05bdaa66695d43c08fc02b22e39bca77" }],
+  "images": { "binding": "IMAGES" },
+  "r2_buckets": [{ "binding": "NEXT_INC_CACHE_R2_BUCKET", "bucket_name": "jetnine-next-cache" }],
+  "d1_databases": [
+    { "binding": "NEXT_TAG_CACHE_D1", "database_name": "jetnine-tag-cache", "database_id": "af5350ae-1014-421c-86a0-c60a4f8d3a39" }
+  ],
+  "durable_objects": {
+    "bindings": [{ "name": "NEXT_CACHE_DO_QUEUE", "class_name": "DOQueueHandler" }]
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["DOQueueHandler"] }],
+  "services": [{ "binding": "WORKER_SELF_REFERENCE", "service": "jetnine-web" }],
+
+  "env": {
+    // Same database and secrets as production, its own cache, no crons (the
+    // production Worker or Vercel owns those), never indexed (DEPLOY_ENV).
+    "staging": {
+      "name": "jetnine-web-staging",
+      "workers_dev": true,
+      "routes": [{ "pattern": "staging.jetnine.com", "custom_domain": true }],
+      "vars": {
+        "DEPLOY_ENV": "staging",
+        "DEPLOY_REGION": "cloudflare",
+        "NEXT_PUBLIC_SITE_URL": "https://staging.jetnine.com"
+      },
+      "triggers": { "crons": [] },
+      "hyperdrive": [{ "binding": "HYPERDRIVE", "id": "05bdaa66695d43c08fc02b22e39bca77" }],
+      "images": { "binding": "IMAGES" },
+      "r2_buckets": [{ "binding": "NEXT_INC_CACHE_R2_BUCKET", "bucket_name": "jetnine-next-cache-staging" }],
+      "d1_databases": [
+        {
+          "binding": "NEXT_TAG_CACHE_D1",
+          "database_name": "jetnine-tag-cache-staging",
+          "database_id": "deaba576-77b3-429f-b9ee-1c5a0b1eb60a"
+        }
+      ],
+      "durable_objects": {
+        "bindings": [{ "name": "NEXT_CACHE_DO_QUEUE", "class_name": "DOQueueHandler" }]
+      },
+      "services": [{ "binding": "WORKER_SELF_REFERENCE", "service": "jetnine-web-staging" }]
+    }
+  }
+}

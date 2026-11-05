@@ -4,7 +4,6 @@ import { ogCardJsx, ogCardSize, ogCardContentType, siteBase } from "@/lib/og-car
 // Default OG card served for every route that doesn't provide its own:
 // the Home hero line over the hero photo, in the shared light-system card.
 
-export const runtime = "edge";
 export const alt = "JetNine — Private jet charter. Your journey, on your terms.";
 export const size = ogCardSize;
 export const contentType = ogCardContentType;

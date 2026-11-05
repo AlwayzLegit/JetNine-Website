@@ -1,7 +1,6 @@
 import { ImageResponse } from "next/og";
 import { ogCardJsx, ogCardSize, ogCardContentType, siteBase } from "@/lib/og-card";
 
-export const runtime = "edge";
 export const alt = "JetNine Empty legs — repositioning flights at up to 60% off";
 export const size = ogCardSize;
 export const contentType = ogCardContentType;

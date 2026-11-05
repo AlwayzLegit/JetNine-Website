@@ -91,11 +91,37 @@ async function hostIsSafe(hostname: string): Promise<boolean> {
   if (isIP(host)) return !isBlockedAddress(host);
   if (host === "localhost" || host.endsWith(".localhost") || host.endsWith(".internal") || host.endsWith(".local")) return false;
   try {
-    const addrs = await lookup(host, { all: true, verbatim: true });
-    return addrs.length > 0 && addrs.every((a) => !isBlockedAddress(a.address));
+    const addrs = await resolveAll(host);
+    return addrs.length > 0 && addrs.every((a) => !isBlockedAddress(a));
   } catch {
     return false;
   }
+}
+
+const onWorkers = () => typeof navigator !== "undefined" && navigator.userAgent === "Cloudflare-Workers";
+
+// On Workers, resolve over DNS-over-HTTPS (workerd's node:dns support is
+// partial); elsewhere use the OS resolver. Workers also refuse to fetch
+// private addresses on their own (global_fetch_strictly_public), so this
+// check is a second layer there.
+async function resolveAll(host: string): Promise<string[]> {
+  if (!onWorkers()) {
+    const addrs = await lookup(host, { all: true, verbatim: true });
+    return addrs.map((a) => a.address);
+  }
+  const answers = await Promise.all(
+    (["A", "AAAA"] as const).map(async (type) => {
+      const res = await fetch(
+        `https://cloudflare-dns.com/dns-query?name=${encodeURIComponent(host)}&type=${type}`,
+        { headers: { accept: "application/dns-json" } },
+      );
+      if (!res.ok) throw new Error(`DoH ${type} lookup failed: ${res.status}`);
+      const body = (await res.json()) as { Answer?: { type: number; data: string }[] };
+      // 1 = A, 28 = AAAA; CNAME hops (type 5) are followed by the resolver.
+      return (body.Answer ?? []).filter((r) => r.type === 1 || r.type === 28).map((r) => r.data);
+    }),
+  );
+  return answers.flat();
 }
 
 export async function safeFetch(

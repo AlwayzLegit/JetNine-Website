@@ -18,8 +18,9 @@ if (typeof window !== "undefined" && dsn) {
     mod.init({
       dsn,
       tracesSampleRate: Number(process.env.NEXT_PUBLIC_SENTRY_TRACES_SAMPLE_RATE ?? "0.1"),
-      environment: process.env.NEXT_PUBLIC_VERCEL_ENV ?? process.env.NODE_ENV,
-      release: process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA,
+      environment:
+        process.env.NEXT_PUBLIC_DEPLOY_ENV ?? process.env.NEXT_PUBLIC_VERCEL_ENV ?? process.env.NODE_ENV,
+      release: process.env.NEXT_PUBLIC_GIT_COMMIT_SHA ?? process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA,
     });
   });
 }

@@ -8,6 +8,7 @@ import { sendEmail } from "@/lib/email";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { confirmExpiry, issueToken } from "@/lib/watchlist-confirm";
 import { blogConfirmEmail, blogConfirmUrl } from "@/lib/blog-subscribe";
+import { clientIpFrom } from "@/lib/client-ip";
 
 export type SubscribeResult = { ok: true; message: string } | { ok: false; error: string };
 
@@ -40,7 +41,7 @@ export async function subscribeToBlog(formData: FormData): Promise<SubscribeResu
   let clientIp = "unknown";
   try {
     const hdrs = await headers();
-    clientIp = hdrs.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
+    clientIp = clientIpFrom(hdrs) ?? "unknown";
   } catch {
     // Outside a request scope (tests) — the global bucket still applies.
   }

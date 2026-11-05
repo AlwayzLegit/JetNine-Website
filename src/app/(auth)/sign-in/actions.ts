@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { safeNext } from "@/lib/safe-next";
 import { checkRateLimit } from "@/lib/rate-limit";
+import { clientIpFrom } from "@/lib/client-ip";
 
 export type SignInResult =
   | { ok: true; message: string }
@@ -59,7 +60,7 @@ export async function sendMagicLink(formData: FormData): Promise<SignInResult> {
   let clientIp = "unknown";
   try {
     const hdrs = await headers();
-    clientIp = hdrs.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
+    clientIp = clientIpFrom(hdrs) ?? "unknown";
   } catch {
     // headers() can throw outside a request scope (unit tests); proceed
     // without per-IP limiting in that case — the global bucket still applies.

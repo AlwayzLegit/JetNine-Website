@@ -60,7 +60,7 @@ async function phoneAnswering(): Promise<{ tone: Tone; status: string; hint?: st
     return {
       tone: "steel",
       status: "Not set up",
-      hint: "Store an Anthropic or OpenAI key under Manage, test it, then pick it as the one that answers. AI_KEYS_ENCRYPTION_KEY must be set on Vercel and on the Render voice service first.",
+      hint: "Store an Anthropic or OpenAI key under Manage, test it, then pick it as the one that answers. AI_KEYS_ENCRYPTION_KEY must be set in the site's Worker secrets and on the voice service first.",
     };
   } catch {
     return {
@@ -112,7 +112,7 @@ export default async function ConnectionsPage({ searchParams }: Props) {
       action: emailOk ? { label: "Send a test", test: true } : { label: "Open Resend ↗", href: "https://resend.com/", external: true },
       hint: emailOk
         ? "Set EMAIL_FROM to a verified sender, e.g. 'JetNine <dispatch@jetnine.com>' (verify the jetnine.com domain in Resend)."
-        : "Without outbound email, dispatcher thread messages log to the server console instead of sending. Set RESEND_API_KEY (or POSTMARK_SERVER_TOKEN) and EMAIL_FROM on Vercel and verify the jetnine.com domain in the provider. Sign-in links and invites are sent by Supabase Auth, not this layer: point Supabase › Auth › SMTP at Resend so those are branded too.",
+        : "Without outbound email, dispatcher thread messages log to the server console instead of sending. Set RESEND_API_KEY (or POSTMARK_SERVER_TOKEN) and EMAIL_FROM as Worker secrets and verify the jetnine.com domain in the provider. Sign-in links and invites are sent by Supabase Auth, not this layer: point Supabase › Auth › SMTP at Resend so those are branded too.",
     },
     {
       key: "twilio",
@@ -121,7 +121,7 @@ export default async function ConnectionsPage({ searchParams }: Props) {
       tone: smsOk ? "success" : "danger",
       status: smsOk ? `Working${deskNumber ? ` · ${deskNumber}` : ""}` : "Not set up",
       action: { label: "Open Twilio ↗", href: "https://console.twilio.com/", external: true },
-      hint: "Without keys, text messages from the desk log to the server console and the inbound webhook answers 503. Set TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN and TWILIO_SMS_FROM (E.164) on Vercel, and point the number's messaging webhook at /api/twilio/inbound. WhatsApp adds TWILIO_WHATSAPP_FROM.",
+      hint: "Without keys, text messages from the desk log to the server console and the inbound webhook answers 503. Set TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN and TWILIO_SMS_FROM (E.164) as Worker secrets, and point the number's messaging webhook at /api/twilio/inbound. WhatsApp adds TWILIO_WHATSAPP_FROM.",
     },
     {
       key: "ai",
@@ -147,7 +147,7 @@ export default async function ConnectionsPage({ searchParams }: Props) {
         ? c.stripe.webhookConfigured
           ? "Test mode: real cards are not charged. Swap STRIPE_SECRET_KEY for the sk_live_ key and the matching STRIPE_WEBHOOK_SECRET when you are ready to take payments."
           : "Set STRIPE_WEBHOOK_SECRET (whsec_…) and register the webhook at /api/stripe/webhook with checkout.session.completed, payment_intent.payment_failed and charge.refunded. Without it, payments are taken but invoices never flip to paid."
-        : "Without keys, Pay now on an invoice fails and card memberships cannot be bought. Set STRIPE_SECRET_KEY (sk_live_… or sk_test_…) and STRIPE_WEBHOOK_SECRET on Vercel, and register the webhook at /api/stripe/webhook.",
+        : "Without keys, Pay now on an invoice fails and card memberships cannot be bought. Set STRIPE_SECRET_KEY (sk_live_… or sk_test_…) and STRIPE_WEBHOOK_SECRET as Worker secrets, and register the webhook at /api/stripe/webhook.",
     },
     {
       key: "db",
@@ -157,10 +157,10 @@ export default async function ConnectionsPage({ searchParams }: Props) {
       status: dbOk
         ? `Working${typeof c.db.latencyMs === "number" ? ` · ${c.db.latencyMs} ms` : ""}${siteCanonical ? "" : ` · site address is ${String(c.site.host || "not set")}`}`
         : "Database not reachable",
-      action: { label: "Open Vercel ↗", href: "https://vercel.com/", external: true },
+      action: { label: "Open Cloudflare ↗", href: "https://dash.cloudflare.com/", external: true },
       hint: dbOk
-        ? "Links in emails and the Stripe return address use this host. At the domain switchover set NEXT_PUBLIC_SITE_URL=https://jetnine.com on Vercel (production) and attach jetnine.com and www to the project. Amber on a preview deploy is expected."
-        : "Hard dependency: sign-in, quotes and every desk page fail without it. Check DATABASE_URL on Vercel (the Supabase transaction pooler URL, port 6543). If the database password was rotated, update DATABASE_URL and DIRECT_URL.",
+        ? "Links in emails and the Stripe return address use this host. NEXT_PUBLIC_SITE_URL is set per environment in wrangler.jsonc and at build time (deploy-cloudflare.yml); production should be https://jetnine.com. Amber on staging is expected."
+        : "Hard dependency: sign-in, quotes and every desk page fail without it. Check the HYPERDRIVE binding (Cloudflare › Hyperdrive › jetnine-db, pointed at the Supabase session pooler) and DATABASE_URL. If the database password was rotated, update DATABASE_URL and DIRECT_URL.",
     },
     {
       key: "observability",

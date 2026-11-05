@@ -12,6 +12,7 @@ import { checkRateLimit } from "@/lib/rate-limit";
 import { sendDispatchAlert } from "@/lib/email";
 import { recipientsFor } from "@/lib/desk-settings";
 import { STATUS_TOKEN_RE, statusPath } from "@/lib/request-status";
+import { clientIpFrom } from "@/lib/client-ip";
 
 export type ChooseResult = { ok: true } | { ok: false; error: string };
 
@@ -31,7 +32,7 @@ export async function chooseOption(token: string, optionId: string): Promise<Cho
   let clientIp = "unknown";
   try {
     const hdrs = await headers();
-    clientIp = hdrs.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
+    clientIp = clientIpFrom(hdrs) ?? "unknown";
   } catch {
     // outside a request scope (tests)
   }

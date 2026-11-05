@@ -6,7 +6,7 @@ name: Health monitor
 # owner (default GitHub notifications) and as a red badge in Actions.
 #
 # Catches between-deploy regressions: DB pause, env-var drift, Supabase
-# password rotation that wasn't mirrored to Vercel, etc. The smoke
+# password rotation that wasn't mirrored to the host's secrets, etc. The smoke
 # workflow only fires on deploys; this fills the gap.
 #
 # Why not Vercel monitors? They're a Pro-plan feature. This is free
@@ -28,9 +28,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # Add preview targets here if you operate multiple environments.
+        # The canonical host, whichever platform serves it (Vercel before
+        # the Cloudflare cutover, the jetnine-web Worker after). Add
+        # https://staging.jetnine.com once the staging Worker is live.
         target:
-          - https://jet-nine-website.vercel.app
+          - https://jetnine.com
 
     steps:
       - name: Probe /api/health

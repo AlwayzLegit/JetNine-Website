@@ -1,5 +1,6 @@
 /* eslint-disable @next/next/no-img-element */
 import type React from "react";
+import { platformBaseUrl } from "@/lib/deploy-env";
 
 // Shared 1200×630 OG card composition. Page-specific opengraph-image.tsx
 // routes call ogCardJsx() with their own title/lead/kicker/bg and feed
@@ -18,7 +19,8 @@ export const ogCardContentType = "image/png";
 export function siteBase(): string {
   return (
     process.env.NEXT_PUBLIC_SITE_URL ||
-    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "https://jetnine.com")
+    platformBaseUrl() ||
+    "https://jetnine.com"
   ).replace(/\/$/, "");
 }
 

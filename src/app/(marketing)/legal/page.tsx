@@ -10,6 +10,7 @@ export const metadata: Metadata = pageMetadata({
   description:
     "Privacy policy, terms of service, and the Part 295 broker disclosure. Written plainly. Reviewed by counsel.",
   path: "/legal",
+  segmentCard: true,
 });
 
 // Every id below is linked from elsewhere on the site (footer, quote

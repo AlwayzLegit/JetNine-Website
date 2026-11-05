@@ -22,6 +22,7 @@ export const metadata: Metadata = pageMetadata({
   description:
     "Compare six charter aircraft categories, from turboprops to ultra-long-range jets. Explore cabin space, passenger capacity, baggage and range for your trip.",
   path: "/aircraft",
+  segmentCard: true,
 });
 
 const TABS = [

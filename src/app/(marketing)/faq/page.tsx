@@ -12,6 +12,7 @@ export const metadata: Metadata = pageMetadata({
   description:
     "Find answers to private jet charter questions about booking, pricing, aircraft, baggage, pets and cancellations. Know what to review before you fly.",
   path: "/faq",
+  segmentCard: true,
 });
 
 // FAQPage Schema.org JSON-LD. Google may surface these as a rich

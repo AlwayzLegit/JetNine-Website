@@ -16,6 +16,7 @@ export const metadata: Metadata = pageMetadata({
   description:
     "Learn how JetNine arranges private jet charter, supports your journey and works with independent aircraft operators. Understand our role as your charter broker.",
   path: "/about",
+  segmentCard: true,
 });
 
 // Light - About (board 08). Real facts — founders, desk, phone, address —

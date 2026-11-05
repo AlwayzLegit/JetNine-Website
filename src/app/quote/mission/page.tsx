@@ -44,11 +44,35 @@ function legTitle(tripType: TripType, i: number): string {
 export default function MissionStep() {
   return (
     <>
-      <StoreHydrationGate>
+      <StoreHydrationGate skeleton={<MissionSkeleton />}>
         <MissionStepInner />
       </StoreHydrationGate>
       <HowQuotingWorks />
     </>
+  );
+}
+
+function MissionIntro() {
+  const when = useReplyPromiseWords();
+  return (
+    <PanelHeader step={1} title="Where, when, how many.">
+      Tell us about your trip — it doesn&rsquo;t have to be perfect; dispatch follows up to
+      refine. Every quote returns {when} during operating hours.
+    </PanelHeader>
+  );
+}
+
+// What the server sends and what shows until the draft rehydrates: the real
+// heading and intro over a placeholder for the form. This is the wizard's one
+// indexable step, so its h1 has to be in the HTML and not appear only after
+// JavaScript runs.
+function MissionSkeleton() {
+  return (
+    <QuotePanel>
+      <MissionIntro />
+      <div className="mt-5 h-[420px] rounded-control bg-ink" aria-hidden />
+      <p className="sr-only">Loading your quote draft…</p>
+    </QuotePanel>
   );
 }
 
@@ -106,7 +130,6 @@ function localTodayIso(): string {
 
 function MissionStepInner() {
   const router = useRouter();
-  const when = useReplyPromiseWords();
   const minDate = localTodayIso();
   const draft = useQuoteStore();
   const { tripType, legs, pax, setTripType, setPax, updateLeg, addLeg, removeLeg } = draft;
@@ -176,10 +199,7 @@ function MissionStepInner() {
 
   return (
     <QuotePanel>
-      <PanelHeader step={1} title="Where, when, how many.">
-        Tell us about your trip — it doesn&rsquo;t have to be perfect; dispatch follows up to
-        refine. Every quote returns {when} during operating hours.
-      </PanelHeader>
+      <MissionIntro />
 
       {/* Trip type — the prototype's full-width three-way switch. */}
       <div

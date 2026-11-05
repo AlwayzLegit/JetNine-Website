@@ -79,6 +79,7 @@ export async function generateMetadata({ params }: RouteParams): Promise<Metadat
     title: CATEGORY_METADATA[entry.slug].title,
     description: CATEGORY_METADATA[entry.slug].description,
     path: entry.href,
+    segmentCard: true,
   });
 }
 

@@ -21,6 +21,7 @@ export const metadata: Metadata = pageMetadata({
   description:
     "Explore JetNine’s charter safety standards, including operator vetting, independent audits, pilot qualifications and the checks behind your flight.",
   path: "/safety",
+  segmentCard: true,
 });
 
 // Light - Safety. The prototype's consumer checks, ratings, roles and

@@ -25,6 +25,7 @@ export const metadata: Metadata = pageMetadata({
   description:
     "Browse available empty leg flights and set alerts for your preferred routes. Review departure dates, aircraft and pricing for flexible private jet travel.",
   path: "/empty-legs",
+  segmentCard: true,
 });
 
 const MARKETING_CATEGORIES: Record<string, EmptyLegView["category"]> = {

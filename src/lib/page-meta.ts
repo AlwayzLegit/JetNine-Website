@@ -23,6 +23,9 @@ import { SEO_COPY } from "./seo-copy";
 // to metadataBase (set on the root layout), so a site-relative path
 // like "/images/fleet/light.webp" becomes the absolute URL Open Graph
 // and Twitter card scrapers expect.
+const DEFAULT_OG_IMAGE = "/opengraph-image";
+const DEFAULT_OG_ALT = "JetNine — Private jet charter. Your journey, on your terms.";
+
 export function pageMetadata(opts: {
   /** Short title used in <title> (the template adds " · JetNine"). */
   title: string;
@@ -38,30 +41,31 @@ export function pageMetadata(opts: {
   // Apply reviewed copy consistently to search, Open Graph and Twitter.
   opts = { ...opts, ...SEO_COPY[opts.path] };
   const resolvedTitle = `${opts.title} · JetNine`;
-  const imageBlock = opts.image
-    ? {
-        images: [
-          {
-            url: opts.image,
-            alt: opts.imageAlt ?? resolvedTitle,
-          },
-        ],
-      }
-    : {};
+  // A page's openGraph / twitter objects replace the root layout's whole,
+  // including the image Next resolved from app/opengraph-image.tsx and the
+  // card type. Without a fallback here, a page with no image of its own
+  // (home, /blog) ships no og:image and a small "summary" card. A segment
+  // with its own opengraph-image file still wins over this value.
+  const image = opts.image ?? DEFAULT_OG_IMAGE;
+  const imageAlt = opts.imageAlt ?? (opts.image ? resolvedTitle : DEFAULT_OG_ALT);
   return {
     title: opts.title,
     description: opts.description,
     alternates: { canonical: opts.path },
     openGraph: {
+      type: "website",
+      locale: "en_US",
+      siteName: "JetNine",
       title: resolvedTitle,
       description: opts.description,
       url: opts.path,
-      ...imageBlock,
+      images: [{ url: image, alt: imageAlt }],
     },
     twitter: {
+      card: "summary_large_image",
       title: resolvedTitle,
       description: opts.description,
-      ...(opts.image ? { images: [opts.image] } : {}),
+      images: [{ url: image, alt: imageAlt }],
     },
   };
 }

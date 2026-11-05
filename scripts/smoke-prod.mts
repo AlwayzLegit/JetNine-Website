@@ -307,6 +307,12 @@ async function checkSecurityHeaders(): Promise<void> {
 async function checkRegionPin(): Promise<void> {
   await check("region pin (advisory)", "advisory", async () => {
     const r = await fetchWithTimeout(TARGET, { method: "HEAD" });
+    // Cloudflare has no region to pin: Smart Placement moves the Worker
+    // near the database. Only a Vercel deploy (the rollback target) can be
+    // checked for its cle1 pin.
+    if (r.headers.has("cf-ray") && !r.headers.has("x-vercel-id")) {
+      return { ok: true, detail: `cloudflare · ${r.headers.get("cf-ray")}` };
+    }
     const id = r.headers.get("x-vercel-id") ?? "";
     if (id.includes("cle1")) return { ok: true, detail: id };
     return { ok: false, detail: `${id} (expected cle1 in chain)` };

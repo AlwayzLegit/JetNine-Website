@@ -89,7 +89,9 @@ const organizationJsonLd = {
   name: "JetNine",
   legalName: "JetNine LLC",
   url: SITE_URL,
-  logo: `${SITE_URL}/opengraph-image`,
+  // Square 180px mark. The 1200x630 share card that used to sit here is
+  // not a logo, and at about 1 MB it was a heavy fetch for a logo slot.
+  logo: `${SITE_URL}/apple-icon`,
   description:
     "JetNine LLC is a Part 295 indirect air carrier registered with the U.S. DOT. Every flight is operated by an independent FAA Part 135 certificated direct air carrier.",
   contactPoint: [

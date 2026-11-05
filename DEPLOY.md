@@ -104,7 +104,9 @@ DNS for `jetnine.com` is already on Cloudflare, so switching over is a route cha
 
 **Rollback**
 1. Remove the custom domains from the Worker, or comment out `routes` and redeploy.
-2. Recreate the two DNS records pointing at Vercel.
+2. Recreate the two DNS records pointing at Vercel. Values at cutover (2026-11-03), both DNS-only:
+   - `jetnine.com` CNAME `5e51739dca5adc0a.vercel-dns-016.com` (Cloudflare flattens it to Vercel's A records)
+   - `www.jetnine.com` CNAME `5e51739dca5adc0a.vercel-dns-016.com`
 3. Restore `crons` in `vercel.json`.
 
 Keep the Vercel project for two weeks after the cutover before deleting it.

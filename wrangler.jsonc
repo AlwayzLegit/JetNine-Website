@@ -18,12 +18,11 @@
   "observability": { "enabled": true },
   "workers_dev": true,
 
-  // Production routes are added at cutover (DEPLOY.md), not before: a custom
-  // domain takes over the DNS record that currently points at Vercel.
-  // "routes": [
-  //   { "pattern": "jetnine.com", "custom_domain": true },
-  //   { "pattern": "www.jetnine.com", "custom_domain": true }
-  // ],
+  // Custom domains: Cloudflare manages the DNS records and certificates.
+  "routes": [
+    { "pattern": "jetnine.com", "custom_domain": true },
+    { "pattern": "www.jetnine.com", "custom_domain": true }
+  ],
 
   "vars": {
     "DEPLOY_ENV": "production",

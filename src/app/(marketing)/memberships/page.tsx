@@ -23,6 +23,7 @@ export const metadata: Metadata = pageMetadata({
   description:
     "Compare JetNine jet cards, memberships and on-demand charter. Review hourly rates, deposits, availability and cancellation terms to find the right option.",
   path: "/memberships",
+  segmentCard: true,
 });
 
 // Light - Programs. Prices, tiers and rates come from programs.ts and

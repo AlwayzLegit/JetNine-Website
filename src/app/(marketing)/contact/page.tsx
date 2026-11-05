@@ -13,6 +13,7 @@ export const metadata: Metadata = pageMetadata({
   description:
     "Contact JetNine by phone or email to discuss a charter, share your itinerary or get trip support. Find our dispatch details and request your next flight.",
   path: "/contact",
+  segmentCard: true,
 });
 
 const DISPATCH_EMAIL = "dispatch@jetnine.com";

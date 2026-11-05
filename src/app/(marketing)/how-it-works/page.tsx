@@ -17,6 +17,7 @@ export const metadata: Metadata = pageMetadata({
   description:
     "Follow the private jet charter process from trip request to departure. Learn how to compare aircraft, review your quote, confirm booking and prepare to fly.",
   path: "/how-it-works",
+  segmentCard: true,
 });
 
 // Light - How it works (board 07).

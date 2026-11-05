@@ -37,6 +37,11 @@ export function pageMetadata(opts: {
   image?: string;
   /** Optional alt text for the image. Defaults to the resolved page title. */
   imageAlt?: string;
+  /**
+   * Set when the route's own directory holds an opengraph-image file.
+   * No image is emitted here, so that file supplies og:image.
+   */
+  segmentCard?: boolean;
 }): Metadata {
   // Apply reviewed copy consistently to search, Open Graph and Twitter.
   opts = { ...opts, ...SEO_COPY[opts.path] };
@@ -44,10 +49,14 @@ export function pageMetadata(opts: {
   // A page's openGraph / twitter objects replace the root layout's whole,
   // including the image Next resolved from app/opengraph-image.tsx and the
   // card type. Without a fallback here, a page with no image of its own
-  // (home, /blog) ships no og:image and a small "summary" card. A segment
-  // with its own opengraph-image file still wins over this value.
-  const image = opts.image ?? DEFAULT_OG_IMAGE;
+  // (home, /blog, the city and question pages) ships no og:image and a
+  // small "summary" card.
+  //
+  // An image set here beats an opengraph-image file in the same segment,
+  // so a route that has such a file passes `segmentCard` and gets none.
+  const image = opts.segmentCard ? null : (opts.image ?? DEFAULT_OG_IMAGE);
   const imageAlt = opts.imageAlt ?? (opts.image ? resolvedTitle : DEFAULT_OG_ALT);
+  const images = image ? { images: [{ url: image, alt: imageAlt }] } : {};
   return {
     title: opts.title,
     description: opts.description,
@@ -59,13 +68,13 @@ export function pageMetadata(opts: {
       title: resolvedTitle,
       description: opts.description,
       url: opts.path,
-      images: [{ url: image, alt: imageAlt }],
+      ...images,
     },
     twitter: {
       card: "summary_large_image",
       title: resolvedTitle,
       description: opts.description,
-      images: [{ url: image, alt: imageAlt }],
+      ...images,
     },
   };
 }

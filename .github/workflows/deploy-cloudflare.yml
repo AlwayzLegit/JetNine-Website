@@ -92,6 +92,10 @@ jobs:
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          # The deploy command starts a local proxy that refuses to load a
+          # Hyperdrive binding without a local connection string. It is only
+          # parsed, never connected to.
+          CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE: postgresql://placeholder:placeholder@127.0.0.1:5432/placeholder
         run: >-
           pnpm exec opennextjs-cloudflare deploy ${{ steps.target.outputs.env_flag }}
           --var GIT_COMMIT_SHA:${{ github.sha }}

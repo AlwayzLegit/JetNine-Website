@@ -17,6 +17,7 @@ import { statusPath } from "@/lib/request-status";
 import { getMemberByUserId } from "@/lib/member";
 import { logAudit } from "@/lib/audit";
 import { checkRateLimit } from "@/lib/rate-limit";
+import { passesTurnstile, TURNSTILE_FAILED } from "@/lib/turnstile";
 import {
   sendDispatchNewQuoteNotification,
   sendQuoteAcknowledgmentEmail,
@@ -44,7 +45,7 @@ const QUOTE_RATE_LIMIT_WINDOW_SECONDS = 300;
  * (member_id null, wizard/homepage/empty_leg source, consents true);
  * this Server Action writes through the pooled DATABASE_URL connection.
  */
-export async function submitQuote(draft: QuoteDraft): Promise<SubmitResult> {
+export async function submitQuote(draft: QuoteDraft, turnstileToken?: string | null): Promise<SubmitResult> {
   // Server-side validation guard — never trust the client.
   if (draft.legs.length === 0) return { ok: false, error: "MISSING_LEGS" };
   if (draft.pax < 1 || draft.pax > 19) return { ok: false, error: "PAX_OUT_OF_RANGE" };
@@ -136,6 +137,14 @@ export async function submitQuote(draft: QuoteDraft): Promise<SubmitResult> {
   // smoke can assert against DB state) but flip status='cancelled' +
   // skip both ack and dispatch-notification emails.
   const isSmoke = draft.firstName.trim().startsWith("[SMOKE]");
+
+  // Human check, when Turnstile is configured. Last of the cheap gates so a
+  // validation error or a deduped retry never spends the single-use token.
+  // Smoke submissions skip it: they are cancelled on insert and notify
+  // nobody, so the marker gives a bot nothing.
+  if (!isSmoke && !(await passesTurnstile(turnstileToken, clientIp))) {
+    return { ok: false, error: TURNSTILE_FAILED };
+  }
 
   // Guest status link token — 192 bits of randomness, hex. See schema.
   const statusToken = randomBytes(24).toString("hex");

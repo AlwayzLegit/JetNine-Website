@@ -193,6 +193,17 @@ The SDK lazy-loads on the client (no bundle cost when DSN is missing).
 
 After PostHog is wired, submit the sitemap to Search Console at https://search.google.com/search-console → Sitemaps → Add `sitemap.xml`.
 
+## 7b. Turnstile on the public forms (optional)
+
+The contact form, the quote wizard's last step and the empty-leg watchlist form can ask Cloudflare Turnstile for a human check. It is off until both keys exist, and the honeypots and per-IP rate limits apply either way.
+
+1. Cloudflare dashboard → Turnstile → Add widget. Hostnames `jetnine.com` and `staging.jetnine.com`, mode Managed.
+2. Site key (public, inlined at build time): add it as the GitHub repository variable `NEXT_PUBLIC_TURNSTILE_SITE_KEY`.
+3. Secret key: `wrangler secret put TURNSTILE_SECRET_KEY` (and again with `--env staging`).
+4. Deploy. The widget stays invisible unless Cloudflare wants an interaction.
+
+Submissions flagged `[SMOKE]` skip the check, so the post-deploy suite keeps passing. If Cloudflare's verify endpoint is unreachable the submission is allowed and the error is logged. To switch it off, delete the secret and redeploy.
+
 ## 8. AI providers (voice desk)
 
 The voice desk on Render needs a model vendor. Keys are not env vars: an admin

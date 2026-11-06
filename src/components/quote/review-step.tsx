@@ -21,6 +21,7 @@ import { ReviewSection } from "@/components/quote/review-section";
 import { ReviewSubmitCard, type SubmitError } from "@/components/quote/review-submit-card";
 import { bestTimeLabel, methodSummary } from "@/components/quote/contact-options";
 import { useReplyPromiseMinutes } from "@/components/quote/reply-promise";
+import { getTurnstileToken, resetTurnstile, TurnstileField } from "@/components/turnstile-field";
 import { replyPromiseWords } from "@/lib/desk-status";
 
 const CABIN_LABELS: Record<string, string> = {
@@ -164,7 +165,8 @@ export function ReviewStep() {
     void toggleConsent; void submit; void reset;
 
     try {
-      const result = await submitQuote(draft);
+      const result = await submitQuote(draft, getTurnstileToken());
+      if (!result.ok) resetTurnstile();
       if (result.ok) {
         submitted.current = true;
         track("quote_submitted", {
@@ -363,6 +365,7 @@ export function ReviewStep() {
         </ol>
       </section>
 
+      <TurnstileField className="mt-4" />
       <ReviewSubmitCard submitting={submitting} error={submitError} onSubmit={onSubmit} />
 
       <StepFooter step={4} backHref="/quote/contact" backLabel="← Back to contact" />

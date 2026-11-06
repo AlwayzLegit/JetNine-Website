@@ -38,9 +38,26 @@ type Handler = {
   fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response>;
 };
 
+// OpenNext's image optimizer sets Cache-Control only for images it knows are
+// immutable (static imports). Everything under public/ comes back with no
+// caching header at all, so a browser refetches every optimized image on
+// every page view, each one through this Worker and the Images binding.
+// The sources are unhashed files that change only with a deploy: a day in
+// the browser, then a week of serving stale while it revalidates.
+const OPTIMIZED_IMAGE_CACHE = "public, max-age=86400, stale-while-revalidate=604800";
+
+async function withImageCaching(request: Request, response: Promise<Response>): Promise<Response> {
+  const res = await response;
+  if (request.method !== "GET" || !res.ok || res.headers.has("cache-control")) return res;
+  if (new URL(request.url).pathname !== "/_next/image") return res;
+  const cached = new Response(res.body, res);
+  cached.headers.set("Cache-Control", OPTIMIZED_IMAGE_CACHE);
+  return cached;
+}
+
 const app = {
   fetch: (request: Request, env: Env, ctx: ExecutionContext) =>
-    (handler as Handler).fetch(request, env, ctx),
+    withImageCaching(request, (handler as Handler).fetch(request, env, ctx)),
 
   async scheduled(event: ScheduledController, env: Env, ctx: ExecutionContext) {
     const path = CRON_ROUTES[event.cron];

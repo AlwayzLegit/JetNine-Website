@@ -3,35 +3,38 @@
 // here in one obvious place so swapping the voice (or, later, Jet's cloned
 // ElevenLabs voice) is an env change, not a code change.
 
-// Missing required vars are collected, not thrown: the HTTP server still
-// boots so /health can report exactly what is unset, and Render shows a
-// live (if not yet call-ready) service instead of a crash loop.
+// Values come from the Worker's vars and secrets (src/env.ts), not
+// process.env. Missing required vars are collected, not thrown: the Worker
+// still serves /health, which reports exactly what is unset.
+import { vars } from "./env.js";
+
 export const missingEnv: string[] = [];
 function required(name: string): string {
-  const v = process.env[name];
+  const v = vars[name];
   if (!v) {
     missingEnv.push(name);
     return "";
   }
   return v;
 }
-const optional = (name: string, fallback: string) => process.env[name] ?? fallback;
+const optional = (name: string, fallback: string) => vars[name] ?? fallback;
 const flag = (name: string, fallback: boolean) => {
-  const v = process.env[name];
+  const v = vars[name];
   return v === undefined ? fallback : /^(1|true|yes|on)$/i.test(v);
 };
 
 export const config = {
   env: optional("NODE_ENV", "development"),
-  port: Number(optional("PORT", "3000")),
   publicHost: required("PUBLIC_HOST").replace(/^https?:\/\//, "").replace(/\/$/, ""),
-  logRelayMessages: flag("LOG_RELAY_MESSAGES", process.env.NODE_ENV !== "production"),
+  logRelayMessages: flag("LOG_RELAY_MESSAGES", vars.NODE_ENV !== "production"),
 
   twilio: {
     accountSid: required("TWILIO_ACCOUNT_SID"),
     authToken: required("TWILIO_AUTH_TOKEN"),
     number: required("TWILIO_NUMBER"),
-    validateSignatures: flag("TWILIO_VALIDATE_SIGNATURES", process.env.NODE_ENV === "production"),
+    validateSignatures: flag("TWILIO_VALIDATE_SIGNATURES", vars.NODE_ENV === "production"),
+    /** Enforce the signature on the ConversationRelay handshake (until then a mismatch is only logged). */
+    validateRelaySignature: flag("TWILIO_VALIDATE_RELAY_SIGNATURE", false),
   },
 
   // Which vendor answers is decided by the ai_routes / ai_providers tables

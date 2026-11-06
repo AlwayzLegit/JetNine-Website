@@ -1,12 +1,13 @@
 import { afterEach, describe, expect, it } from "vitest";
+import { vars } from "../src/env.js";
 
 // No Supabase in tests: routing must resolve from the environment key alone,
 // and say so, without touching the network.
-process.env.PUBLIC_HOST = "voice.example.com";
-process.env.ANTHROPIC_API_KEY = "sk-ant-test";
-process.env.ANTHROPIC_MODEL = "claude-test";
-delete process.env.SUPABASE_URL;
-delete process.env.SUPABASE_SERVICE_ROLE_KEY;
+vars.PUBLIC_HOST = "voice.example.com";
+vars.ANTHROPIC_API_KEY = "sk-ant-test";
+vars.ANTHROPIC_MODEL = "claude-test";
+delete vars.SUPABASE_URL;
+delete vars.SUPABASE_SERVICE_ROLE_KEY;
 
 const { resolveRouting, describeRouting, resetRoutingCache } = await import("../src/llm/providers.js");
 

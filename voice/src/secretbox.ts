@@ -1,8 +1,9 @@
 import { createDecipheriv } from "node:crypto";
+import { vars } from "./env.js";
 
 // Decrypt-only twin of the site's src/lib/secretbox.ts. The site seals AI
 // provider keys with AES-256-GCM under AI_KEYS_ENCRYPTION_KEY; this service
-// only ever opens them. Format: `v1.<iv>.<tag>.<data>`, base64url parts.
+// only ever opens them. node:crypto comes from the nodejs_compat flag. Format: `v1.<iv>.<tag>.<data>`, base64url parts.
 
 const ENV = "AI_KEYS_ENCRYPTION_KEY";
 
@@ -11,7 +12,7 @@ export function secretboxConfigured(): boolean {
 }
 
 function loadKey(): Buffer | null {
-  const raw = process.env[ENV];
+  const raw = vars[ENV];
   if (!raw || !/^[0-9a-f]{64}$/i.test(raw)) return null;
   return Buffer.from(raw, "hex");
 }

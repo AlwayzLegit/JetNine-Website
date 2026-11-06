@@ -1,4 +1,4 @@
-import type { FastifyBaseLogger } from "fastify";
+import type { Logger } from "../log.js";
 import type { HistoryItem } from "./history.js";
 import type { ToolContext } from "./tools.js";
 import { describeRouting, resolveRouting, type ProviderConfig } from "./providers.js";
@@ -57,7 +57,7 @@ export async function runTurn(
   toolCtx: ToolContext,
   callbacks: TurnCallbacks,
   signal: AbortSignal,
-  log?: FastifyBaseLogger,
+  log?: Logger,
   agent?: { persona: string; model: string },
 ): Promise<TurnResult> {
   const resolved = await resolveRouting();

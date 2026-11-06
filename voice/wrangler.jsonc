@@ -1,0 +1,40 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "jetnine-voice",
+  "main": "src/worker.ts",
+  "compatibility_date": "2026-10-01",
+  // node:crypto (AES-256-GCM in src/secretbox.ts) and Buffer.
+  "compatibility_flags": ["nodejs_compat"],
+  "observability": { "enabled": true },
+
+  // Not deployed yet: `wrangler deploy` creates the custom domain on the
+  // jetnine.com zone. See README › Deploy.
+  "routes": [{ "pattern": "voice.jetnine.com", "custom_domain": true }],
+
+  // One CallRelay Durable Object per call, named by CallSid. It holds the
+  // ConversationRelay WebSocket and the CallSession state.
+  "durable_objects": {
+    "bindings": [{ "name": "CALL_RELAY", "class_name": "CallRelay" }]
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["CallRelay"] }],
+
+  // Non-secret settings (see .env.example). Secrets go in with
+  // `wrangler secret put` (README › Deploy); for `wrangler dev`, in .dev.vars.
+  "vars": {
+    "PUBLIC_HOST": "voice.jetnine.com",
+    "NODE_ENV": "production",
+    // Relay handshake signature: logged only until a staging call verifies it (README › Cutover).
+    "TWILIO_VALIDATE_RELAY_SIGNATURE": "false",
+    "LOG_RELAY_MESSAGES": "false",
+    "ANTHROPIC_MODEL": "claude-sonnet-5",
+    "LLM_MAX_TOKENS": "600",
+    "SMS_ALERTS_ENABLED": "false",
+    "ESCALATION_DIAL_TIMEOUT": "25",
+    "TTS_PROVIDER": "ElevenLabs",
+    "TTS_VOICE": "",
+    "TTS_MODEL": "flash_v2_5",
+    "STT_PROVIDER": "Deepgram",
+    "STT_MODEL": "nova-3-general",
+    "RECORDING_ENABLED": "true"
+  }
+}

@@ -16,6 +16,7 @@ import { sendContactAckEmail, sendDispatchContactNotification } from "@/lib/emai
 import { getReplyPromiseMinutes } from "@/lib/desk-settings";
 import { replyPromiseWords } from "@/lib/desk-status";
 import { clientIpFrom } from "@/lib/client-ip";
+import { passesTurnstile, TURNSTILE_FAILED, TURNSTILE_FIELD } from "@/lib/turnstile";
 
 export type ContactResult =
   | { ok: true; message: string }
@@ -96,6 +97,13 @@ export async function submitContactInquiry(formData: FormData): Promise<ContactR
   // submits through the real form, the row lands pre-handled so it never
   // shows on the desk, and no email fires.
   const isSmoke = firstName.startsWith("[SMOKE]");
+
+  // Human check, when Turnstile is configured. After validation and the
+  // rate limit so neither spends the single-use token. Smoke submissions
+  // skip it: they land pre-handled and send no email.
+  if (!isSmoke && !(await passesTurnstile(field(TURNSTILE_FIELD), clientIp))) {
+    return { ok: false, error: TURNSTILE_FAILED };
+  }
 
   // Link the member profile when the visitor is signed in. Auth lookup
   // failure (e.g. Supabase unreachable in CI) degrades to anonymous —

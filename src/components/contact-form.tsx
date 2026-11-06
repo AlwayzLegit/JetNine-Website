@@ -3,6 +3,7 @@
 import { useEffect, useState, useTransition, type FormEvent } from "react";
 import Link from "next/link";
 import { submitContactInquiry } from "@/app/(marketing)/contact/actions";
+import { getTurnstileToken, resetTurnstile, TurnstileField } from "@/components/turnstile-field";
 import { track } from "@/lib/analytics";
 import { SITE } from "@/lib/constants";
 import { CheckDot, Icon } from "@/components/company/icons";
@@ -195,7 +196,10 @@ export function ContactForm({ email }: { email: string }) {
     setErrors({});
     const form = e.currentTarget;
     startTransition(async () => {
+      const token = getTurnstileToken();
+      if (token) data.set("cf-turnstile-response", token);
       const result = await submitContactInquiry(data);
+      if (!result.ok) resetTurnstile();
       if (result.ok) {
         setMsg({ tone: "ok", text: result.message ?? "Sent. A dispatcher will reply within 30 minutes." });
         track("contact_inquiry_submitted", { reason });
@@ -203,6 +207,8 @@ export function ContactForm({ email }: { email: string }) {
         setSent(true);
       } else if (result.error === "RATE_LIMITED") {
         setMsg({ tone: "error", text: "Too many sends — wait a few minutes, or call dispatch." });
+      } else if (result.error === "VERIFICATION_FAILED") {
+        setMsg({ tone: "error", text: `We couldn't confirm the request came from a person. Try once more, or call ${SITE.dispatchPhone}.` });
       } else {
         setMsg({ tone: "error", text: `Not sent. Try again, or call ${SITE.dispatchPhone}.` });
       }
@@ -453,6 +459,7 @@ export function ContactForm({ email }: { email: string }) {
               Privacy policy.
             </Link>
           </p>
+          <TurnstileField className="mt-[14px]" />
           <button type="submit" disabled={pending} className="btn btn-primary mt-[14px] w-full !font-bold">
             {pending ? "Sending…" : `${SUBMIT[topic]} →`}
           </button>

@@ -65,6 +65,17 @@ function ErrorSentence({ error }: { error: SubmitError }) {
       </>
     );
   }
+  if (error.code === "VERIFICATION_FAILED") {
+    return (
+      <>
+        We couldn&rsquo;t confirm the request came from a person. Please send it once more, or call{" "}
+        <a href={`tel:${SITE.dispatchPhoneE164}`} className="text-link-strong !text-danger">
+          {SITE.dispatchPhone}
+        </a>
+        . ({error.code})
+      </>
+    );
+  }
   if (error.code === "NETWORK") {
     return (
       <>

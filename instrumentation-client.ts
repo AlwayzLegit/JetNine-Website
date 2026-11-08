@@ -24,11 +24,10 @@ const posthogKey = process.env.NEXT_PUBLIC_POSTHOG_KEY;
 /** Run `fn` after the load event, in an idle slot (or within 3 s). */
 function whenIdle(fn: () => void): void {
   const schedule = () => {
-    if ("requestIdleCallback" in window) {
-      window.requestIdleCallback(() => fn(), { timeout: 3000 });
-    } else {
-      window.setTimeout(fn, 1500);
-    }
+    // Safari gained requestIdleCallback only in 17.x, hence the fallback.
+    const idle: typeof window.requestIdleCallback | undefined = window.requestIdleCallback;
+    if (typeof idle === "function") idle(() => fn(), { timeout: 3000 });
+    else window.setTimeout(fn, 1500);
   };
   if (document.readyState === "complete") schedule();
   else window.addEventListener("load", schedule, { once: true });

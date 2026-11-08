@@ -20,7 +20,8 @@ export function AircraftGrid() {
         {CATEGORIES.map((c) => (
           <Link key={c.href} href={c.href} className="group block">
             <div className="relative aspect-video overflow-hidden bg-surface-2">
-              <Image src={c.img} alt="" fill sizes="(max-width: 768px) 100vw, 400px" className="object-cover transition-transform duration-500 group-hover:scale-[1.02]" />
+              {/* The grid below fits one 180px-min column under 412px and two up to tablet. */}
+              <Image src={c.img} alt="" fill sizes="(max-width: 411px) 100vw, (max-width: 768px) 50vw, 400px" className="object-cover transition-transform duration-500 group-hover:scale-[1.02]" />
             </div>
             <h3 className="title-card mt-[14px]">{c.title}</h3>
             <p className="mt-1 font-serif text-[15px] text-steel">{c.body}</p>

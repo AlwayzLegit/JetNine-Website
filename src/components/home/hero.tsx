@@ -17,6 +17,8 @@ export function Hero() {
           aria-hidden
           fill
           priority
+          // Largest Contentful Paint element: ask for it ahead of the rest.
+          fetchPriority="high"
           sizes="100vw"
           className="object-cover"
           style={{ objectPosition: "80% center" }}

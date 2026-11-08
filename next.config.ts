@@ -35,11 +35,13 @@ const devScript = isProd ? "" : " 'unsafe-eval'";
 const devConnect = isProd ? "" : ` http://${supabaseHost} ws://${supabaseHost}`;
 const csp = [
   "default-src 'self'",
-  `script-src 'self' 'unsafe-inline'${devScript} https://us-assets.i.posthog.com https://challenges.cloudflare.com`,
+  // static.cloudflareinsights.com / cloudflareinsights.com: the Cloudflare Web
+  // Analytics beacon the zone injects into every HTML response.
+  `script-src 'self' 'unsafe-inline'${devScript} https://us-assets.i.posthog.com https://challenges.cloudflare.com https://static.cloudflareinsights.com`,
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   "font-src 'self' data: https://fonts.gstatic.com",
   `img-src 'self' data: blob: https://jetnine.com https://${supabaseHost}`,
-  `connect-src 'self' https://${supabaseHost} wss://${supabaseHost}${devConnect} https://us.i.posthog.com https://us-assets.i.posthog.com https://*.ingest.sentry.io https://*.ingest.us.sentry.io`,
+  `connect-src 'self' https://${supabaseHost} wss://${supabaseHost}${devConnect} https://us.i.posthog.com https://us-assets.i.posthog.com https://*.ingest.sentry.io https://*.ingest.us.sentry.io https://cloudflareinsights.com`,
   // Turnstile (src/lib/turnstile.ts) loads its script and runs its challenge
   // in an iframe from this one host. 'self' keeps what default-src allowed
   // before this directive existed.
@@ -80,6 +82,9 @@ const nextConfig: NextConfig = {
   // DB drivers and removes the whole class of realm-mismatch bugs.
   serverExternalPackages: ["postgres"],
   images: {
+    // AVIF first where the browser accepts it (20-30% smaller than WebP for
+    // the photography here); the Cloudflare Images binding does the encode.
+    formats: ["image/avif", "image/webp"],
     remotePatterns: [
       { protocol: "https", hostname: "jetnine.com" },
     ],

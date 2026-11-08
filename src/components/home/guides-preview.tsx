@@ -24,7 +24,7 @@ export function GuidesPreview() {
         {GUIDES.map((g) => (
           <Link key={g.title} href={g.href} className="group block">
             <div className="relative aspect-[2/1] overflow-hidden bg-surface-2">
-              <Image src={g.img} alt="" fill sizes="(max-width: 768px) 100vw, 400px" className="object-cover transition-transform duration-500 group-hover:scale-[1.02]" />
+              <Image src={g.img} alt="" fill sizes="(max-width: 411px) 100vw, (max-width: 768px) 50vw, 400px" className="object-cover transition-transform duration-500 group-hover:scale-[1.02]" />
             </div>
             <p className="eyebrow !mb-0 mt-3">Charter essentials</p>
             <h3 className="title-card-sm mt-[6px]">{g.title}</h3>

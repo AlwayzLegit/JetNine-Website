@@ -50,6 +50,7 @@ export function PageHero({
             aria-hidden={imageAlt === "" ? true : undefined}
             fill
             priority
+            fetchPriority="high"
             sizes="100vw"
             className="object-cover"
             style={{ objectPosition: imagePosition }}

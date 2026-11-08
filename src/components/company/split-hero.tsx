@@ -79,6 +79,7 @@ export function SplitHero({
           aria-hidden={imageAlt === "" ? true : undefined}
           fill
           priority
+          fetchPriority="high"
           sizes="(max-width: 768px) 100vw, 50vw"
           className="object-cover"
           style={{ objectPosition: imagePosition }}

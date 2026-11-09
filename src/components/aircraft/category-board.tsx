@@ -54,7 +54,7 @@ export function CategoryBoard({ cats }: { cats: BoardCategory[] }) {
               aria-label={`Quick view: ${c.name}`}
               className="relative block aspect-[16/8] w-full cursor-pointer overflow-hidden border-0 bg-surface-2 p-0"
             >
-              <Image src={c.image} alt="" fill sizes="(max-width: 640px) 100vw, 220px" className="object-cover transition-transform duration-500 hover:scale-[1.03]" />
+              <Image src={c.image} alt="" fill sizes="(max-width: 405px) 100vw, (max-width: 640px) 50vw, 220px" className="object-cover transition-transform duration-500 hover:scale-[1.03]" />
             </button>
             <div className="flex flex-1 flex-col px-[14px] pb-[14px] pt-3">
               <div className="flex flex-col items-start gap-1.5">

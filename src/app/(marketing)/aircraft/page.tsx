@@ -202,7 +202,7 @@ export default function AircraftPage() {
                 ]}
                 className={`relative overflow-hidden border-0 bg-surface-2 p-0 ${span}`}
               >
-                <Image src={src} alt="" fill sizes="(max-width: 768px) 60vw, 360px" className="object-cover" />
+                <Image src={src} alt="" fill sizes={span ? "(max-width: 768px) 58vw, 340px" : "(max-width: 768px) 42vw, 240px"} className="object-cover" />
               </GalleryButton>
             ))}
           </div>

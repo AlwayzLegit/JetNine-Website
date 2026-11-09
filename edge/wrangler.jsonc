@@ -21,16 +21,20 @@
 
   // Without a version nothing is cached: a deploy that forgets --var is
   // slower, never stale.
-  "vars": { "APP_VERSION": "" },
+  "vars": { "APP_VERSION": "", "MEDIA_LEGACY_ORIGIN": "https://szuztxfhkudcjzhrkfld.supabase.co" },
   "services": [{ "binding": "APP", "service": "jetnine-web" }],
+  // Blog hero images, served at /media/… (one bucket for production and
+  // staging: both read the same database rows).
+  "r2_buckets": [{ "binding": "MEDIA", "bucket_name": "jetnine-media" }],
 
   "env": {
     "staging": {
       "name": "jetnine-edge-staging",
       "workers_dev": false,
       "routes": [{ "pattern": "staging.jetnine.com", "custom_domain": true }],
-      "vars": { "APP_VERSION": "" },
-      "services": [{ "binding": "APP", "service": "jetnine-web-staging" }]
+      "vars": { "APP_VERSION": "", "MEDIA_LEGACY_ORIGIN": "https://szuztxfhkudcjzhrkfld.supabase.co" },
+      "services": [{ "binding": "APP", "service": "jetnine-web-staging" }],
+      "r2_buckets": [{ "binding": "MEDIA", "bucket_name": "jetnine-media" }]
     }
   }
 }

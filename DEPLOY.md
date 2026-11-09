@@ -129,6 +129,12 @@ Why: the app is a ~34 MB script, and Cloudflare loads it into a fresh isolate fo
 - **An admin edit shows within about 5 minutes** on a cached page (the fresh window), plus one more visit to trigger the refresh. To clear everything at once, redeploy the edge Worker with a different `APP_VERSION`.
 - **To take the cache out of the path,** deploy the edge Worker with `--var APP_VERSION:` (empty): it then forwards every request. To remove the Worker entirely, add the `routes` back to `wrangler.jsonc` and deploy the app; the custom domains move in that one step.
 
+### Site media (blog hero images)
+
+Blog hero images live in the R2 bucket `jetnine-media` (created once with `wrangler r2 bucket create jetnine-media`) under `blog/heroes/`. The app writes uploads there through its `MEDIA` binding and the edge Worker serves them at `/media/blog/heroes/<file>.webp`, cached for a year (filenames are never reused).
+
+They used to be hot-linked from Supabase Storage, which ran the project past its egress quota (Supabase then answers every file with `402`). Posts written before the move still store the Supabase URL; `src/lib/media.ts` maps it to the `/media` path on read, and the edge Worker copies each old file out of Supabase the first time it is requested (`MEDIA_LEGACY_ORIGIN`). Once every old image has been viewed once, the Supabase `blog` bucket is no longer read.
+
 ## 3. Stripe (optional — payments + member purchase)
 
 Without Stripe keys, the Pay-now button on `/account/invoices` returns `STRIPE_NOT_CONFIGURED` and the Activate buttons on `/account/memberships` do the same. The rest of the app is unaffected.

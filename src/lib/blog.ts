@@ -2,6 +2,7 @@ import { and, desc, eq, ne } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { db } from "@/db";
 import { blogPosts, type BlogPost } from "@/db/schema/blog";
+import { siteMediaUrl } from "@/lib/media";
 
 // Shared between the admin API routes and the public /blog pages so
 // slug rules and the "published means status + timestamp" contract live
@@ -164,21 +165,29 @@ export function revalidateBlog(slugs: (string | null | undefined)[] = []): void 
   }
 }
 
+// Every public read goes through this: hero images stored before the move
+// to R2 still carry their Supabase Storage URL in the row (see lib/media.ts).
+function withSiteMedia<T extends { heroImageUrl: string | null }>(row: T): T {
+  return { ...row, heroImageUrl: siteMediaUrl(row.heroImageUrl) };
+}
+
 // Sitemap refreshes only need metadata, not every article's full body.
 export async function getSitemapPosts() {
-  return db.select({
+  const rows = await db.select({
     slug: blogPosts.slug,
     updatedAt: blogPosts.updatedAt,
     heroImageUrl: blogPosts.heroImageUrl,
   }).from(blogPosts).where(eq(blogPosts.status, "published"));
+  return rows.map(withSiteMedia);
 }
 
 export async function getPublishedPosts(): Promise<BlogPost[]> {
-  return db
+  const rows = await db
     .select()
     .from(blogPosts)
     .where(eq(blogPosts.status, "published"))
     .orderBy(desc(blogPosts.publishedAt));
+  return rows.map(withSiteMedia);
 }
 
 export async function getPublishedPost(slug: string): Promise<BlogPost | undefined> {
@@ -187,7 +196,7 @@ export async function getPublishedPost(slug: string): Promise<BlogPost | undefin
     .from(blogPosts)
     .where(and(eq(blogPosts.slug, slug), eq(blogPosts.status, "published")))
     .limit(1);
-  return row;
+  return row ? withSiteMedia(row) : undefined;
 }
 
 // Up to `limit` other published posts, ranked by shared tags then recency —
@@ -204,7 +213,7 @@ export async function getRelatedPosts(post: BlogPost, limit = 3): Promise<BlogPo
     .map((p, i) => ({ p, score: p.tags.filter((t) => mine.has(t.toLowerCase())).length * 10 - i * 0.01 }))
     .sort((a, b) => b.score - a.score)
     .slice(0, limit)
-    .map((x) => x.p);
+    .map((x) => withSiteMedia(x.p));
 }
 
 // Up to `limit` published posts relevant to a page, by tag/title match on

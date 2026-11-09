@@ -20,13 +20,30 @@
 // deployed (see DEPLOY.md). A release therefore starts from an empty cache
 // and never serves HTML that points at the previous build's files.
 //
+// It also serves site media (blog hero images) from R2 at /media/<key>; see
+// the "Media" section below.
+//
 // Keep this file free of imports: its size is the whole point.
 
 type Fetcher = { fetch(request: Request): Promise<Response> };
 
+type R2Object = {
+  body: ReadableStream;
+  httpEtag: string;
+  httpMetadata?: { contentType?: string };
+};
+
+type R2Bucket = {
+  get(key: string): Promise<R2Object | null>;
+  put(key: string, value: ArrayBuffer, options?: { httpMetadata?: { contentType?: string } }): Promise<unknown>;
+};
+
 type Env = {
   APP: Fetcher;
   APP_VERSION?: string;
+  MEDIA?: R2Bucket;
+  /** Supabase project origin the media used to live on, for the one-time copy. */
+  MEDIA_LEGACY_ORIGIN?: string;
 };
 
 type ExecutionContext = { waitUntil(promise: Promise<unknown>): void };
@@ -43,7 +60,7 @@ const FRESH_FOR = "x-edge-fresh-for";
 const ORIGIN_CC = "x-edge-origin-cache-control";
 
 /** Paths that are personal, transactional or not pages at all. */
-const SKIP = /^\/(?:api|admin|account|quote|request|sign-in|auth|_next|cdn-cgi|images)(?:\/|$)/;
+const SKIP = /^\/(?:api|admin|account|quote|request|sign-in|auth|_next|cdn-cgi|images|media)(?:\/|$)/;
 
 function edgeCache(): EdgeCache | null {
   return (globalThis as { caches?: { default?: EdgeCache } }).caches?.default ?? null;
@@ -95,7 +112,78 @@ async function fetchAndStore(
   return { res: new Response(forClient, res), stored: true };
 }
 
+// ─── Media ──────────────────────────────────────────────────────────────
+//
+// Blog hero images live in the MEDIA bucket under blog/heroes/. They used to
+// be hot-linked from Supabase Storage, which ran that project through its
+// egress quota. Files uploaded before the move are copied across lazily: the
+// first request for one that is not in the bucket fetches it from Supabase
+// once, stores it, and every later request is served from here. Filenames
+// carry a timestamp and are never overwritten, so responses are immutable.
+
+/** Keep in sync with MEDIA_KEY in src/lib/media.ts. */
+const MEDIA_KEY = /^\/media\/(blog\/heroes\/[A-Za-z0-9._-]+\.webp)$/;
+const MEDIA_CACHE_CONTROL = "public, max-age=31536000, immutable";
+const MEDIA_MAX_BYTES = 8 * 1024 * 1024;
+
+function mediaResponse(body: ReadableStream | ArrayBuffer, contentType: string, etag?: string): Response {
+  const headers = new Headers({
+    "Content-Type": contentType,
+    "Cache-Control": MEDIA_CACHE_CONTROL,
+    "X-Content-Type-Options": "nosniff",
+  });
+  if (etag) headers.set("ETag", etag);
+  return new Response(body, { headers });
+}
+
+function mediaNotFound(): Response {
+  return new Response("Not found", { status: 404, headers: { "Cache-Control": "no-store" } });
+}
+
+async function serveMedia(request: Request, env: Env, ctx: ExecutionContext, key: string): Promise<Response> {
+  if (request.method !== "GET" && request.method !== "HEAD") {
+    return new Response("Method not allowed", { status: 405, headers: { Allow: "GET, HEAD" } });
+  }
+  if (!env.MEDIA) return mediaNotFound();
+
+  const store = edgeCache();
+  const cacheUrl = new URL(request.url);
+  cacheUrl.search = "";
+  const cached = await store?.match(cacheUrl.href).catch(() => undefined);
+  if (cached) return cached;
+
+  let res: Response | null = null;
+  const object = await env.MEDIA.get(key);
+  if (object) {
+    res = mediaResponse(object.body, object.httpMetadata?.contentType || "image/webp", object.httpEtag);
+  } else if (env.MEDIA_LEGACY_ORIGIN) {
+    // One-time copy out of Supabase Storage. A failure is never cached, so
+    // the copy is retried on the next request.
+    const legacy = await fetch(`${env.MEDIA_LEGACY_ORIGIN}/storage/v1/object/public/${key}`).catch(() => null);
+    const type = legacy?.headers.get("content-type") ?? "";
+    if (legacy?.ok && type.startsWith("image/")) {
+      const bytes = await legacy.arrayBuffer();
+      if (bytes.byteLength > 0 && bytes.byteLength <= MEDIA_MAX_BYTES) {
+        ctx.waitUntil(
+          env.MEDIA.put(key, bytes, { httpMetadata: { contentType: type } }).catch((err) =>
+            console.error("[edge] media copy failed", key, err),
+          ),
+        );
+        res = mediaResponse(bytes, type);
+      }
+    }
+  }
+  if (!res) return mediaNotFound();
+  if (store && request.method === "GET") {
+    ctx.waitUntil(store.put(cacheUrl.href, res.clone()).catch(() => undefined));
+  }
+  return res;
+}
+
 async function serve(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+  const media = MEDIA_KEY.exec(new URL(request.url).pathname);
+  if (media) return serveMedia(request, env, ctx, media[1]);
+
   const store = edgeCache();
   const key = store ? cacheKey(request, env.APP_VERSION) : null;
   if (!store || !key) return env.APP.fetch(request);

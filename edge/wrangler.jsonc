@@ -1,0 +1,36 @@
+// The edge cache Worker in front of the site (see edge/worker.ts).
+//
+// It owns the public hostnames and forwards to the Next app through a
+// service binding. Deploy it after the app, passing the released commit so
+// the cache starts clean:
+//
+//   pnpm exec wrangler deploy -c edge/wrangler.jsonc --env "" --var APP_VERSION:<sha>
+//   pnpm exec wrangler deploy -c edge/wrangler.jsonc --env staging --var APP_VERSION:<sha>
+{
+  "$schema": "../node_modules/wrangler/config-schema.json",
+  "name": "jetnine-edge",
+  "main": "worker.ts",
+  "compatibility_date": "2026-08-01",
+  "workers_dev": false,
+  "observability": { "enabled": true },
+
+  "routes": [
+    { "pattern": "jetnine.com", "custom_domain": true },
+    { "pattern": "www.jetnine.com", "custom_domain": true }
+  ],
+
+  // Without a version nothing is cached: a deploy that forgets --var is
+  // slower, never stale.
+  "vars": { "APP_VERSION": "" },
+  "services": [{ "binding": "APP", "service": "jetnine-web" }],
+
+  "env": {
+    "staging": {
+      "name": "jetnine-edge-staging",
+      "workers_dev": false,
+      "routes": [{ "pattern": "staging.jetnine.com", "custom_domain": true }],
+      "vars": { "APP_VERSION": "" },
+      "services": [{ "binding": "APP", "service": "jetnine-web-staging" }]
+    }
+  }
+}

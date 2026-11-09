@@ -101,6 +101,18 @@ jobs:
           pnpm exec opennextjs-cloudflare deploy ${{ steps.target.outputs.env_flag }}
           --var GIT_COMMIT_SHA:${{ github.sha }}
 
+      # The small Worker that owns the hostnames and caches public pages
+      # (edge/worker.ts). Deployed after the app with the released commit,
+      # so its cache starts empty and never serves the previous build's HTML.
+      - name: Deploy edge cache Worker
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: >-
+          pnpm exec wrangler deploy -c edge/wrangler.jsonc
+          ${{ steps.target.outputs.env_flag || '--env ""' }}
+          --var APP_VERSION:${{ github.sha }}
+
   smoke:
     needs: deploy
     uses: ./.github/workflows/smoke-after-deploy.yml

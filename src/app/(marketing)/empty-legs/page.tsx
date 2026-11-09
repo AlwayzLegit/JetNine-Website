@@ -422,16 +422,26 @@ export default async function EmptyLegsPage() {
               ))}
             </dl>
           ) : null}
+          {/* With nothing on the board, sending people to it is a dead end:
+              the route alert becomes the one action. */}
           <div className="mt-5 flex flex-wrap gap-3">
-            <a href="#listings" className={`${BRONZE} h-[42px] px-5 text-[14px]`}>
-              See the live board <span aria-hidden="true">↓</span>
-            </a>
-            <a
-              href="#watchlist"
-              className="btn h-[42px] border-bone bg-[rgba(255,255,255,.7)] px-5 text-[14px] font-bold text-bone hover:bg-white"
-            >
-              Create a route alert
-            </a>
+            {s.count > 0 ? (
+              <>
+                <a href="#listings" className={`${BRONZE} h-[42px] px-5 text-[14px]`}>
+                  See the live board <span aria-hidden="true">↓</span>
+                </a>
+                <a
+                  href="#watchlist"
+                  className="btn h-[42px] border-bone bg-[rgba(255,255,255,.7)] px-5 text-[14px] font-bold text-bone hover:bg-white"
+                >
+                  Create a route alert
+                </a>
+              </>
+            ) : (
+              <a href="#watchlist" className={`${BRONZE} h-[42px] px-5 text-[14px]`}>
+                Get a text when your route posts <span aria-hidden="true">↓</span>
+              </a>
+            )}
           </div>
         </div>
       </section>
@@ -452,7 +462,8 @@ export default async function EmptyLegsPage() {
           <LegsBoard legs={legs} recentlySold={recentlySold} />
         </div>
 
-        <aside className="flex min-w-0 max-w-full flex-[1_1_300px] flex-col gap-3">
+        {/* Stacked (phones), the route alert goes above an empty board. */}
+        <aside className={`flex min-w-0 max-w-full flex-[1_1_300px] flex-col gap-3 ${s.count === 0 ? "max-md:order-first" : ""}`}>
           {/* scroll-mt clears the sticky header when the board's CTAs jump
               here via the #watchlist anchor. */}
           <div id="watchlist" className="scroll-mt-24 border border-line bg-white p-4">

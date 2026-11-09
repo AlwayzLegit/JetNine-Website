@@ -18,11 +18,9 @@
   "observability": { "enabled": true },
   "workers_dev": true,
 
-  // Custom domains: Cloudflare manages the DNS records and certificates.
-  "routes": [
-    { "pattern": "jetnine.com", "custom_domain": true },
-    { "pattern": "www.jetnine.com", "custom_domain": true }
-  ],
+  // No routes here: the public hostnames belong to the small edge cache
+  // Worker (edge/wrangler.jsonc), which reaches this one through a service
+  // binding. Putting them back would bypass that cache.
 
   "vars": {
     "DEPLOY_ENV": "production",
@@ -60,7 +58,6 @@
     "staging": {
       "name": "jetnine-web-staging",
       "workers_dev": true,
-      "routes": [{ "pattern": "staging.jetnine.com", "custom_domain": true }],
       "vars": {
         "DEPLOY_ENV": "staging",
         "DEPLOY_REGION": "cloudflare",

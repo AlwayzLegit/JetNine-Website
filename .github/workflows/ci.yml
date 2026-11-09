@@ -74,6 +74,10 @@ jobs:
       - name: Worker bundle dry run
         run: pnpm exec wrangler deploy --dry-run --outdir .wrangler/dry-run
 
+      # The edge cache Worker must stay tiny: its start-up time is its purpose.
+      - name: Edge Worker bundle dry run
+        run: pnpm exec wrangler deploy -c edge/wrangler.jsonc --env "" --dry-run
+
   e2e:
     name: playwright smoke
     runs-on: ubuntu-24.04

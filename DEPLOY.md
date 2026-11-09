@@ -103,13 +103,31 @@ DNS for `jetnine.com` is already on Cloudflare, so switching over is a route cha
 6. **Webhooks need no edits.** Their URLs don't change (`/api/stripe/webhook`, `/api/twilio/inbound`, `/api/email/inbound/…`, `/api/voice/*`), so Stripe, Twilio and Postmark keep working as they are.
 
 **Rollback**
-1. Remove the custom domains from the Worker, or comment out `routes` and redeploy.
+1. Remove the custom domains from the edge Worker (`jetnine-edge`), or comment out `routes` in `edge/wrangler.jsonc` and redeploy it.
 2. Recreate the two DNS records pointing at Vercel. Values at cutover (2026-11-03), both DNS-only:
    - `jetnine.com` CNAME `5e51739dca5adc0a.vercel-dns-016.com` (Cloudflare flattens it to Vercel's A records)
    - `www.jetnine.com` CNAME `5e51739dca5adc0a.vercel-dns-016.com`
 3. Restore `crons` in `vercel.json`.
 
 Keep the Vercel project for two weeks after the cutover before deleting it.
+
+### Edge cache Worker
+
+The public hostnames (`jetnine.com`, `www`, `staging.jetnine.com`) are attached to a second, very small Worker, `jetnine-edge` / `jetnine-edge-staging` (`edge/worker.ts`, `edge/wrangler.jsonc`). It forwards to the app through a service binding and keeps public pages in the data centre cache.
+
+Why: the app is a ~34 MB script, and Cloudflare loads it into a fresh isolate for a large share of requests on a low-traffic site. That load took 1–3 s even for pages Next already had cached. The edge Worker is a few kilobytes and answers a cached page in about 0.15 s.
+
+- **What is cached:** anonymous `GET` requests for HTML the app marks with `s-maxage` (the ISR marketing pages). Served as-is for up to 5 minutes, then stale for up to a day while a background request refreshes it. API routes, `/quote`, `/account`, `/admin`, `/sign-in`, signed-in visitors, query strings and RSC navigations always pass through. The `x-edge-cache` response header says `HIT`, `STALE` or `MISS`.
+- **Every release deploys both Workers, app first.** The edge Worker's `APP_VERSION` keys the cache; pass the released commit so the cache starts empty. Old HTML points at the previous build's script files, which no longer exist.
+
+  ```bash
+  pnpm exec opennextjs-cloudflare deploy -- --env ""
+  pnpm exec wrangler deploy -c edge/wrangler.jsonc --env "" --var APP_VERSION:$(git rev-parse HEAD)
+  ```
+
+  For staging use `--env staging` in both. The deploy workflow does this itself.
+- **An admin edit shows within about 5 minutes** on a cached page (the fresh window), plus one more visit to trigger the refresh. To clear everything at once, redeploy the edge Worker with a different `APP_VERSION`.
+- **To take the cache out of the path,** deploy the edge Worker with `--var APP_VERSION:` (empty): it then forwards every request. To remove the Worker entirely, add the `routes` back to `wrangler.jsonc` and deploy the app; the custom domains move in that one step.
 
 ## 3. Stripe (optional — payments + member purchase)
 
@@ -294,7 +312,7 @@ No schema or env changes. The runbook, in order:
 
 ## 9. Custom domain
 
-`jetnine.com` and `www` are Worker custom domains (see §2 → Cutover), and Cloudflare issues their certificates.
+`jetnine.com` and `www` are custom domains of the edge cache Worker (see §2 → Cutover and Edge cache Worker), and Cloudflare issues their certificates.
 
 `NEXT_PUBLIC_SITE_URL` comes from the `wrangler.jsonc` vars at runtime and from the deploy workflow at build time. The sitemap, OG URLs, Stripe redirects and canonical tags all use it.
 

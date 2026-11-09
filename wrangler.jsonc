@@ -44,6 +44,8 @@
 
   "hyperdrive": [{ "binding": "HYPERDRIVE", "id": "05bdaa66695d43c08fc02b22e39bca77" }],
   "images": { "binding": "IMAGES" },
+  // Version id keys the edge HTML cache in worker.ts, so a deploy starts clean.
+  "version_metadata": { "binding": "CF_VERSION_METADATA" },
   "r2_buckets": [{ "binding": "NEXT_INC_CACHE_R2_BUCKET", "bucket_name": "jetnine-next-cache" }],
   "d1_databases": [
     { "binding": "NEXT_TAG_CACHE_D1", "database_name": "jetnine-tag-cache", "database_id": "af5350ae-1014-421c-86a0-c60a4f8d3a39" }
@@ -69,6 +71,7 @@
       "triggers": { "crons": [] },
       "hyperdrive": [{ "binding": "HYPERDRIVE", "id": "05bdaa66695d43c08fc02b22e39bca77" }],
       "images": { "binding": "IMAGES" },
+      "version_metadata": { "binding": "CF_VERSION_METADATA" },
       "r2_buckets": [{ "binding": "NEXT_INC_CACHE_R2_BUCKET", "bucket_name": "jetnine-next-cache-staging" }],
       "d1_databases": [
         {

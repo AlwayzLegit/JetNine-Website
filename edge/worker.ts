@@ -62,6 +62,13 @@ const ORIGIN_CC = "x-edge-origin-cache-control";
 /** Paths that are personal, transactional or not pages at all. */
 const SKIP = /^\/(?:api|admin|account|quote|request|sign-in|auth|_next|cdn-cgi|images|media)(?:\/|$)/;
 
+/**
+ * Exceptions to SKIP. The quote wizard's first step is its one indexable,
+ * server-rendered page (an ISR page like the marketing pages; the draft
+ * itself lives in the browser). Later steps stay uncached.
+ */
+const ALLOW = new Set(["/quote/mission"]);
+
 function edgeCache(): EdgeCache | null {
   return (globalThis as { caches?: { default?: EdgeCache } }).caches?.default ?? null;
 }
@@ -72,7 +79,7 @@ export function cacheKey(request: Request, version: string | undefined): string 
   const url = new URL(request.url);
   // Query strings carry auth codes, campaign tags and filters; RSC and
   // prefetch requests return a different body for the same URL.
-  if (url.search || SKIP.test(url.pathname)) return null;
+  if (url.search || (SKIP.test(url.pathname) && !ALLOW.has(url.pathname))) return null;
   const h = request.headers;
   if (h.has("rsc") || h.has("next-router-prefetch") || h.has("next-router-state-tree")) return null;
   if (h.has("authorization") || h.has("range")) return null;

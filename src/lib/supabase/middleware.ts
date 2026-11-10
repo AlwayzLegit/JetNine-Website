@@ -39,7 +39,11 @@ export async function updateSession(request: NextRequest) {
       const type = sp.get("type");
       if (type) cb.searchParams.set("type", type);
     }
-    const nextParam = sp.get("next");
+    // Keep the page the link was aimed at: the password-reset email sends
+    // members to /auth/reset?code=…, and they must come back here (not
+    // /account) once the callback has signed them in. The homepage stays
+    // the default-to-/account case; the callback sanitises `next` anyway.
+    const nextParam = sp.get("next") ?? (path !== "/" ? path : null);
     if (nextParam) cb.searchParams.set("next", nextParam);
     return NextResponse.redirect(cb);
   }

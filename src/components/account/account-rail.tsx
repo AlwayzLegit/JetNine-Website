@@ -12,6 +12,7 @@ export const ACCOUNT_NAV = [
   { href: "/account/members", label: "Membership", desc: "Tier, balance, activity" },
   { href: "/account/memberships", label: "Buy / top up", desc: "Card checkout & reserve top-up" },
   { href: "/account/preferences", label: "Preferences", desc: "Cabin, catering, ground" },
+  { href: "/account/security", label: "Security", desc: "Password & sign-in" },
 ] as const;
 
 function isActive(pathname: string, href: string): boolean {

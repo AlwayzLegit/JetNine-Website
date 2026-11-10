@@ -147,6 +147,41 @@ function mediaNotFound(): Response {
   return new Response("Not found", { status: 404, headers: { "Cache-Control": "no-store" } });
 }
 
+// Stand-ins for a hero that is neither in the bucket nor obtainable from
+// Supabase (its storage is restricted until the quota resets). Rather than a
+// broken image, the page gets one of the site's own library photos, picked by
+// the file name so each post keeps the same one. Served with a short browser
+// cache and not stored at the edge, so the real image takes over as soon as
+// the copy succeeds.
+const MEDIA_STAND_INS = [
+  "cabin-interior",
+  "city-night-window",
+  "desert-city-approach",
+  "fbo-lounge",
+  "ramp-arrival",
+  "turboprop-mountains",
+  "winter-ramp",
+];
+
+async function mediaStandIn(request: Request, env: Env, key: string): Promise<Response> {
+  let hash = 0;
+  for (let i = 0; i < key.length; i++) hash = (hash * 31 + key.charCodeAt(i)) >>> 0;
+  const file = MEDIA_STAND_INS[hash % MEDIA_STAND_INS.length];
+  const url = new URL(request.url);
+  url.pathname = `/images/blog/library/${file}.webp`;
+  url.search = "";
+  const res = await env.APP.fetch(new Request(url.href, { method: "GET" })).catch(() => null);
+  if (!res?.ok || !res.body) return mediaNotFound();
+  return new Response(res.body, {
+    headers: {
+      "Content-Type": res.headers.get("content-type") || "image/webp",
+      "Cache-Control": "public, max-age=300",
+      "X-Content-Type-Options": "nosniff",
+      "X-Media-Stand-In": file,
+    },
+  });
+}
+
 async function serveMedia(request: Request, env: Env, ctx: ExecutionContext, key: string): Promise<Response> {
   if (request.method !== "GET" && request.method !== "HEAD") {
     return new Response("Method not allowed", { status: 405, headers: { Allow: "GET, HEAD" } });
@@ -180,7 +215,7 @@ async function serveMedia(request: Request, env: Env, ctx: ExecutionContext, key
       }
     }
   }
-  if (!res) return mediaNotFound();
+  if (!res) return mediaStandIn(request, env, key);
   if (store && request.method === "GET") {
     ctx.waitUntil(store.put(cacheUrl.href, res.clone()).catch(() => undefined));
   }

@@ -2,17 +2,22 @@ import "server-only";
 import { holdTwiml, redirectTwiml, voicemailTwiml } from "@/lib/voice-twiml";
 
 /**
- * The voice agent (voice/ on Render) as seen from the site.
+ * The voice agent (voice/, the `jetnine-voice` Worker at voice.jetnine.com)
+ * as seen from the site.
  *
- * Render's free plan sleeps the service after about 15 idle minutes and
- * takes 30–60 seconds to wake, longer than Twilio waits for a webhook. So
- * the site answers Twilio itself, wakes the agent the moment a call
- * arrives (it boots while a person's phone rings), and only redirects the
- * call once the agent says it is ready. Until then the caller holds; if
- * the agent never comes up, they leave a message.
+ * The agent used to run on Render's free plan, which slept the service
+ * after about 15 idle minutes and took 30–60 seconds to wake, longer than
+ * Twilio waits for a webhook. So the site answers Twilio itself, wakes the
+ * agent the moment a call arrives (it boots while a person's phone rings),
+ * and only redirects the call once the agent says it is ready. Until then
+ * the caller holds; if the agent never comes up, they leave a message.
+ * A Worker has no idle cold start, so the hold path is now a safety net.
+ *
+ * `VOICE_AGENT_URL` overrides the default (set it back to
+ * https://jetnine-voice.onrender.com to roll the agent back to Render).
  */
 
-export const VOICE_AGENT_URL = (process.env.VOICE_AGENT_URL || "https://jetnine-voice.onrender.com").replace(/\/+$/, "");
+export const VOICE_AGENT_URL = (process.env.VOICE_AGENT_URL || "https://voice.jetnine.com").replace(/\/+$/, "");
 
 /** How many holds (about 7 seconds each) before the caller is sent to voicemail. */
 export const MAX_HOLDS = 6;

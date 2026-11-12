@@ -1,6 +1,7 @@
 import { pageMetadata } from "@/lib/page-meta";
 import { Hero } from "@/components/home/hero";
 import { AircraftGrid } from "@/components/home/aircraft-grid";
+import { ProofStrip } from "@/components/proof-strip";
 import { Flow } from "@/components/home/flow";
 import { QuoteExplainer } from "@/components/home/quote-explainer";
 import { GuidesPreview } from "@/components/home/guides-preview";
@@ -18,6 +19,10 @@ export default function HomePage() {
   return (
     <>
       <Hero />
+      {/* Vetting and safety standards, each linking to the page that backs it. */}
+      <div className="mt-10">
+        <ProofStrip />
+      </div>
       <AircraftGrid />
       <Flow />
       <QuoteExplainer />

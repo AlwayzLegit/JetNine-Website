@@ -11,10 +11,11 @@ import { quotes } from "@/db/schema/quotes";
 // coalesce: a missing name or email (e.g. a phone request before the
 // caller's name is taken) makes `ilike` NULL, and `not NULL` would hide
 // the row from every desk list.
-export const NOT_SMOKE: SQL = sql`not (
+export const IS_SMOKE: SQL = sql`(
   coalesce(${quotes.contactSnapshot}->>'firstName' ilike '[SMOKE]%', false)
   or coalesce(${quotes.contactSnapshot}->>'email' ilike 'smoke+%', false)
 )`;
+export const NOT_SMOKE: SQL = sql`not ${IS_SMOKE}`;
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 

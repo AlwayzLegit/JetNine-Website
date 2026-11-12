@@ -22,6 +22,7 @@ export const metadata: Metadata = pageMetadata({
   description:
     "Compare six charter aircraft categories, from turboprops to ultra-long-range jets. Explore cabin space, passenger capacity, baggage and range for your trip.",
   path: "/aircraft",
+  segmentCard: true,
 });
 
 const TABS = [
@@ -201,7 +202,7 @@ export default function AircraftPage() {
                 ]}
                 className={`relative overflow-hidden border-0 bg-surface-2 p-0 ${span}`}
               >
-                <Image src={src} alt="" fill sizes="(max-width: 768px) 60vw, 360px" className="object-cover" />
+                <Image src={src} alt="" fill sizes={span ? "(max-width: 768px) 58vw, 340px" : "(max-width: 768px) 42vw, 240px"} className="object-cover" />
               </GalleryButton>
             ))}
           </div>

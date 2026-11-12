@@ -20,103 +20,117 @@ import { test, expect, type Page } from "@playwright/test";
  * BASE_URL=https://jet-nine-website.vercel.app pnpm smoke:e2e
  */
 
+/**
+ * Routes to submit. The second is the route that failed live on 2026-10-30:
+ * Austin Executive (KEDC) was in the picker but not in the airports table,
+ * so the legs insert hit the ICAO foreign key. Keep one route to an
+ * airport outside the original 43-row seed so the picker and the table
+ * can never drift apart again unnoticed.
+ */
+const ROUTES: { from: string; to: string; why: string }[] = [
+  { from: "KLAX", to: "KJFK", why: "the classic coast-to-coast" },
+  { from: "KVNY", to: "KEDC", why: "a picker airport added after the first seed" },
+];
+
 test.describe("@prod-smoke quote wizard", () => {
   test.setTimeout(120_000); // wizard walk is long; CDN cold-start can add seconds
 
-  test("submits a [SMOKE] quote end-to-end", async ({ page }) => {
-    const stamp = Date.now();
+  for (const route of ROUTES) {
+    test(`submits a [SMOKE] quote end-to-end: ${route.from} to ${route.to} (${route.why})`, async ({ page }) => {
+      const stamp = Date.now();
 
-    // ─── Mission ─────────────────────────────────────────────────────────
-    await page.goto("/quote/mission");
-    // The h1 reads "Where, when, how many." — match on the heading role
-    // so minor copy tweaks don't break the smoke again.
-    await expect(page.getByRole("heading", { name: /where/i }).first()).toBeVisible({
-      timeout: 15_000,
-    });
+      // ─── Mission ─────────────────────────────────────────────────────────
+      await page.goto("/quote/mission");
+      // The h1 reads "Where, when, how many." — match on the heading role
+      // so minor copy tweaks don't break the smoke again.
+      await expect(page.getByRole("heading", { name: /where/i }).first()).toBeVisible({
+        timeout: 15_000,
+      });
 
-    // Trip type — pick One-way (matches the .id "oneway" pattern).
-    await page.getByRole("button", { name: /one[-\s]?way/i }).first().click();
+      // Trip type — pick One-way (matches the .id "oneway" pattern).
+      await page.getByRole("button", { name: /one[-\s]?way/i }).first().click();
 
-    await pickAirport(page, "From", "KLAX");
-    await pickAirport(page, "To", "KJFK");
+      await pickAirport(page, "From", route.from);
+      await pickAirport(page, "To", route.to);
 
-    // Date: 30 days out (well past any "departing soon" minimum).
-    const date = new Date();
-    date.setDate(date.getDate() + 30);
-    const dateStr = date.toISOString().slice(0, 10);
-    await page.locator('input[type="date"]').first().fill(dateStr);
+      // Date: 30 days out (well past any "departing soon" minimum).
+      const date = new Date();
+      date.setDate(date.getDate() + 30);
+      const dateStr = date.toISOString().slice(0, 10);
+      await page.locator('input[type="date"]').first().fill(dateStr);
 
-    // Time: noon-ish (server expects HH:MM).
-    await page.locator('input[type="time"]').first().fill("12:00");
+      // Time: noon-ish (server expects HH:MM).
+      await page.locator('input[type="time"]').first().fill("12:00");
 
-    // Pax: leave default — the range input is already aria-labeled
-    // (PR #8) and the field has +/- buttons. Default of 4 works.
+      // Pax: leave default — the range input is already aria-labeled
+      // (PR #8) and the field has +/- buttons. Default of 4 works.
 
-    // Move to next step. The wizard nav uses a button labeled "Continue"
-    // or "Next" — match permissively.
-    await clickNext(page, /aircraft|continue|next/i);
+      // Move to next step. The wizard nav uses a button labeled "Continue"
+      // or "Next" — match permissively.
+      await clickNext(page, /aircraft|continue|next/i);
 
-    // ─── Aircraft ────────────────────────────────────────────────────────
-    await page.waitForURL(/\/quote\/aircraft/, { timeout: 15_000 });
-    await expect(page.getByText(/category|aircraft/i).first()).toBeVisible();
+      // ─── Aircraft ────────────────────────────────────────────────────────
+      await page.waitForURL(/\/quote\/aircraft/, { timeout: 15_000 });
+      await expect(page.getByText(/category|aircraft/i).first()).toBeVisible();
 
-    // Pick a midsize. The button is the category card itself.
-    await page
-      .getByRole("button", { name: /midsize/i })
-      .first()
-      .click();
+      // Pick a midsize. The button is the category card itself.
+      await page
+        .getByRole("button", { name: /midsize/i })
+        .first()
+        .click();
 
-    await clickNext(page, /contact|continue|next/i);
+      await clickNext(page, /contact|continue|next/i);
 
-    // ─── Contact ─────────────────────────────────────────────────────────
-    await page.waitForURL(/\/quote\/contact/, { timeout: 15_000 });
+      // ─── Contact ─────────────────────────────────────────────────────────
+      await page.waitForURL(/\/quote\/contact/, { timeout: 15_000 });
 
-    await page.getByLabel(/first name/i).fill(`[SMOKE]`);
-    await page.getByLabel(/last name/i).fill(`Test-${stamp}`);
-    await page.getByLabel(/^email$/i).fill(`smoke+${stamp}@jetnine.com`);
-    // Phone is "Phone" label; the country selector is "Country" + a select.
-    await page.getByLabel(/^phone$/i).fill("8005550100"); // 555 line, won't ring
+      await page.getByLabel(/first name/i).fill(`[SMOKE]`);
+      await page.getByLabel(/last name/i).fill(`Test-${stamp}`);
+      await page.getByLabel(/^email$/i).fill(`smoke+${stamp}@jetnine.com`);
+      // Phone is "Phone" label; the country selector is "Country" + a select.
+      await page.getByLabel(/^phone$/i).fill("8005550100"); // 555 line, won't ring
 
-    // Both required consents — click the visible <label> wrappers since
-    // the checkboxes are styled and may not be directly clickable.
-    const requiredConsents = page.locator('input[type="checkbox"]');
-    const checkboxCount = await requiredConsents.count();
-    for (let i = 0; i < Math.min(checkboxCount, 2); i++) {
-      const cb = requiredConsents.nth(i);
-      if (!(await cb.isChecked())) {
-        await cb.check({ force: true });
+      // Both required consents — click the visible <label> wrappers since
+      // the checkboxes are styled and may not be directly clickable.
+      const requiredConsents = page.locator('input[type="checkbox"]');
+      const checkboxCount = await requiredConsents.count();
+      for (let i = 0; i < Math.min(checkboxCount, 2); i++) {
+        const cb = requiredConsents.nth(i);
+        if (!(await cb.isChecked())) {
+          await cb.check({ force: true });
+        }
       }
-    }
 
-    await clickNext(page, /review|continue|next/i);
+      await clickNext(page, /review|continue|next/i);
 
-    // ─── Review ──────────────────────────────────────────────────────────
-    await page.waitForURL(/\/quote\/review/, { timeout: 15_000 });
-    await expect(page.getByText(/Send it to dispatch/i)).toBeVisible();
+      // ─── Review ──────────────────────────────────────────────────────────
+      await page.waitForURL(/\/quote\/review/, { timeout: 15_000 });
+      await expect(page.getByText(/Send it to dispatch/i)).toBeVisible();
 
-    await page.getByRole("button", { name: /submit quote request/i }).click();
+      await page.getByRole("button", { name: /submit quote request/i }).click();
 
-    // Confirmation: the page either renders a thank-you with the quote
-    // ref, or shows an error. Either way, assert no NETWORK / 500 leak.
-    // Wait for the thank-you OR the error to land.
-    // Quote codes are JN-YYYY-NNNNN (next_quote_code in migration 0003);
-    // QT- never existed in the DB and this matcher could never pass.
-    const success = page.getByText(/JN-\d{4}-\d+/);
-    const errorBanner = page.locator('text=/RATE_LIMITED|NETWORK|MISSING_|Not sent/');
+      // Confirmation: the page either renders a thank-you with the quote
+      // ref, or shows an error. Either way, assert no NETWORK / 500 leak.
+      // Wait for the thank-you OR the error to land.
+      // Quote codes are JN-YYYY-NNNNN (next_quote_code in migration 0003);
+      // QT- never existed in the DB and this matcher could never pass.
+      const success = page.getByText(/JN-\d{4}-\d+/);
+      const errorBanner = page.locator('text=/RATE_LIMITED|NETWORK|MISSING_|Not sent/');
 
-    await expect(async () => {
-      const found = (await success.count()) + (await errorBanner.count());
-      expect(found).toBeGreaterThan(0);
-    }).toPass({ timeout: 30_000 });
+      await expect(async () => {
+        const found = (await success.count()) + (await errorBanner.count());
+        expect(found).toBeGreaterThan(0);
+      }).toPass({ timeout: 30_000 });
 
-    if ((await errorBanner.count()) > 0) {
-      const errText = await errorBanner.first().textContent();
-      throw new Error(`Quote submit returned error: ${errText}`);
-    }
+      if ((await errorBanner.count()) > 0) {
+        const errText = await errorBanner.first().textContent();
+        throw new Error(`Quote submit returned error: ${errText}`);
+      }
 
-    const ref = await success.first().textContent();
-    console.log(`[prod-smoke] submitted ${ref?.trim()}`);
-  });
+      const ref = await success.first().textContent();
+      console.log(`[prod-smoke] submitted ${ref?.trim()}`);
+    });
+  }
 });
 
 async function pickAirport(page: Page, label: string, code: string): Promise<void> {

@@ -24,6 +24,7 @@ import {
   type RequestView,
 } from "@/lib/request-page";
 import { STATUS_TOKEN_RE } from "@/lib/request-status";
+import { clientIpFrom } from "@/lib/client-ip";
 
 export const dynamic = "force-dynamic";
 
@@ -42,7 +43,7 @@ export default async function RequestPage({ params }: { params: Promise<{ token:
   // keeps a scraper from turning the lookup into load.
   try {
     const hdrs = await headers();
-    const ip = hdrs.get("x-forwarded-for")?.split(",")[0]?.trim();
+    const ip = clientIpFrom(hdrs) ?? undefined;
     if (ip) {
       const rl = await checkRateLimit(`request_view:${ip}`, { max: 120, windowSeconds: 300 });
       if (!rl.ok) {

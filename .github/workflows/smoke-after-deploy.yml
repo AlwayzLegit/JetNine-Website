@@ -15,6 +15,20 @@ name: Post-deploy smoke
 
 on:
   deployment_status:
+  # Cloudflare deploys (deploy-cloudflare.yml) call this directly with the
+  # URL they just deployed to; Vercel still drives it via deployment_status
+  # until the Vercel project is retired.
+  workflow_call:
+    inputs:
+      url:
+        type: string
+        required: true
+      sha:
+        type: string
+        required: true
+      environment:
+        type: string
+        required: true
 
 permissions:
   contents: read
@@ -22,8 +36,8 @@ permissions:
 
 jobs:
   smoke:
-    name: smoke ${{ github.event.deployment_status.environment }}
-    if: github.event.deployment_status.state == 'success'
+    name: smoke ${{ inputs.environment || github.event.deployment_status.environment }}
+    if: inputs.url != '' || github.event.deployment_status.state == 'success'
     runs-on: ubuntu-24.04
     timeout-minutes: 10
 
@@ -57,7 +71,7 @@ jobs:
           # while environment_url is the actual deploy URL (...vercel.app).
           # Earlier the order was reversed and every smoke ran against
           # the gated inspector, failing all marketing-page checks.
-          URL="${{ github.event.deployment_status.environment_url || github.event.deployment_status.target_url }}"
+          URL="${{ inputs.url || github.event.deployment_status.environment_url || github.event.deployment_status.target_url }}"
           if [ -z "$URL" ]; then
             echo "::warning::No deployment URL in event payload — nothing to smoke."
             echo "::warning::environment_url was: '${{ github.event.deployment_status.environment_url }}'"
@@ -95,7 +109,7 @@ jobs:
         with:
           # The smoke script lives in the same commit that triggered the
           # deploy. Vercel passes the sha in deployment.sha.
-          ref: ${{ github.event.deployment.sha }}
+          ref: ${{ inputs.sha || github.event.deployment.sha }}
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
@@ -142,7 +156,7 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: prod-smoke-report-${{ github.event.deployment_status.environment }}
+          name: prod-smoke-report-${{ inputs.environment || github.event.deployment_status.environment }}
           path: playwright-report/
           retention-days: 7
 

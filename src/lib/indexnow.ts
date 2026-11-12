@@ -1,3 +1,5 @@
+import { isProductionDeploy } from "@/lib/deploy-env";
+
 // IndexNow — push change notifications to the engines that support the
 // protocol (Bing, Seznam, Yandex, Naver; submissions are shared between
 // them). Google does not consume IndexNow — its side is covered by the
@@ -19,7 +21,7 @@ const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL || "https://jetnine.com").rep
  * a failed ping costs a crawl hint, not the publish.
  */
 export async function pingIndexNow(paths: string[]): Promise<void> {
-  if (process.env.VERCEL_ENV !== "production") return;
+  if (!isProductionDeploy()) return;
 
   const urlList = [...new Set(paths)]
     .filter(Boolean)

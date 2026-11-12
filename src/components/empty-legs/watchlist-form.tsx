@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useTransition, type FormEvent } from "react";
 import { createWatchlist } from "@/app/(marketing)/empty-legs/actions";
+import { getTurnstileToken, resetTurnstile, TurnstileField } from "@/components/turnstile-field";
 import { track } from "@/lib/analytics";
 import { normalizeFreeformE164 } from "@/lib/phone";
 import {
@@ -82,13 +83,22 @@ export function WatchlistForm() {
     setErrors({});
     const form = e.currentTarget;
     startTransition(async () => {
+      const token = getTurnstileToken();
+      if (token) data.set("cf-turnstile-response", token);
       const result = await createWatchlist(data);
+      if (!result.ok) resetTurnstile();
       if (result.ok) {
         setMsg({ tone: "ok", text: `${sentence(result.message)}.` });
         track("empty_leg_watchlist_created", {});
         form.reset();
       } else {
-        setMsg({ tone: "error", text: `We couldn't save that — ${sentence(result.error).toLowerCase()}.` });
+        setMsg({
+          tone: "error",
+          text:
+            result.error === "VERIFICATION_FAILED"
+              ? "We couldn't confirm the request came from a person. Please try once more."
+              : `We couldn't save that — ${sentence(result.error).toLowerCase()}.`,
+        });
       }
     });
   }
@@ -152,6 +162,7 @@ export function WatchlistForm() {
         />
       </div>
 
+      <TurnstileField />
       <button
         type="submit"
         disabled={pending}

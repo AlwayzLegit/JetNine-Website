@@ -19,6 +19,8 @@ import {
   confirmUrl,
   issueToken,
 } from "@/lib/watchlist-confirm";
+import { clientIpFrom } from "@/lib/client-ip";
+import { passesTurnstile, TURNSTILE_FAILED, TURNSTILE_FIELD } from "@/lib/turnstile";
 
 export type WatchlistResult =
   | { ok: true; message: string }
@@ -61,7 +63,7 @@ export async function createWatchlist(formData: FormData): Promise<WatchlistResu
   let clientIp = "unknown";
   try {
     const hdrs = await headers();
-    clientIp = hdrs.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
+    clientIp = clientIpFrom(hdrs) ?? "unknown";
   } catch {
     // headers() can throw outside a request scope; proceed without limiting.
   }
@@ -71,6 +73,12 @@ export async function createWatchlist(formData: FormData): Promise<WatchlistResu
       windowSeconds: WATCHLIST_RATE_LIMIT_WINDOW_SECONDS,
     });
     if (!rl.ok) return { ok: false, error: "RATE_LIMITED" };
+  }
+
+  // Human check, when Turnstile is configured. After validation and the
+  // rate limit so neither spends the single-use token.
+  if (!(await passesTurnstile(field(TURNSTILE_FIELD), clientIp))) {
+    return { ok: false, error: TURNSTILE_FAILED };
   }
 
   // If the visitor is signed in and has a member profile, link the watchlist

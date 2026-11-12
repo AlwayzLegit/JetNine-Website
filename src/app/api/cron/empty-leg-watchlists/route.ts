@@ -28,7 +28,7 @@ import {
 
 // Empty-leg watchlist matcher.
 //
-// Runs on the Vercel cron declared in vercel.json (*/15), which is what
+// Runs on the Cloudflare Cron Trigger declared in wrangler.jsonc (*/15), which is what
 // makes the board's "we match it against the live board every fifteen
 // minutes" true. Matching rules live in src/lib/watchlist-matching.ts;
 // this route is plumbing.

@@ -22,6 +22,11 @@ export type JournalPost = {
 
 const ALL = "All articles";
 
+// Full cards shown before "Show more". The rest of the list stays on the
+// page as one-line links, so every article is still linked from the index
+// without the page carrying dozens of image cards nobody scrolls to.
+const PAGE_SIZE = 12;
+
 function Thumb({ post, className = "" }: { post: JournalPost; className?: string }) {
   return (
     <span className={`relative block overflow-hidden bg-surface-2 ${className}`}>
@@ -48,19 +53,28 @@ function Meta({ post }: { post: JournalPost }) {
 /**
  * Light - Journal body: the "Browse by topic" rail (topics come from each
  * post's first tag), the start-here block (server-rendered, passed in),
- * and the article list with sort and a quick-preview drawer. Every row
- * is a real link to /blog/[slug], so the list is crawlable as-is.
+ * and the article list with sort and a quick-preview drawer. The first
+ * twelve are full cards and the rest one-line links until "Show more" is
+ * pressed; all of them are real links to /blog/[slug], so the list is
+ * crawlable as-is.
  */
 export function JournalBoard({ posts, start, empty }: { posts: JournalPost[]; start: ReactNode; empty: ReactNode }) {
   const [topic, setTopic] = useState(ALL);
   const [sort, setSort] = useState<"newest" | "shortest">("newest");
   const [preview, setPreview] = useState<JournalPost | null>(null);
+  const [shown, setShown] = useState(PAGE_SIZE);
 
   const topics = useMemo(() => [ALL, ...Array.from(new Set(posts.map((p) => p.topic)))], [posts]);
   const list = posts
     .filter((p) => topic === ALL || p.topic === topic)
     .sort((a, b) => (sort === "shortest" ? a.minutes - b.minutes : b.ts - a.ts));
   const filtered = topic !== ALL;
+  const cards = list.slice(0, shown);
+  const rest = list.slice(shown);
+  const pickTopic = (t: string) => {
+    setTopic(t);
+    setShown(PAGE_SIZE);
+  };
 
   return (
     <div className="container-jn flex flex-wrap items-start gap-7 pt-[22px]">
@@ -75,7 +89,7 @@ export function JournalBoard({ posts, start, empty }: { posts: JournalPost[]; st
                   key={t}
                   type="button"
                   aria-pressed={on}
-                  onClick={() => setTopic(t)}
+                  onClick={() => pickTopic(t)}
                   className={[
                     "-ml-[2px] border-0 border-l-2 px-[10px] py-[7px] text-left font-serif text-[14px]",
                     on ? "border-gold font-bold" : "border-transparent font-normal hover:text-gold",
@@ -128,7 +142,10 @@ export function JournalBoard({ posts, start, empty }: { posts: JournalPost[]; st
                 Sort:{" "}
                 <select
                   value={sort}
-                  onChange={(e) => setSort(e.target.value as "newest" | "shortest")}
+                  onChange={(e) => {
+                    setSort(e.target.value as "newest" | "shortest");
+                    setShown(PAGE_SIZE);
+                  }}
                   className="cursor-pointer border-0 bg-transparent text-[12px] font-bold text-bone"
                 >
                   <option value="newest">Newest</option>
@@ -141,11 +158,11 @@ export function JournalBoard({ posts, start, empty }: { posts: JournalPost[]; st
             <div className="mt-[10px] flex flex-wrap items-center gap-3 text-[13px]">
               <span className="inline-flex items-center gap-2 whitespace-nowrap rounded-pill bg-surface-2 px-[10px] py-1">
                 {topic}
-                <button type="button" onClick={() => setTopic(ALL)} aria-label="Clear filter" className="border-0 bg-transparent p-0 text-[12px]">
+                <button type="button" onClick={() => pickTopic(ALL)} aria-label="Clear filter" className="border-0 bg-transparent p-0 text-[12px]">
                   ✕
                 </button>
               </span>
-              <button type="button" onClick={() => setTopic(ALL)} className="border-0 border-b border-bone bg-transparent p-0 text-[13px] text-bone">
+              <button type="button" onClick={() => pickTopic(ALL)} className="border-0 border-b border-bone bg-transparent p-0 text-[13px] text-bone">
                 Clear filter
               </button>
               <span className="text-steel">
@@ -155,7 +172,7 @@ export function JournalBoard({ posts, start, empty }: { posts: JournalPost[]; st
           ) : null}
 
           <div className="mt-3 flex flex-col">
-            {list.map((p) => (
+            {cards.map((p) => (
               <article key={p.slug} className="flex flex-wrap gap-[18px] border-t border-line py-3">
                 <Link href={`/blog/${p.slug}`} tabIndex={-1} aria-hidden="true" className="block max-w-[280px] flex-[1_1_220px] max-sm:max-w-full">
                   <Thumb post={p} className="aspect-[16/10] w-full" />
@@ -189,6 +206,32 @@ export function JournalBoard({ posts, start, empty }: { posts: JournalPost[]; st
             ))}
             {list.length === 0 ? <div className="border border-line bg-panel p-7">{empty}</div> : null}
           </div>
+
+          {rest.length > 0 ? (
+            <div className="border-t border-line pt-4">
+              <button
+                type="button"
+                onClick={() => setShown((n) => n + PAGE_SIZE)}
+                className="btn btn-secondary btn-sm !h-10 !px-4 !text-[13px]"
+              >
+                Show {Math.min(PAGE_SIZE, rest.length)} more article{Math.min(PAGE_SIZE, rest.length) === 1 ? "" : "s"}
+              </button>
+              <h3 className="mt-6 font-serif text-[20px] font-normal">Earlier articles</h3>
+              <ul className="mt-2 flex flex-col">
+                {rest.map((p) => (
+                  <li key={p.slug} className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 border-t border-line py-[10px]">
+                    <Link href={`/blog/${p.slug}`} prefetch={false} className="min-w-0 font-serif text-[16px] leading-[1.25] hover:text-gold">
+                      {p.title}
+                    </Link>
+                    <span className="whitespace-nowrap text-[12px] text-steel">
+                      {p.date ? `${p.date} · ` : ""}
+                      {p.minutes} min read
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
         </section>
       </div>
 

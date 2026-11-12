@@ -1,3 +1,4 @@
+import { after } from "next/server";
 import { sql } from "@/db";
 
 export type RateLimitResult =
@@ -42,7 +43,8 @@ export async function checkRateLimit(
     const hits = rows[0]?.hits ?? 1;
     // First hit of a fresh window: piggyback a best-effort prune so the
     // table can't grow unbounded. Nothing else calls pruneRateLimits.
-    if (hits === 1) void pruneRateLimits();
+    // after() keeps it alive past the response (waitUntil on Workers).
+    if (hits === 1) after(() => pruneRateLimits());
     if (hits > max) {
       const retryAfterMs = windowStartMs + windowSeconds * 1000 - nowMs;
       return { ok: false, retryAfterMs: Math.max(retryAfterMs, 0) };

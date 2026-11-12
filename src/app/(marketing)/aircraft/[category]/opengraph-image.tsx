@@ -11,7 +11,6 @@ import { ogCardJsx, ogCardSize, ogCardContentType, siteBase } from "@/lib/og-car
 // The background is a 1200×630 JPEG crop of the fleet photo
 // (public/images/og/fleet-<slug>.jpg) — Satori cannot decode WebP.
 
-export const runtime = "edge";
 export const size = ogCardSize;
 export const contentType = ogCardContentType;
 export const alt = "JetNine aircraft category";

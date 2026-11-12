@@ -1,0 +1,12 @@
+# Response headers for files served straight from Workers static assets
+# (Cloudflare reads this file; it never reaches the Worker). Without it every
+# asset is sent with "max-age=0, must-revalidate" and browsers revalidate each
+# script, stylesheet and image on every page view.
+
+# Build output: every filename carries a content hash, so it can never change.
+/_next/static/*
+  Cache-Control: public, max-age=31536000, immutable
+
+# Site images: plain filenames that change only with a deploy.
+/images/*
+  Cache-Control: public, max-age=86400, stale-while-revalidate=604800

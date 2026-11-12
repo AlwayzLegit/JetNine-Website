@@ -1,11 +1,11 @@
 # JetNine Web
 
-Full-stack rebuild of jetnine.com — marketing site, four-step quote wizard, member account, and dispatcher admin app. Next.js 15 + Supabase + Drizzle on Vercel.
+Full-stack rebuild of jetnine.com — marketing site, four-step quote wizard, member account, and dispatcher admin app. Next.js 15 + Supabase + Drizzle on Cloudflare Workers (OpenNext).
 
 — Repo: [`AlwayzLegit/JetNine-Website`](https://github.com/AlwayzLegit/JetNine-Website)
 — Live database: Supabase project `szuztxfhkudcjzhrkfld`, Postgres 17.6
 — Auth: Supabase magic-link, role-gated via middleware — full matrix in [`RBAC.md`](./RBAC.md)
-— Deploy: Vercel, auto-deploy on push to `main`
+— Deploy: Cloudflare Workers; push to `main` deploys staging, production via workflow (see DEPLOY.md §2)
 
 ---
 
@@ -32,7 +32,7 @@ Full-stack rebuild of jetnine.com — marketing site, four-step quote wizard, me
 - **ORM:** Drizzle (typed, lightweight, plays with the Supabase pooler)
 - **Forms:** native HTML + Server Actions; client state via Zustand for the quote wizard
 - **Fonts:** Fraunces (display serif), Inter (UI sans), JetBrains Mono (operations type)
-- **Hosting:** Vercel
+- **Hosting:** Cloudflare Workers via `@opennextjs/cloudflare` (Hyperdrive → Supabase, R2/D1 for the ISR cache, Cron Triggers)
 - **Package manager:** pnpm
 
 ---
@@ -87,9 +87,9 @@ update public.users set role = 'admin' where email = 'them@example.com';
 
 If you signed in **before** setting the GUC, run that same update statement to fix yourself.
 
-### 2. Vercel env vars
+### 2. Cloudflare secrets
 
-Settings → Environment Variables → add the same five env vars from `.env.local` to **Production, Preview, and Development** scopes. The deployed site renders without them but every Supabase call fails until they're set.
+Follow DEPLOY.md §2: create the Hyperdrive config, the R2 buckets and the D1 databases. Then load the same values as `.env.local` into the Worker with `bash scripts/set-wrangler-secrets.sh <dotenv-file>`. The site renders without them, but every Supabase call fails until they're set.
 
 ### 3. Onboard members
 
@@ -144,7 +144,7 @@ pnpm db:push
 The marketing surface ships with:
 
 - **`/sitemap.xml`** — `src/app/sitemap.ts` enumerates every public route, including the 6 aircraft category detail pages from the `FLEET` catalog.
-- **`/robots.txt`** — `src/app/robots.ts`. Production allows the marketing surface; preview / non-prod environments disallow everything so leaked Vercel preview URLs never get indexed.
+- **`/robots.txt`** — `src/app/robots.ts`. Production allows the marketing surface; preview / non-prod environments disallow everything so staging (`DEPLOY_ENV=staging`) and preview URLs never get indexed.
 - **`/opengraph-image`** — `src/app/opengraph-image.tsx` renders a brand-consistent 1200×630 PNG via `next/og`'s `ImageResponse`. Picked up automatically as the default OG card for every page that doesn't define its own.
 - **JSON-LD `Organization` schema** — inlined in `src/app/layout.tsx` head. Gives Google the knowledge-panel hook (logo, dispatch phone, Part 295 disclosure).
 - **OG / Twitter meta defaults** — set in the root `metadata` export and inherited by every route. Per-route titles + descriptions still come from each page's own `metadata`.
@@ -180,9 +180,9 @@ stripe listen --forward-to localhost:3000/api/stripe/webhook
 - Client errors caught by `app/error.tsx` and `app/global-error.tsx` → forwarded via `Sentry.captureException`.
 - App-Router navigation transitions → captured via `onRouterTransitionStart` re-exported from `instrumentation-client.ts`.
 
-Stdout fallback stays on regardless: every server error emits a tagged `[request-error] {…}` JSON line that Vercel Function Logs and log aggregators can grep. Audit-log insert failures emit `[audit-failure] {…}` from `src/lib/audit.ts`.
+Stdout fallback stays on regardless: every server error emits a tagged `[request-error] {…}` JSON line that Workers Logs and log aggregators can grep. Audit-log insert failures emit `[audit-failure] {…}` from `src/lib/audit.ts`.
 
-Source-map upload to Sentry is opt-in via `SENTRY_AUTH_TOKEN` + `SENTRY_ORG` + `SENTRY_PROJECT` in the Vercel build env. Without those, stack traces show minified frames.
+Source-map upload to Sentry is opt-in via `SENTRY_AUTH_TOKEN` + `SENTRY_ORG` + `SENTRY_PROJECT` in the build env (the deploy workflow). Without those, stack traces show minified frames.
 
 ---
 

@@ -1,4 +1,3 @@
-import sharp from "sharp";
 import { desc, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { blogPosts, type BlogPost } from "@/db/schema/blog";
@@ -8,9 +7,10 @@ import { pingIndexNow } from "@/lib/indexnow";
 import { renderMarkdown } from "@/lib/markdown";
 import { logAudit } from "@/lib/audit";
 import { safeFetch } from "@/lib/safe-fetch";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { MediaStoreUnavailable, putMedia } from "@/lib/media";
 import { auditFields, type Actor } from "@/domain/actor";
 import { err, ok, type Result } from "@/domain/result";
+import { ImageResizeUnavailable, toWebpCover } from "@/lib/image-resize";
 
 /**
  * Blog commands and queries. Shared by /api/v1/blog/* and the legacy
@@ -267,16 +267,24 @@ export async function ingestHero(actor: Actor, body: unknown): Promise<Result<He
 
   let webp: Buffer;
   try {
-    webp = await sharp(raw).resize(1536, 864, { fit: "cover" }).webp({ quality: 82 }).toBuffer();
-  } catch {
+    webp = await toWebpCover(raw, 1536, 864, 82);
+  } catch (e) {
+    if (e instanceof ImageResizeUnavailable) {
+      return err("unavailable", "Image processing is not configured (IMAGES binding missing).", { library: HERO_LIBRARY });
+    }
     return err("invalid", "That file is not an image we can read.");
   }
 
-  const admin = createAdminClient();
-  const path = `heroes/${slug}-${Date.now().toString(36)}.webp`;
-  const { error } = await admin.storage.from("blog").upload(path, webp, { contentType: "image/webp", upsert: false });
-  if (error) return err("unavailable", `Storage upload failed: ${error.message}`, { status: 502 });
-  const { data } = admin.storage.from("blog").getPublicUrl(path);
+  // R2, served by the edge Worker at /media/… (see lib/media.ts).
+  let url: string;
+  try {
+    url = await putMedia(`blog/heroes/${slug}-${Date.now().toString(36)}.webp`, webp, "image/webp");
+  } catch (e) {
+    if (e instanceof MediaStoreUnavailable) {
+      return err("unavailable", "Image storage is not configured (MEDIA binding missing).", { library: HERO_LIBRARY });
+    }
+    return err("unavailable", `Storage upload failed: ${e instanceof Error ? e.message : "unknown error"}`, { status: 502 });
+  }
 
   const a = auditFields(actor);
   await logAudit({
@@ -288,7 +296,7 @@ export async function ingestHero(actor: Actor, body: unknown): Promise<Result<He
     metadata: { ...a.metadata, model, bytes: webp.length, source: sourceUrl ? "url" : "prompt" },
   });
 
-  return ok({ url: data.publicUrl, model, bytes: webp.length });
+  return ok({ url, model, bytes: webp.length });
 }
 
 export { HERO_LIBRARY };

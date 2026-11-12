@@ -7,7 +7,7 @@ import { OPEN_REQUEST_STATUSES, passengersWords, replyDueLine, requestStage, tri
 import { sendDispatchAlert } from "@/lib/email";
 import { formatClock, relativeTime } from "@/lib/request-page";
 
-// Morning summary — one email at 7 AM Los Angeles (vercel.json: "0 14,15 * * *"
+// Morning summary — one email at 7 AM Los Angeles (wrangler.jsonc cron "0 14,15 * * *"
 // UTC, the route keeps the 7 AM one) to the staff who turned on "Morning summary" in Settings ›
 // Notifications. Lists today's flights and the open requests in plain
 // sentences. With nobody subscribed it sends nothing.

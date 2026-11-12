@@ -1,7 +1,6 @@
 import { ImageResponse } from "next/og";
 import { ogCardJsx, ogCardSize, ogCardContentType, siteBase } from "@/lib/og-card";
 
-export const runtime = "edge";
 export const alt = "How JetNine works — quote to wheels-up in under 30 minutes";
 export const size = ogCardSize;
 export const contentType = ogCardContentType;

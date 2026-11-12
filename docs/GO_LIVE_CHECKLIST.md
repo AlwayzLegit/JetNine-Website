@@ -4,6 +4,30 @@ Plain-text mirror of the checklist page shared on 2026-09-11. **You** items
 need Jet's accounts; **Me** items I do once pinged. A2P 10DLC covers SMS
 from long-code numbers only, so Phase A does not wait on it.
 
+## Status 2026-11-12 — voice agent moved to Cloudflare (voice.jetnine.com)
+
+- The agent now runs as the `jetnine-voice` Worker at
+  `https://voice.jetnine.com` and reads the database through Hyperdrive, so
+  it no longer depends on Supabase's REST API (which was switched off for
+  an egress overrun and silently took the Render service down). `/health`
+  is 200 with an empty `missingEnv`; `ESCALATION_PHONE` and `ALERT_PHONE`
+  are set to the ring-first mobile from Settings › Voice agent.
+- The site's `VOICE_AGENT_URL` points at the Worker (set as a Worker
+  secret on `jetnine-web`; this change makes it the code default too, so
+  the secret can be deleted after the deploy).
+- **You — Twilio check.** Phone Numbers → +1 (424) 487-2707 → Voice
+  Configuration → "A call comes in" must be Webhook
+  `https://jetnine.com/api/voice/inbound`, HTTP POST (the site then rings
+  first and hands the call to the Worker). If it still says
+  `https://jetnine-voice.onrender.com/twiml`, change it to
+  `https://voice.jetnine.com/twiml`. Then the three test calls: answer one;
+  let one ring out (the agent answers); ask the agent for a person (it
+  transfers to your mobile with "press 1 to accept").
+- Render `jetnine-voice` can be suspended once a test call has gone
+  through the Worker. Rollback: set `VOICE_AGENT_URL` on `jetnine-web` to
+  `https://jetnine-voice.onrender.com` (works again only after Supabase's
+  quota resets on 20 Nov).
+
 ## Status 2026-10-13 — voice desk live; ring-first routing ready to switch on
 
 - **Voice desk is live** on `jetnine-voice` (Render, Free plan by the

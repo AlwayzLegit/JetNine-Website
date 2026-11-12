@@ -1,5 +1,4 @@
-import type { WebSocket } from "ws";
-import type { FastifyBaseLogger } from "fastify";
+import type { Logger } from "../log.js";
 import { config } from "../config.js";
 import { runTurn } from "../llm/agent.js";
 import type { HistoryItem } from "../llm/history.js";
@@ -25,6 +24,12 @@ import { agentById, builtInAgent, type LoadedAgent } from "../agent-store.js";
 //   connecting → active → (ending | escalating) → closed
 // Twilio owns audio; we own the conversation. A dropped socket is a
 // finished call — ConversationRelay does not reconnect.
+// On Workers each session lives in its call's Durable Object
+// (call-relay.ts), so the module-level maps below hold that one call.
+
+/** The bit of a WebSocket the session uses (Workers' WebSocket satisfies it). */
+export type RelaySocket = { readonly readyState: number; send(data: string): void };
+const OPEN = 1;
 
 type State = "connecting" | "active" | "ending" | "escalating" | "closed";
 
@@ -99,8 +104,8 @@ export class CallSession {
   }
 
   constructor(
-    private readonly ws: WebSocket,
-    private readonly log: FastifyBaseLogger,
+    private readonly ws: RelaySocket,
+    private readonly log: Logger,
   ) {}
 
   // ── Inbound dispatch ────────────────────────────────────────────────
@@ -388,7 +393,7 @@ export class CallSession {
   }
 
   private send(msg: OutboundMessage) {
-    if (this.ws.readyState !== this.ws.OPEN) return;
+    if (this.ws.readyState !== OPEN) return;
     if (config.logRelayMessages && !(msg.type === "text" && !msg.last)) this.log.info({ relayOut: msg }, "relay →");
     this.ws.send(JSON.stringify(msg));
   }
@@ -441,7 +446,7 @@ export class CallSession {
         tripId: this.toolCtx?.tripId ?? null,
         outcomeHint: this.toolCtx?.outcomeHint ?? null,
       });
-      setTimeout(() => carried.delete(this.callSid), 120_000).unref();
+      setTimeout(() => carried.delete(this.callSid), 120_000);
       await this.finalize(this.toolCtx?.outcomeHint ?? "other", { alert: false });
       this.state = "closed";
       return;

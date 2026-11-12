@@ -1,12 +1,12 @@
 import { config } from "./config.js";
-import { getDb } from "./db/client.js";
+import { withDb } from "./db/client.js";
 import { DEFAULT_AGENT_CONFIG, parseAgentConfig, type VoiceAgentConfig } from "./agent-config.js";
 
 // The live voice agent (Settings › Voice agent › Agents on the site, table
 // voice_agents). Cached for 30 seconds so a save on the site reaches the
 // next call quickly without a database read on every webhook; the last good
-// answer is kept if Supabase does not answer, so a database blip never
-// silences the phone. With no live agent (or before migration 0054), calls
+// answer is kept if the database does not answer, so a blip never silences
+// the phone. With no live agent (or before migration 0054), calls
 // use the built-in defaults with the voice settings from the environment.
 
 export type LoadedAgent = { id: string | null; name: string; version: number; config: VoiceAgentConfig };
@@ -36,14 +36,12 @@ function toAgent(r: Row): LoadedAgent {
 export async function liveAgent(): Promise<LoadedAgent> {
   if (live.agent && Date.now() - live.at < CACHE_MS) return live.agent;
   try {
-    const { data, error } = await getDb()
-      .from("voice_agents")
-      .select("id, name, version, config")
-      .eq("is_live", true)
-      .is("archived_at", null)
-      .maybeSingle();
-    if (error) throw new Error(error.message);
-    const agent = data ? toAgent(data as Row) : builtInAgent();
+    const [data] = await withDb(
+      (sql) => sql<Row[]>`
+        select id, name, version, config from voice_agents
+        where is_live and archived_at is null limit 1`,
+    );
+    const agent = data ? toAgent(data) : builtInAgent();
     live.at = Date.now();
     live.agent = agent;
     if (agent.id) byId.set(agent.id, { at: Date.now(), agent });
@@ -60,10 +58,9 @@ export async function agentById(id: string | undefined): Promise<LoadedAgent> {
   const hit = byId.get(id);
   if (hit && Date.now() - hit.at < CACHE_MS) return hit.agent;
   try {
-    const { data, error } = await getDb().from("voice_agents").select("id, name, version, config").eq("id", id).maybeSingle();
-    if (error) throw new Error(error.message);
+    const [data] = await withDb((sql) => sql<Row[]>`select id, name, version, config from voice_agents where id = ${id} limit 1`);
     if (!data) return liveAgent();
-    const agent = toAgent(data as Row);
+    const agent = toAgent(data);
     byId.set(id, { at: Date.now(), agent });
     return agent;
   } catch {

@@ -1,5 +1,6 @@
 import { createCipheriv, randomBytes } from "node:crypto";
 import { afterEach, describe, expect, it } from "vitest";
+import { vars } from "../src/env.js";
 
 const KEY = randomBytes(32).toString("hex");
 
@@ -16,17 +17,17 @@ const { openSealed, secretboxConfigured } = await import("../src/secretbox.js");
 
 describe("secretbox", () => {
   afterEach(() => {
-    delete process.env.AI_KEYS_ENCRYPTION_KEY;
+    delete vars.AI_KEYS_ENCRYPTION_KEY;
   });
 
   it("opens what the site sealed", () => {
-    process.env.AI_KEYS_ENCRYPTION_KEY = KEY;
+    vars.AI_KEYS_ENCRYPTION_KEY = KEY;
     expect(secretboxConfigured()).toBe(true);
     expect(openSealed(seal("sk-ant-example-key-1234"))).toBe("sk-ant-example-key-1234");
   });
 
   it("rejects a tampered ciphertext", () => {
-    process.env.AI_KEYS_ENCRYPTION_KEY = KEY;
+    vars.AI_KEYS_ENCRYPTION_KEY = KEY;
     const s = seal("secret");
     const parts = s.split(".");
     parts[3] = parts[3].replace(/.$/, (c) => (c === "A" ? "B" : "A"));
@@ -34,11 +35,11 @@ describe("secretbox", () => {
   });
 
   it("rejects the wrong key and reports unconfigured without one", () => {
-    process.env.AI_KEYS_ENCRYPTION_KEY = randomBytes(32).toString("hex");
+    vars.AI_KEYS_ENCRYPTION_KEY = randomBytes(32).toString("hex");
     expect(() => openSealed(seal("secret"))).toThrow();
-    delete process.env.AI_KEYS_ENCRYPTION_KEY;
+    delete vars.AI_KEYS_ENCRYPTION_KEY;
     expect(secretboxConfigured()).toBe(false);
-    process.env.AI_KEYS_ENCRYPTION_KEY = "not-hex";
+    vars.AI_KEYS_ENCRYPTION_KEY = "not-hex";
     expect(secretboxConfigured()).toBe(false);
   });
 });

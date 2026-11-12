@@ -18,6 +18,12 @@
   },
   "migrations": [{ "tag": "v1", "new_sqlite_classes": ["CallRelay"] }],
 
+  // Postgres (the site's Supabase database) through the same Hyperdrive
+  // config the site Worker uses; see src/db/client.ts. For `wrangler dev`
+  // and the tests, set CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE
+  // to a local Postgres URL (README › Local).
+  "hyperdrive": [{ "binding": "HYPERDRIVE", "id": "05bdaa66695d43c08fc02b22e39bca77" }],
+
   // Non-secret settings (see .env.example). Secrets go in with
   // `wrangler secret put` (README › Deploy); for `wrangler dev`, in .dev.vars.
   "vars": {

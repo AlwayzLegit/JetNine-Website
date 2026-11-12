@@ -1,13 +1,13 @@
 import { config } from "../config.js";
-import { getDb } from "../db/client.js";
+import { dbConfigured, withDb } from "../db/client.js";
 import { openSealed, secretboxConfigured } from "../secretbox.js";
 
 // Which vendor runs the call. Source of truth is the ai_routes /
 // ai_providers tables the admin edits at /admin/settings/ai on the site;
 // the ANTHROPIC_API_KEY environment variable is the fallback when nothing
 // is routed there. Resolved once per turn, cached for a minute, and the
-// last good answer is kept if the database is unreachable so a Supabase
-// blip cannot silence the phone.
+// last good answer is kept if the database is unreachable so a blip cannot
+// silence the phone.
 
 export type ProviderKind = "anthropic" | "openai";
 
@@ -49,28 +49,28 @@ function envFallback(): ProviderConfig | null {
   };
 }
 
-async function loadFromDb(): Promise<LlmRouting> {
-  const db = getDb();
-  const { data: route, error: routeErr } = await db
-    .from("ai_routes")
-    .select("primary_provider_id, fallback_provider_id")
-    .eq("purpose", "voice_agent")
-    .maybeSingle();
-  if (routeErr) throw new Error(`ai_routes: ${routeErr.message}`);
+type RouteRow = { primary_provider_id: string | null; fallback_provider_id: string | null };
 
-  const ids = [route?.primary_provider_id, route?.fallback_provider_id].filter(
-    (v): v is string => typeof v === "string" && v.length > 0,
-  );
-  if (ids.length === 0) {
+async function loadFromDb(): Promise<LlmRouting> {
+  const { route, rows } = await withDb(async (sql) => {
+    const [route] = await sql<RouteRow[]>`
+      select primary_provider_id, fallback_provider_id from ai_routes where purpose = 'voice_agent' limit 1`;
+    const ids = [route?.primary_provider_id, route?.fallback_provider_id].filter(
+      (v): v is string => typeof v === "string" && v.length > 0,
+    );
+    const rows =
+      ids.length === 0
+        ? []
+        : await sql<ProviderRow[]>`
+            select id, provider, label, api_key_enc, default_model, enabled
+            from ai_providers where id in ${sql(ids)}`;
+    return { route, rows };
+  });
+
+  if (!route?.primary_provider_id && !route?.fallback_provider_id) {
     const env = envFallback();
     return { primary: env, fallback: null, note: env ? "no route in ai_routes; using ANTHROPIC_API_KEY" : "no route and no ANTHROPIC_API_KEY" };
   }
-
-  const { data: rows, error: provErr } = await db
-    .from("ai_providers")
-    .select("id, provider, label, api_key_enc, default_model, enabled")
-    .in("id", ids);
-  if (provErr) throw new Error(`ai_providers: ${provErr.message}`);
 
   if (!secretboxConfigured()) {
     const env = envFallback();
@@ -78,7 +78,7 @@ async function loadFromDb(): Promise<LlmRouting> {
   }
 
   const byId = new Map<string, ProviderConfig>();
-  for (const r of (rows ?? []) as ProviderRow[]) {
+  for (const r of rows) {
     if (!r.enabled) continue;
     try {
       byId.set(r.id, {
@@ -107,9 +107,9 @@ async function loadFromDb(): Promise<LlmRouting> {
 
 export async function resolveRouting(): Promise<LlmRouting> {
   if (cached && Date.now() - cached.at < CACHE_MS) return cached.routing;
-  if (!config.supabase.url || !config.supabase.serviceRoleKey) {
+  if (!dbConfigured()) {
     const env = envFallback();
-    return { primary: env, fallback: null, note: "Supabase not configured; env key only" };
+    return { primary: env, fallback: null, note: "database not configured; env key only" };
   }
   try {
     const routing = await loadFromDb();

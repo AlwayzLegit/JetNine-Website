@@ -5,7 +5,7 @@ import { config } from "../src/config.js";
 
 // The Worker end to end in workerd. wrangler.jsonc sets NODE_ENV=production,
 // so signatures are enforced; vitest.config.ts sets the test auth token and
-// PUBLIC_HOST=voice.example.com. No Supabase or LLM key: not call-ready.
+// PUBLIC_HOST=voice.example.com. No database or LLM key: not call-ready.
 const worker = exports.default;
 const TOKEN = "test-auth-token";
 
@@ -31,7 +31,7 @@ describe("worker routes", () => {
     const body = (await res.json()) as { ok: boolean; service: string; missingEnv: string[] };
     expect(body.ok).toBe(false);
     expect(body.service).toBe("jetnine-voice");
-    expect(body.missingEnv).toContain("SUPABASE_URL");
+    expect(body.missingEnv).toContain("ESCALATION_PHONE");
   });
 
   it("rejects an unsigned webhook", async () => {

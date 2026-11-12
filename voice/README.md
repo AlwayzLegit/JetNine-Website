@@ -14,7 +14,7 @@ caller ──▶ Twilio number ──▶ POST /twiml ──▶ <Connect><Convers
                                                     ▼
                      Worker → CallRelay Durable Object (one per CallSid)
                                         ├─ Claude (streaming, tools)
-                                        ├─ Supabase (calls, leads, trips, messages)
+                                        ├─ Postgres via Hyperdrive (calls, leads, trips, messages)
                                         └─ escalation → end session with handoffData
                                                     │
                               POST /relay/action ◀──┘ → <Dial> on-call broker
@@ -54,7 +54,7 @@ src/
   llm/agent.ts       Claude streaming tool loop, abortable for barge-in
   llm/prompt.ts      persona + per-call context block
   llm/tools.ts       save_lead, save_message, escalate, lookup_caller, end_call
-  db/                Supabase service-role client + queries
+  db/                Postgres client (HYPERDRIVE binding, postgres.js) + queries
   escalation.ts      recording start, SMS alert (Twilio REST via twilio.ts)
 wrangler.jsonc       Worker config: nodejs_compat, Durable Object, vars, voice.jetnine.com route
 (schema)             ../src/db/migrations/0038_voice_agent.sql — voice_calls, voice_leads, voice_trip_requests, voice_messages
@@ -62,7 +62,10 @@ wrangler.jsonc       Worker config: nodejs_compat, Durable Object, vars, voice.j
 
 Tables carry a `voice_` prefix because they live in the shared JetNine
 Supabase project, which already has a `messages` table. RLS is on with no
-policies: only the service-role key can read or write them.
+policies, so Supabase's REST API never exposes them; this Worker reaches
+Postgres directly through the `HYPERDRIVE` binding (the same Hyperdrive
+config as the site, pointed at the session pooler), which is unaffected by
+Supabase's REST and storage restrictions.
 
 ## How a call maps onto Workers
 
@@ -94,6 +97,11 @@ policies: only the service-role key can read or write them.
    Twilio can reach, e.g. a tunnel to the dev server
    (`cloudflared tunnel --url http://localhost:8787`, or ngrok).
 3. `pnpm dev` (`wrangler dev`, port 8787). `GET /health` reports what is missing.
+   The database is the `HYPERDRIVE` binding; locally it needs
+   `CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE` in `.dev.vars`
+   pointing at a Postgres that has the `voice_*` and `ai_*` tables (the
+   site's `pnpm db:migrate` creates them). Without one, calls run but
+   nothing is saved and routing falls back to `ANTHROPIC_API_KEY`.
 4. To take real calls locally, point a **test** number's Voice webhook at
    `https://<PUBLIC_HOST>/twiml`. `LOG_RELAY_MESSAGES=true` logs every raw
    ConversationRelay frame.
@@ -153,8 +161,6 @@ npx wrangler login
 npx wrangler secret put TWILIO_ACCOUNT_SID
 npx wrangler secret put TWILIO_AUTH_TOKEN
 npx wrangler secret put TWILIO_NUMBER
-npx wrangler secret put SUPABASE_URL
-npx wrangler secret put SUPABASE_SERVICE_ROLE_KEY
 npx wrangler secret put AI_KEYS_ENCRYPTION_KEY      # same value as the site
 npx wrangler secret put ESCALATION_PHONE
 npx wrangler secret put ALERT_PHONE
@@ -172,7 +178,7 @@ Workers Logs in the dashboard.
 ## Cutover from Render (zero downtime)
 
 Render keeps answering until the last step. Both services read and write
-the same Supabase tables, so they can run side by side.
+the same Postgres tables, so they can run side by side.
 
 1. Deploy as above. Check that `https://voice.jetnine.com/health` returns 200
    with the expected `llm.primary`.
@@ -254,7 +260,7 @@ are on, the transfer number, asking for a callback time, longest call).
 Every save is a version that can be restored; one agent is live.
 
 This service reads the live agent from `voice_agents` (cached 30 s, last
-good answer kept if Supabase is down), builds the `<ConversationRelay>`
+good answer kept if the database is down), builds the `<ConversationRelay>`
 from it and passes the agent id to the session as a `<Parameter>`. The
 session builds the system prompt from the agent (`agentPersona`), enforces
 the transfer switches in the escalate tool and the human-ask rule, uses
@@ -283,7 +289,7 @@ fails if they drift.
    the original caller ID through and the `setup` message carries
    `forwardedFrom`. If forwarding is unconditional, `ESCALATION_PHONE` must be
    a different number or the transfer loops back to the agent.
-5. **First calls.** Run three scripted calls and check Supabase after each:
+5. **First calls.** Run three scripted calls and check the desk (or the tables) after each:
    - "Flying tomorrow" → expect a `voice_leads` + `voice_trip_requests` row with
      `urgency = within_48h`, an `escalated` call outcome, and a transfer.
    - Ordinary quote, dates next month → lead saved, call ends with `lead`.

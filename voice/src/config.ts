@@ -6,9 +6,13 @@
 // Values come from the Worker's vars and secrets (src/env.ts), not
 // process.env. Missing required vars are collected, not thrown: the Worker
 // still serves /health, which reports exactly what is unset.
+import { dbConfigured } from "./db/client.js";
 import { vars } from "./env.js";
 
 export const missingEnv: string[] = [];
+// The database is a binding (wrangler.jsonc `hyperdrive`), not a var, but
+// a call cannot run without it either, so it is reported the same way.
+if (!dbConfigured()) missingEnv.push("HYPERDRIVE");
 function required(name: string): string {
   const v = vars[name];
   if (!v) {
@@ -50,11 +54,6 @@ export const config = {
   },
   llm: {
     maxTokens: Number(optional("LLM_MAX_TOKENS", optional("ANTHROPIC_MAX_TOKENS", "600"))),
-  },
-
-  supabase: {
-    url: required("SUPABASE_URL"),
-    serviceRoleKey: required("SUPABASE_SERVICE_ROLE_KEY"),
   },
 
   escalation: {

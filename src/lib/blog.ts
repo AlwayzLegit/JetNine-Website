@@ -199,21 +199,45 @@ export async function getPublishedPost(slug: string): Promise<BlogPost | undefin
   return row ? withSiteMedia(row) : undefined;
 }
 
-// Up to `limit` other published posts, ranked by shared tags then recency —
-// the "keep reading" band under every article.
+// Up to `limit` other published posts for the "keep reading" band under
+// every article: posts sharing a tag first (most shared tags, then newest),
+// then the article's neighbours in publish order, alternating the next
+// older and the next newer post. The neighbours used to be "the newest
+// three", which meant a post with no tag in common with anything else was
+// linked from the journal index alone (Semrush: pages with one internal
+// link). Neighbours give every post at least two inbound article links.
 export async function getRelatedPosts(post: BlogPost, limit = 3): Promise<BlogPost[]> {
   const others = await db
     .select()
     .from(blogPosts)
     .where(and(eq(blogPosts.status, "published"), ne(blogPosts.id, post.id)))
     .orderBy(desc(blogPosts.publishedAt))
-    .limit(40);
+    .limit(200);
   const mine = new Set(post.tags.map((t) => t.toLowerCase()));
-  return others
-    .map((p, i) => ({ p, score: p.tags.filter((t) => mine.has(t.toLowerCase())).length * 10 - i * 0.01 }))
-    .sort((a, b) => b.score - a.score)
+  const picked = others
+    .map((p, i) => ({ p, i, shared: p.tags.filter((t) => mine.has(t.toLowerCase())).length }))
+    .filter((x) => x.shared > 0)
+    .sort((a, b) => b.shared - a.shared || a.i - b.i)
     .slice(0, limit)
-    .map((x) => withSiteMedia(x.p));
+    .map((x) => x.p);
+
+  if (picked.length < limit) {
+    const at = post.publishedAt?.getTime() ?? Infinity;
+    // `others` is newest first: everything before `split` is newer than this post.
+    const split = others.findIndex((p) => (p.publishedAt?.getTime() ?? 0) <= at);
+    const older = split === -1 ? [] : others.slice(split);
+    const newer = (split === -1 ? others : others.slice(0, split)).reverse();
+    const taken = new Set(picked.map((p) => p.id));
+    for (let k = 0; picked.length < limit && (k < older.length || k < newer.length); k++) {
+      for (const p of [older[k], newer[k]]) {
+        if (p && !taken.has(p.id) && picked.length < limit) {
+          taken.add(p.id);
+          picked.push(p);
+        }
+      }
+    }
+  }
+  return picked.map(withSiteMedia);
 }
 
 // Up to `limit` published posts relevant to a page, by tag/title match on

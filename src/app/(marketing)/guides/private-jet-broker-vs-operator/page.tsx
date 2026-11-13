@@ -234,7 +234,7 @@ export default function BrokerVsOperatorPage() {
           items={[
             related("how-to-choose-a-charter-company", "Compare service and transparency."),
             related("private-jet-charter-safety-checklist", "Know what evidence to request.", "View safety checks"),
-            related("how-to-compare-private-jet-quotes", "Review aircraft, services and terms.", "Compare quotes"),
+            related("private-jet-charter-guide", "The people, aircraft and steps, from the start.", "Read the beginner’s guide"),
             related("how-to-book-a-private-jet", "Follow the booking steps.", "Explore the process"),
           ]}
         />

@@ -101,6 +101,10 @@ curl -sS https://jetnine.com/api/admin/blog/library -H "Authorization: Bearer $B
 
 Pick the entry whose `clusters` best match the post and pass its `url` + `alt`.
 
+## Publishing from a queue branch
+
+A cloud task that cannot hold the key can queue a post on a `crew/post-<date>` branch and let GitHub publish it, with the 3-posts-in-7-days cap enforced in the script. See [scripts/blog-publisher/README.md](scripts/blog-publisher/README.md).
+
 ## Caching
 
 Public blog pages are ISR-cached (hourly window) so they ship font preloads

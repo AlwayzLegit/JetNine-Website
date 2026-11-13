@@ -1,0 +1,63 @@
+name: Publish queued blog post
+
+# The Blog desk is a cloud task that cannot hold the blog key. It writes one
+# JSON file under scripts/blog-publisher/queue/ and pushes it to a
+# crew/post-<date> branch cut from current main. This workflow publishes it
+# with the key from repository secrets, then deletes the branch. Queue
+# branches are never merged. The cap (3 posts in 7 days) lives in
+# scripts/blog-publisher/publish.mjs and cannot be changed from a queue file.
+on:
+  push:
+    branches: ["crew/post-*"]
+    paths: ["scripts/blog-publisher/queue/*.json"]
+  pull_request:
+    paths:
+      - "scripts/blog-publisher/**"
+      - ".github/workflows/blog-publish.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  dry-run:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Unit tests
+        run: node --test scripts/blog-publisher/*.test.mjs
+      - name: Dry run on the sample post
+        run: node scripts/blog-publisher/publish.mjs scripts/blog-publisher/sample-post.json --dry-run
+
+  publish:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    concurrency:
+      group: blog-publish
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Publish the queued post
+        env:
+          JETNINE_BLOG_API_KEY: ${{ secrets.JETNINE_BLOG_API_KEY }}
+        run: |
+          shopt -s nullglob
+          files=(scripts/blog-publisher/queue/*.json)
+          if [ "${#files[@]}" -ne 1 ]; then
+            echo "expected exactly one queued post, found ${#files[@]}" >&2
+            exit 1
+          fi
+          node scripts/blog-publisher/publish.mjs "${files[0]}"
+      - name: Delete the queue branch
+        if: success()
+        run: git push origin --delete "${GITHUB_REF_NAME}"

@@ -226,7 +226,7 @@ export default function CharterFeesPage() {
             related("how-to-compare-private-jet-quotes", "See what to compare and ask for in a quote."),
             related("private-jet-broker-vs-operator", "Understand who does what and how it affects your trip."),
             related("empty-legs-explained", "Learn how empty legs work and what to consider."),
-            related("private-jet-charter-safety-checklist", "Key safety practices and what to look for."),
+            related("private-jet-charter-guide", "New to charter? Start with the basics.", "Read the beginner’s guide"),
           ]}
         />
       </section>

@@ -636,7 +636,7 @@ export const SHORT_GUIDES: ShortGuide[] = [
         slug: "private-jet-charter-cancellation-policy"
       },
       {
-        slug: "how-far-in-advance-to-book-a-private-jet"
+        slug: "private-jet-charter-vs-fractional-ownership"
       }
     ],
     toolTitle: "Build a program comparison",
@@ -2519,8 +2519,8 @@ export const SHORT_GUIDES: ShortGuide[] = [
     ],
     related: [
       {
-        slug: "how-to-choose-the-right-private-jet",
-        img: "/images/light/six-04-jet-with-boarding-stairs.webp"
+        slug: "private-jet-charter-vs-first-class",
+        img: "/images/light/six-12-private-cabin-flowers.webp"
       },
       {
         slug: "first-private-jet-flight",
@@ -2674,8 +2674,8 @@ export const SHORT_GUIDES: ShortGuide[] = [
     ],
     related: [
       {
-        slug: "how-to-choose-the-right-private-jet",
-        img: "/images/light/six-04-jet-with-boarding-stairs.webp"
+        slug: "private-jet-charter-vs-fractional-ownership",
+        img: "/images/light/six-17-two-jets-fractional.webp"
       },
       {
         slug: "private-jet-airports-and-fbos",
@@ -2832,7 +2832,7 @@ export const SHORT_GUIDES: ShortGuide[] = [
         img: "/images/light/six-04-jet-with-boarding-stairs.webp"
       },
       {
-        slug: "how-to-choose-the-right-private-jet",
+        slug: "private-jet-charter-vs-first-class",
         img: "/images/light/six-12-private-cabin-flowers.webp"
       },
       {

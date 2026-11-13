@@ -222,7 +222,29 @@ async function serveMedia(request: Request, env: Env, ctx: ExecutionContext, key
   return res;
 }
 
+/**
+ * The site has one public host, jetnine.com; www.jetnine.com is a custom
+ * domain of this Worker only so that typed and legacy links land here. Both
+ * used to answer 200 with the same HTML (canonical tags pointed at the apex),
+ * so crawlers indexed every page twice and Semrush reported the site at
+ * double its size. Send the www host to the apex with a 301, keeping path
+ * and query (auth callbacks and campaign tags survive). Staging and other
+ * hosts are untouched.
+ */
+export function canonicalHostRedirect(request: Request): Response | null {
+  const url = new URL(request.url);
+  if (!url.hostname.startsWith("www.")) return null;
+  url.hostname = url.hostname.slice(4);
+  return new Response(null, {
+    status: 301,
+    headers: { Location: url.href, "Cache-Control": "public, max-age=86400" },
+  });
+}
+
 async function serve(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+  const redirect = canonicalHostRedirect(request);
+  if (redirect) return redirect;
+
   const media = MEDIA_KEY.exec(new URL(request.url).pathname);
   if (media) return serveMedia(request, env, ctx, media[1]);
 

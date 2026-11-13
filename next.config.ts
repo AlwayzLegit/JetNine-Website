@@ -113,6 +113,12 @@ const nextConfig: NextConfig = {
       { source: "/dashboard", destination: "/account", permanent: true },
       { source: "/fleet", destination: "/aircraft", permanent: true },
       { source: "/pricing", destination: "/cost-calculator", permanent: true },
+      // Default icon paths that browsers, crawlers and link-preview tools
+      // request without reading the page. The real icons are the generated
+      // routes src/app/icon.tsx and src/app/apple-icon.tsx. Not permanent:
+      // the target is a generated route and may move.
+      { source: "/favicon.ico", destination: "/icon", permanent: false },
+      { source: "/apple-touch-icon.png", destination: "/apple-icon", permanent: false },
       // Dispatch desk collapse (redesign phase 5): fifteen sections became
       // five. Old links live in dispatch emails and bookmarks, so they keep
       // resolving. Not permanent — the desk is behind sign-in and these may

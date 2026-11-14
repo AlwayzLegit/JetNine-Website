@@ -1,0 +1,10 @@
+{
+  "baseUrl": "https://jetnine.com",
+  "pages": [
+    "/",
+    "/contact",
+    "/cost-calculator",
+    "/routes/los-angeles-to-las-vegas",
+    "/blog/first-time-private-jet-charter-checklist"
+  ]
+}

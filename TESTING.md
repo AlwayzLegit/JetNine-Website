@@ -381,3 +381,32 @@ execute_sql(
 
 That's the whole brief. Run Suite 0 first — if it passes, continue in
 order. Report when done.
+
+---
+
+## Speed check (weekly, production)
+
+`.github/workflows/speed-check.yml` runs every Monday (14:17 UTC) and writes a
+report to the job summary: Lighthouse on mobile for 5 key pages (home,
+contact, cost calculator, one route page, one blog post), the median of 3 runs
+each, with performance score, LCP, CLS and TBT next to last week's number.
+Thresholds are Google's Core Web Vitals (LCP 2.5 s, CLS 0.1; a lab run has no
+INP, so TBT 200 ms stands in). Anything over a threshold is a finding in the
+summary, not a failure.
+
+Three hard alarms fail the run red, one line each starting `ALARM`:
+
+- `noindex`: a key page is not crawlable (robots noindex tag or header, or blocked by robots.txt).
+- `sitemap` / `robots`: `/sitemap.xml` is not 200 or has no urlset; `/robots.txt` is not 200 or disallows `/` for all agents.
+- `score`: a page's performance score is more than 10 points below last week's, and still is after 3 more runs.
+
+Last week's numbers are kept as the workflow artifact `speed-check-latest`
+(from the latest successful run on main), never in the repo. No secret is used.
+
+By hand: `node scripts/speed-check/check.mjs --runs 1 --base https://jetnine.com`
+(needs Chrome; set `CHROME_PATH` if it is not found). Pages and base URL come
+from `scripts/speed-check/pages.json`. Unit tests:
+`node --test scripts/speed-check/check.test.mjs`. The pull request's
+`self-test` job also proves the alarm: a fixture page with a noindex tag must
+make the check exit 1 and print `ALARM noindex`.
+

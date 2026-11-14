@@ -22,14 +22,23 @@
  * is never printed: a failed call prints its HTTP status number and nothing
  * from the response.
  *
- * No Weedtip specific code: the property comes from GSC_SITE_URL. A site with
- * no coverage file simply shows the waiting line.
+ * Copied from AlwayzLegit/weedtip at df9fdbe (OPS-24) for OPS-36 (blueprint
+ * "Search results report for a site"). Five changes from the source, each with
+ * a test: (1) no secret is "not configured", exit 0; (2) the property comes
+ * from GSC_SITE_URL, or is found from GSC_DOMAIN by listing what the service
+ * account can read, and no default names another site; (3) with no --coverage
+ * file the Coverage section is left out; (4) search terms are printed and
+ * stored only when SHOW_SEARCH_TERMS is exactly "true"; (5) the key is never
+ * used for a pull request (that is the workflow's job, see the .yml).
  *
  * Usage: node report.mjs [--report] [--coverage coverage-summary.json]
  *                        [--previous search-report.json] [--out search-report.json]
  *   --report  also write the full report (the alarm check runs on every run)
- * Env: GSC_SERVICE_ACCOUNT_JSON, GSC_SITE_URL (default sc-domain:weedtip.com)
- * Exit: 0 ok, 1 ALARM impressions, 2 the run itself broke.
+ * Env: GSC_SERVICE_ACCOUNT_JSON, GSC_SITE_URL (a property exactly as Search
+ *      Console names it), GSC_DOMAIN (used when GSC_SITE_URL is empty),
+ *      SHOW_SEARCH_TERMS ("true" to print and store searches; anything else
+ *      withholds them).
+ * Exit: 0 ok or not configured, 1 ALARM impressions, 2 the run itself broke.
  */
 import crypto from 'node:crypto';
 import { appendFileSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
@@ -144,13 +153,42 @@ export function compare(now, before) {
 
 const byClicks = (a, b) => b.clicks - a.clicks || b.impressions - a.impressions;
 
-export function shapeReport({ nowQueries, beforeQueries, nowPages, beforePages }) {
-  const q = filterQueries(nowQueries);
-  const qb = filterQueries(beforeQueries).kept;
+/**
+ * showTerms false (the default) keeps every search out of the result: the
+ * three lists of searches come back empty and only their count is kept.
+ */
+export function shapeReport({
+  nowQueries,
+  beforeQueries,
+  nowPages,
+  beforePages,
+  showTerms = false,
+}) {
   const p = filterPages(nowPages);
   const pb = filterPages(beforePages).kept;
-  const queries = compare(q.kept, qb);
   const pages = compare(p.kept, pb);
+  const pageLists = {
+    topPages: [...pages].sort(byClicks).slice(0, T.top),
+    poorCtr: pages
+      .filter((r) => r.impressions >= T.ctrMinImpressions && r.clicks / r.impressions < T.ctrMax)
+      .sort((a, b) => b.impressions - a.impressions)
+      .slice(0, T.top),
+    withheldPages: p.withheld,
+  };
+  if (!showTerms) {
+    return {
+      showTerms: false,
+      searchCount: nowQueries.length,
+      topQueries: [],
+      queryMovers: { gainers: [], losers: [] },
+      cheapWins: [],
+      withheldQueries: 0,
+      ...pageLists,
+    };
+  }
+  const q = filterQueries(nowQueries);
+  const qb = filterQueries(beforeQueries).kept;
+  const queries = compare(q.kept, qb);
   const movers = (rows) => ({
     gainers: [...rows]
       .filter((r) => r.dClicks > 0)
@@ -162,8 +200,9 @@ export function shapeReport({ nowQueries, beforeQueries, nowPages, beforePages }
       .slice(0, T.movers),
   });
   return {
+    showTerms: true,
+    searchCount: nowQueries.length,
     topQueries: [...queries].sort(byClicks).slice(0, T.top),
-    topPages: [...pages].sort(byClicks).slice(0, T.top),
     queryMovers: movers(queries),
     cheapWins: queries
       .filter(
@@ -174,20 +213,15 @@ export function shapeReport({ nowQueries, beforeQueries, nowPages, beforePages }
       )
       .sort((a, b) => b.impressions - a.impressions)
       .slice(0, T.top),
-    poorCtr: pages
-      .filter((r) => r.impressions >= T.ctrMinImpressions && r.clicks / r.impressions < T.ctrMax)
-      .sort((a, b) => b.impressions - a.impressions)
-      .slice(0, T.top),
     withheldQueries: q.withheld,
-    withheldPages: p.withheld,
+    ...pageLists,
   };
 }
 
 const INDEXED = /^(submitted and indexed|indexed, not submitted in sitemap)$/i;
-/** coverage: { writtenAt, counts: { state: n } } written by gsc-inspect. No URL in it. */
+/** coverage: { writtenAt, counts: { state: n } } written by a coverage sweep. No URL in it. */
 export function coverageLine(coverage) {
-  if (!coverage?.counts)
-    return 'Coverage: waiting for the next coverage sweep (it runs Mondays 07:00 UTC).';
+  if (!coverage?.counts) return 'Coverage: no coverage data for this site.';
   let indexed = 0;
   let total = 0;
   for (const [state, n] of Object.entries(coverage.counts)) {
@@ -279,21 +313,26 @@ export function renderSummary({
       `At the last stored report: ${num(previousTotals.clicks)} clicks and ${num(previousTotals.impressions)} impressions.`,
       '',
     );
-  L.push(
-    `### Top ${T.top} searches by clicks`,
-    '',
-    table(
-      ['Search', 'Clicks', 'Change', 'Impressions', 'Position', 'Pos change'],
-      report.topQueries.map((r) => [
-        cell(r.key),
-        num(r.clicks),
-        r.isNew ? 'new' : signed(r.dClicks),
-        num(r.impressions),
-        pos(r.position),
-        pos(r.dPosition),
-      ]),
-    ),
-  );
+  const withheldLine = `search terms withheld: public repository (${report.searchCount} searches)`;
+  if (report.showTerms) {
+    L.push(
+      `### Top ${T.top} searches by clicks`,
+      '',
+      table(
+        ['Search', 'Clicks', 'Change', 'Impressions', 'Position', 'Pos change'],
+        report.topQueries.map((r) => [
+          cell(r.key),
+          num(r.clicks),
+          r.isNew ? 'new' : signed(r.dClicks),
+          num(r.impressions),
+          pos(r.position),
+          pos(r.dPosition),
+        ]),
+      ),
+    );
+  } else {
+    L.push(`### Top ${T.top} searches by clicks`, '', withheldLine, '');
+  }
   L.push(
     `### Top ${T.top} pages by clicks`,
     '',
@@ -309,35 +348,48 @@ export function renderSummary({
       ]),
     ),
   );
-  L.push(
-    `### Biggest gainers (searches, by clicks)`,
-    '',
-    table(
-      ['Search', 'Clicks', 'Change'],
-      report.queryMovers.gainers.map((r) => [cell(r.key), num(r.clicks), signed(r.dClicks)]),
-    ),
-  );
-  L.push(
-    `### Biggest losers (searches, by clicks)`,
-    '',
-    table(
-      ['Search', 'Clicks', 'Change'],
-      report.queryMovers.losers.map((r) => [cell(r.key), num(r.clicks), signed(r.dClicks)]),
-    ),
-  );
-  L.push(
-    `### Cheapest wins: searches at position ${T.rankMinPos} to ${T.rankMaxPos} with at least ${T.rankMinImpressions} impressions`,
-    '',
-    table(
-      ['Search', 'Impressions', 'Position', 'Clicks'],
-      report.cheapWins.map((r) => [
-        cell(r.key),
-        num(r.impressions),
-        pos(r.position),
-        num(r.clicks),
-      ]),
-    ),
-  );
+  if (report.showTerms) {
+    L.push(
+      `### Biggest gainers (searches, by clicks)`,
+      '',
+      table(
+        ['Search', 'Clicks', 'Change'],
+        report.queryMovers.gainers.map((r) => [cell(r.key), num(r.clicks), signed(r.dClicks)]),
+      ),
+    );
+    L.push(
+      `### Biggest losers (searches, by clicks)`,
+      '',
+      table(
+        ['Search', 'Clicks', 'Change'],
+        report.queryMovers.losers.map((r) => [cell(r.key), num(r.clicks), signed(r.dClicks)]),
+      ),
+    );
+    L.push(
+      `### Cheapest wins: searches at position ${T.rankMinPos} to ${T.rankMaxPos} with at least ${T.rankMinImpressions} impressions`,
+      '',
+      table(
+        ['Search', 'Impressions', 'Position', 'Clicks'],
+        report.cheapWins.map((r) => [
+          cell(r.key),
+          num(r.impressions),
+          pos(r.position),
+          num(r.clicks),
+        ]),
+      ),
+    );
+  } else {
+    L.push(
+      `### Biggest gainers and losers (searches)`,
+      '',
+      withheldLine,
+      '',
+      `### Cheapest wins: searches at position ${T.rankMinPos} to ${T.rankMaxPos}`,
+      '',
+      withheldLine,
+      '',
+    );
+  }
   L.push(
     `### Seen but not clicked: pages with at least ${T.ctrMinImpressions} impressions and a click rate under ${T.ctrMax * 100} percent`,
     '',
@@ -351,11 +403,13 @@ export function renderSummary({
       ]),
     ),
   );
-  L.push(`### Coverage`, '', coverageLine(coverage), '');
+  if (coverage?.counts) L.push(`### Coverage`, '', coverageLine(coverage), '');
   L.push(
     `### Privacy`,
     '',
-    `Withheld: ${report.withheldQueries} searches (fewer than ${T.minQueryImpressions} impressions in the period, an "@", or 7 or more digits) and ${report.withheldPages} pages. A personal name cannot be detected with certainty, so the ${T.minQueryImpressions} impression floor is the control. No key, token or address of a person is in this report.`,
+    report.showTerms
+      ? `Withheld: ${report.withheldQueries} searches (fewer than ${T.minQueryImpressions} impressions in the period, an "@", or 7 or more digits) and ${report.withheldPages} pages. A personal name cannot be detected with certainty, so the ${T.minQueryImpressions} impression floor is the control. No key, token or address of a person is in this report.`
+      : `Search terms are not printed or stored (${report.searchCount} searches in the period). ${report.withheldPages} pages withheld (an "@" or 7 or more digits in the address). No key, token or address of a person is in this report.`,
     '',
   );
   return L.join('\n') + '\n';
@@ -430,6 +484,7 @@ export async function buildReport({
   site,
   today,
   withReport,
+  showTerms = false,
   coverage = null,
   previous = null,
   now = new Date(),
@@ -489,7 +544,7 @@ export async function buildReport({
       q('page', ranges.now),
       q('page', ranges.before),
     ]);
-    report = shapeReport({ nowQueries, beforeQueries, nowPages, beforePages });
+    report = shapeReport({ nowQueries, beforeQueries, nowPages, beforePages, showTerms });
   }
 
   const summary = renderSummary({
@@ -512,20 +567,26 @@ export async function buildReport({
     alarm: { fired: verdict.alarm, days: verdict.days },
     ...(report
       ? {
-          topQueries: report.topQueries.map(({ key, clicks, impressions, position }) => ({
-            key,
-            clicks,
-            impressions,
-            position,
-          })),
+          termsShown: report.showTerms,
+          searchCount: report.searchCount,
+          ...(report.showTerms
+            ? {
+                topQueries: report.topQueries.map(({ key, clicks, impressions, position }) => ({
+                  key,
+                  clicks,
+                  impressions,
+                  position,
+                })),
+                cheapWins: report.cheapWins.map(({ key, impressions, position }) => ({
+                  key,
+                  impressions,
+                  position,
+                })),
+              }
+            : {}),
           topPages: report.topPages.map(({ key, clicks, impressions, position }) => ({
             key,
             clicks,
-            impressions,
-            position,
-          })),
-          cheapWins: report.cheapWins.map(({ key, impressions, position }) => ({
-            key,
             impressions,
             position,
           })),
@@ -551,19 +612,76 @@ function arg(name, fallback = '') {
 const readJson = (file) =>
   file && existsSync(file) ? JSON.parse(readFileSync(file, 'utf8')) : null;
 
+export const NOT_CONFIGURED =
+  'Search results report: not configured (secret GSC_SERVICE_ACCOUNT_JSON is missing)';
+
+// ─── The property ──────────────────────────────────────────────────────────
+const RIGHTS = { siteOwner: 3, siteFullUser: 2, siteRestrictedUser: 1 };
+
+/**
+ * Which property to read for a domain, from what the service account can read.
+ * entries: [{ siteUrl, permissionLevel }] (sites.list "siteEntry"). The domain
+ * property sc-domain:DOMAIN wins when it is listed; otherwise the address
+ * property for DOMAIN or www.DOMAIN with the most rights. A property the
+ * account only holds as an unverified user cannot be queried and is skipped.
+ * Returns the siteUrl, or null.
+ */
+export function chooseProperty(entries, domain) {
+  const d = String(domain || '')
+    .trim()
+    .toLowerCase();
+  if (!d) return null;
+  const usable = (entries ?? []).filter((e) => RIGHTS[e.permissionLevel]);
+  const domainProperty = usable.find((e) => String(e.siteUrl).toLowerCase() === `sc-domain:${d}`);
+  if (domainProperty) return domainProperty.siteUrl;
+  const addresses = new Set([`https://${d}/`, `http://${d}/`, `https://www.${d}/`, `http://www.${d}/`]);
+  const matches = usable.filter((e) => addresses.has(String(e.siteUrl).toLowerCase()));
+  matches.sort((a, b) => RIGHTS[b.permissionLevel] - RIGHTS[a.permissionLevel]);
+  return matches[0]?.siteUrl ?? null;
+}
+
+/** The properties this account can read. On failure only the status number is kept. */
+export async function listSites(token, fetchImpl = fetch) {
+  const res = await fetchImpl('https://www.googleapis.com/webmasters/v3/sites', {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) throw new ApiError(`sites.list failed: HTTP ${res.status}`);
+  return (await res.json()).siteEntry ?? [];
+}
+
+/** GSC_SITE_URL when set; otherwise ask Search Console which property covers GSC_DOMAIN. */
+export async function resolveSite({ siteUrl, domain, token, fetchImpl = fetch }) {
+  if (siteUrl) return siteUrl;
+  if (!domain) throw new ApiError('neither GSC_SITE_URL nor GSC_DOMAIN is set');
+  const site = chooseProperty(await listSites(token, fetchImpl), domain);
+  if (!site)
+    throw new ApiError(
+      `the service account cannot read a property for ${domain} (see OPS-25 step 2)`,
+    );
+  return site;
+}
+
 async function main() {
   const raw = process.env.GSC_SERVICE_ACCOUNT_JSON;
   if (!raw) {
-    console.error('::error::GSC_SERVICE_ACCOUNT_JSON is not set.');
-    process.exit(2);
+    // Not an error: the owner step (OPS-25) has not been done yet.
+    console.log(`::notice::${NOT_CONFIGURED}`);
+    if (process.env.GITHUB_STEP_SUMMARY)
+      appendFileSync(process.env.GITHUB_STEP_SUMMARY, `## Search results report\n\n${NOT_CONFIGURED}\n`);
+    process.exit(0);
   }
-  const site = process.env.GSC_SITE_URL || 'sc-domain:weedtip.com';
   const token = await getAccessToken(serviceAccount(raw));
+  const site = await resolveSite({
+    siteUrl: process.env.GSC_SITE_URL,
+    domain: process.env.GSC_DOMAIN,
+    token,
+  });
   const result = await buildReport({
     query: makeQuery(token, site),
     site,
     today: new Date().toISOString().slice(0, 10),
     withReport: process.argv.includes('--report'),
+    showTerms: process.env.SHOW_SEARCH_TERMS === 'true',
     coverage: readJson(arg('coverage')),
     previous: readJson(arg('previous')),
   });

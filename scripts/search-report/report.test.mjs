@@ -1,24 +1,35 @@
 // Run with: node --test scripts/search-report/report.test.mjs
 import assert from 'node:assert/strict';
 import crypto from 'node:crypto';
+import { spawnSync } from 'node:child_process';
+import { existsSync, mkdtempSync, readFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { test } from 'node:test';
 import {
   ApiError,
+  NOT_CONFIGURED,
   T,
   addDays,
   alarm,
   buildReport,
+  chooseProperty,
   compare,
   coverageLine,
   filterPages,
   filterQueries,
   getAccessToken,
+  listSites,
   looksPersonal,
   makeQuery,
+  resolveSite,
   serviceAccount,
   shapeReport,
   totals,
 } from './report.mjs';
+
+const SCRIPT = path.join(path.dirname(fileURLToPath(import.meta.url)), 'report.mjs');
 
 // 45 days ending 2026-11-12, one flat level, with the last two days overridden.
 function series(level, lastTwo = [level, level], days = 45, last = '2026-11-12') {
@@ -130,8 +141,8 @@ test('the privacy filter drops an email, a phone number and a 5 impression term'
   assert.equal(looksPersonal('order 123456'), false);
   assert.deepEqual(
     filterPages([
-      { key: 'https://weedtip.com/a@b.co' },
-      { key: 'https://weedtip.com/strain/blue-dream' },
+      { key: 'https://example.com/a@b.co' },
+      { key: 'https://example.com/strain/blue-dream' },
     ]).kept.length,
     1,
   );
@@ -170,11 +181,12 @@ test('the report picks cheap wins at position 5 to 20 and pages seen but not cli
     nowQueries: [q('a', 900, 12), q('b', 900, 3), q('c', 40, 12), q('d', 700, 25), q('e', 300, 5)],
     beforeQueries: [],
     nowPages: [
-      { key: 'https://weedtip.com/x', impressions: 2000, clicks: 5, position: 9 },
-      { key: 'https://weedtip.com/y', impressions: 2000, clicks: 100, position: 3 },
-      { key: 'https://weedtip.com/z', impressions: 100, clicks: 0, position: 3 },
+      { key: 'https://example.com/x', impressions: 2000, clicks: 5, position: 9 },
+      { key: 'https://example.com/y', impressions: 2000, clicks: 100, position: 3 },
+      { key: 'https://example.com/z', impressions: 100, clicks: 0, position: 3 },
     ],
     beforePages: [],
+    showTerms: true,
   });
   assert.deepEqual(
     r.cheapWins.map((x) => x.key),
@@ -182,12 +194,12 @@ test('the report picks cheap wins at position 5 to 20 and pages seen but not cli
   );
   assert.deepEqual(
     r.poorCtr.map((x) => x.key),
-    ['https://weedtip.com/x'],
+    ['https://example.com/x'],
   );
 });
 
-test('coverage line: indexed against not indexed, or the waiting line', () => {
-  assert.match(coverageLine(null), /waiting for the next coverage sweep/);
+test('coverage line: indexed against not indexed, or no data', () => {
+  assert.match(coverageLine(null), /no coverage data/);
   const line = coverageLine({
     writtenAt: '2026-11-09T07:40:00Z',
     counts: {
@@ -228,7 +240,7 @@ function fakeApi({ level = 1000, lastTwo = [level, level], tokenStatus = 200 } =
     const keys =
       body.dimensions[0] === 'query'
         ? ['buy weed near me', 'jane@example.com', 'dispensary los angeles']
-        : ['https://weedtip.com/', 'https://weedtip.com/dispensaries'];
+        : ['https://example.com/', 'https://example.com/dispensaries'];
     return Response.json({
       rows: keys.map((k, i) => ({
         keys: [k],
@@ -251,10 +263,11 @@ test('a full report run shows totals, the top searches and the position 5 to 20 
   );
   const token = await getAccessToken(sa, api.fetchImpl);
   const result = await buildReport({
-    query: makeQuery(token, 'sc-domain:weedtip.com', api.fetchImpl),
-    site: 'sc-domain:weedtip.com',
+    query: makeQuery(token, 'sc-domain:example.com', api.fetchImpl),
+    site: 'sc-domain:example.com',
     today: '2026-11-14',
     withReport: true,
+    showTerms: true,
   });
   assert.equal(result.exitCode, 0);
   for (const heading of [
@@ -263,12 +276,13 @@ test('a full report run shows totals, the top searches and the position 5 to 20 
     '### Top 20 searches',
     '### Cheapest wins',
     '### Seen but not clicked',
-    '### Coverage',
   ]) {
     assert.ok(result.summary.includes(heading), heading);
   }
   assert.match(result.summary, /buy weed near me/);
-  assert.match(result.summary, /Coverage: waiting for the next coverage sweep/);
+  // No coverage file: the Coverage section is left out, no waiting line either.
+  assert.ok(!result.summary.includes('### Coverage'));
+  assert.ok(!/waiting for the next coverage sweep/.test(result.summary));
   const out = result.summary + JSON.stringify(result.json);
   assert.ok(!out.includes('jane@example.com'), 'no email');
   assert.ok(!out.includes(SECRET_MARKER), 'no private key');
@@ -289,7 +303,7 @@ test('a full report run shows totals, the top searches and the position 5 to 20 
 test('a run without --report makes one API call and prints the alarm check only', async () => {
   const api = fakeApi();
   const result = await buildReport({
-    query: makeQuery('tok', 'sc-domain:weedtip.com', api.fetchImpl),
+    query: makeQuery('tok', 'sc-domain:example.com', api.fetchImpl),
     site: 's',
     today: '2026-11-14',
     withReport: false,
@@ -339,4 +353,127 @@ test('thresholds are the documented ones', () => {
     [T.alarmFraction, T.alarmMinBaseline, T.minQueryImpressions, T.windowDays],
     [0.3, 100, 20, 28],
   );
+});
+
+// ─── OPS-36: the five changes from the Weedtip source ───────────────────────
+
+test('no secret is "not configured": one notice line, exit 0, no file written', () => {
+  const cwd = mkdtempSync(path.join(tmpdir(), 'search-report-'));
+  const env = { PATH: process.env.PATH, GSC_DOMAIN: 'example.com', SHOW_SEARCH_TERMS: 'true' };
+  const run = spawnSync(process.execPath, [SCRIPT, '--report'], { cwd, env, encoding: 'utf8' });
+  assert.equal(run.status, 0);
+  assert.equal(NOT_CONFIGURED, 'Search results report: not configured (secret GSC_SERVICE_ACCOUNT_JSON is missing)');
+  assert.equal(run.stdout.trim(), `::notice::${NOT_CONFIGURED}`);
+  assert.equal(run.stderr, '');
+  assert.ok(!existsSync(path.join(cwd, 'search-report.json')), 'no file written');
+});
+
+const entry = (siteUrl, permissionLevel = 'siteOwner') => ({ siteUrl, permissionLevel });
+
+test('the property: the domain property wins, else the address property with the most rights', () => {
+  assert.equal(
+    chooseProperty([entry('https://example.com/'), entry('sc-domain:example.com', 'siteFullUser')], 'example.com'),
+    'sc-domain:example.com',
+  );
+  assert.equal(
+    chooseProperty(
+      [
+        entry('https://example.com/', 'siteRestrictedUser'),
+        entry('https://www.example.com/', 'siteFullUser'),
+        entry('sc-domain:other.com'),
+      ],
+      'example.com',
+    ),
+    'https://www.example.com/',
+  );
+  // An unverified property cannot be queried and is skipped; another site's property never matches.
+  assert.equal(
+    chooseProperty([entry('sc-domain:example.com', 'siteUnverifiedUser'), entry('sc-domain:other.com')], 'example.com'),
+    null,
+  );
+  assert.equal(chooseProperty([entry('https://notexample.com/')], 'example.com'), null);
+  assert.equal(chooseProperty([entry('sc-domain:EXAMPLE.com')], 'Example.com'), 'sc-domain:EXAMPLE.com');
+  assert.equal(chooseProperty([], 'example.com'), null);
+  assert.equal(chooseProperty([entry('sc-domain:example.com')], ''), null);
+});
+
+test('GSC_SITE_URL is used as given and makes no call; otherwise one GET lists the properties', async () => {
+  let calls = 0;
+  const fetchImpl = async (url, init) => {
+    calls += 1;
+    assert.equal(String(url), 'https://www.googleapis.com/webmasters/v3/sites');
+    assert.equal(init.headers.Authorization, 'Bearer tok');
+    return Response.json({ siteEntry: [entry('sc-domain:example.com')] });
+  };
+  assert.equal(await resolveSite({ siteUrl: 'sc-domain:given.com', domain: 'example.com', token: 'tok', fetchImpl }), 'sc-domain:given.com');
+  assert.equal(calls, 0);
+  assert.equal(await resolveSite({ domain: 'example.com', token: 'tok', fetchImpl }), 'sc-domain:example.com');
+  assert.equal(calls, 1);
+});
+
+test('no property found, no domain, or a failed listing: a clear message with no response text', async () => {
+  const none = async () => Response.json({});
+  await assert.rejects(
+    () => resolveSite({ domain: 'example.com', token: 'tok', fetchImpl: none }),
+    (e) => e instanceof ApiError && e.message === 'the service account cannot read a property for example.com (see OPS-25 step 2)',
+  );
+  await assert.rejects(() => resolveSite({ token: 'tok', fetchImpl: none }), /neither GSC_SITE_URL nor GSC_DOMAIN/);
+  const denied = async () => new Response('denied: BEGIN PRIVATE KEY', { status: 403 });
+  await assert.rejects(
+    () => listSites('tok', denied),
+    (e) => e instanceof ApiError && e.message === 'sites.list failed: HTTP 403',
+  );
+});
+
+test('search terms stay out of the summary and the stored JSON unless showTerms is true', async () => {
+  const api = fakeApi();
+  const run = (showTerms) =>
+    buildReport({
+      query: makeQuery('tok', 'sc-domain:example.com', api.fetchImpl),
+      site: 'sc-domain:example.com',
+      today: '2026-11-14',
+      withReport: true,
+      ...(showTerms === undefined ? {} : { showTerms }),
+    });
+  for (const showTerms of [undefined, false]) {
+    const r = await run(showTerms);
+    const out = r.summary + JSON.stringify(r.json);
+    for (const term of ['buy weed near me', 'dispensary los angeles']) assert.ok(!out.includes(term), term);
+    assert.equal((r.summary.match(/search terms withheld: public repository \(3 searches\)/g) ?? []).length, 3);
+    assert.ok(!('topQueries' in r.json) && !('cheapWins' in r.json));
+    assert.equal(r.json.termsShown, false);
+    // Totals, the alarm check and the page lists stay.
+    assert.match(r.summary, /### Alarm check/);
+    assert.match(r.summary, /### Site, last 28 days/);
+    assert.ok(r.json.topPages.length > 0 && r.json.totals.now.impressions > 0);
+    assert.ok(r.alarmLine === null);
+  }
+  const shown = await run(true);
+  assert.match(shown.summary, /buy weed near me/);
+  assert.ok('topQueries' in shown.json && 'cheapWins' in shown.json);
+  assert.equal(shown.json.termsShown, true);
+});
+
+test('the alarm line holds numbers only, with the search terms withheld', async () => {
+  const api = fakeApi({ lastTwo: [290, 290] });
+  const r = await buildReport({
+    query: makeQuery('tok', 's', api.fetchImpl),
+    site: 's',
+    today: '2026-11-14',
+    withReport: true,
+  });
+  assert.equal(r.exitCode, 1);
+  assert.match(r.alarmLine, /^ALARM impressions: 2026-11-11 290 against baseline 1000, 2026-11-12 290 against baseline 1000$/);
+  assert.ok(!r.alarmLine.includes('buy weed'));
+});
+
+test('the script holds no other site name as a default', () => {
+  const src = readFileSync(SCRIPT, 'utf8');
+  assert.ok(!/sc-domain:[a-z0-9-]+\.[a-z]/i.test(src), 'no sc-domain default');
+  assert.ok(!/weedtip\.com/.test(src.replace(/AlwayzLegit\/weedtip/g, '')), 'no weedtip.com');
+});
+
+test('the SHOW_SEARCH_TERMS switch is exactly the string "true"', () => {
+  const src = readFileSync(SCRIPT, 'utf8');
+  assert.match(src, /process\.env\.SHOW_SEARCH_TERMS === 'true'/);
 });

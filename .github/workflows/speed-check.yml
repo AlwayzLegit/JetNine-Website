@@ -1,0 +1,108 @@
+name: Speed check
+
+# Weekly Lighthouse (mobile) on 5 key pages of production, with three hard
+# alarms that fail the run red: a key page is not crawlable (noindex), the
+# sitemap or robots.txt fails or blocks the site, or a page's performance score
+# fell more than 10 points since last week. Everything else is a finding in the
+# job summary. See scripts/speed-check/check.mjs and TESTING.md.
+#
+# No secret: everything tested is public. Last week's numbers live in a workflow
+# artifact (speed-check-latest), never in main.
+
+on:
+  schedule:
+    - cron: "17 14 * * 1" # Mondays 14:17 UTC, off the hour
+  workflow_dispatch:
+    inputs:
+      base_url:
+        description: "Base URL to test instead of production (no comparison, nothing saved)"
+        required: false
+        default: ""
+  pull_request:
+    paths:
+      - "scripts/speed-check/**"
+      - ".github/workflows/speed-check.yml"
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: speed-check-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: Speed check (production)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    env:
+      BASE_URL: ${{ github.event.inputs.base_url }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Fetch last week's result
+        if: ${{ env.BASE_URL == '' }}
+        run: |
+          # The latest successful run of this workflow on main. Quiet when there is none.
+          id=$(gh api "repos/${{ github.repository }}/actions/workflows/speed-check.yml/runs?branch=main&status=success&per_page=1" --jq '.workflow_runs[0].id // empty' || true)
+          if [ -n "$id" ] && gh run download "$id" --repo "${{ github.repository }}" -n speed-check-latest -D previous 2>/dev/null; then
+            echo "Compared with run $id"
+          else
+            echo "No earlier result: first run"
+            mkdir -p previous
+          fi
+
+      - name: Lighthouse on the key pages
+        run: |
+          args=(--out speed-check.json)
+          if [ -n "$BASE_URL" ]; then args+=(--base "$BASE_URL"); fi
+          if [ -z "$BASE_URL" ] && [ -f previous/speed-check.json ]; then args+=(--previous previous/speed-check.json); fi
+          node scripts/speed-check/check.mjs "${args[@]}"
+
+      - name: Keep this run's numbers for next week
+        if: ${{ always() && github.ref == 'refs/heads/main' && env.BASE_URL == '' && hashFiles('speed-check.json') != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: speed-check-latest
+          path: speed-check.json
+          retention-days: 90
+
+  self-test:
+    name: Speed check (self-test)
+    if: ${{ github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Unit tests
+        run: node --test scripts/speed-check/check.test.mjs
+
+      - name: Serve the fixtures
+        run: |
+          python3 -m http.server 8099 --bind 127.0.0.1 --directory scripts/speed-check/fixtures >/dev/null 2>&1 &
+          sleep 2
+          curl -fsS http://127.0.0.1:8099/robots.txt >/dev/null
+
+      - name: An indexable page passes
+        run: node scripts/speed-check/check.mjs --pages scripts/speed-check/fixtures/pages-ok.json --runs 1 --out ok.json
+
+      - name: A noindex page fails red
+        run: |
+          set +e
+          node scripts/speed-check/check.mjs --pages scripts/speed-check/fixtures/pages-noindex.json --runs 1 --out noindex.json | tee noindex.log
+          code=${PIPESTATUS[0]}
+          if [ "$code" = "1" ] && grep -q "ALARM noindex" noindex.log; then
+            echo "self-test OK: check exited 1, ALARM noindex"
+          else
+            echo "::error::self-test FAILED: expected exit 1 with ALARM noindex, got exit $code"
+            exit 1
+          fi

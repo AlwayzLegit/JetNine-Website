@@ -15,13 +15,22 @@ name: Health monitor
 on:
   schedule:
     - cron: "*/15 * * * *" # every 15 min
+    - cron: "41 18 * * *" # once a day: read the monitor Worker's /status (OPS-60)
   workflow_dispatch: # operator can trigger manually
+    inputs:
+      status_url:
+        description: "Monitor /status address to read (default: production's)"
+        required: false
+        default: ""
 
 permissions:
   contents: read
 
 jobs:
   health:
+    # The 15 minute schedule and a run by hand. The daily schedule starts only
+    # the monitor-status job below.
+    if: github.event_name != 'schedule' || github.event.schedule == '*/15 * * * *'
     name: probe ${{ matrix.target }}
     runs-on: ubuntu-latest
     timeout-minutes: 3
@@ -59,3 +68,45 @@ jobs:
           # Both attempts failed. Final body for diagnostic context.
           echo "::error title=Health unhealthy::$URL returned non-200 on both attempts. Body: $body"
           exit 1
+
+  # Reads the monitor Worker's /status (OPS-60) and fails when the answer is not
+  # 200, when checkedAt is over 45 minutes old, or when an incident began in the
+  # last 24 hours. The monitor's status address is read here because the Crew's
+  # plain shell reads do not cover it. Runs on the daily schedule and by hand.
+  monitor-status:
+    if: github.event_name != 'schedule' || github.event.schedule == '41 18 * * *'
+    name: monitor status
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Read /status
+        env:
+          STATUS_URL: ${{ github.event.inputs.status_url || 'https://jetnine-monitor.jetnine-inc.workers.dev/status' }}
+        run: |
+          echo "Reading $STATUS_URL"
+          response=$(curl -sw "\n%{http_code}" --max-time 15 "$STATUS_URL" || true)
+          body=$(echo "$response" | head -n -1)
+          status=$(echo "$response" | tail -n 1)
+          echo "$body"
+          if [ "$status" != "200" ]; then
+            echo "::error title=Monitor status::$STATUS_URL answered $status"
+            exit 1
+          fi
+          now=$(date -u +%s)
+          checked=$(echo "$body" | jq -r '.checkedAt // empty')
+          if [ -z "$checked" ]; then
+            echo "::error title=Monitor status::no checkedAt in the answer"
+            exit 1
+          fi
+          age=$(( now - $(date -u -d "$checked" +%s) ))
+          if [ "$age" -gt 2700 ]; then
+            echo "::error title=Monitor status::last round is $age seconds old (limit 2700)"
+            exit 1
+          fi
+          recent=$(echo "$body" | jq --argjson now "$now" '[.incidents[]? | select(.from != null) | select(($now - (.from | sub("\\.[0-9]+Z$"; "Z") | fromdateiso8601)) < 86400)] | length')
+          failing=$(echo "$body" | jq -r '.failingSince // empty')
+          if [ "$recent" != "0" ] || [ -n "$failing" ]; then
+            echo "::error title=Monitor status::an incident began in the last 24 hours (closed: $recent, failing now: ${failing:-no})"
+            exit 1
+          fi
+          echo "::notice title=Monitor OK::checked $age seconds ago, no incident in 24 hours"

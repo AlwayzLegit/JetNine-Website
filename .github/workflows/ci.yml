@@ -78,6 +78,13 @@ jobs:
       - name: Edge Worker bundle dry run
         run: pnpm exec wrangler deploy -c edge/wrangler.jsonc --env "" --dry-run
 
+      # The monitor Worker (monitor/, OPS-60): its tests and a bundle dry run.
+      - name: Monitor tests
+        run: node --test monitor/monitor.test.mjs
+
+      - name: Monitor Worker bundle dry run
+        run: pnpm exec wrangler deploy -c monitor/wrangler.jsonc --env "" --dry-run
+
   e2e:
     name: playwright smoke
     runs-on: ubuntu-24.04

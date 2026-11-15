@@ -1,0 +1,39 @@
+// The monitor Worker (OPS-60): checks the site from outside every 15 minutes and
+// serves GET /status. Deployed by the "monitor" job of deploy-cloudflare.yml:
+//
+//   pnpm exec wrangler deploy -c monitor/wrangler.jsonc --env ""
+//   pnpm exec wrangler deploy -c monitor/wrangler.jsonc --env staging
+//
+// Optional secrets (owner step, alerts only): ALERT_EMAIL, and one of
+// RESEND_API_KEY or POSTMARK_SERVER_TOKEN. Without them it records, never emails.
+{
+  "$schema": "../node_modules/wrangler/config-schema.json",
+  "name": "jetnine-monitor",
+  "main": "worker.mjs",
+  "compatibility_date": "2026-08-01",
+  // Reach the site the way a visitor does, never through a private route.
+  "compatibility_flags": ["global_fetch_strictly_public"],
+  "workers_dev": true,
+  "observability": { "enabled": true },
+
+  // Off the app's own crons.
+  "triggers": { "crons": ["7,22,37,52 * * * *"] },
+
+  // A new alarm starts quiet for 24 hours: before this time a failing round is
+  // only written to wouldHaveRaised. Keep it at least 24 hours after the merge.
+  "vars": { "SITE_URL": "https://jetnine.com", "QUIET_UNTIL": "2026-11-17T08:00:00Z" },
+
+  "durable_objects": { "bindings": [{ "name": "MONITOR_STATE", "class_name": "MonitorState" }] },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["MonitorState"] }],
+
+  "env": {
+    "staging": {
+      "name": "jetnine-monitor-staging",
+      "workers_dev": true,
+      "triggers": { "crons": ["7,22,37,52 * * * *"] },
+      "vars": { "SITE_URL": "https://staging.jetnine.com", "QUIET_UNTIL": "2026-11-17T08:00:00Z" },
+      "durable_objects": { "bindings": [{ "name": "MONITOR_STATE", "class_name": "MonitorState" }] },
+      "migrations": [{ "tag": "v1", "new_sqlite_classes": ["MonitorState"] }]
+    }
+  }
+}

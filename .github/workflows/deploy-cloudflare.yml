@@ -113,6 +113,40 @@ jobs:
           ${{ steps.target.outputs.env_flag || '--env ""' }}
           --var APP_VERSION:${{ github.sha }}
 
+  # The monitor Worker (monitor/, OPS-60): checks the site from outside every
+  # 15 minutes and serves /status. Its own job so a failure here never marks
+  # the app deploy as failed halfway. Same two secrets as the edge step.
+  monitor:
+    needs: deploy
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+          run_install: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Deploy monitor Worker
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          DEPLOY_ENVIRONMENT: ${{ needs.deploy.outputs.environment }}
+        run: |
+          if [ "$DEPLOY_ENVIRONMENT" = "production" ]; then
+            pnpm exec wrangler deploy -c monitor/wrangler.jsonc --env ""
+          else
+            pnpm exec wrangler deploy -c monitor/wrangler.jsonc --env staging
+          fi
+
   smoke:
     needs: deploy
     uses: ./.github/workflows/smoke-after-deploy.yml

@@ -316,6 +316,16 @@ No schema or env changes. The runbook, in order:
    "Safe to remove", run `pnpm exec wrangler secret delete BLOG_ADMIN_API_KEY` and
    delete the old task. The legacy `/api/admin/blog/*` routes go in phase 10.
 
+## 8h. Monitor Worker (OPS-60)
+
+`jetnine-monitor` (folder `monitor/`) checks the site from outside it every 15 minutes and serves `GET /status`. It is a Worker of its own, so it keeps answering when the site does not. The deploy workflow's `monitor` job deploys it after the app and the edge Worker, with the same two repo secrets. Its state lives in one Durable Object declared in `monitor/wrangler.jsonc`: no namespace id, no dashboard step. Staging has its own copy, `jetnine-monitor-staging`.
+
+- **What it checks:** `/api/health` answers 200 with `ok` true; `/`, `/contact` and `/cost-calculator` carry their title text; a path that does not exist must answer 404 (the canary: proof the probes can see a failure; it never raises an incident). GET only, a failed check is tried once more after 30 seconds.
+- **The status address:** `https://jetnine-monitor.jetnine-inc.workers.dev/status` (staging: `jetnine-monitor-staging`). Fixed fields only: `v`, `ok`, `checkedAt`, `failingSince`, `streak`, `checks`, `canary`, `alerts`, `quietUntil`, `wouldHaveRaised`, `incidents`. 503 when the last round is over 45 minutes old. The daily `monitor-status` job of `health-monitor.yml` reads it (and a run by hand can read another address with `status_url`).
+- **Quiet start:** `QUIET_UNTIL` in `monitor/wrangler.jsonc` is at least 24 hours after the merge. Before it a failing round is only written to `wouldHaveRaised`: no incident, no email. Move it first when the merge comes later than the date in the file. The old 15 minute GitHub check stays until that record has been read.
+- **Alerts (owner step, optional):** `pnpm exec wrangler secret put ALERT_EMAIL -c monitor/wrangler.jsonc`, then the same with `RESEND_API_KEY` or `POSTMARK_SERVER_TOKEN` (the value the site uses; `ALERT_FROM` is optional). It worked when `/status` shows `"alerts":"configured"`. Without them the monitor records and never emails.
+- **Silence it:** `pnpm exec wrangler delete --name jetnine-monitor` (owner), or push `QUIET_UNTIL` far into the future.
+
 ## 9. Custom domain
 
 `jetnine.com` and `www` are custom domains of the edge cache Worker (see §2 → Cutover and Edge cache Worker), and Cloudflare issues their certificates.

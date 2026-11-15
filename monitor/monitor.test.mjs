@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { composeAlert, sendAlert, alertsConfigured } from "./alert.mjs";
-import { handleFetch, quietUntilMs, runRound } from "./handler.mjs";
+import { FAR_FUTURE_MS, handleFetch, quietUntilMs, runRound } from "./handler.mjs";
 import { CANARY_PATH, CHECKS, RETRY_WAIT_MS, probeOnce, runProbes } from "./probes.mjs";
 import { nextRound, REMINDER_MS } from "./round.mjs";
 import { STATUS_MAX_AGE_MS, publicStatus } from "./status.mjs";
@@ -205,5 +205,51 @@ test("everything but GET /status is 404, and a broken QUIET_UNTIL stays quiet", 
   const e = fakeEnv();
   assert.equal((await handleFetch(new Request(`${SITE}/`), e)).status, 404);
   assert.equal((await handleFetch(new Request(`${SITE}/status`, { method: "POST" }), e)).status, 404);
-  assert.equal(quietUntilMs({ QUIET_UNTIL: "garbage" }), Number.MAX_SAFE_INTEGER);
+  // The sentinel must be a date that can be shown (it was Number.MAX_SAFE_INTEGER, which made /status throw).
+  assert.equal(quietUntilMs({ QUIET_UNTIL: "garbage" }), FAR_FUTURE_MS);
+  assert.doesNotThrow(() => new Date(FAR_FUTURE_MS).toISOString());
+});
+
+// OPS-60 review: GET /status never throws, whatever QUIET_UNTIL holds.
+for (const [label, value] of [["missing", undefined], ["empty", ""], ["not a date", "garbage"], ["out of range", "+999999-01-01T00:00:00Z"]]) {
+  test(`GET /status answers 200 JSON with QUIET_UNTIL ${label}, and the monitor stays quiet`, async () => {
+    const e = fakeEnv({ ALERT_EMAIL: "ops@x.test", RESEND_API_KEY: "k" });
+    if (value === undefined) delete e.QUIET_UNTIL;
+    else e.QUIET_UNTIL = value;
+    const mail = [];
+    const routes = goodRoutes();
+    routes["/api/health"] = [503, "{}"];
+    await runRound(e, {
+      now: T0,
+      probe: { fetchImpl: fakeSite(routes).fetchImpl, ...noSleep },
+      fetchImpl: async (u) => { mail.push(u); return new Response("{}"); },
+      log: () => {},
+    });
+    assert.deepEqual(mail, [], "quiet: no email");
+    assert.equal(e.peek().wouldHaveRaised.length, 1, "the failed round is recorded as wouldHaveRaised");
+    const res = await handleFetch(new Request(`${SITE}/status`), e, T0 + 60_000);
+    assert.equal(res.status, 200);
+    const body = await res.json();
+    assert.equal(body.v, 1);
+    assert.equal(body.wouldHaveRaised.length, 1);
+    assert.ok(body.quietUntil === null || typeof body.quietUntil === "string");
+  });
+}
+
+test("GET /status answers 503 JSON, not an error, for a stale round with QUIET_UNTIL missing", async () => {
+  const e = fakeEnv();
+  delete e.QUIET_UNTIL;
+  await runRound(e, { now: T0, probe: { fetchImpl: fakeSite(goodRoutes()).fetchImpl, ...noSleep }, log: () => {} });
+  const res = await handleFetch(new Request(`${SITE}/status`), e, T0 + STATUS_MAX_AGE_MS + 1);
+  assert.equal(res.status, 503);
+  assert.equal((await res.json()).ok, false);
+});
+
+test("publicStatus shows a quiet time it cannot represent as null instead of throwing", () => {
+  for (const bad of [Number.MAX_SAFE_INTEGER, -Number.MAX_SAFE_INTEGER, 8_640_000_000_000_001]) {
+    const a = publicStatus({ checkedAt: T0, ok: true }, T0, { alertsConfigured: false, quietUntilMs: bad });
+    assert.equal(a.body.quietUntil, null);
+  }
+  const edge = publicStatus({ checkedAt: T0, ok: true }, T0, { alertsConfigured: false, quietUntilMs: FAR_FUTURE_MS });
+  assert.equal(edge.body.quietUntil, "+275760-09-13T00:00:00.000Z");
 });

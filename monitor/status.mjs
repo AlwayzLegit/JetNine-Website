@@ -11,7 +11,10 @@ export const STATUS_MAX_AGE_MS = 45 * 60 * 1000;
 
 const clip = (s, n = 80) => String(s ?? "").slice(0, n);
 const num = (n) => (typeof n === "number" && Number.isFinite(n) ? n : 0);
-const iso = (ms) => (typeof ms === "number" && Number.isFinite(ms) ? new Date(ms).toISOString() : null);
+// A Date can only show +/- 8.64e15 ms; beyond that toISOString throws, so such a value is shown as null
+// and never lets /status fail.
+const DATE_LIMIT_MS = 8_640_000_000_000_000;
+const iso = (ms) => (typeof ms === "number" && Number.isFinite(ms) && Math.abs(ms) <= DATE_LIMIT_MS ? new Date(ms).toISOString() : null);
 const list = (x, n) => (Array.isArray(x) ? x.slice(-n) : []);
 const names = (x) => list(x, 10).map((n) => clip(n));
 

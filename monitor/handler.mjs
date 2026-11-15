@@ -9,10 +9,15 @@ import { publicStatus } from "./status.mjs";
 
 const stub = (env) => env.MONITOR_STATE.get(env.MONITOR_STATE.idFromName("monitor"));
 
+// The last instant a JavaScript Date can show (8.64e15 ms). Number.MAX_SAFE_INTEGER is
+// finite but outside that range, and new Date(it).toISOString() throws a RangeError.
+export const FAR_FUTURE_MS = 8_640_000_000_000_000;
+
 export const quietUntilMs = (env) => {
   const t = Date.parse(env.QUIET_UNTIL ?? "");
   // A missing or broken value stays quiet forever: a monitor that cannot read its own setting must not page.
-  return Number.isFinite(t) ? t : Number.MAX_SAFE_INTEGER;
+  // The sentinel is a date that can be shown, so GET /status still answers (OPS-60 review).
+  return Number.isFinite(t) ? t : FAR_FUTURE_MS;
 };
 
 /** One round: probe, fold into the stored state, then alert. */

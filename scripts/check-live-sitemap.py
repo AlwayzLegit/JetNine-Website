@@ -1,9 +1,13 @@
 """Read-only production sitemap audit. Python standard library; no credentials."""
 import concurrent.futures
 import datetime as dt
+import http.client
 import json
+import os
 import re
 import sys
+import time
+import urllib.error
 import urllib.request
 import urllib.parse
 import xml.etree.ElementTree as ET
@@ -15,12 +19,50 @@ NS = {'s': 'http://www.sitemaps.org/schemas/sitemap/0.9',
       'i': 'http://www.google.com/schemas/sitemap-image/1.1'}
 
 
-def fetch(url):
+# A transport error is a read that never gave a complete answer: the connection
+# was reset or closed, the body was cut off (IncompleteRead) or it timed out.
+# Only these are tried once more. A wrong status (HTTPError), a redirect or a
+# failed assertion is a wrong answer and fails at once (OPS-104).
+TRANSPORT_ERRORS = (http.client.HTTPException, ConnectionError, TimeoutError, urllib.error.URLError, OSError)
+RETRY_DELAY_SECONDS = float(os.environ.get('SITEMAP_RETRY_DELAY', '10'))
+RETRIES = []
+
+
+def is_transport_error(error):
+    return isinstance(error, TRANSPORT_ERRORS) and not isinstance(error, urllib.error.HTTPError)
+
+
+def describe(url, error):
+    """One line that names the URL and the exception type, e.g.
+    https://jetnine.com/blog/x: IncompleteRead(26647 bytes read)."""
+    text = str(error)
+    if url in text:
+        return text
+    name = type(error).__name__
+    return f'{url}: {text}' if text.startswith(name) else f'{url}: {name}: {text}'
+
+
+def get(url):
     request = urllib.request.Request(url, headers={'User-Agent': 'JetNine-Sitemap-Audit/1.0'})
     with urllib.request.urlopen(request, timeout=30) as response:
         assert response.status == 200, f'{url}: HTTP {response.status}'
         assert response.url == url, f'{url}: redirects to {response.url}'
         return response.read(), response.headers
+
+
+def fetch(url):
+    try:
+        return get(url)
+    except Exception as error:
+        if not is_transport_error(error):
+            raise
+        # Every first failure is recorded and printed as a warning, so a real
+        # cut-off for visitors is not hidden by the retry.
+        line = f'read needed a retry: {describe(url, error)} at {dt.datetime.now(dt.timezone.utc).isoformat()}'
+        RETRIES.append(line)
+        print(f'::warning title=sitemap retry::{line}' if os.environ.get('GITHUB_ACTIONS') == 'true' else f'[retry] {line}')
+        time.sleep(RETRY_DELAY_SECONDS)
+        return get(url)
 
 
 def canonical(url):
@@ -113,23 +155,23 @@ def audit():
 
     errors = []
     with concurrent.futures.ThreadPoolExecutor(max_workers=4) as pool:
-        futures = [pool.submit(check_page, url) for url in urls]
-        futures += [pool.submit(check_image, url) for url in sorted(images)]
+        futures = {pool.submit(check_page, url): url for url in urls}
+        futures.update({pool.submit(check_image, url): url for url in sorted(images)})
         for future in concurrent.futures.as_completed(futures):
             try:
                 future.result()
             except Exception as error:
-                errors.append(str(error))
+                errors.append(describe(futures[future], error))
     return {'checked_at': dt.datetime.now(dt.timezone.utc).isoformat(),
             'site': BASE, 'urls': len(urls), 'blog_articles': sum('/blog/' in u for u in urls),
-            'unique_images': len(images), 'bytes': len(xml), 'errors': errors}
+            'unique_images': len(images), 'bytes': len(xml), 'retries': list(RETRIES), 'errors': errors}
 
 
 if __name__ == '__main__':
     try:
         report = audit()
     except Exception as error:
-        report = {'site': BASE, 'errors': [str(error)]}
+        report = {'site': BASE, 'retries': list(RETRIES), 'errors': [describe(BASE, error)]}
     Path('sitemap-audit.json').write_text(json.dumps(report, indent=2) + '\n')
     print(json.dumps(report, indent=2))
     sys.exit(bool(report['errors']))

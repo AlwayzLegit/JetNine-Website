@@ -7,6 +7,7 @@
 
 import { sql as drizzleSql } from "drizzle-orm";
 import { db } from "@/db";
+import { d1Binding, dbTarget } from "@/db/d1";
 import { commitSha, deployEnv, deployRegion, platformBaseUrl } from "@/lib/deploy-env";
 
 export type CheckResult = { ok: boolean } & Record<string, unknown>;
@@ -31,11 +32,33 @@ export type HealthSnapshot = {
   timestamp: string;
 };
 
+const D1_TABLE_COUNT_SQL =
+  "select count(*) as n from sqlite_master where type = 'table' and name not like 'sqlite_%' and name not like '_cf_%' and name != 'd1_migrations'";
+
+/**
+ * The D1 binding (OPS-99): "absent" when the deployment has none (production),
+ * else "ok" with the number of tables, or "error" with the error name only.
+ * Informational: it never changes the db check's ok or the overall status.
+ */
+async function probeD1(): Promise<Record<string, unknown>> {
+  const binding = d1Binding();
+  if (!binding) return { d1: "absent" };
+  try {
+    const row = await binding.prepare(D1_TABLE_COUNT_SQL).first<{ n: number }>();
+    return { d1: "ok", d1Tables: Number(row?.n ?? 0) };
+  } catch (err) {
+    console.error("[health] d1 probe failed", { name: err instanceof Error ? err.name : "unknown" });
+    return { d1: "error", d1Error: err instanceof Error ? err.name : "unknown" };
+  }
+}
+
 export async function checkDb(): Promise<CheckResult> {
-  const t0 = performance.now();
+  const target = dbTarget();
+  const d1 = await probeD1();
+  const t0 = performance.now(); // latency is Postgres only
   try {
     await db.execute(drizzleSql`select 1 as ok`);
-    return { ok: true, latencyMs: Math.round(performance.now() - t0) };
+    return { ok: true, latencyMs: Math.round(performance.now() - t0), target, ...d1 };
   } catch (err) {
     // Log to stderr so Vercel runtime logs surface the cause without
     // leaking it in the public JSON. Keep the response body sanitized
@@ -54,6 +77,8 @@ export async function checkDb(): Promise<CheckResult> {
       ok: false,
       latencyMs: Math.round(performance.now() - t0),
       error: err instanceof Error ? err.name : "unknown",
+      target,
+      ...d1,
     };
   }
 }

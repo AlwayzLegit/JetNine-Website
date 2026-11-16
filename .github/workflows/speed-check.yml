@@ -8,6 +8,15 @@ name: Speed check
 #
 # No secret: everything tested is public. Last week's numbers live in a workflow
 # artifact (speed-check-latest), never in main.
+#
+# The baseline (OPS-50): the newest of the last 10 successful runs on main that
+# kept numbers, found by scripts/speed-check/baseline.mjs. A run started by hand
+# with base_url keeps none, so asking for the newest run only would leave the
+# next scheduled run with no baseline and the score alarm silent. When no
+# baseline is found the step says so in a ::warning:: line, not a quiet "first
+# run". A run started by hand on main waits for a running one instead of
+# cancelling it (cancel-in-progress is for pull requests only), so the Monday
+# check cannot be cancelled by accident.
 
 on:
   schedule:
@@ -29,7 +38,8 @@ permissions:
 
 concurrency:
   group: speed-check-${{ github.ref }}
-  cancel-in-progress: true
+  # A new push cancels an old pull request run. A run on main is never cancelled.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   check:
@@ -47,15 +57,7 @@ jobs:
 
       - name: Fetch last week's result
         if: ${{ env.BASE_URL == '' }}
-        run: |
-          # The latest successful run of this workflow on main. Quiet when there is none.
-          id=$(gh api "repos/${{ github.repository }}/actions/workflows/speed-check.yml/runs?branch=main&status=success&per_page=1" --jq '.workflow_runs[0].id // empty' || true)
-          if [ -n "$id" ] && gh run download "$id" --repo "${{ github.repository }}" -n speed-check-latest -D previous 2>/dev/null; then
-            echo "Compared with run $id"
-          else
-            echo "No earlier result: first run"
-            mkdir -p previous
-          fi
+        run: node scripts/speed-check/baseline.mjs
 
       - name: Lighthouse on the key pages
         run: |
@@ -84,7 +86,7 @@ jobs:
           node-version: 20
 
       - name: Unit tests
-        run: node --test scripts/speed-check/check.test.mjs
+        run: node --test scripts/speed-check/check.test.mjs scripts/speed-check/baseline.test.mjs
 
       - name: Serve the fixtures
         run: |

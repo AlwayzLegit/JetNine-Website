@@ -3,7 +3,7 @@
  * load it. worker.mjs wires it to the scheduled and fetch events.
  */
 import { alertsConfigured, sendAlert } from "./alert.mjs";
-import { runProbes } from "./probes.mjs";
+import { CHECKS, runProbes } from "./probes.mjs";
 import { nextRound } from "./round.mjs";
 import { publicStatus } from "./status.mjs";
 
@@ -20,12 +20,21 @@ export const quietUntilMs = (env) => {
   return Number.isFinite(t) ? t : FAR_FUTURE_MS;
 };
 
+/** Each check's own quiet date, from the Worker variable it names. Broken or missing stays quiet, like QUIET_UNTIL. */
+export const checkQuietMs = (env) =>
+  Object.fromEntries(
+    CHECKS.filter((c) => c.quietVar).map((c) => {
+      const t = Date.parse(env[c.quietVar] ?? "");
+      return [c.name, Number.isFinite(t) ? t : FAR_FUTURE_MS];
+    }),
+  );
+
 /** One round: probe, fold into the stored state, then alert. */
 export async function runRound(env, deps = {}) {
   const now = deps.now ?? Date.now();
   const s = stub(env);
   const probes = await runProbes(env.SITE_URL, deps.probe ?? {});
-  const { state, events } = nextRound(await s.get(), probes, now, quietUntilMs(env));
+  const { state, events } = nextRound(await s.get(), probes, now, quietUntilMs(env), checkQuietMs(env));
   await s.put(state);
   for (const event of events) await sendAlert(env, event, deps.fetchImpl ?? fetch, deps.log ?? console.log);
   return state;

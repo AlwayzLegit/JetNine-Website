@@ -1,6 +1,8 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { voiceRouting } from "@/domain/settings/queries";
 import { sendDispatchAlert } from "@/lib/email";
+import { recipientsFor } from "@/lib/desk-settings";
+import { DESK_ALERT_KIND } from "@/lib/desk-alert-recipients.mjs";
 import { sendSms } from "@/lib/twilio";
 import { readTwilioWebhook } from "@/lib/twilio-webhook";
 import { phoneWords } from "@/lib/voice-routing";
@@ -34,6 +36,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   console.log("[voice:voicemail] message", { callSid: p.CallSid, seconds });
 
   const routing = await voiceRouting();
+  // Read before the allSettled: recipientsFor never throws, and a [] answer
+  // leaves the alert on the shared inbox alone.
+  const staff = await recipientsFor(DESK_ALERT_KIND);
   const results = await Promise.allSettled([
     ...routing.numbers.map((to) =>
       sendSms({ to, body: `JetNine voicemail from ${from} (${length}). Listen: ${listen}` }),
@@ -47,6 +52,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         "Nobody on the team and not the voice agent could take this call. Call them back.",
       ],
       link: { label: "Listen", url: listen },
+      to: staff,
     }),
   ]);
   for (const r of results) {

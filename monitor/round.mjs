@@ -4,16 +4,22 @@
  *
  * A failing round opens an incident and the first passing round closes it. Before
  * quietUntil (a new alarm starts quiet for 24 hours) a failing round is only
- * written to wouldHaveRaised: no incident, no event, no email.
+ * written to wouldHaveRaised: no incident, no event, no email. A check can also
+ * have its own quiet date (checkQuiet: name -> ms, OPS-90): while it is ahead,
+ * that check's failure is written to wouldHaveRaised and is left out of the
+ * round's ok, streak and incidents, and the other checks go on as usual.
  */
 export const MAX_KEPT = 20;
 export const REMINDER_MS = 60 * 60 * 1000;
 
 const keep = (list) => list.slice(-MAX_KEPT);
 
-export function nextRound(prev, probes, now, quietUntilMs) {
+export function nextRound(prev, probes, now, quietUntilMs, checkQuiet = {}) {
   const p = prev && typeof prev === "object" ? prev : {};
-  const failing = probes.checks.filter((c) => !c.ok).map((c) => c.name);
+  const failingAll = probes.checks.filter((c) => !c.ok).map((c) => c.name);
+  const inOwnQuiet = (name) => now < (checkQuiet[name] ?? 0);
+  const quietFailing = failingAll.filter(inOwnQuiet);
+  const failing = failingAll.filter((name) => !inOwnQuiet(name));
   const isFailing = failing.length > 0;
   const quiet = now < quietUntilMs;
   const events = [];
@@ -25,7 +31,7 @@ export function nextRound(prev, probes, now, quietUntilMs) {
   let open = p.open && typeof p.open === "object" ? p.open : null;
 
   if (quiet) {
-    if (isFailing) wouldHaveRaised = keep([...wouldHaveRaised, { at: now, checks: failing }]);
+    if (failingAll.length > 0) wouldHaveRaised = keep([...wouldHaveRaised, { at: now, checks: failingAll }]);
   } else if (isFailing && !open) {
     open = { from: now, checks: failing, rounds: 1, lastAlertAt: now };
     events.push({ type: "start", checks: failing, from: now });
@@ -41,6 +47,9 @@ export function nextRound(prev, probes, now, quietUntilMs) {
     events.push({ type: "recovery", checks: open.checks ?? [], from: open.from, to: now });
     open = null;
   }
+
+  // A check inside its own quiet date is only recorded (the global quiet case above already did).
+  if (!quiet && quietFailing.length > 0) wouldHaveRaised = keep([...wouldHaveRaised, { at: now, checks: quietFailing }]);
 
   return {
     state: {

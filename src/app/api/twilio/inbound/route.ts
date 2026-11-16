@@ -8,6 +8,8 @@ import { quotes } from "@/db/schema/quotes";
 import { trips } from "@/db/schema/trips";
 import { logAudit } from "@/lib/audit";
 import { sendDispatchAlert } from "@/lib/email";
+import { recipientsFor } from "@/lib/desk-settings";
+import { DESK_ALERT_KIND } from "@/lib/desk-alert-recipients.mjs";
 import { isTwilioConfigured, verifyTwilioSignatureAny } from "@/lib/twilio";
 import { DEACTIVATED_BY_SMS_STOP, optOutKeyword } from "@/lib/sms-optout";
 
@@ -156,6 +158,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           "It has no reference in it, so it isn't on any thread. Their message (unverified, first 800 characters):",
           body.slice(0, 800) || "(empty)",
         ],
+        to: await recipientsFor(DESK_ALERT_KIND),
       });
     } catch (err) {
       console.error("[twilio:inbound] unrouted forward failed (non-fatal)", err);
@@ -236,6 +239,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         label: "Open the thread",
         url: `https://jetnine.com/admin/${route.subjectType === "quote" ? "requests" : "trips"}/${route.subjectId}`,
       },
+      to: await recipientsFor(DESK_ALERT_KIND),
     });
   } catch (err) {
     console.error("[twilio:inbound] desk alert failed (non-fatal)", err);

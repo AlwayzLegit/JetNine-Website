@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { composeAlert, sendAlert, alertsConfigured } from "./alert.mjs";
-import { FAR_FUTURE_MS, handleFetch, quietUntilMs, runRound } from "./handler.mjs";
+import { FAR_FUTURE_MS, checkQuietMs, handleFetch, quietUntilMs, runRound } from "./handler.mjs";
 import { CANARY_PATH, CHECKS, RETRY_WAIT_MS, probeOnce, runProbes } from "./probes.mjs";
 import { nextRound, REMINDER_MS } from "./round.mjs";
 import { STATUS_MAX_AGE_MS, publicStatus } from "./status.mjs";
@@ -28,10 +28,10 @@ const goodRoutes = () => ({
 });
 const noSleep = { sleep: async () => {} };
 
-test("a healthy site passes all four checks and the canary, with GET only and our user agent", async () => {
+test("a healthy site passes all five checks and the canary, with GET only and our user agent", async () => {
   const { sent, fetchImpl } = fakeSite(goodRoutes());
   const r = await runProbes(SITE, { fetchImpl, ...noSleep });
-  assert.equal(r.checks.length, 4);
+  assert.equal(r.checks.length, 5);
   assert.ok(r.checks.every((c) => c.ok && c.detail === "HTTP 200"));
   assert.equal(r.canary.ok, true);
   assert.ok(sent.every((s) => s.method === "GET" && s.ua === "jetnine-monitor/1"));
@@ -252,4 +252,88 @@ test("publicStatus shows a quiet time it cannot represent as null instead of thr
   }
   const edge = publicStatus({ checkedAt: T0, ok: true }, T0, { alertsConfigured: false, quietUntilMs: FAR_FUTURE_MS });
   assert.equal(edge.body.quietUntil, "+275760-09-13T00:00:00.000Z");
+});
+
+// OPS-90: the "Sign-in service" check reads /api/health's `failing` list and has its own quiet date.
+const signin = (body) => {
+  const c = CHECKS.find((x) => x.name === "Sign-in service");
+  return c.ok(body);
+};
+
+test("Sign-in service fails when failing lists auth, passes when it does not, and fails on bad JSON", () => {
+  assert.equal(signin(JSON.stringify({ ok: true, status: "degraded", failing: ["auth"] })), false);
+  assert.equal(signin(JSON.stringify({ ok: true, status: "degraded", failing: ["stripe", "auth"] })), false);
+  assert.equal(signin(JSON.stringify({ ok: true, status: "healthy", failing: [] })), true);
+  assert.equal(signin(JSON.stringify({ ok: true, status: "healthy" })), true);
+  assert.equal(signin("<html>not json</html>"), false);
+});
+
+test("a site whose health says failing auth fails only Sign-in service, with a fixed word", async () => {
+  const routes = goodRoutes();
+  routes["/api/health"] = [200, JSON.stringify({ ok: true, status: "degraded", failing: ["auth"] })];
+  const r = await runProbes(SITE, { fetchImpl: fakeSite(routes).fetchImpl, ...noSleep });
+  const by = Object.fromEntries(r.checks.map((c) => [c.name, [c.ok, c.detail]]));
+  assert.deepEqual(by["Sign-in service"], [false, "unhealthy"]);
+  assert.deepEqual(by["API health"], [true, "HTTP 200"]);
+});
+
+const signInFail = {
+  checks: [
+    { name: "API health", ok: true, ms: 5, detail: "HTTP 200" },
+    { name: "Sign-in service", ok: false, ms: 5, detail: "unhealthy" },
+  ],
+  canary: { ok: true, ms: 1 },
+};
+const SIGNIN_QUIET = Date.parse("2026-11-19T08:00:00Z");
+
+test("inside its own quiet date Sign-in service is only recorded: no incident, no event, round stays ok", () => {
+  const r = nextRound(null, signInFail, T0, QUIET, { "Sign-in service": SIGNIN_QUIET });
+  assert.deepEqual(r.events, []);
+  assert.equal(r.state.open, null);
+  assert.equal(r.state.ok, true);
+  assert.equal(r.state.streak, 0);
+  assert.deepEqual(r.state.wouldHaveRaised, [{ at: T0, checks: ["Sign-in service"] }]);
+});
+
+test("after its own quiet date Sign-in service raises like any check", () => {
+  const r = nextRound(null, signInFail, SIGNIN_QUIET + 1000, QUIET, { "Sign-in service": SIGNIN_QUIET });
+  assert.deepEqual(r.events.map((e) => [e.type, e.checks]), [["start", ["Sign-in service"]]]);
+  assert.equal(r.state.ok, false);
+  assert.deepEqual(r.state.wouldHaveRaised, []);
+});
+
+test("another check failing in the same round still raises while Sign-in service is quiet", () => {
+  const both = {
+    checks: [
+      { name: "Home page", ok: false, ms: 5, detail: "HTTP 500" },
+      { name: "Sign-in service", ok: false, ms: 5, detail: "unhealthy" },
+    ],
+    canary: { ok: true, ms: 1 },
+  };
+  const r = nextRound(null, both, T0, QUIET, { "Sign-in service": SIGNIN_QUIET });
+  assert.deepEqual(r.events.map((e) => [e.type, e.checks]), [["start", ["Home page"]]]);
+  assert.deepEqual(r.state.wouldHaveRaised, [{ at: T0, checks: ["Sign-in service"] }]);
+});
+
+test("checkQuietMs reads SIGNIN_QUIET_UNTIL, and a missing or broken one stays quiet", () => {
+  assert.equal(checkQuietMs({ SIGNIN_QUIET_UNTIL: "2026-11-19T08:00:00Z" })["Sign-in service"], SIGNIN_QUIET);
+  assert.equal(checkQuietMs({})["Sign-in service"], FAR_FUTURE_MS);
+  assert.equal(checkQuietMs({ SIGNIN_QUIET_UNTIL: "garbage" })["Sign-in service"], FAR_FUTURE_MS);
+  assert.deepEqual(Object.keys(checkQuietMs({})), ["Sign-in service"]);
+});
+
+test("a full round with auth failing sends no email before SIGNIN_QUIET_UNTIL and records it", async () => {
+  const e = fakeEnv({ ALERT_EMAIL: "ops@x.test", RESEND_API_KEY: "k", SIGNIN_QUIET_UNTIL: "2026-11-19T08:00:00Z" });
+  const mail = [];
+  const routes = goodRoutes();
+  routes["/api/health"] = [200, JSON.stringify({ ok: true, status: "degraded", failing: ["auth"] })];
+  const state = await runRound(e, {
+    now: T0,
+    probe: { fetchImpl: fakeSite(routes).fetchImpl, ...noSleep },
+    fetchImpl: async (u) => { mail.push(u); return new Response("{}"); },
+    log: () => {},
+  });
+  assert.deepEqual(mail, []);
+  assert.equal(state.ok, true);
+  assert.deepEqual(state.wouldHaveRaised.map((w) => w.checks), [["Sign-in service"]]);
 });

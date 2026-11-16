@@ -1,0 +1,74 @@
+name: D1 copy
+
+# Copies JetNine's Postgres into STAGING's own D1 database and checks the copy
+# (OPS-105, step 5 of the move to Cloudflare, OPS-93). Run by hand only. It wipes
+# the staging D1 database first. It refuses every other target: production's
+# database is never written, and Postgres is only read, in one read-only snapshot.
+#
+# The log lists every table with its Postgres and D1 row counts and "checksum equal
+# yes or no". It prints no row values. Credential tables (password hashes, session
+# and API key hashes, provider keys) are not copied; the owner's yes moves those.
+# Uses the repo's own secrets DATABASE_URL, CLOUDFLARE_API_TOKEN and
+# CLOUDFLARE_ACCOUNT_ID. Details: DEPLOY.md "Copy Postgres to staging D1 (OPS-105)".
+
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: "Which D1 database to fill (staging is the only choice)"
+        type: choice
+        options: [staging]
+        default: staging
+      mode:
+        description: "load = wipe, load and check; check = only compare counts and checksums"
+        type: choice
+        options: [load, check]
+        default: load
+
+permissions:
+  contents: read
+
+concurrency:
+  group: d1-copy
+  cancel-in-progress: false
+
+jobs:
+  copy:
+    name: copy Postgres to ${{ github.event.inputs.target }} D1
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+          run_install: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Apply the D1 migrations to staging
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: pnpm exec wrangler d1 migrations apply jetnine-staging --env staging --remote
+
+      - name: Copy and check
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          TZ: UTC
+          MODE: ${{ github.event.inputs.mode }}
+          TARGET: ${{ github.event.inputs.target }}
+        run: |
+          if [ "$MODE" = "check" ]; then
+            pnpm exec tsx scripts/d1-copy/copy.mjs --target "$TARGET" --check
+          else
+            pnpm exec tsx scripts/d1-copy/copy.mjs --target "$TARGET"
+          fi

@@ -93,6 +93,13 @@ jobs:
       - name: D1 schema parity test
         run: pnpm exec tsx --test src/db/d1/parity.test.ts
 
+      # The Postgres to staging D1 copy tool (OPS-105): value mapping, the staging-only
+      # guard, the table plan and the held-back credential tables. Needs no database.
+      - name: D1 copy tests
+        run: |
+          node --test scripts/d1-copy/map.test.mjs
+          pnpm exec tsx --test scripts/d1-copy/tables.test.ts
+
   e2e:
     name: playwright smoke
     runs-on: ubuntu-24.04

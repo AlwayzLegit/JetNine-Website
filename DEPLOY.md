@@ -437,6 +437,20 @@ If `/api/health` returns `status: "degraded"`, the DB is fine but at least one o
 
 The post-deploy smoke workflow (`.github/workflows/smoke-after-deploy.yml`) fails when `/api/health` returns non-200 against a non-localhost target — so a degraded prod deploy will paint the merge commit red without manual checking. There's also a scheduled health monitor (`.github/workflows/health-monitor.yml`) that probes every 15 minutes for between-deploy regressions.
 
+## After a deploy: retries and the tail summary (OPS-104)
+
+Requests were cut off a few minutes after some production deploys, and the same read passed minutes later. The cause is not yet read from evidence, so a deploy run now records it instead of guessing.
+
+- **Smoke and sitemap reads name their cause.** When a read throws, the smoke line carries the reason (`UND_ERR_SOCKET`, `ECONNRESET`, a timeout, a cut body) and how long it took, plus the `cf-ray` and edge cache state of the latest response. The sitemap audit names the URL and the exception type of every error (for example `https://jetnine.com/blog/x: IncompleteRead(26647 bytes read)`).
+- **One retry, transport errors only.** A GET or HEAD that fails because the connection was reset or closed, the body was cut off or the 15 s timeout fired is tried once more after 10 s (`SMOKE_RETRY_DELAY_MS`, `SITEMAP_RETRY_DELAY`). A wrong status, a wrong redirect, a missing string or a wrong header is never retried and fails at once. A read that fails twice fails the job.
+- **A retry is a warning to look at, not a pass to ignore.** Every first failure is a `::warning` annotation on the run with URL, cause, `cf-ray` and time, and the run ends with "N reads needed a retry". If the same URL needs a retry after several deploys, treat it as a real cut-off for visitors.
+- **The `tail` job.** After the app deploy, `tail` in `deploy-cloudflare.yml` runs `wrangler tail` on the edge and app Workers (the `-staging` names on staging) for up to 6 minutes, or until the smoke and sitemap jobs are done. Its job summary and the artifact `deploy-tail-summary` list, per Worker, every event whose outcome is not `ok` (exception, exceededCpu, exceededMemory, canceled, responseStreamDisconnected) with time, method, path without query string and the exception name. Tokens and ids in paths are masked. It never prints headers, query strings, bodies, log lines or exception messages, and the raw tail is not uploaded. It uses the repo's own deploy token; if that cannot tail, the summary says so in one line and the job passes. The job never fails a deploy.
+- **The summary says how many events it read.** Each Worker block starts with "Events read: N". `wrangler tail --format json` prints every event as indented JSON over many lines, so the summary reads a stream of JSON objects, not one object per line. "0 not ok" next to "Events read: 0" means the tail saw nothing, not that all was well; check the attach time and that the smoke job sent requests in the window.
+- **Reading the summary.** Compare its times with the smoke and sitemap jobs of the same run. Non-ok outcomes on visitor paths (exceededCpu, exceededMemory, responseStreamDisconnected, exceptions on pages) are a real fault to file with that evidence. Retries in the checks and nothing in the tail point at the checks racing the rollout. The tail attaches after the deploy job ends, so the first seconds of the new version can fall before it; its summary prints when it attached.
+- **Staging robots.** The smoke check holds staging to the same rule as previews (`Disallow: /` and no `Sitemap:` line), matching `src/app/robots.ts`. Production is still held to the production rule.
+
+Tests: `pnpm exec tsx --test scripts/smoke-fetch.test.mts`, `node --test scripts/deploy-tail/summarize.test.mjs`, `python3 scripts/test-live-sitemap.py`.
+
 ## Codes and timestamps made by the app (OPS-101)
 
 D1 cannot run Postgres triggers, so the work of two kinds of trigger now happens in the app, and the triggers stay in place on Postgres until the cutover (their removal needs the owner's yes and the exact statement).

@@ -110,6 +110,14 @@ jobs:
       - name: D1 schema parity test
         run: pnpm exec tsx --test src/db/d1/parity.test.ts
 
+      # Post-deploy checks (OPS-104): the retry rule of the smoke reads and the
+      # tail summary that never prints a query string, header or message.
+      - name: Smoke read retry tests
+        run: pnpm exec tsx --test scripts/smoke-fetch.test.mts
+
+      - name: Deploy tail summary tests
+        run: node --test scripts/deploy-tail/summarize.test.mjs
+
       # The Postgres to staging D1 copy tool (OPS-105): value mapping, the staging-only
       # guard, the table plan and the held-back credential tables. Needs no database.
       - name: D1 copy tests

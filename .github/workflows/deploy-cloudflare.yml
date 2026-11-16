@@ -71,6 +71,19 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
+      # Staging only (OPS-99): apply the D1 migrations to staging's own
+      # database with the repo's own deploy token, then print the table count
+      # so the run log is the proof. The production path is unchanged.
+      - name: D1 migrations (staging)
+        if: steps.target.outputs.environment == 'staging'
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          pnpm exec wrangler d1 migrations apply jetnine-staging --env staging --remote
+          N=$(pnpm exec wrangler d1 execute jetnine-staging --env staging --remote --json --command "select count(*) as n from sqlite_master where type='table' and name not like 'sqlite_%' and name not like '_cf_%' and name != 'd1_migrations'" | jq -r '.[0].results[0].n')
+          echo "D1 jetnine-staging tables: $N"
+
       - name: Build (OpenNext)
         env:
           # Prerendered pages read the database at build time (social links,

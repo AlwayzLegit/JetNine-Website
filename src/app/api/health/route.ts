@@ -5,9 +5,11 @@ import { snapshot, type HealthSnapshot } from "@/lib/health";
 // Health endpoint — single-call "is the deploy actually healthy?"
 // signal for the smoke runner, uptime monitors, on-call dashboards.
 //
-// Hard requirement: DB reachable. Supabase Auth (sign-in's provider) is
-// probed too: when it fails the status is "degraded" and "auth" is listed in
-// `failing`, but the HTTP code stays 200. Everything else (Stripe, email,
+// Hard requirement: DB reachable. Two sign-in probes sit beside it: "auth"
+// (Supabase Auth, still behind emailed links, reset and invites until OPS-94)
+// and "signin" (the site's own sessions, OPS-91). When either fails the
+// status is "degraded" and its name is listed in `failing`, but the HTTP code
+// stays 200. Everything else (Stripe, email,
 // Twilio, Sentry, PostHog) ships dark by design.
 //
 // Two views of the same snapshot:

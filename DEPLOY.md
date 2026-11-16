@@ -289,6 +289,33 @@ Apply it before deploying — `/api/v1/agent/*` reads and writes them. No new
 env vars. The scheduled task moves to the bootstrap prompt in
 `docs/AGENT_HANDOFF.md` with a key from Settings › API keys.
 
+## 8e2. The site's own sign-in (OPS-91)
+
+Schema: migration `0056_site_sessions.sql` adds `user_sessions` (one row per
+signed-in browser, only the SHA-256 of the cookie token) and
+`user_credentials` (a password set after this change, bcrypt). RLS on, no
+policies, no grants for `anon` or `authenticated`. It is additive: running it
+changes nothing the live site reads. Apply it **before** the deploy:
+
+```
+DATABASE_URL="$DIRECT_URL" pnpm db:migrate
+```
+
+(or run the file in the SQL editor; it uses `if not exists`). Check: `select
+count(*) from public.user_sessions;` returns 0. Way back: `drop table
+public.user_sessions, public.user_credentials;` after reverting the merge.
+
+Sign-in no longer calls Supabase Auth: `src/lib/session` checks the password
+in place (the older bcrypt hash in `auth.users.encrypted_password`, or a newer
+one in `user_credentials`, which wins), keeps the session on the server and
+sets the host-only cookie `__Host-jn_session`. Sessions last 30 days and end
+after 7 idle days, on sign-out and on a password change. Emailed sign-in links,
+password reset mails and invites still go through Supabase until OPS-94; the
+callback hands the user over to a site session. A password changed after this
+change is not known to Supabase, so after a revert that member resets it
+again. `/api/health` shows `signin` in `failing` when the tables are missing.
+No new secret.
+
 ## 8f. Approval queue (API phase 5)
 
 Schema: migration `0053_approvals.sql` adds `approvals` (RLS on, no
@@ -324,8 +351,18 @@ No schema or env changes. The runbook, in order:
 - **The status address:** `https://jetnine-monitor.jetnine-inc.workers.dev/status` (staging: `jetnine-monitor-staging`). Fixed fields only: `v`, `ok`, `checkedAt`, `failingSince`, `streak`, `checks`, `canary`, `alerts`, `quietUntil`, `wouldHaveRaised`, `incidents`. 503 when the last round is over 45 minutes old. The daily `monitor-status` job of `health-monitor.yml` reads it (and a run by hand can read another address with `status_url`).
 - **Quiet start:** `QUIET_UNTIL` in `monitor/wrangler.jsonc` is at least 24 hours after the merge. Before it a failing round is only written to `wouldHaveRaised`: no incident, no email. Move it first when the merge comes later than the date in the file. The old 15 minute GitHub check stays until that record has been read.
 - **Alerts (owner step, optional):** `pnpm exec wrangler secret put ALERT_EMAIL -c monitor/wrangler.jsonc`, then the same with `RESEND_API_KEY` or `POSTMARK_SERVER_TOKEN` (the value the site uses; `ALERT_FROM` is optional). It worked when `/status` shows `"alerts":"configured"`. Without them the monitor records and never emails.
-- **Sign-in service check (OPS-90):** a fifth check reads `/api/health` and fails when its `failing` list names `auth`, which `/api/health` does when Supabase Auth (the provider sign-in goes through) does not answer 200, as when the project was restricted on 2026-11-16 (402). `/api/health` itself stays 200 and `ok` stays true then, so deploy smoke tests do not fail while the project is down. The check has its own quiet date, `SIGNIN_QUIET_UNTIL` in `monitor/wrangler.jsonc` (both envs): before it a failure is only written to `wouldHaveRaised`. Keep it at least 24 hours after the merge, and move it first when the merge comes later than the date in the file. A missing or broken value stays quiet.
+- **Sign-in service check (OPS-90):** a fifth check reads `/api/health` and fails when its `failing` list names `auth`, which `/api/health` does when Supabase Auth does not answer 200 (since OPS-91 that guards emailed links, resets and invites; password sign-in has its own `signin` check in the same list, which this monitor check does not read), as when the project was restricted on 2026-11-16 (402). `/api/health` itself stays 200 and `ok` stays true then, so deploy smoke tests do not fail while the project is down. The check has its own quiet date, `SIGNIN_QUIET_UNTIL` in `monitor/wrangler.jsonc` (both envs): before it a failure is only written to `wouldHaveRaised`. Keep it at least 24 hours after the merge, and move it first when the merge comes later than the date in the file. A missing or broken value stays quiet.
 - **Silence it:** `pnpm exec wrangler delete --name jetnine-monitor` (owner), or push `QUIET_UNTIL` far into the future.
+
+## 8i. Database target (D1 move, OPS-99)
+
+JetNine's database is moving from Supabase Postgres to Cloudflare D1, one domain at a time.
+
+- **Binding.** The staging Worker has a D1 binding `DB` (database `jetnine-staging`, migrations in `src/db/d1/migrations`). Production has no such binding and stays on Postgres.
+- **Switch.** `DB_TARGET` (`postgres` or `d1`) names the database per environment. Staging sets `postgres` until the first converted domain row changes it. `src/db/target.mjs` reads it: anything but exactly `d1` means Postgres, and production refuses `d1` by code until the cutover row lifts that on purpose.
+- **Code.** `dbTarget()` and `d1Db()` in `src/db/d1.ts` (re-exported from `src/db`). `db` and `sql` still point at Postgres; a converted domain calls `d1Db()` when `dbTarget()` is `d1`.
+- **Health.** `checks.db` in `/api/health` (full view and `/admin/health`) shows `target`, `d1` (`absent`, `ok` or `error`) and `d1Tables`. D1 never changes `ok` or the status.
+- **Migrations.** The staging run of "Deploy (Cloudflare)" applies D1 migrations (`wrangler d1 migrations apply jetnine-staging --env staging --remote`) with the repo's own `CLOUDFLARE_API_TOKEN`, then prints `D1 jetnine-staging tables: N`.
 
 ## 9. Custom domain
 

@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { createClient } from "@/lib/supabase/server";
+import { getSessionUser } from "@/lib/session";
 import { safeNext } from "@/lib/safe-next";
 import { SignInForm } from "./sign-in-form";
 import { PasswordSignInForm } from "./password-form";
@@ -20,15 +20,14 @@ type Props = {
 function errorWords(error?: string): string | undefined {
   if (!error) return undefined;
   if (error === "missing_code") return "That sign-in link was incomplete. Request a new one below.";
+  if (error === "invalid_link") return "That sign-in link has expired or was already used. Request a new one below.";
+  if (error === "session_unavailable") return "Couldn't sign you in just now. Try again in a moment.";
   return error;
 }
 
 export default async function SignInPage({ searchParams }: Props) {
   const { next, error } = await searchParams;
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getSessionUser();
   if (user) redirect(safeNext(next));
 
   return (

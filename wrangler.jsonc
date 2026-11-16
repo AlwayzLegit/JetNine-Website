@@ -65,7 +65,10 @@
       "vars": {
         "DEPLOY_ENV": "staging",
         "DEPLOY_REGION": "cloudflare",
-        "NEXT_PUBLIC_SITE_URL": "https://staging.jetnine.com"
+        "NEXT_PUBLIC_SITE_URL": "https://staging.jetnine.com",
+        // Which database the data layer uses here: "postgres" or "d1". It stays
+        // "postgres" until the first converted domain row sets it (OPS-99).
+        "DB_TARGET": "postgres"
       },
       "triggers": { "crons": [] },
       "hyperdrive": [{ "binding": "HYPERDRIVE", "id": "05bdaa66695d43c08fc02b22e39bca77" }],
@@ -79,6 +82,14 @@
           "binding": "NEXT_TAG_CACHE_D1",
           "database_name": "jetnine-tag-cache-staging",
           "database_id": "deaba576-77b3-429f-b9ee-1c5a0b1eb60a"
+        },
+        // Staging's own copy of the site database (OPS-99). Empty until the D1
+        // table rows land; production has no such binding and stays on Postgres.
+        {
+          "binding": "DB",
+          "database_name": "jetnine-staging",
+          "database_id": "f2f494ab-b051-4b2e-bce7-f4e9fd99e339",
+          "migrations_dir": "src/db/d1/migrations"
         }
       ],
       "durable_objects": {

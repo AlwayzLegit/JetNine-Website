@@ -2,6 +2,11 @@ import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { drizzle, type PostgresJsDatabase } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 
+// The database move to Cloudflare D1 (OPS-99): queries move to D1 per domain in
+// later rows, each calling d1Db() when dbTarget() is "d1". Until a domain is
+// converted it stays on Postgres, so `db` and `sql` below do not change.
+export { d1Db, dbTarget } from "./d1";
+
 type Sql = ReturnType<typeof postgres>;
 type Conn = { sql: Sql; db: PostgresJsDatabase };
 

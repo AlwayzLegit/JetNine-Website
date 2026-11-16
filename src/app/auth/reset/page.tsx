@@ -4,7 +4,7 @@ import { SiteNav } from "@/components/site-nav";
 import { SiteFooter } from "@/components/site-footer";
 import { SkipLink } from "@/components/skip-link";
 import { SetPasswordForm } from "@/components/auth/set-password-form";
-import { createClient } from "@/lib/supabase/server";
+import { getSessionUser } from "@/lib/session";
 
 export const metadata: Metadata = {
   title: "Set your password",
@@ -21,10 +21,7 @@ export const dynamic = "force-dynamic";
  * expired or was already used.
  */
 export default async function AuthResetPage() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getSessionUser();
 
   return (
     <>

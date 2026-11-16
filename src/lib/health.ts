@@ -2,11 +2,15 @@
 // and /admin/health (dispatcher-facing dashboard).
 //
 // Each check returns a stable shape that's safe to render: no secrets,
-// no DB content, no user data. Two checks do I/O: the DB probe and the
-// Supabase Auth probe (sign-in's provider). Everything else is env-var presence.
+// no DB content, no user data. Three checks do I/O: the DB probe, the
+// Supabase Auth probe ("auth": emailed links, reset and invites still go
+// through Supabase Auth until OPS-94) and the site's own sign-in probe
+// ("signin": sessions and password hashes in the database, OPS-91).
+// Everything else is env-var presence.
 
 import { sql as drizzleSql } from "drizzle-orm";
 import { db } from "@/db";
+import { d1Binding, dbTarget } from "@/db/d1";
 import { commitSha, deployEnv, deployRegion, platformBaseUrl } from "@/lib/deploy-env";
 import { probeSupabaseAuth } from "@/lib/auth-probe.mjs";
 
@@ -21,6 +25,7 @@ export type HealthSnapshot = {
   checks: {
     db: CheckResult;
     auth: CheckResult;
+    signin: CheckResult;
     site: CheckResult;
     stripe: CheckResult;
     email: CheckResult;
@@ -32,11 +37,33 @@ export type HealthSnapshot = {
   timestamp: string;
 };
 
+const D1_TABLE_COUNT_SQL =
+  "select count(*) as n from sqlite_master where type = 'table' and name not like 'sqlite_%' and name not like '_cf_%' and name != 'd1_migrations'";
+
+/**
+ * The D1 binding (OPS-99): "absent" when the deployment has none (production),
+ * else "ok" with the number of tables, or "error" with the error name only.
+ * Informational: it never changes the db check's ok or the overall status.
+ */
+async function probeD1(): Promise<Record<string, unknown>> {
+  const binding = d1Binding();
+  if (!binding) return { d1: "absent" };
+  try {
+    const row = await binding.prepare(D1_TABLE_COUNT_SQL).first<{ n: number }>();
+    return { d1: "ok", d1Tables: Number(row?.n ?? 0) };
+  } catch (err) {
+    console.error("[health] d1 probe failed", { name: err instanceof Error ? err.name : "unknown" });
+    return { d1: "error", d1Error: err instanceof Error ? err.name : "unknown" };
+  }
+}
+
 export async function checkDb(): Promise<CheckResult> {
-  const t0 = performance.now();
+  const target = dbTarget();
+  const d1 = await probeD1();
+  const t0 = performance.now(); // latency is Postgres only
   try {
     await db.execute(drizzleSql`select 1 as ok`);
-    return { ok: true, latencyMs: Math.round(performance.now() - t0) };
+    return { ok: true, latencyMs: Math.round(performance.now() - t0), target, ...d1 };
   } catch (err) {
     // Log to stderr so Vercel runtime logs surface the cause without
     // leaking it in the public JSON. Keep the response body sanitized
@@ -55,6 +82,8 @@ export async function checkDb(): Promise<CheckResult> {
       ok: false,
       latencyMs: Math.round(performance.now() - t0),
       error: err instanceof Error ? err.name : "unknown",
+      target,
+      ...d1,
     };
   }
 }
@@ -75,6 +104,34 @@ export async function checkAuth(): Promise<CheckResult> {
   });
   if (!r.ok) console.error("[health] auth probe failed", { httpStatus: r.httpStatus, detail: r.detail });
   return { ok: r.ok, configured: r.configured, httpStatus: r.httpStatus, detail: r.detail };
+}
+
+/**
+ * The site's own sign-in (OPS-91). Two reads, no data returned: the session
+ * table exists (migration 0056 applied), and at least one account still has
+ * a password hash to check in place. A failure names no table and no row:
+ * only a fixed word. It makes the status "degraded" and shows "signin" in
+ * the public failing list; it never turns the answer into a 503.
+ */
+export async function checkSignin(): Promise<CheckResult> {
+  try {
+    await db.execute(drizzleSql`select 1 as ok from public.user_sessions limit 1`);
+  } catch (err) {
+    const e = err as { name?: string; code?: string };
+    console.error("[health] signin probe failed", { name: e?.name, code: e?.code });
+    return { ok: false, reason: "sessions" };
+  }
+  try {
+    const rows = await db.execute<{ present: boolean }>(
+      drizzleSql`select exists(select 1 from auth.users where encrypted_password is not null) as present`,
+    );
+    if (rows[0]?.present !== true) return { ok: false, reason: "passwords" };
+  } catch (err) {
+    const e = err as { name?: string; code?: string };
+    console.error("[health] signin probe failed", { name: e?.name, code: e?.code });
+    return { ok: false, reason: "passwords" };
+  }
+  return { ok: true };
 }
 
 /**
@@ -186,9 +243,10 @@ export async function snapshot(): Promise<HealthSnapshot> {
   const region = deployRegion();
   const sha = commitSha().slice(0, 12) || "unknown";
 
-  const [db, auth, stripe, email, twilio, sentry, posthog] = await Promise.all([
+  const [db, auth, signin, stripe, email, twilio, sentry, posthog] = await Promise.all([
     checkDb(),
     checkAuth(),
+    checkSignin(),
     Promise.resolve(checkStripe()),
     Promise.resolve(checkEmail()),
     Promise.resolve(checkTwilio()),
@@ -196,7 +254,7 @@ export async function snapshot(): Promise<HealthSnapshot> {
     Promise.resolve(checkPosthog()),
   ]);
 
-  const checks = { db, auth, site: checkSite(), stripe, email, twilio, sentry, posthog, ai: checkAi() };
+  const checks = { db, auth, signin, site: checkSite(), stripe, email, twilio, sentry, posthog, ai: checkAi() };
   const ok = db.ok;
   const allOptionalsConfigured =
     Boolean(stripe.configured) &&
@@ -205,7 +263,7 @@ export async function snapshot(): Promise<HealthSnapshot> {
     Boolean(sentry.serverConfigured);
   const status: HealthSnapshot["status"] = !ok
     ? "unhealthy"
-    : auth.ok && allOptionalsConfigured
+    : auth.ok && signin.ok && allOptionalsConfigured
       ? "healthy"
       : "degraded";
 

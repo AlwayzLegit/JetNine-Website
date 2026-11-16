@@ -349,7 +349,7 @@ No schema or env changes. The runbook, in order:
 
 - **What it checks:** `/api/health` answers 200 with `ok` true; `/`, `/contact` and `/cost-calculator` carry their title text; a path that does not exist must answer 404 (the canary: proof the probes can see a failure; it never raises an incident). GET only, a failed check is tried once more after 30 seconds.
 - **The status address:** `https://jetnine-monitor.jetnine-inc.workers.dev/status` (staging: `jetnine-monitor-staging`). Fixed fields only: `v`, `ok`, `checkedAt`, `failingSince`, `streak`, `checks`, `canary`, `alerts`, `quietUntil`, `wouldHaveRaised`, `incidents`. 503 when the last round is over 45 minutes old. The daily `monitor-status` job of `health-monitor.yml` reads it (and a run by hand can read another address with `status_url`).
-- **Quiet start:** `QUIET_UNTIL` in `monitor/wrangler.jsonc` is at least 24 hours after the merge. Before it a failing round is only written to `wouldHaveRaised`: no incident, no email. Move it first when the merge comes later than the date in the file. The old 15 minute GitHub check stays until that record has been read.
+- **Quiet start:** `QUIET_UNTIL` in `monitor/wrangler.jsonc` is at least 24 hours after the merge. Before it a failing round is only written to `wouldHaveRaised`: no incident, no email. Move it first when the merge comes later than the date in the file. The old 15 minute GitHub check was removed by OPS-63 once the record was read and alerts were configured.
 - **Alerts (owner step, optional):** `pnpm exec wrangler secret put ALERT_EMAIL -c monitor/wrangler.jsonc`, then the same with `RESEND_API_KEY` or `POSTMARK_SERVER_TOKEN` (the value the site uses; `ALERT_FROM` is optional). It worked when `/status` shows `"alerts":"configured"`. Without them the monitor records and never emails.
 - **Silence it:** `pnpm exec wrangler delete --name jetnine-monitor` (owner), or push `QUIET_UNTIL` far into the future.
 
@@ -425,7 +425,7 @@ If `/api/health` returns `status: "unhealthy"`, the only check that can flip it 
 
 If `/api/health` returns `status: "degraded"`, the DB is fine but at least one optional integration (Stripe / email / Twilio / Sentry / PostHog) is unconfigured. Visit `/admin/health` for a per-integration breakdown with fix hints, or read `checks.*` in the JSON.
 
-The post-deploy smoke workflow (`.github/workflows/smoke-after-deploy.yml`) fails when `/api/health` returns non-200 against a non-localhost target — so a degraded prod deploy will paint the merge commit red without manual checking. There's also a scheduled health monitor (`.github/workflows/health-monitor.yml`) that probes every 15 minutes for between-deploy regressions.
+The post-deploy smoke workflow (`.github/workflows/smoke-after-deploy.yml`) fails when `/api/health` returns non-200 against a non-localhost target — so a degraded prod deploy will paint the merge commit red without manual checking. Between deploys the monitor Worker (`monitor/`) checks every 15 minutes; the scheduled `.github/workflows/health-monitor.yml` reads its `/status` once a day and can probe `/api/health` on a run by hand.
 
 ## Rotation
 

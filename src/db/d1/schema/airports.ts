@@ -65,7 +65,7 @@ export const airports = sqliteTable(
       .$defaultFn(nowDate),
     updatedAt: integer("updated_at", { mode: "timestamp_ms" })
       .notNull()
-      .$defaultFn(nowDate),
+      .$defaultFn(nowDate).$onUpdate(nowDate),
   },
   (t) => [
     uniqueIndex("airports_icao_uq").on(t.icao),
@@ -118,7 +118,7 @@ export const fbos = sqliteTable(
       .$defaultFn(nowDate),
     updatedAt: integer("updated_at", { mode: "timestamp_ms" })
       .notNull()
-      .$defaultFn(nowDate),
+      .$defaultFn(nowDate).$onUpdate(nowDate),
   },
   (t) => [
     index("fbos_airport_idx").on(t.airportId),

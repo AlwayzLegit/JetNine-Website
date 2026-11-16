@@ -61,7 +61,7 @@ export const invoices = sqliteTable(
       .$defaultFn(nowDate),
     updatedAt: integer("updated_at", { mode: "timestamp_ms" })
       .notNull()
-      .$defaultFn(nowDate),
+      .$defaultFn(nowDate).$onUpdate(nowDate),
   },
   (t) => [
     uniqueIndex("invoices_invoice_code_uq").on(t.invoiceCode),

@@ -72,7 +72,7 @@ export const trips = sqliteTable(
       .$defaultFn(nowDate),
     updatedAt: integer("updated_at", { mode: "timestamp_ms" })
       .notNull()
-      .$defaultFn(nowDate),
+      .$defaultFn(nowDate).$onUpdate(nowDate),
   },
   (t) => [
     uniqueIndex("trips_trip_code_uq").on(t.tripCode),

@@ -62,7 +62,7 @@ export const memberPreferences = sqliteTable("member_preferences", {
     .$defaultFn(nowDate),
   updatedAt: integer("updated_at", { mode: "timestamp_ms" })
     .notNull()
-    .$defaultFn(nowDate),
+    .$defaultFn(nowDate).$onUpdate(nowDate),
 },
   (t) => [
     enumCheck("member_preferences_default_aircraft_category_enum", t.defaultAircraftCategory, aircraftCategoryEnum.enumValues),

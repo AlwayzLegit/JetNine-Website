@@ -25,7 +25,7 @@ export const users = sqliteTable("users", {
     .$defaultFn(nowDate),
   updatedAt: integer("updated_at", { mode: "timestamp_ms" })
     .notNull()
-    .$defaultFn(nowDate),
+    .$defaultFn(nowDate).$onUpdate(nowDate),
 },
   (t) => [
     enumCheck("users_role_enum", t.role, userRoleEnum.enumValues),

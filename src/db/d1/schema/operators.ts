@@ -48,7 +48,7 @@ export const operators = sqliteTable(
       .$defaultFn(nowDate),
     updatedAt: integer("updated_at", { mode: "timestamp_ms" })
       .notNull()
-      .$defaultFn(nowDate),
+      .$defaultFn(nowDate).$onUpdate(nowDate),
   },
   (t) => [
     index("operators_status_idx").on(t.status),

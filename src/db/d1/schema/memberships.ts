@@ -64,7 +64,7 @@ export const memberships = sqliteTable(
       .$defaultFn(nowDate),
     updatedAt: integer("updated_at", { mode: "timestamp_ms" })
       .notNull()
-      .$defaultFn(nowDate),
+      .$defaultFn(nowDate).$onUpdate(nowDate),
   },
   (t) => [
     index("memberships_member_idx").on(t.memberId, t.status),

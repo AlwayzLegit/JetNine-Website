@@ -33,7 +33,7 @@ export const staff = sqliteTable("staff", {
     .$defaultFn(nowDate),
   updatedAt: integer("updated_at", { mode: "timestamp_ms" })
     .notNull()
-    .$defaultFn(nowDate),
+    .$defaultFn(nowDate).$onUpdate(nowDate),
 },
   (t) => [
     enumCheck("staff_desk_enum", t.desk, staffDeskEnum.enumValues),

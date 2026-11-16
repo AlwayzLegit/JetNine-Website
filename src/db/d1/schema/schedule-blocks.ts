@@ -74,7 +74,7 @@ export const aircraftScheduleBlocks = sqliteTable(
       .$defaultFn(nowDate),
     updatedAt: integer("updated_at", { mode: "timestamp_ms" })
       .notNull()
-      .$defaultFn(nowDate),
+      .$defaultFn(nowDate).$onUpdate(nowDate),
   },
   (t) => [
     // Primary range query — "what's on this tail between dates X and Y".

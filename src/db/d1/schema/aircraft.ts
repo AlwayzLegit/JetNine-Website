@@ -44,7 +44,7 @@ export const aircraft = sqliteTable(
       .$defaultFn(nowDate),
     updatedAt: integer("updated_at", { mode: "timestamp_ms" })
       .notNull()
-      .$defaultFn(nowDate),
+      .$defaultFn(nowDate).$onUpdate(nowDate),
   },
   (t) => [
     uniqueIndex("aircraft_tail_number_uq").on(t.tailNumber),

@@ -101,7 +101,7 @@ export const emptyLegs = sqliteTable(
       .$defaultFn(nowDate),
     updatedAt: integer("updated_at", { mode: "timestamp_ms" })
       .notNull()
-      .$defaultFn(nowDate),
+      .$defaultFn(nowDate).$onUpdate(nowDate),
   },
   (t) => [
     uniqueIndex("empty_legs_code_uq").on(t.code),

@@ -50,6 +50,15 @@ for (const [exportName, pgTable] of pgTables) {
     assert.equal(b.foreignKeys.length, a.foreignKeys.length - (FK_LEFT_OUT[exportName] ?? 0), "foreign keys");
     assert.equal(b.indexes.length, a.indexes.length, "indexes");
 
+    // D1 has no triggers: a Postgres column that the app keeps current on update
+    // (`$onUpdate`, OPS-101) must do the same in D1.
+    for (const col of a.columns) {
+      if (col.onUpdateFn) {
+        const twin = b.columns.find((c) => c.name === col.name);
+        assert.ok(twin?.onUpdateFn, `${col.name} has $onUpdate in Postgres but not in D1`);
+      }
+    }
+
     const checkNames = new Set(b.checks.map((c) => c.name));
     for (const col of a.columns) {
       const enumValues = (col as { enumValues?: string[] }).enumValues;

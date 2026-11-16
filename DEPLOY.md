@@ -363,6 +363,7 @@ JetNine's database is moving from Supabase Postgres to Cloudflare D1, one domain
 - **Code.** `dbTarget()` and `d1Db()` in `src/db/d1.ts` (re-exported from `src/db`). `db` and `sql` still point at Postgres; a converted domain calls `d1Db()` when `dbTarget()` is `d1`.
 - **Health.** `checks.db` in `/api/health` (full view and `/admin/health`) shows `target`, `d1` (`absent`, `ok` or `error`) and `d1Tables`. D1 never changes `ok` or the status.
 - **Migrations.** The staging run of "Deploy (Cloudflare)" applies D1 migrations (`wrangler d1 migrations apply jetnine-staging --env staging --remote`) with the repo's own `CLOUDFLARE_API_TOKEN`, then prints `D1 jetnine-staging tables: N`.
+- **Converted to D1: reference data (operators, operator contacts, aircraft, airports, FBOs), OPS-112.** The admin lists, detail pages and editors, the ops board fleet list and `/api/v1/reference` read and write through `src/domain/reference/store.ts` (a Postgres adapter and a D1 adapter, one chosen per request by `dbTarget()`); production stays on Postgres. Staging-only effect: once staging runs `d1`, an operator, aircraft or airport created on staging lives only in staging D1, so choosing it in a staging request or trip form (still Postgres) fails on the foreign key, until those domains move. Undo on staging: set `DB_TARGET` back to `postgres` in `wrangler.jsonc` and redeploy staging.
 
 ## 9. Custom domain
 

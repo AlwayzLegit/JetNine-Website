@@ -1,11 +1,8 @@
-import { and, asc, count, desc, eq, gt, lt, notInArray, sql } from "drizzle-orm";
+import { and, asc, eq, gt, lt, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { operators } from "@/db/schema/operators";
-import { aircraft } from "@/db/schema/aircraft";
-import { airports, fbos } from "@/db/schema/airports";
 import { aircraftScheduleBlocks } from "@/db/schema/schedule-blocks";
 import { trips } from "@/db/schema/trips";
-import { SOURCING_INELIGIBLE_STATUSES } from "@/lib/operator-eligibility";
+import { referenceStore, type AircraftListRow, type FleetBoardRow, type OperatorRow } from "./store";
 
 /**
  * Reference-data queries shared by the admin operators / aircraft / airports
@@ -17,35 +14,12 @@ import { SOURCING_INELIGIBLE_STATUSES } from "@/lib/operator-eligibility";
 
 export type OperatorTotals = { operators: number; active: number; auditDue: number; suspended: number };
 
-async function loadOperators() {
-  return db
-    .select({
-      id: operators.id,
-      name: operators.name,
-      certNumber: operators.certNumber,
-      homeAirportIcao: operators.homeAirportIcao,
-      yearsPartner: operators.yearsPartner,
-      isPreferred: operators.isPreferred,
-      status: operators.status,
-      argusRating: operators.argusRating,
-      wyvernWingman: operators.wyvernWingman,
-      isbaoStage: operators.isbaoStage,
-      nextAuditOn: operators.nextAuditOn,
-      insuranceRenewsOn: operators.insuranceRenewsOn,
-      suspendedReason: operators.suspendedReason,
-    })
-    .from(operators)
-    .orderBy(desc(operators.isPreferred), asc(operators.name));
-}
-
-export type OperatorListItem = Awaited<ReturnType<typeof loadOperators>>[number] & { fleetCount: number };
+export type OperatorListItem = OperatorRow & { fleetCount: number };
 
 /** Every operator, preferred first, with its aircraft count and status totals. */
 export async function listOperators(): Promise<{ operators: OperatorListItem[]; totals: OperatorTotals }> {
-  const [rows, counts] = await Promise.all([
-    loadOperators(),
-    db.select({ operatorId: aircraft.operatorId, n: count() }).from(aircraft).groupBy(aircraft.operatorId),
-  ]);
+  const store = referenceStore();
+  const [rows, counts] = await Promise.all([store.operatorRows(), store.fleetCounts()]);
   const fleetByOperator = new Map(counts.map((c) => [c.operatorId, c.n]));
   const list = rows.map((r) => ({ ...r, fleetCount: fleetByOperator.get(r.id) ?? 0 }));
   return {
@@ -61,48 +35,18 @@ export async function listOperators(): Promise<{ operators: OperatorListItem[]; 
 
 /** Operators we may source from (not suspended / banned / on hold), for forms. */
 export async function listSourcingOperators(): Promise<{ id: string; name: string }[]> {
-  return db
-    .select({ id: operators.id, name: operators.name })
-    .from(operators)
-    .where(notInArray(operators.status, [...SOURCING_INELIGIBLE_STATUSES]))
-    .orderBy(asc(operators.name));
+  return referenceStore().sourcingOperators();
 }
 
 // ─── Aircraft ────────────────────────────────────────────────────────────
 
 export type AircraftTotals = { total: number; available: number; aog: number; maint: number };
 
-async function loadAircraft() {
-  return db
-    .select({
-      id: aircraft.id,
-      tailNumber: aircraft.tailNumber,
-      operatorId: aircraft.operatorId,
-      operatorName: operators.name,
-      category: aircraft.category,
-      makeModel: aircraft.makeModel,
-      yearManufactured: aircraft.yearManufactured,
-      seats: aircraft.seats,
-      rangeNm: aircraft.rangeNm,
-      speedKt: aircraft.speedKt,
-      wifiType: aircraft.wifiType,
-      standupCabin: aircraft.standupCabin,
-      lieflatCapable: aircraft.lieflatCapable,
-      petFriendly: aircraft.petFriendly,
-      baseIcao: aircraft.baseIcao,
-      totalHours: aircraft.totalHours,
-      status: aircraft.status,
-    })
-    .from(aircraft)
-    .innerJoin(operators, eq(operators.id, aircraft.operatorId))
-    .orderBy(asc(aircraft.category), asc(aircraft.tailNumber));
-}
-
-export type AircraftListItem = Awaited<ReturnType<typeof loadAircraft>>[number];
+export type AircraftListItem = AircraftListRow;
 
 /** Every aircraft with its operator, ordered by category then tail, plus status totals. */
 export async function listAircraft(): Promise<{ aircraft: AircraftListItem[]; totals: AircraftTotals }> {
-  const rows = await loadAircraft();
+  const rows = await referenceStore().aircraftRows();
   return {
     aircraft: rows,
     totals: {
@@ -134,30 +78,8 @@ export type AirportTotals = { airports: number; active: number; intl: number; co
 
 /** Every airport with its FBO count, ordered by country then ICAO, plus totals. */
 export async function listAirports(): Promise<{ airports: AirportListItem[]; totals: AirportTotals }> {
-  const [rows, totalFbos] = await Promise.all([
-    db
-      .select({
-        id: airports.id,
-        icao: airports.icao,
-        iata: airports.iata,
-        name: airports.name,
-        city: airports.city,
-        region: airports.region,
-        countryIso2: airports.countryIso2,
-        category: airports.category,
-        customs: airports.customs,
-        active: airports.active,
-        fboCount: sql<number>`(
-          select count(*)::int from public.fbos f where f.airport_id = ${airports.id}
-        )`,
-      })
-      .from(airports)
-      .orderBy(asc(airports.countryIso2), asc(airports.icao)),
-    db
-      .select({ n: sql<number>`count(*)::int` })
-      .from(fbos)
-      .then((r) => r[0]?.n ?? 0),
-  ]);
+  const store = referenceStore();
+  const [rows, totalFbos] = await Promise.all([store.airportRows(), store.fboTotal()]);
   return {
     airports: rows,
     totals: {
@@ -183,17 +105,20 @@ export type ReferenceCounts = {
 
 /** Row counts behind /admin/settings/reference. Partial when a table is missing. */
 export async function referenceCounts(): Promise<Partial<ReferenceCounts>> {
+  // The store is chosen outside the try: a d1 target without its binding
+  // must fail loudly, not come back as an empty page.
+  const store = referenceStore();
   try {
-    const [row] = await db.execute<ReferenceCounts>(sql`
-      select
-        (select count(*)::int from public.operators)                                       as operators,
-        (select count(*)::int from public.aircraft)                                        as aircraft,
-        (select count(*)::int from public.airports)                                        as airports,
-        (select count(*)::int from public.fbos)                                            as fbos,
-        (select count(*)::int from public.empty_legs where status in ('scheduled','live')) as empty_legs,
-        (select count(*)::int from public.ai_providers where enabled)                      as ai_providers
-    `);
-    return row ?? {};
+    // empty_legs and ai_providers stay on Postgres until their own rows.
+    const [reference, [rest]] = await Promise.all([
+      store.counts(),
+      db.execute<Pick<ReferenceCounts, "empty_legs" | "ai_providers">>(sql`
+        select
+          (select count(*)::int from public.empty_legs where status in ('scheduled','live')) as empty_legs,
+          (select count(*)::int from public.ai_providers where enabled)                      as ai_providers
+      `),
+    ]);
+    return { ...reference, ...(rest ?? {}) };
   } catch {
     // A missing table (e.g. ai_providers before migration 0047) must not
     // take the whole page down — the links still work.
@@ -212,23 +137,6 @@ export function addDays(d: Date, n: number): Date {
   const next = new Date(d);
   next.setUTCDate(next.getUTCDate() + n);
   return next;
-}
-
-async function loadFleet() {
-  return db
-    .select({
-      id: aircraft.id,
-      tailNumber: aircraft.tailNumber,
-      makeModel: aircraft.makeModel,
-      category: aircraft.category,
-      seats: aircraft.seats,
-      status: aircraft.status,
-      operatorName: operators.name,
-      isPreferred: operators.isPreferred,
-    })
-    .from(aircraft)
-    .innerJoin(operators, eq(operators.id, aircraft.operatorId))
-    .orderBy(asc(aircraft.category), asc(aircraft.tailNumber));
 }
 
 async function loadBlocks(from: Date, to: Date) {
@@ -250,7 +158,7 @@ async function loadBlocks(from: Date, to: Date) {
     .orderBy(asc(aircraftScheduleBlocks.aircraftId), asc(aircraftScheduleBlocks.startAt));
 }
 
-export type FleetRowFacts = Awaited<ReturnType<typeof loadFleet>>[number];
+export type FleetRowFacts = FleetBoardRow;
 export type ScheduleBlockFacts = Awaited<ReturnType<typeof loadBlocks>>[number];
 
 export type ScheduleWindow = {
@@ -271,7 +179,7 @@ export async function listScheduleBlocks(now = new Date(), days = 14): Promise<S
   const span = Math.min(60, Math.max(1, Math.floor(days)));
   const from = startOfUtcDay(now);
   const to = addDays(from, span);
-  const [fleet, blocks] = await Promise.all([loadFleet(), loadBlocks(from, to)]);
+  const [fleet, blocks] = await Promise.all([referenceStore().fleetBoard(), loadBlocks(from, to)]);
 
   const blocksByTail = new Map<string, ScheduleBlockFacts[]>();
   for (const b of blocks) blocksByTail.set(b.aircraftId, [...(blocksByTail.get(b.aircraftId) ?? []), b]);

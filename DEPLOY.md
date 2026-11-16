@@ -457,3 +457,16 @@ How types map, decided once:
 - No equal in D1: the `auth` schema (so `users.id` has no foreign key), row level security, and Postgres functions and triggers (OPS-101). `api_keys` scope CHECKs are rewritten with string tests because SQLite forbids subqueries in CHECK.
 - Regenerate with `pnpm db:d1:generate` (`drizzle.d1.config.ts`); the migration goes to `src/db/d1/migrations` and the staging deploy applies it. The test `src/db/d1/parity.test.ts` runs in CI and fails when a Postgres table, column, not-null flag, primary key, foreign key count, index count or enum CHECK has no D1 twin.
 
+
+## Copy Postgres to staging D1 (OPS-105)
+
+Step 5 of the move to Cloudflare (OPS-93): fill staging's own D1 database from Postgres and prove the copy is whole. Production's database is never written.
+
+- Run the GitHub workflow **D1 copy** by hand (Actions, Run workflow). `mode = load` applies the D1 migrations, wipes the staging D1 tables, copies all 51 tables and then checks; `mode = check` only compares. It uses the repo secrets `DATABASE_URL`, `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`.
+- Postgres is read in one read-only snapshot, so every table comes from the same moment. Values are mapped by the rules in "D1 tables (OPS-100)" above (`scripts/d1-copy/map.mjs`).
+- The log has one line per table: Postgres rows, D1 rows, and "checksum equal yes or no". The checksum is an order-independent hash of each row's key and its `updated_at` (or `created_at`). No row value is printed, and wrangler's own text is not echoed. A failure prints an error code only.
+- The tool refuses any target other than the database `jetnine-staging` with `--env staging`; the guard runs before any call. `pnpm exec tsx scripts/d1-copy/copy.mjs --list` prints the table plan with no network.
+- **Held back on purpose:** `user_credentials` (password hashes), `user_sessions` (session token hashes), `api_keys` (key hashes) and `ai_providers` (encrypted provider keys). These are not copied to staging. Moving credentials is the owner's decision and belongs to the cutover row.
+- Staging D1 is a test copy, not a source of truth. Run the copy again whenever a fresh copy is needed; it starts by wiping.
+- The reverse copy (D1 back to Postgres, for a rollback) is not part of this row.
+- Tests (`scripts/d1-copy/*.test.*`) run in CI and need no secrets or network.

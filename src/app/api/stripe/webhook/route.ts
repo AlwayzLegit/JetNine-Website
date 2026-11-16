@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { eq, sql } from "drizzle-orm";
 import type Stripe from "stripe";
 import { db } from "@/db";
+import { syncMemberTier } from "@/domain/memberships/tier";
 import { invoices } from "@/db/schema/invoices";
 import { stripeWebhookEvents } from "@/db/schema/invoices";
 import {
@@ -514,16 +515,22 @@ async function onMembershipPurchased(session: Stripe.Checkout.Session): Promise<
   // Stripe) and exit clean. The first activation has already happened
   // and the member has a valid card on file.
   try {
-    await db
-      .update(memberships)
-      .set({
-        status: "active",
-        activatedAt: now,
-        stripePaymentIntentId: paymentIntentId,
-        stripeCheckoutSessionId: session.id,
-        updatedAt: now,
-      })
-      .where(eq(memberships.id, membershipId));
+    // One transaction: the tier follows the membership (OPS-102). If the tier
+    // write failed after the status write, Stripe's retry would find the row
+    // already active and never fix the tier.
+    await db.transaction(async (tx) => {
+      await tx
+        .update(memberships)
+        .set({
+          status: "active",
+          activatedAt: now,
+          stripePaymentIntentId: paymentIntentId,
+          stripeCheckoutSessionId: session.id,
+          updatedAt: now,
+        })
+        .where(eq(memberships.id, membershipId));
+      await syncMemberTier(tx, membershipId, row.status);
+    });
   } catch (err) {
     if ((err as { code?: string }).code === "23505") {
       console.error(

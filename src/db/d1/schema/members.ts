@@ -6,6 +6,13 @@ import { memberStatusEnum, memberTierEnum } from "../../schema/enums";
 import { staff } from "./staff";
 import { users } from "./users";
 
+// Counter behind member_code (M-YYYY-NNNN). Its Postgres twin arrives with OPS-101
+// (the table has existed in Postgres since migration 0001); nextCode() advances it.
+export const memberCodeSequence = sqliteTable("member_code_sequence", {
+  year: integer("year").primaryKey(),
+  lastValue: integer("last_value").notNull().default(0),
+});
+
 /**
  * A member is a paying customer with a profile. One row per user_id at most.
  * member_code format: M-YYYY-NNNN (generated server-side at insert).

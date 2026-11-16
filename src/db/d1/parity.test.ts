@@ -18,6 +18,9 @@ const pgSchema = { ...pgBarrel, ...pgBlogSubscribers };
 
 // Postgres-only, with no D1 equal: the Supabase `auth` schema.
 const NO_D1_TABLE = new Set(["authUsers"]);
+// D1 tables whose Postgres twin arrives in a pull request still open (OPS-101 adds
+// memberCodeSequence to src/db/schema/members.ts). Remove the entry once it is on main.
+const D1_AHEAD = new Set(["memberCodeSequence"]);
 // Foreign keys that point into that schema are not carried over.
 const FK_LEFT_OUT: Record<string, number> = { users: 1 };
 
@@ -25,12 +28,12 @@ const pgTables = Object.entries(pgSchema).filter(
   (e) => is(e[1], PgTable) && !NO_D1_TABLE.has(e[0]),
 ) as [string, PgTable][];
 
-test("every Postgres table has a D1 twin (50 tables at OPS-100)", () => {
-  assert.ok(pgTables.length === 50, `expected 50 Postgres tables, found ${pgTables.length}`);
+test("every Postgres table has a D1 twin (50 tables at OPS-100, 51 with OPS-101)", () => {
+  assert.ok(pgTables.length >= 50, `expected at least 50 Postgres tables, found ${pgTables.length}`);
   const d1Names = new Set(Object.entries(d1Schema).filter((e) => is(e[1], SQLiteTable)).map((e) => e[0]));
   const missing = pgTables.map(([n]) => n).filter((n) => !d1Names.has(n));
   assert.deepEqual(missing, []);
-  const extra = [...d1Names].filter((n) => !pgTables.some(([p]) => p === n));
+  const extra = [...d1Names].filter((n) => !D1_AHEAD.has(n) && !pgTables.some(([p]) => p === n));
   assert.deepEqual(extra, []);
 });
 

@@ -563,6 +563,11 @@ CREATE TABLE `dispatcher_assignments` (
 --> statement-breakpoint
 CREATE INDEX `dispatcher_assignments_member_idx` ON `dispatcher_assignments` (`member_id`,`ended_on`);--> statement-breakpoint
 CREATE INDEX `dispatcher_assignments_staff_idx` ON `dispatcher_assignments` (`staff_id`);--> statement-breakpoint
+CREATE TABLE `member_code_sequence` (
+	`year` integer PRIMARY KEY NOT NULL,
+	`last_value` integer DEFAULT 0 NOT NULL
+);
+--> statement-breakpoint
 CREATE TABLE `members` (
 	`id` text PRIMARY KEY NOT NULL,
 	`user_id` text NOT NULL,

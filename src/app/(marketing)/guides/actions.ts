@@ -5,6 +5,8 @@ import { db } from "@/db";
 import { contactInquiries } from "@/db/schema/contact";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { sendDispatchAlert, sendEmail } from "@/lib/email";
+import { recipientsFor } from "@/lib/desk-settings";
+import { DESK_ALERT_KIND } from "@/lib/desk-alert-recipients.mjs";
 import { GUIDE_PDF_PATH, GUIDE_PDF_TITLE } from "@/lib/guide-download";
 import { SITE } from "@/lib/constants";
 import { clientIpFrom } from "@/lib/client-ip";
@@ -107,6 +109,7 @@ export async function requestPricingGuide(formData: FormData): Promise<GuideRequ
       headline: "New pricing-guide lead.",
       lines: [`${name} <${email}>${frequency ? ` · flies privately: ${frequency}` : ""}`],
       link: { label: "Open Messages", url: `${base}/admin/messages?tab=form` },
+      to: await recipientsFor(DESK_ALERT_KIND),
     });
   } catch (err) {
     console.error("requestPricingGuide dispatch ping failed (non-fatal)", err);

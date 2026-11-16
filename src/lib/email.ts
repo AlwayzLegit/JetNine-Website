@@ -16,6 +16,7 @@
  */
 
 import { SITE } from "@/lib/constants";
+import { mergeDeskRecipients } from "@/lib/desk-alert-recipients.mjs";
 import { findAirport } from "@/lib/airports";
 import { minutesWords, passengersWords, replyPromiseWords, tierWords } from "@/lib/desk-status";
 import { formatDay } from "@/lib/request-format";
@@ -163,10 +164,7 @@ export async function sendEmail(payload: EmailPayload): Promise<SendResult> {
  * preferences (Settings › Notifications) add staff on top, never replace it.
  */
 function withDispatchInbox(to: string[] | undefined): string | string[] {
-  const extra = (to ?? []).map((a) => a.trim().toLowerCase()).filter(Boolean);
-  const inbox = DISPATCH_NOTIFY.toLowerCase();
-  const list = Array.from(new Set([inbox, ...extra.filter((a) => a !== inbox)]));
-  return list.length === 1 ? DISPATCH_NOTIFY : [DISPATCH_NOTIFY, ...list.slice(1)];
+  return mergeDeskRecipients(DISPATCH_NOTIFY, to);
 }
 
 const DISPATCH_NOTIFY =
@@ -384,6 +382,11 @@ type ContactInquiryContext = {
   inquiriesUrl: string;
   /** Reply-time promise the form made (`getReplyPromiseMinutes`). Default 30. */
   replyMinutes?: number;
+  /**
+   * Staff addresses from Settings › Notifications (`recipientsFor`), added
+   * after the shared dispatch inbox. Empty or omitted: the inbox alone.
+   */
+  to?: string[];
 };
 
 const CONTACT_REASON_WORDS: Record<string, string> = {
@@ -398,8 +401,9 @@ function contactReasonWords(reason: string): string {
 }
 
 /**
- * Desk ping for a public contact-form submission. Single recipient
- * (dispatch), replyTo = the visitor so a dispatcher can answer straight
+ * Desk ping for a public contact-form submission. Goes to the shared
+ * dispatch inbox plus the staff whose "A new request comes in" toggle is on
+ * (`ctx.to`), replyTo = the visitor so a dispatcher can answer straight
  * from their mail client without copy-pasting the address.
  */
 export async function sendDispatchContactNotification(
@@ -451,7 +455,7 @@ export async function sendDispatchContactNotification(
   `.trim();
 
   return sendEmail({
-    to: DISPATCH_NOTIFY,
+    to: withDispatchInbox(ctx.to),
     subject,
     html,
     text,

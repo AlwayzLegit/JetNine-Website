@@ -9,6 +9,9 @@
  * messages, and path segments that look like a token or id are masked. The
  * raw tail is read from a file and never uploaded.
  *
+ * Every Worker block states how many events were read in all, so "0 not ok"
+ * can never stand for "read nothing".
+ *
  * Usage: node scripts/deploy-tail/summarize.mjs <worker>=<file> [<worker>=<file> ...]
  * Output: markdown on stdout (the job summary and the artifact).
  */
@@ -49,21 +52,64 @@ export function safePath(rawUrl) {
   return out.length > 120 ? out.slice(0, 117) + "..." : out;
 }
 
-/** Parse tail output: one JSON object per line; anything else is skipped and counted. */
+/**
+ * Parse tail output as a stream of JSON objects. `wrangler tail --format json`
+ * prints each event as indented JSON spread over many lines, so a line by line
+ * parse drops every event (OPS-104 review). This reader tracks brace depth and
+ * respects strings and escapes, so it works for one object per line and for
+ * objects spread over many lines alike. Text outside an object (for example
+ * "Successfully created tail") and objects without an outcome are skipped and
+ * counted by line, or by object.
+ */
 export function parseTail(text) {
   const events = [];
   let skipped = 0;
-  for (const line of text.split("\n")) {
-    const trimmed = line.trim();
-    if (!trimmed) continue;
-    try {
-      const obj = JSON.parse(trimmed);
-      if (obj && typeof obj === "object" && "outcome" in obj) events.push(obj);
-      else skipped++;
-    } catch {
-      skipped++;
+  let noise = "";
+  const flushNoise = () => {
+    for (const line of noise.split("\n")) if (line.trim()) skipped++;
+    noise = "";
+  };
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+  let chunk = "";
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (depth === 0) {
+      if (ch === "{") {
+        flushNoise();
+        depth = 1;
+        chunk = "{";
+      } else {
+        noise += ch;
+      }
+      continue;
+    }
+    chunk += ch;
+    if (inString) {
+      if (escaped) escaped = false;
+      else if (ch === "\\") escaped = true;
+      else if (ch === '"') inString = false;
+      continue;
+    }
+    if (ch === '"') inString = true;
+    else if (ch === "{") depth++;
+    else if (ch === "}") {
+      depth--;
+      if (depth === 0) {
+        try {
+          const obj = JSON.parse(chunk);
+          if (obj && typeof obj === "object" && "outcome" in obj) events.push(obj);
+          else skipped++;
+        } catch {
+          skipped++;
+        }
+        chunk = "";
+      }
     }
   }
+  if (depth !== 0) skipped++; // an object cut off at the end of the file
+  flushNoise();
   return { events, skipped };
 }
 
@@ -81,13 +127,13 @@ export function summarizeWorker(name, text) {
   const lines = [];
   lines.push(`### ${name}`);
   if (events.length === 0) {
-    lines.push(`No events seen${skipped ? ` (${skipped} lines were not events)` : ""}.`);
+    lines.push(`Events read: 0. No events seen${skipped ? ` (${skipped} lines or objects were not events)` : ""}.`);
     return { markdown: lines.join("\n"), total: 0, notOk: 0 };
   }
   lines.push(
-    `${events.length} events from ${when(times[0])} to ${when(times[times.length - 1])}, ${notOk.length} not ok. ` +
+    `Events read: ${events.length}, from ${when(times[0])} to ${when(times[times.length - 1])}, ${notOk.length} not ok. ` +
       `Outcomes: ${Object.entries(counts).map(([k, v]) => `${k} ${v}`).join(", ")}.` +
-      (skipped ? ` ${skipped} lines were not events.` : ""),
+      (skipped ? ` ${skipped} lines or objects were not events.` : ""),
   );
   for (const e of notOk.slice(0, MAX_LINES_PER_WORKER)) {
     const req = e.event?.request;

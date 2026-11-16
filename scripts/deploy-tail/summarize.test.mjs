@@ -53,6 +53,41 @@ test("lines that are not events are skipped and counted, an empty tail says so",
   assert.match(summarizeWorker("jetnine-edge", "").markdown, /No events seen/);
 });
 
+// wrangler tail --format json prints each event indented over many lines.
+const pretty = (e) => JSON.stringify(e, null, 2);
+
+test("events spread over many lines are read, counted and listed (OPS-104 review)", () => {
+  const text = [
+    "Successfully created tail, expires at 2026-11-16T23:00:00Z",
+    "Connected to jetnine-edge-staging, waiting for logs...",
+    pretty(ev()),
+    pretty(ev({ outcome: "exceededCpu", event: { request: { url: "https://example.com/faq?x=1", method: "GET" }, response: { status: 503 } }, exceptions: [{ name: "Error", message: "brace } in \"string\" { here" }] })),
+    pretty(ev()),
+  ].join("\n");
+  const { events, skipped } = parseTail(text);
+  assert.equal(events.length, 3);
+  assert.equal(skipped, 2);
+  const r = summarizeWorker("jetnine-edge-staging", text);
+  assert.equal(r.total, 3);
+  assert.equal(r.notOk, 1);
+  assert.match(r.markdown, /Events read: 3,/);
+  assert.match(r.markdown, /GET \/faq outcome exceededCpu status 503 exception Error/);
+  assert.ok(!r.markdown.includes("brace"), "exception messages are never printed");
+});
+
+test("one object per line and indented objects can be mixed, and a cut-off object is skipped", () => {
+  const text = `${JSON.stringify(ev())}\n${pretty(ev({ outcome: "canceled" }))}\n{ "outcome": "ok", "eventTimestamp": 1`;
+  const { events, skipped } = parseTail(text);
+  assert.equal(events.length, 2);
+  assert.equal(skipped, 1);
+});
+
+test("a summary with no events says it read none, never just 0 not ok", () => {
+  const r = summarizeWorker("jetnine-web", "Successfully created tail\n");
+  assert.equal(r.total, 0);
+  assert.match(r.markdown, /Events read: 0\. No events seen/);
+});
+
 test("an event with no request (scheduled, queue) is listed without a path", () => {
   const out = summarizeWorker("jetnine-web", lines(ev({ outcome: "exceededMemory", event: { cron: "* * * * *" } }))).markdown;
   assert.match(out, /\(no request\) outcome exceededMemory/);

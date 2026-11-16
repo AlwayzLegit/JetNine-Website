@@ -400,13 +400,21 @@ Three hard alarms fail the run red, one line each starting `ALARM`:
 - `sitemap` / `robots`: `/sitemap.xml` is not 200 or has no urlset; `/robots.txt` is not 200 or disallows `/` for all agents.
 - `score`: a page's performance score is more than 10 points below last week's, and still is after 3 more runs.
 
-Last week's numbers are kept as the workflow artifact `speed-check-latest`
-(from the latest successful run on main), never in the repo. No secret is used.
+Last week's numbers are kept as the workflow artifact `speed-check-latest`,
+never in the repo. The baseline is the newest of the last 10 successful runs on
+main that kept numbers (`scripts/speed-check/baseline.mjs`): a run started by
+hand with `base_url` keeps none, so the step looks further back instead of
+saying "first run". If no run of the 10 has numbers, the step prints a
+`::warning::` line and the score alarm is off for that run; "No earlier result:
+first run" appears only when the workflow has no successful run on main at all.
+A run started by hand on main waits for a running one and does not cancel it
+(only a pull request run is cancelled by a newer push). No secret is used.
+For a copy on another site: take `baseline.mjs` and its tests with the workflow.
 
 By hand: `node scripts/speed-check/check.mjs --runs 1 --base https://jetnine.com`
 (needs Chrome; set `CHROME_PATH` if it is not found). Pages and base URL come
 from `scripts/speed-check/pages.json`. Unit tests:
-`node --test scripts/speed-check/check.test.mjs`. The pull request's
+`node --test scripts/speed-check/check.test.mjs scripts/speed-check/baseline.test.mjs`. The pull request's
 `self-test` job also proves the alarm: a fixture page with a noindex tag must
 make the check exit 1 and print `ALARM noindex`.
 

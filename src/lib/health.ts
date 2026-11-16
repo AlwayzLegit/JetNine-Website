@@ -2,12 +2,13 @@
 // and /admin/health (dispatcher-facing dashboard).
 //
 // Each check returns a stable shape that's safe to render: no secrets,
-// no DB content, no user data. The hardest one is the DB probe — that's
-// the only check that does any I/O. Everything else is env-var presence.
+// no DB content, no user data. Two checks do I/O: the DB probe and the
+// Supabase Auth probe (sign-in's provider). Everything else is env-var presence.
 
 import { sql as drizzleSql } from "drizzle-orm";
 import { db } from "@/db";
 import { commitSha, deployEnv, deployRegion, platformBaseUrl } from "@/lib/deploy-env";
+import { probeSupabaseAuth } from "@/lib/auth-probe.mjs";
 
 export type CheckResult = { ok: boolean } & Record<string, unknown>;
 
@@ -19,6 +20,7 @@ export type HealthSnapshot = {
   sha: string;
   checks: {
     db: CheckResult;
+    auth: CheckResult;
     site: CheckResult;
     stripe: CheckResult;
     email: CheckResult;
@@ -55,6 +57,24 @@ export async function checkDb(): Promise<CheckResult> {
       error: err instanceof Error ? err.name : "unknown",
     };
   }
+}
+
+/**
+ * Supabase Auth, asked the way sign-in asks it (OPS-90). On 2026-11-16 the
+ * project was restricted for a day and every sign-in failed while this
+ * endpoint said "healthy", because the database probe does not go through
+ * Supabase's API. A failure makes the status "degraded" and puts "auth" in the
+ * public failing list. It never changes `ok` or the HTTP code: a 503 here
+ * would fail every deploy smoke test while the project is down, which would
+ * block the fix. Not configured (no URL or key) counts as ok.
+ */
+export async function checkAuth(): Promise<CheckResult> {
+  const r = await probeSupabaseAuth({
+    url: process.env.NEXT_PUBLIC_SUPABASE_URL,
+    anonKey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+  });
+  if (!r.ok) console.error("[health] auth probe failed", { httpStatus: r.httpStatus, detail: r.detail });
+  return { ok: r.ok, configured: r.configured, httpStatus: r.httpStatus, detail: r.detail };
 }
 
 /**
@@ -166,8 +186,9 @@ export async function snapshot(): Promise<HealthSnapshot> {
   const region = deployRegion();
   const sha = commitSha().slice(0, 12) || "unknown";
 
-  const [db, stripe, email, twilio, sentry, posthog] = await Promise.all([
+  const [db, auth, stripe, email, twilio, sentry, posthog] = await Promise.all([
     checkDb(),
+    checkAuth(),
     Promise.resolve(checkStripe()),
     Promise.resolve(checkEmail()),
     Promise.resolve(checkTwilio()),
@@ -175,7 +196,7 @@ export async function snapshot(): Promise<HealthSnapshot> {
     Promise.resolve(checkPosthog()),
   ]);
 
-  const checks = { db, site: checkSite(), stripe, email, twilio, sentry, posthog, ai: checkAi() };
+  const checks = { db, auth, site: checkSite(), stripe, email, twilio, sentry, posthog, ai: checkAi() };
   const ok = db.ok;
   const allOptionalsConfigured =
     Boolean(stripe.configured) &&
@@ -184,7 +205,7 @@ export async function snapshot(): Promise<HealthSnapshot> {
     Boolean(sentry.serverConfigured);
   const status: HealthSnapshot["status"] = !ok
     ? "unhealthy"
-    : allOptionalsConfigured
+    : auth.ok && allOptionalsConfigured
       ? "healthy"
       : "degraded";
 

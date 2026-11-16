@@ -85,6 +85,10 @@ jobs:
       - name: Monitor Worker bundle dry run
         run: pnpm exec wrangler deploy -c monitor/wrangler.jsonc --env "" --dry-run
 
+      # The Supabase Auth probe behind /api/health's "auth" check (OPS-90).
+      - name: Auth probe tests
+        run: node --test src/lib/auth-probe.test.mjs
+
   e2e:
     name: playwright smoke
     runs-on: ubuntu-24.04

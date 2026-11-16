@@ -23,9 +23,26 @@ const healthy = (body) => {
   }
 };
 
-/** The checks: /api/health plus the project sheet's money pages. */
+// OPS-90: /api/health lists "auth" in `failing` when Supabase Auth, the provider
+// sign-in goes through, does not answer 200 (a restricted project answers 402).
+// The answer stays 200 then, so "API health" above does not notice.
+const signInServiceUp = (body) => {
+  try {
+    const failing = JSON.parse(body)?.failing;
+    return !(Array.isArray(failing) && failing.includes("auth"));
+  } catch {
+    return false;
+  }
+};
+
+/**
+ * The checks: /api/health plus the project sheet's money pages. A check with a
+ * quietVar has its own quiet date, read from that variable of the Worker: a new
+ * alarm starts quiet for 24 hours (see round.mjs).
+ */
 export const CHECKS = [
   { name: "API health", path: "/api/health", ok: healthy, failWord: "unhealthy" },
+  { name: "Sign-in service", path: "/api/health", ok: signInServiceUp, failWord: "unhealthy", quietVar: "SIGNIN_QUIET_UNTIL" },
   { name: "Home page", path: "/", ok: hasText("JetNine") },
   { name: "Contact page", path: "/contact", ok: hasText("Contact 24/7") },
   { name: "Cost calculator", path: "/cost-calculator", ok: hasText("Private Jet Cost Calculator") },

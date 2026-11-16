@@ -370,6 +370,15 @@ JetNine's database is moving from Supabase Postgres to Cloudflare D1, one domain
 
 `NEXT_PUBLIC_SITE_URL` comes from the `wrangler.jsonc` vars at runtime and from the deploy workflow at build time. The sitemap, OG URLs, Stripe redirects and canonical tags all use it.
 
+## Trigger logic made by the app (OPS-102)
+
+Three more Postgres triggers have an app-side twin, so the rule holds on D1 too. The triggers stay in place on Postgres until the cutover (their removal needs the owner's yes and the exact statement); each app function recomputes from the current rows, so running beside the trigger arrives at the same values.
+
+- **Aircraft calendar.** `syncTripScheduleBlock(tx, tripId)` in `src/domain/trips/schedule-block.ts`, after a trip is converted (`src/domain/requests/commands.ts`, after its legs are inserted) and after a status change (`src/domain/trips/commands.ts`). Same window rules as `trips_sync_schedule_block`: wheels up, else the earliest leg departure (a date alone is 00:00 UTC); wheels down, else the ETA, else the latest leg arrival; no aircraft, no window or a cancelled trip means no block.
+- **Member tier.** `syncMemberTier(tx, membershipId, previousStatus)` in `src/domain/memberships/tier.ts`, after each membership write (`src/app/account/memberships/actions.ts`, and the Stripe webhook, in one transaction with the activation). An active membership sets the tier from its program and tier_since from activated_on; losing the last active one resets the tier to on_demand.
+- **Role lock.** `setUserRole(actorRole, ...)` in `src/lib/auth-users.ts` refuses a role change unless the actor is an admin or superadmin (`src/lib/role-lock.ts`). The only caller is `src/domain/team/commands.ts`.
+- Tests: CI step "Trigger-logic tests".
+
 ## First-deploy verification checklist
 
 After everything is wired, the fastest single-call check is:

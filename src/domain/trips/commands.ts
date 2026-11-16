@@ -1,5 +1,6 @@
 import { and, asc, eq, inArray, sql } from "drizzle-orm";
 import { db } from "@/db";
+import { syncTripScheduleBlock } from "./schedule-block";
 import { messages, type NewMessage } from "@/db/schema/audit";
 import { invoices, type Invoice } from "@/db/schema/invoices";
 import { memberPreferences } from "@/db/schema/member-prefs";
@@ -164,6 +165,8 @@ export async function setTripStatus(
   if (status === "wheels_down" || status === "completed") patch.wheelsDownAt = now;
 
   await db.update(trips).set(patch).where(eq(trips.id, trip.id));
+  // Keep the aircraft calendar in step (OPS-102); the trigger does the same on Postgres.
+  await syncTripScheduleBlock(db, trip.id);
 
   // Auto-refund: when a trip transitions into a cancelled state, look for
   // any charter_draw rows inserted at conversion time and post

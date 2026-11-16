@@ -4,6 +4,7 @@ import { and, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { members } from "@/db/schema/members";
 import { memberships, type NewMembership } from "@/db/schema/memberships";
+import { syncMemberTier } from "@/domain/memberships/tier";
 import { logAudit } from "@/lib/audit";
 import { requireUser } from "@/lib/auth";
 import {
@@ -86,6 +87,9 @@ export async function buyMembership(programInput: string): Promise<BuyResult> {
     .insert(memberships)
     .values(newMembership)
     .returning({ id: memberships.id });
+  // The member tier follows the membership (OPS-102). A paused row changes
+  // nothing; the call keeps the rule in one place on every write path.
+  await syncMemberTier(db, inserted.id, null);
 
   let session: { sessionId: string; url: string };
   try {
@@ -107,6 +111,7 @@ export async function buyMembership(programInput: string): Promise<BuyResult> {
       .update(memberships)
       .set({ status: "cancelled", notes: "checkout-session-create-failed" })
       .where(eq(memberships.id, inserted.id));
+    await syncMemberTier(db, inserted.id, "paused");
     return { ok: false, error: "STRIPE_ERROR" };
   }
 
@@ -114,6 +119,7 @@ export async function buyMembership(programInput: string): Promise<BuyResult> {
     .update(memberships)
     .set({ stripeCheckoutSessionId: session.sessionId, updatedAt: new Date() })
     .where(eq(memberships.id, inserted.id));
+  await syncMemberTier(db, inserted.id, "paused");
 
   await logAudit({
     actorUserId: user.id,

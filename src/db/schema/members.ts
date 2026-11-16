@@ -15,6 +15,13 @@ import { memberStatusEnum, memberTierEnum } from "./enums";
 import { staff } from "./staff";
 import { users } from "./users";
 
+// Counter behind member_code (M-YYYY-NNNN), one row per year. The table has
+// existed since migration 0001; the app now advances it (src/db/codes.ts, OPS-101).
+export const memberCodeSequence = pgTable("member_code_sequence", {
+  year: integer("year").primaryKey(),
+  lastValue: integer("last_value").notNull().default(0),
+});
+
 /**
  * A member is a paying customer with a profile. One row per user_id at most.
  * member_code format: M-YYYY-NNNN (generated server-side at insert).
@@ -75,7 +82,7 @@ export const members = pgTable(
       .default(sql`now()`),
     updatedAt: timestamp("updated_at", { withTimezone: true })
       .notNull()
-      .default(sql`now()`),
+      .default(sql`now()`).$onUpdate(() => new Date()),
   },
   (t) => [
     uniqueIndex("members_member_code_uq").on(t.memberCode),

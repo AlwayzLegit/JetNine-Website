@@ -78,7 +78,7 @@ export const memberPreferences = pgTable("member_preferences", {
     .default(sql`now()`),
   updatedAt: timestamp("updated_at", { withTimezone: true })
     .notNull()
-    .default(sql`now()`),
+    .default(sql`now()`).$onUpdate(() => new Date()),
 });
 
 // ─── member_lanes (frequent routes) ──────────────────────────────────────

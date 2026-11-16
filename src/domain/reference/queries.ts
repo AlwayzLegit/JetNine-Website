@@ -1,5 +1,6 @@
 import { and, asc, count, desc, eq, gt, lt, notInArray, sql } from "drizzle-orm";
 import { db } from "@/db";
+import { emptyLegStore } from "@/domain/empty-legs/store";
 import { operators } from "@/db/schema/operators";
 import { aircraft } from "@/db/schema/aircraft";
 import { airports, fbos } from "@/db/schema/airports";
@@ -183,17 +184,24 @@ export type ReferenceCounts = {
 
 /** Row counts behind /admin/settings/reference. Partial when a table is missing. */
 export async function referenceCounts(): Promise<Partial<ReferenceCounts>> {
+  // The store is chosen outside the try: a d1 target without its binding
+  // must fail loudly, not come back as an empty page (OPS-113).
+  const legs = emptyLegStore();
   try {
-    const [row] = await db.execute<ReferenceCounts>(sql`
-      select
-        (select count(*)::int from public.operators)                                       as operators,
-        (select count(*)::int from public.aircraft)                                        as aircraft,
-        (select count(*)::int from public.airports)                                        as airports,
-        (select count(*)::int from public.fbos)                                            as fbos,
-        (select count(*)::int from public.empty_legs where status in ('scheduled','live')) as empty_legs,
-        (select count(*)::int from public.ai_providers where enabled)                      as ai_providers
-    `);
-    return row ?? {};
+    // The empty-legs count goes through its store (Postgres or D1); the other
+    // tables are still read here on Postgres.
+    const [[row], emptyLegCount] = await Promise.all([
+      db.execute<Omit<ReferenceCounts, "empty_legs">>(sql`
+        select
+          (select count(*)::int from public.operators)                  as operators,
+          (select count(*)::int from public.aircraft)                   as aircraft,
+          (select count(*)::int from public.airports)                   as airports,
+          (select count(*)::int from public.fbos)                       as fbos,
+          (select count(*)::int from public.ai_providers where enabled) as ai_providers
+      `),
+      legs.countActive(),
+    ]);
+    return row ? { ...row, empty_legs: emptyLegCount } : {};
   } catch {
     // A missing table (e.g. ai_providers before migration 0047) must not
     // take the whole page down — the links still work.

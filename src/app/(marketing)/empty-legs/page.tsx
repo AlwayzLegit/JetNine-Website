@@ -1,17 +1,12 @@
 import type { Metadata } from "next";
 import { pageMetadata } from "@/lib/page-meta";
-import { asc, desc, eq } from "drizzle-orm";
-import { db } from "@/db";
 import Image from "next/image";
 import Link from "next/link";
 import { Breadcrumb } from "@/components/light/breadcrumb";
 import { ChecklistWindow } from "@/components/empty-legs/checklist-window";
 import { LegsBoard, type BoardLeg, type BoardRegion } from "@/components/empty-legs/legs-board";
 import { WatchlistForm } from "@/components/empty-legs/watchlist-form";
-import { emptyLegs } from "@/db/schema/empty-legs";
-import { operators } from "@/db/schema/operators";
-import { aircraft } from "@/db/schema/aircraft";
-import { airports } from "@/db/schema/airports";
+import { emptyLegStore } from "@/domain/empty-legs/store";
 import { findAirport } from "@/lib/airports";
 import { SITE } from "@/lib/constants";
 import type { EmptyLegView, SoldLegView } from "@/lib/empty-legs";
@@ -98,9 +93,12 @@ async function getLiveLegs(): Promise<BoardLeg[]> {
   // sections still render below; the customer can still leave their
   // info. Errors are surfaced to Sentry via console.error in
   // production for postmortems.
-  let rows: Awaited<ReturnType<typeof queryLiveLegs>>;
+  // The store is chosen outside the try: a d1 target without its binding must
+  // fail loudly (OPS-113), not look like an empty board.
+  const store = emptyLegStore();
+  let rows: Awaited<ReturnType<typeof store.boardLegs>>;
   try {
-    rows = await queryLiveLegs();
+    rows = await store.boardLegs();
   } catch (err) {
     console.error("[empty-legs] live board query failed", err);
     return [];
@@ -160,42 +158,6 @@ async function getLiveLegs(): Promise<BoardLeg[]> {
   return out;
 }
 
-async function queryLiveLegs() {
-  return db
-    .select({
-      id: emptyLegs.id,
-      code: emptyLegs.code,
-      category: emptyLegs.category,
-      fromIata: emptyLegs.fromIata,
-      fromIcao: emptyLegs.fromIcao,
-      fromCity: emptyLegs.fromCity,
-      fromName: emptyLegs.fromName,
-      toIata: emptyLegs.toIata,
-      toIcao: emptyLegs.toIcao,
-      toCity: emptyLegs.toCity,
-      toName: emptyLegs.toName,
-      wheelsUpAt: emptyLegs.wheelsUpAt,
-      flightMinutes: emptyLegs.flightMinutes,
-      seats: emptyLegs.seatsAvailable,
-      priceWas: emptyLegs.fullCharterRefUsd,
-      priceNow: emptyLegs.listedPriceUsd,
-      discountPct: emptyLegs.discountPct,
-      makeModel: aircraft.makeModel,
-      yearManufactured: aircraft.yearManufactured,
-      argusRating: operators.argusRating,
-      wyvernWingman: operators.wyvernWingman,
-      // State + country of the departure airport drive the coast filter.
-      fromRegion: airports.region,
-      fromCountry: airports.countryIso2,
-    })
-    .from(emptyLegs)
-    .leftJoin(aircraft, eq(aircraft.id, emptyLegs.aircraftId))
-    .innerJoin(operators, eq(operators.id, emptyLegs.operatorId))
-    .leftJoin(airports, eq(airports.icao, emptyLegs.fromIcao))
-    .where(eq(emptyLegs.status, "live"))
-    .orderBy(asc(emptyLegs.wheelsUpAt));
-}
-
 // Compact relative durations for the sold strip ("14 h", "3 days").
 function formatSpanShort(ms: number): string {
   const hours = Math.max(1, Math.round(ms / 3_600_000));
@@ -207,29 +169,10 @@ function formatSpanShort(ms: number): string {
 // moves even when nothing is listed right now. Same degrade-to-empty
 // posture as the live query: a DB blip must not 500 a marketing page.
 async function getRecentlySold(): Promise<SoldLegView[]> {
+  const store = emptyLegStore();
   let rows;
   try {
-    rows = await db
-      .select({
-        id: emptyLegs.id,
-        code: emptyLegs.code,
-        category: emptyLegs.category,
-        fromIata: emptyLegs.fromIata,
-        fromIcao: emptyLegs.fromIcao,
-        fromCity: emptyLegs.fromCity,
-        toIata: emptyLegs.toIata,
-        toIcao: emptyLegs.toIcao,
-        toCity: emptyLegs.toCity,
-        priceNow: emptyLegs.listedPriceUsd,
-        discountPct: emptyLegs.discountPct,
-        soldAt: emptyLegs.soldAt,
-        boardGoLiveAt: emptyLegs.boardGoLiveAt,
-        createdAt: emptyLegs.createdAt,
-      })
-      .from(emptyLegs)
-      .where(eq(emptyLegs.status, "sold"))
-      .orderBy(desc(emptyLegs.soldAt))
-      .limit(3);
+    rows = await store.recentlySold(3);
   } catch (err) {
     console.error("[empty-legs] recently-sold query failed", err);
     return [];

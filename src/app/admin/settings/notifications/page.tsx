@@ -21,7 +21,7 @@ export default async function NotificationsPage() {
     {
       key: "newRequest",
       title: "A new request comes in",
-      desc: "Email the moment a request lands, any hour",
+      desc: "Email the moment a request, a contact message, a voicemail, a text or an email reply comes in, any hour",
       on: prefs.newRequest,
     },
     {

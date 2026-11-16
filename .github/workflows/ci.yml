@@ -89,6 +89,10 @@ jobs:
       - name: Session tests
         run: node --test src/lib/session/core.test.mjs
 
+      # Who a desk alert goes to (OPS-103): the shared inbox first, staff after.
+      - name: Desk alert recipient tests
+        run: node --test src/lib/desk-alert-recipients.test.mjs
+
   e2e:
     name: playwright smoke
     runs-on: ubuntu-24.04

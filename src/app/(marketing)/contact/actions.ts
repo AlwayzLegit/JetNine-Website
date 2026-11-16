@@ -13,7 +13,8 @@ import { getMemberByUserId } from "@/lib/member";
 import { logAudit } from "@/lib/audit";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { sendContactAckEmail, sendDispatchContactNotification } from "@/lib/email";
-import { getReplyPromiseMinutes } from "@/lib/desk-settings";
+import { getReplyPromiseMinutes, recipientsFor } from "@/lib/desk-settings";
+import { DESK_ALERT_KIND } from "@/lib/desk-alert-recipients.mjs";
 import { replyPromiseWords } from "@/lib/desk-status";
 import { clientIpFrom } from "@/lib/client-ip";
 import { passesTurnstile, TURNSTILE_FAILED, TURNSTILE_FIELD } from "@/lib/turnstile";
@@ -177,6 +178,9 @@ export async function submitContactInquiry(formData: FormData): Promise<ContactR
       hdrs.get("x-forwarded-proto") ?? (host.startsWith("localhost") ? "http" : "https");
     const baseUrl = process.env.NEXT_PUBLIC_SITE_URL ?? `${proto}://${host}`;
 
+    // Staff with "A new request comes in" on get it too, after the shared
+    // inbox. recipientsFor never throws; [] means the inbox alone.
+    const deskRecipients = await recipientsFor(DESK_ALERT_KIND);
     const result = await sendDispatchContactNotification({
       inquiryId: insertedId,
       reason,
@@ -191,6 +195,7 @@ export async function submitContactInquiry(formData: FormData): Promise<ContactR
       notes: notes || null,
       inquiriesUrl: `${baseUrl}/admin/messages?tab=form`,
       replyMinutes: await getReplyPromiseMinutes(),
+      to: deskRecipients,
     });
 
     await logAudit({
@@ -200,8 +205,13 @@ export async function submitContactInquiry(formData: FormData): Promise<ContactR
       subjectType: "contact_inquiry",
       subjectId: insertedId,
       metadata: result.ok
-        ? { status: "ok", provider: result.provider, messageId: result.messageId ?? null }
-        : { status: "error", error: result.error },
+        ? {
+            status: "ok",
+            provider: result.provider,
+            messageId: result.messageId ?? null,
+            staffRecipients: deskRecipients.length,
+          }
+        : { status: "error", error: result.error, staffRecipients: deskRecipients.length },
     });
   } catch (err) {
     console.error("submitContactInquiry email side-effect failed", err);

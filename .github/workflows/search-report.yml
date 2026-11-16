@@ -4,7 +4,8 @@ name: Search results report
 # impressions, click rate and average position for the last 28 days against the
 # 28 before, the top searches and pages, the biggest movers, the searches at
 # position 5 to 20 (the cheapest wins) and pages seen but not clicked.
-# Copied from Weedtip's workflow (AlwayzLegit/weedtip df9fdbe, OPS-24) for OPS-36.
+# Copied from Weedtip's workflow (AlwayzLegit/weedtip df9fdbe, OPS-24) for OPS-36;
+# the sign-in follows Weedtip's OPS-80 (f03226d).
 # See scripts/search-report/report.mjs and docs/search-report.md.
 #
 # One alarm fails the run red: "ALARM impressions" (the 2 newest final days are
@@ -13,16 +14,32 @@ name: Search results report
 # Runs Monday, Wednesday and Friday; the full report on Mondays and on manual
 # runs, the alarm check on every run. Everything else is a finding.
 #
-# No secret yet is not a failure: the run stays green with one line, "not
-# configured". The secret is the owner step OPS-25.
+# Sign-in without a key (OPS-81). On main only, the step "Sign in to Google
+# without a key" asks Google for a short-lived read-only token through workload
+# identity (the workflow's own GitHub sign-in), acting as the read-only account
+# named in the repository variable GSC_SERVICE_ACCOUNT. Google itself refuses
+# every ref but refs/heads/main, so a pull request or another branch can never
+# get it. No credentials file is written, only the token is kept. There is no
+# key and no secret.
+#
+# While this repository is public that step does not run: GitHub prints the
+# inputs of a step in the job log, and a repository variable is not masked, so
+# the account's address would be public for good. The run stays green and prints
+# one "waiting" line instead. Once the repository is private (OPS-52) the
+# report signs in by itself, no change needed. Waiting is not a failure; a
+# sign-in that Google refuses is a red run.
+# The read-only account must also be added to the Search Console property: the
+# owner step OPS-25. Until then the run is green with one "cannot read" line.
 #
 # Search terms: printed and stored only when the repository is private, or when
 # SHOW_TERMS_ON_PUBLIC below is "true" (the owner's choice, OPS-25). Otherwise
 # every list of searches is replaced by one "search terms withheld" line.
 #
-# Secret: GSC_SERVICE_ACCOUNT_JSON, read-only scope, in the env of the one step
-# that calls Google, never printed. Every step after the unit tests is skipped
-# for a pull request, so the key can never be in a pull request run.
+# The token is read only, in the env of the one step that calls Google, never
+# printed. Every step after the unit tests is skipped for a pull request, so the
+# token can never be in a pull request run. That guards a changed script. It
+# does not guard a pull request that edits this file (GitHub runs that pull
+# request's own copy of it), so every change to this file is reviewed by a person.
 #
 # Cost: 3 runs a week, each under a minute, no install, no dependency.
 # Silence it: GitHub, Actions, Search results report, Disable workflow.
@@ -48,6 +65,12 @@ jobs:
   report:
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    # Job level on purpose: only this job may ask for the sign-in token. A job
+    # level block replaces the workflow level one, so the other two are listed.
+    permissions:
+      contents: read
+      actions: read
+      id-token: write
     env:
       GH_TOKEN: ${{ github.token }}
       # Set to "true" only on the owner's answer in OPS-25.
@@ -77,21 +100,38 @@ jobs:
         if: ${{ github.event_name != 'pull_request' }}
         id: terms
         run: |
+          # Only a private repository keeps what people typed out of public view.
+          # It also decides whether the keyless sign-in may run (see the header).
+          # When the read fails, the repository counts as public.
+          private=$(gh api "repos/${{ github.repository }}" --jq .private 2>/dev/null || echo false)
+          if [ "$private" != "true" ]; then private=false; fi
           show=false
-          if [ "$SHOW_TERMS_ON_PUBLIC" = "true" ]; then
-            show=true
-          else
-            # Only a private repository keeps what people typed out of public view.
-            private=$(gh api "repos/${{ github.repository }}" --jq .private 2>/dev/null || echo false)
-            if [ "$private" = "true" ]; then show=true; fi
-          fi
+          if [ "$SHOW_TERMS_ON_PUBLIC" = "true" ] || [ "$private" = "true" ]; then show=true; fi
+          echo "private=$private" >> "$GITHUB_OUTPUT"
           echo "show=$show" >> "$GITHUB_OUTPUT"
+          echo "Repository private: $private"
           echo "Search terms shown: $show"
+
+      - name: Sign in to Google without a key
+        id: gauth
+        if: ${{ github.event_name != 'pull_request' && github.ref == 'refs/heads/main' && vars.GSC_SERVICE_ACCOUNT != '' && steps.terms.outputs.private == 'true' }}
+        uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: projects/757020195494/locations/global/workloadIdentityPools/github/providers/github-actions
+          service_account: ${{ vars.GSC_SERVICE_ACCOUNT }}
+          token_format: access_token
+          access_token_scopes: https://www.googleapis.com/auth/webmasters.readonly
+          access_token_lifetime: 600s
+          create_credentials_file: false
+          export_environment_variables: false
 
       - name: Search results report
         if: ${{ github.event_name != 'pull_request' }}
         env:
-          GSC_SERVICE_ACCOUNT_JSON: ${{ secrets.GSC_SERVICE_ACCOUNT_JSON }}
+          GSC_ACCESS_TOKEN: ${{ steps.gauth.outputs.access_token }}
+          # Only to say why there is no token: true or false, never the address.
+          REPO_PRIVATE: ${{ steps.terms.outputs.private }}
+          SIGN_IN_SET: ${{ vars.GSC_SERVICE_ACCOUNT != '' }}
           GSC_DOMAIN: jetnine.com
           GSC_SITE_URL: ${{ vars.GSC_SITE_URL }}
           SHOW_SEARCH_TERMS: ${{ steps.terms.outputs.show }}

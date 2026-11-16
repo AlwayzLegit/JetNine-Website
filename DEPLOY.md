@@ -289,6 +289,33 @@ Apply it before deploying — `/api/v1/agent/*` reads and writes them. No new
 env vars. The scheduled task moves to the bootstrap prompt in
 `docs/AGENT_HANDOFF.md` with a key from Settings › API keys.
 
+## 8e2. The site's own sign-in (OPS-91)
+
+Schema: migration `0056_site_sessions.sql` adds `user_sessions` (one row per
+signed-in browser, only the SHA-256 of the cookie token) and
+`user_credentials` (a password set after this change, bcrypt). RLS on, no
+policies, no grants for `anon` or `authenticated`. It is additive: running it
+changes nothing the live site reads. Apply it **before** the deploy:
+
+```
+DATABASE_URL="$DIRECT_URL" pnpm db:migrate
+```
+
+(or run the file in the SQL editor; it uses `if not exists`). Check: `select
+count(*) from public.user_sessions;` returns 0. Way back: `drop table
+public.user_sessions, public.user_credentials;` after reverting the merge.
+
+Sign-in no longer calls Supabase Auth: `src/lib/session` checks the password
+in place (the older bcrypt hash in `auth.users.encrypted_password`, or a newer
+one in `user_credentials`, which wins), keeps the session on the server and
+sets the host-only cookie `__Host-jn_session`. Sessions last 30 days and end
+after 7 idle days, on sign-out and on a password change. Emailed sign-in links,
+password reset mails and invites still go through Supabase until OPS-94; the
+callback hands the user over to a site session. A password changed after this
+change is not known to Supabase, so after a revert that member resets it
+again. `/api/health` shows `signin` in `failing` when the tables are missing.
+No new secret.
+
 ## 8f. Approval queue (API phase 5)
 
 Schema: migration `0053_approvals.sql` adds `approvals` (RLS on, no

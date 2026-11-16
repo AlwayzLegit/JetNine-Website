@@ -3,6 +3,7 @@
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { createSession, endSession, getSessionUser, isCurrentPassword, setPassword, verifyPassword } from "@/lib/session";
 import { safeNext } from "@/lib/safe-next";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { clientIpFrom } from "@/lib/client-ip";
@@ -163,7 +164,7 @@ export type PasswordSignInResult =
   | { ok: false; error: string };
 
 /**
- * Email + password sign-in. On success the Supabase session cookie is set
+ * Email + password sign-in. On success the site's own session cookie is set
  * on this response (server actions may write cookies) and the client
  * navigates to `next`. A wrong email and a wrong password get the same
  * sentence — the form must not say which addresses hold accounts.
@@ -200,17 +201,23 @@ export async function signInWithPassword(formData: FormData): Promise<PasswordSi
   );
   if (limited) return { ok: false, error: limited };
 
-  const supabase = await createClient();
-  const { error } = await supabase.auth.signInWithPassword({ email, password });
+  // The site's own check (src/lib/session): the password is compared in
+  // place, a wrong email and a wrong password take the same time and get
+  // the same answer. Only a database failure gets a different line.
+  let userId: string | null;
+  try {
+    userId = await verifyPassword(email, password);
+  } catch {
+    return { ok: false, error: "Couldn't sign in just now — try again in a moment, or email yourself a link." };
+  }
+  if (!userId) {
+    console.warn(`password sign-in refused — ip=${ip}`);
+    return { ok: false, error: WRONG_CREDENTIALS };
+  }
 
-  if (error) {
-    // invalid_credentials covers "no such user" and "wrong password" alike
-    // — keep it that way. Only a transport failure gets a different line.
-    if (error.code === "invalid_credentials" || error.status === 400) {
-      console.warn(`password sign-in refused — ip=${ip}`);
-      return { ok: false, error: WRONG_CREDENTIALS };
-    }
-    console.error("password sign-in error", error);
+  try {
+    await createSession(userId);
+  } catch {
     return { ok: false, error: "Couldn't sign in just now — try again in a moment, or email yourself a link." };
   }
 
@@ -277,23 +284,20 @@ export async function updatePassword(formData: FormData): Promise<UpdatePassword
   const problem = newPasswordProblem(password, confirm);
   if (problem) return { ok: false, error: problem };
 
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getSessionUser();
   if (!user) {
     return { ok: false, error: "That link has expired or was already used. Request a new one." };
   }
 
-  const { error } = await supabase.auth.updateUser({ password });
-  if (error) {
-    console.error("update password error", error);
-    if (error.code === "same_password") {
-      return { ok: false, error: "That's already your password — choose a new one." };
-    }
-    if (error.code === "weak_password") {
-      return { ok: false, error: "That password is too easy to guess — try a longer one." };
-    }
+  if (await isCurrentPassword(user.id, password)) {
+    return { ok: false, error: "That's already your password — choose a new one." };
+  }
+
+  try {
+    await setPassword(user.id, password);
+  } catch (err) {
+    const e = err as { name?: string; code?: string };
+    console.error("update password error", { name: e?.name, code: e?.code });
     return { ok: false, error: "Couldn't save that password — try again or call dispatch." };
   }
 
@@ -301,7 +305,6 @@ export async function updatePassword(formData: FormData): Promise<UpdatePassword
 }
 
 export async function signOut() {
-  const supabase = await createClient();
-  await supabase.auth.signOut();
+  await endSession();
   redirect("/");
 }

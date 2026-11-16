@@ -393,6 +393,13 @@
       "when": 1783300000000,
       "tag": "0055_airports_catalog_sync",
       "breakpoints": true
+    },
+    {
+      "idx": 56,
+      "version": "7",
+      "when": 1783400000000,
+      "tag": "0056_site_sessions",
+      "breakpoints": true
     }
   ]
 }

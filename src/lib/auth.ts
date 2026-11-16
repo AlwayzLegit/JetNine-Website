@@ -1,36 +1,11 @@
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
-import { db } from "@/db";
-import { users, type User } from "@/db/schema/users";
-import { eq } from "drizzle-orm";
+import { getSessionUser, type SessionUser } from "@/lib/session";
 
-export type CurrentUser = {
-  id: string;
-  email: string;
-  role: User["role"];
-  firstName: string | null;
-  lastName: string | null;
-};
+export type CurrentUser = SessionUser;
 
+/** Who is signed in, from the site's own session (src/lib/session). */
 export async function getCurrentUser(): Promise<CurrentUser | null> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return null;
-
-  const [row] = await db
-    .select({
-      id: users.id,
-      email: users.email,
-      role: users.role,
-      firstName: users.firstName,
-      lastName: users.lastName,
-    })
-    .from(users)
-    .where(eq(users.id, user.id));
-
-  return row ?? null;
+  return getSessionUser();
 }
 
 export async function requireUser(next?: string): Promise<CurrentUser> {

@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import type { EmailOtpType } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
 import { safeNext } from "@/lib/safe-next";
+import { createSession } from "@/lib/session";
 
 /**
  * Magic-link / invite landing. Two link shapes reach here:
@@ -29,6 +30,21 @@ const VALID_OTP_TYPES: EmailOtpType[] = [
   "email_change",
 ];
 
+/**
+ * The bridge for emailed links (until OPS-94 moves them onto the site's own
+ * mail): Supabase has just proved who the link belongs to, so the site starts
+ * its own session for that user. createSession also clears the sb- cookies
+ * Supabase set a moment ago.
+ */
+async function signedInRedirect(request: NextRequest, userId: string, next: string) {
+  try {
+    await createSession(userId);
+  } catch {
+    return NextResponse.redirect(new URL("/sign-in?error=session_unavailable", request.url));
+  }
+  return NextResponse.redirect(new URL(next, request.url));
+}
+
 export async function GET(request: NextRequest) {
   const url = new URL(request.url);
   const code = url.searchParams.get("code");
@@ -43,26 +59,26 @@ export async function GET(request: NextRequest) {
     const type = (VALID_OTP_TYPES as string[]).includes(typeParam ?? "")
       ? (typeParam as EmailOtpType)
       : "email";
-    const { error } = await supabase.auth.verifyOtp({ type, token_hash: tokenHash });
-    if (error) {
+    const { data, error } = await supabase.auth.verifyOtp({ type, token_hash: tokenHash });
+    if (error || !data?.user) {
       console.error("auth callback verifyOtp failed", error);
       return NextResponse.redirect(
-        new URL(`/sign-in?error=${encodeURIComponent(error.message)}`, request.url),
+        new URL(`/sign-in?error=${encodeURIComponent(error?.message ?? "invalid_link")}`, request.url),
       );
     }
-    return NextResponse.redirect(new URL(next, request.url));
+    return signedInRedirect(request, data.user.id, next);
   }
 
   // Fallback: PKCE code exchange (same-browser only).
   if (code) {
-    const { error } = await supabase.auth.exchangeCodeForSession(code);
-    if (error) {
+    const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+    if (error || !data?.user) {
       console.error("auth callback exchange failed", error);
       return NextResponse.redirect(
-        new URL(`/sign-in?error=${encodeURIComponent(error.message)}`, request.url),
+        new URL(`/sign-in?error=${encodeURIComponent(error?.message ?? "invalid_link")}`, request.url),
       );
     }
-    return NextResponse.redirect(new URL(next, request.url));
+    return signedInRedirect(request, data.user.id, next);
   }
 
   return NextResponse.redirect(new URL(`/sign-in?error=missing_code`, request.url));

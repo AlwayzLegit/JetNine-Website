@@ -206,6 +206,24 @@ test.describe("auth surface", () => {
   });
 });
 
+test.describe("the site's own sign-in gate", () => {
+  test("/admin without a session cookie is 307 to /sign-in and sets no sb- cookie", async ({ request }) => {
+    const res = await request.get("/admin", { maxRedirects: 0 });
+    expect(res.status()).toBe(307);
+    expect(res.headers()["location"]).toContain("/sign-in?next=%2Fadmin");
+    expect(res.headers()["set-cookie"] ?? "").not.toMatch(/(^|[\s,;])sb-/);
+  });
+
+  // The cookie passes the middleware (it only looks for one), so this proves
+  // the layout refuses it: no such session, and here not even a database.
+  test("a made-up session cookie does not open /admin", async ({ page }) => {
+    await page.setExtraHTTPHeaders({ cookie: `__Host-jn_session=${"a".repeat(43)}` });
+    const response = await page.goto("/admin");
+    expect(response?.status()).toBeLessThan(500);
+    expect(page.url()).toMatch(/sign-in/);
+  });
+});
+
 test.describe("stripe webhook endpoint", () => {
   test("rejects request without a signature", async ({ request }) => {
     const response = await request.post("/api/stripe/webhook", {

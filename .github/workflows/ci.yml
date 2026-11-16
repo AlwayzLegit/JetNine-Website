@@ -93,6 +93,10 @@ jobs:
       - name: Auth token tests
         run: node --test src/lib/auth-tokens/core.test.mjs
 
+      # The D1 tables stay a faithful twin of the Postgres ones (OPS-100).
+      - name: D1 schema parity test
+        run: pnpm exec tsx --test src/db/d1/parity.test.ts
+
   e2e:
     name: playwright smoke
     runs-on: ubuntu-24.04

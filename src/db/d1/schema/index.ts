@@ -1,0 +1,27 @@
+// Barrel for the D1 (SQLite) tables, the twin of src/db/schema/index.ts (OPS-100).
+// drizzle.d1.config.ts reads this folder; nothing live imports it yet.
+export * from "./users";
+export * from "./staff";
+export * from "./members";
+export * from "./quotes";
+export * from "./operators";
+export * from "./aircraft";
+export * from "./trips";
+export * from "./invoices";
+export * from "./member-prefs";
+export * from "./empty-legs";
+export * from "./memberships";
+export * from "./audit";
+export * from "./schedule-blocks";
+export * from "./airports";
+export * from "./contact";
+export * from "./sourced-option";
+export * from "./blog";
+export * from "./blog-subscribers";
+export * from "./ai";
+export * from "./desk";
+export * from "./api";
+export * from "./agent";
+export * from "./approvals";
+export * from "./voice-agents";
+export * from "./sessions";

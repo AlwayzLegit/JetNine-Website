@@ -425,3 +425,16 @@ If you need to rotate a secret:
 2. Run `pnpm exec wrangler secret put NAME` (add `--env staging` for staging). Workers use the new value from the next request on, with no redeploy.
 3. `NEXT_PUBLIC_*` values are the exception, because they're compiled into the build. Change the GitHub variable and redeploy.
 4. Revoke the old value in the provider.
+
+## D1 tables (OPS-100)
+
+The 50 tables of `src/db/schema` are written a second time for Cloudflare D1 (SQLite) in `src/db/d1/schema`, one file per Postgres file, same export, table and column names. Nothing live reads them yet; later rows convert the data code one domain at a time.
+
+How types map, decided once:
+
+- `uuid` is `text`, made in the app (`newId`). `timestamp` is `integer` in `timestamp_ms` mode: UTC milliseconds, read back as `Date`. `date` and `time` are `text` (`YYYY-MM-DD`, `HH:MM:SS`); `numeric` is `text`, so decimals stay exact strings. `boolean` is `integer` in `boolean` mode. `jsonb` and `text[]` are `text` holding JSON. `char(n)` is `text` plus a length CHECK.
+- A Postgres enum is `text` with the same values (read from the Postgres enum, so there is one list) plus a CHECK named `<table>_<column>_enum` (`enumCheck` in `src/db/d1/helpers.ts`).
+- Defaults that Postgres ran in the database (`now()`, `current_date`, `gen_random_uuid()`, `encode(gen_random_bytes(24), 'hex')`, `now() + interval`) run in the app (`src/db/d1/helpers.ts`). Raw SQL inserts no longer get them.
+- No equal in D1: the `auth` schema (so `users.id` has no foreign key), row level security, and Postgres functions and triggers (OPS-101). `api_keys` scope CHECKs are rewritten with string tests because SQLite forbids subqueries in CHECK.
+- Regenerate with `pnpm db:d1:generate` (`drizzle.d1.config.ts`); the migration goes to `src/db/d1/migrations` and the staging deploy applies it. The test `src/db/d1/parity.test.ts` runs in CI and fails when a Postgres table, column, not-null flag, primary key, foreign key count, index count or enum CHECK has no D1 twin.
+

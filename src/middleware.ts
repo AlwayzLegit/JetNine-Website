@@ -1,8 +1,8 @@
-import { updateSession } from "@/lib/supabase/middleware";
+import { gateRequest } from "@/lib/session/middleware";
 import type { NextRequest } from "next/server";
 
-export async function middleware(request: NextRequest) {
-  return await updateSession(request);
+export function middleware(request: NextRequest) {
+  return gateRequest(request);
 }
 
 export const config = {

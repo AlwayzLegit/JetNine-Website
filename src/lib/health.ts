@@ -19,6 +19,7 @@ export type HealthSnapshot = {
   sha: string;
   checks: {
     db: CheckResult;
+    signin: CheckResult;
     site: CheckResult;
     stripe: CheckResult;
     email: CheckResult;
@@ -55,6 +56,34 @@ export async function checkDb(): Promise<CheckResult> {
       error: err instanceof Error ? err.name : "unknown",
     };
   }
+}
+
+/**
+ * The site's own sign-in (OPS-91). Two reads, no data returned: the session
+ * table exists (migration 0056 applied), and at least one account still has
+ * a password hash to check in place. A failure names no table and no row:
+ * only a fixed word. It makes the status "degraded" and shows "signin" in
+ * the public failing list; it never turns the answer into a 503.
+ */
+export async function checkSignin(): Promise<CheckResult> {
+  try {
+    await db.execute(drizzleSql`select 1 as ok from public.user_sessions limit 1`);
+  } catch (err) {
+    const e = err as { name?: string; code?: string };
+    console.error("[health] signin probe failed", { name: e?.name, code: e?.code });
+    return { ok: false, reason: "sessions" };
+  }
+  try {
+    const rows = await db.execute<{ present: boolean }>(
+      drizzleSql`select exists(select 1 from auth.users where encrypted_password is not null) as present`,
+    );
+    if (rows[0]?.present !== true) return { ok: false, reason: "passwords" };
+  } catch (err) {
+    const e = err as { name?: string; code?: string };
+    console.error("[health] signin probe failed", { name: e?.name, code: e?.code });
+    return { ok: false, reason: "passwords" };
+  }
+  return { ok: true };
 }
 
 /**
@@ -166,8 +195,9 @@ export async function snapshot(): Promise<HealthSnapshot> {
   const region = deployRegion();
   const sha = commitSha().slice(0, 12) || "unknown";
 
-  const [db, stripe, email, twilio, sentry, posthog] = await Promise.all([
+  const [db, signin, stripe, email, twilio, sentry, posthog] = await Promise.all([
     checkDb(),
+    checkSignin(),
     Promise.resolve(checkStripe()),
     Promise.resolve(checkEmail()),
     Promise.resolve(checkTwilio()),
@@ -175,7 +205,7 @@ export async function snapshot(): Promise<HealthSnapshot> {
     Promise.resolve(checkPosthog()),
   ]);
 
-  const checks = { db, site: checkSite(), stripe, email, twilio, sentry, posthog, ai: checkAi() };
+  const checks = { db, signin, site: checkSite(), stripe, email, twilio, sentry, posthog, ai: checkAi() };
   const ok = db.ok;
   const allOptionalsConfigured =
     Boolean(stripe.configured) &&
@@ -184,7 +214,7 @@ export async function snapshot(): Promise<HealthSnapshot> {
     Boolean(sentry.serverConfigured);
   const status: HealthSnapshot["status"] = !ok
     ? "unhealthy"
-    : allOptionalsConfigured
+    : allOptionalsConfigured && signin.ok
       ? "healthy"
       : "degraded";
 

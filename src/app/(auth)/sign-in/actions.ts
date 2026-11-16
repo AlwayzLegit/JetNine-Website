@@ -46,6 +46,15 @@ const PW_GLOBAL_WINDOW_S = 3600;
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+/**
+ * What a log line may say about an auth error: its class, HTTP status and
+ * code, and nothing else. A restricted project (402) then reads as such in
+ * the logs. Never the message text, which can echo an email address.
+ */
+function errorFacts(error: { name?: string; status?: number; code?: string }) {
+  return { name: error.name, status: error.status, code: error.code };
+}
+
 async function clientIp(): Promise<string> {
   try {
     const hdrs = await headers();
@@ -152,7 +161,7 @@ export async function sendMagicLink(formData: FormData): Promise<SignInResult> {
       console.warn(`magic link request for unknown email (no send) — ip=${ip}`);
       return NEUTRAL_OK;
     }
-    console.error("magic link error", error);
+    console.error("magic link error", errorFacts(error));
     return { ok: false, error: "Couldn't send the link — try again or call dispatch." };
   }
 
@@ -262,7 +271,7 @@ export async function requestPasswordReset(formData: FormData): Promise<SignInRe
   if (error) {
     // Supabase answers unknown emails with success already; anything that
     // does come back is a transport or config problem worth saying so.
-    console.error("password reset request error", error);
+    console.error("password reset request error", errorFacts(error));
     return { ok: false, error: "Couldn't send the link — try again or call dispatch." };
   }
 

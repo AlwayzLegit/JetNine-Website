@@ -39,7 +39,7 @@ export const staff = pgTable("staff", {
     .default(sql`now()`),
   updatedAt: timestamp("updated_at", { withTimezone: true })
     .notNull()
-    .default(sql`now()`),
+    .default(sql`now()`).$onUpdate(() => new Date()),
 });
 
 export type Staff = typeof staff.$inferSelect;

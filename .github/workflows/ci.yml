@@ -82,6 +82,10 @@ jobs:
       - name: Monitor tests
         run: node --test monitor/monitor.test.mjs
 
+      # App-made codes and updated_at (OPS-101): format, UTC year, the upsert, the call sites.
+      - name: Codes and updated-at tests
+        run: pnpm exec tsx --test src/db/codes.test.ts
+
       - name: Monitor Worker bundle dry run
         run: pnpm exec wrangler deploy -c monitor/wrangler.jsonc --env "" --dry-run
 

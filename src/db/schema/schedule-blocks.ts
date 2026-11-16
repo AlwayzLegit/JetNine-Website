@@ -88,7 +88,7 @@ export const aircraftScheduleBlocks = pgTable(
       .default(sql`now()`),
     updatedAt: timestamp("updated_at", { withTimezone: true })
       .notNull()
-      .default(sql`now()`),
+      .default(sql`now()`).$onUpdate(() => new Date()),
   },
   (t) => [
     // Primary range query — "what's on this tail between dates X and Y".

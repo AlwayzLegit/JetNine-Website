@@ -105,7 +105,7 @@ export const trips = pgTable(
       .default(sql`now()`),
     updatedAt: timestamp("updated_at", { withTimezone: true })
       .notNull()
-      .default(sql`now()`),
+      .default(sql`now()`).$onUpdate(() => new Date()),
   },
   (t) => [
     uniqueIndex("trips_trip_code_uq").on(t.tripCode),

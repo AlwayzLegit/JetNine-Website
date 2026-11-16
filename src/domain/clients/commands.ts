@@ -1,5 +1,6 @@
 import { and, desc, eq, sql } from "drizzle-orm";
 import { db } from "@/db";
+import { nextCode } from "@/db/codes";
 import { members, type NewMember } from "@/db/schema/members";
 import { memberships, reserveTransactions, type NewReserveTransaction } from "@/db/schema/memberships";
 import { users } from "@/db/schema/users";
@@ -244,11 +245,12 @@ export async function inviteClient(
     })
     .where(eq(users.id, authUserId));
 
-  // 5) Insert public.members. memberCode auto-fills via trigger.
+  // 5) Insert public.members. The app makes the member code (OPS-101); the
+  //    members_default_member_code trigger fills it only when empty.
   const today = new Date().toISOString().slice(0, 10);
   const values: NewMember = {
     userId: authUserId,
-    memberCode: "", // trigger fills
+    memberCode: "", // set from nextCode below, in the same transaction as the insert
     legalName,
     preferredName: firstName,
     mobileE164: phoneE164,
@@ -259,7 +261,10 @@ export async function inviteClient(
     status: "active",
   };
 
-  const [memberRow] = await db.insert(members).values(values).returning({ id: members.id, memberCode: members.memberCode });
+  const [memberRow] = await db.transaction(async (tx) => {
+    values.memberCode = await nextCode(tx, "member");
+    return tx.insert(members).values(values).returning({ id: members.id, memberCode: members.memberCode });
+  });
 
   await logAudit({
     actorUserId: a.actorUserId,

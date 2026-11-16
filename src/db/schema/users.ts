@@ -33,7 +33,7 @@ export const users = pgTable("users", {
     .default(sql`now()`),
   updatedAt: timestamp("updated_at", { withTimezone: true })
     .notNull()
-    .default(sql`now()`),
+    .default(sql`now()`).$onUpdate(() => new Date()),
 });
 
 export type User = typeof users.$inferSelect;

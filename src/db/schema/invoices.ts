@@ -86,7 +86,7 @@ export const invoices = pgTable(
       .default(sql`now()`),
     updatedAt: timestamp("updated_at", { withTimezone: true })
       .notNull()
-      .default(sql`now()`),
+      .default(sql`now()`).$onUpdate(() => new Date()),
   },
   (t) => [
     uniqueIndex("invoices_invoice_code_uq").on(t.invoiceCode),

@@ -5,6 +5,7 @@ import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
+import { nextCode } from "@/db/codes";
 import { quotes, quoteLegs, type NewQuote, type NewQuoteLeg } from "@/db/schema/quotes";
 import { findAirport, type Airport } from "@/lib/airports";
 import { airportRowFromCatalog, type AirportRow } from "@/lib/airport-rows";
@@ -175,8 +176,11 @@ export async function submitQuote(draft: QuoteDraft, turnstileToken?: string | n
 
   try {
     const inserted = await db.transaction(async (tx) => {
+      // The app makes the code (OPS-101). The quotes_default_quote_code trigger
+      // fills it only when empty, so it does nothing now and the counter moves once.
+      const quoteCode = await nextCode(tx, "quote");
       const values: NewQuote = {
-          // quote_code is auto-filled by the quotes_default_quote_code trigger.
+          quoteCode,
           memberId,
           createdByUserId: user?.id ?? null,
           source: "quote_wizard",

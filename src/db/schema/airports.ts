@@ -79,7 +79,7 @@ export const airports = pgTable(
       .default(sql`now()`),
     updatedAt: timestamp("updated_at", { withTimezone: true })
       .notNull()
-      .default(sql`now()`),
+      .default(sql`now()`).$onUpdate(() => new Date()),
   },
   (t) => [
     uniqueIndex("airports_icao_uq").on(t.icao),
@@ -129,7 +129,7 @@ export const fbos = pgTable(
       .default(sql`now()`),
     updatedAt: timestamp("updated_at", { withTimezone: true })
       .notNull()
-      .default(sql`now()`),
+      .default(sql`now()`).$onUpdate(() => new Date()),
   },
   (t) => [
     index("fbos_airport_idx").on(t.airportId),

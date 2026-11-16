@@ -417,6 +417,15 @@ If `/api/health` returns `status: "degraded"`, the DB is fine but at least one o
 
 The post-deploy smoke workflow (`.github/workflows/smoke-after-deploy.yml`) fails when `/api/health` returns non-200 against a non-localhost target — so a degraded prod deploy will paint the merge commit red without manual checking. There's also a scheduled health monitor (`.github/workflows/health-monitor.yml`) that probes every 15 minutes for between-deploy regressions.
 
+## Codes and timestamps made by the app (OPS-101)
+
+D1 cannot run Postgres triggers, so the work of two kinds of trigger now happens in the app, and the triggers stay in place on Postgres until the cutover (their removal needs the owner's yes and the exact statement).
+
+- **Codes.** `nextCode(tx, kind)` in `src/db/codes.ts` makes JN-YYYY-NNNNN (quote), JN-YYYY-NNNN (trip), INV-YYYY-NNNN, EL-YYYY-NNNN and M-YYYY-NNNN with one upsert on the `[kind]_code_sequence` table (`insert ... on conflict (year) do update set last_value = last_value + 1 returning last_value`). The year is UTC. The five insert paths call it in the same transaction as the insert: `src/app/quote/actions.ts`, `src/domain/requests/commands.ts` (trip and invoice), `src/domain/clients/commands.ts`, `src/domain/empty-legs/commands.ts`. The triggers fill a code only when it is empty, so they do nothing now and the counter moves once.
+- **updated_at.** The 14 tables that had the `set_updated_at` trigger (aircraft, airports, aircraft_schedule_blocks, empty_legs, fbos, invoices, member_preferences, members, memberships, operators, quotes, staff, trips, users) carry `$onUpdate(() => new Date())`. On Postgres the trigger then sets the same value in the same write.
+- Still to move: the schedule-block and member-tier syncs and the role lock (OPS-102), the new-user trigger (OPS-94). Row level security and its helper functions are not moved: D1 has none, and the app's own checks guard the data.
+- Tests: `src/db/codes.test.ts` (CI step "Codes and updated-at tests").
+
 ## Rotation
 
 If you need to rotate a secret:

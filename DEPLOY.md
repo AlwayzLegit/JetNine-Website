@@ -351,7 +351,18 @@ No schema or env changes. The runbook, in order:
 - **The status address:** `https://jetnine-monitor.jetnine-inc.workers.dev/status` (staging: `jetnine-monitor-staging`). Fixed fields only: `v`, `ok`, `checkedAt`, `failingSince`, `streak`, `checks`, `canary`, `alerts`, `quietUntil`, `wouldHaveRaised`, `incidents`. 503 when the last round is over 45 minutes old. The daily `monitor-status` job of `health-monitor.yml` reads it (and a run by hand can read another address with `status_url`).
 - **Quiet start:** `QUIET_UNTIL` in `monitor/wrangler.jsonc` is at least 24 hours after the merge. Before it a failing round is only written to `wouldHaveRaised`: no incident, no email. Move it first when the merge comes later than the date in the file. The old 15 minute GitHub check stays until that record has been read.
 - **Alerts (owner step, optional):** `pnpm exec wrangler secret put ALERT_EMAIL -c monitor/wrangler.jsonc`, then the same with `RESEND_API_KEY` or `POSTMARK_SERVER_TOKEN` (the value the site uses; `ALERT_FROM` is optional). It worked when `/status` shows `"alerts":"configured"`. Without them the monitor records and never emails.
+- **Sign-in service check (OPS-90):** a fifth check reads `/api/health` and fails when its `failing` list names `auth`, which `/api/health` does when Supabase Auth does not answer 200 (since OPS-91 that guards emailed links, resets and invites; password sign-in has its own `signin` check in the same list, which this monitor check does not read), as when the project was restricted on 2026-11-16 (402). `/api/health` itself stays 200 and `ok` stays true then, so deploy smoke tests do not fail while the project is down. The check has its own quiet date, `SIGNIN_QUIET_UNTIL` in `monitor/wrangler.jsonc` (both envs): before it a failure is only written to `wouldHaveRaised`. Keep it at least 24 hours after the merge, and move it first when the merge comes later than the date in the file. A missing or broken value stays quiet.
 - **Silence it:** `pnpm exec wrangler delete --name jetnine-monitor` (owner), or push `QUIET_UNTIL` far into the future.
+
+## 8i. Database target (D1 move, OPS-99)
+
+JetNine's database is moving from Supabase Postgres to Cloudflare D1, one domain at a time.
+
+- **Binding.** The staging Worker has a D1 binding `DB` (database `jetnine-staging`, migrations in `src/db/d1/migrations`). Production has no such binding and stays on Postgres.
+- **Switch.** `DB_TARGET` (`postgres` or `d1`) names the database per environment. Staging sets `postgres` until the first converted domain row changes it. `src/db/target.mjs` reads it: anything but exactly `d1` means Postgres, and production refuses `d1` by code until the cutover row lifts that on purpose.
+- **Code.** `dbTarget()` and `d1Db()` in `src/db/d1.ts` (re-exported from `src/db`). `db` and `sql` still point at Postgres; a converted domain calls `d1Db()` when `dbTarget()` is `d1`.
+- **Health.** `checks.db` in `/api/health` (full view and `/admin/health`) shows `target`, `d1` (`absent`, `ok` or `error`) and `d1Tables`. D1 never changes `ok` or the status.
+- **Migrations.** The staging run of "Deploy (Cloudflare)" applies D1 migrations (`wrangler d1 migrations apply jetnine-staging --env staging --remote`) with the repo's own `CLOUDFLARE_API_TOKEN`, then prints `D1 jetnine-staging tables: N`.
 
 ## 9. Custom domain
 
@@ -426,6 +437,15 @@ If `/api/health` returns `status: "degraded"`, the DB is fine but at least one o
 
 The post-deploy smoke workflow (`.github/workflows/smoke-after-deploy.yml`) fails when `/api/health` returns non-200 against a non-localhost target — so a degraded prod deploy will paint the merge commit red without manual checking. There's also a scheduled health monitor (`.github/workflows/health-monitor.yml`) that probes every 15 minutes for between-deploy regressions.
 
+## Codes and timestamps made by the app (OPS-101)
+
+D1 cannot run Postgres triggers, so the work of two kinds of trigger now happens in the app, and the triggers stay in place on Postgres until the cutover (their removal needs the owner's yes and the exact statement).
+
+- **Codes.** `nextCode(tx, kind)` in `src/db/codes.ts` makes JN-YYYY-NNNNN (quote), JN-YYYY-NNNN (trip), INV-YYYY-NNNN, EL-YYYY-NNNN and M-YYYY-NNNN with one upsert on the `[kind]_code_sequence` table (`insert ... on conflict (year) do update set last_value = last_value + 1 returning last_value`). The year is UTC. The five insert paths call it in the same transaction as the insert: `src/app/quote/actions.ts`, `src/domain/requests/commands.ts` (trip and invoice), `src/domain/clients/commands.ts`, `src/domain/empty-legs/commands.ts`. The triggers fill a code only when it is empty, so they do nothing now and the counter moves once.
+- **updated_at.** The 14 tables that had the `set_updated_at` trigger (aircraft, airports, aircraft_schedule_blocks, empty_legs, fbos, invoices, member_preferences, members, memberships, operators, quotes, staff, trips, users) carry `$onUpdate(() => new Date())`. On Postgres the trigger then sets the same value in the same write.
+- Still to move: the schedule-block and member-tier syncs and the role lock (OPS-102), the new-user trigger (OPS-94). Row level security and its helper functions are not moved: D1 has none, and the app's own checks guard the data.
+- Tests: `src/db/codes.test.ts` (CI step "Codes and updated-at tests").
+
 ## Rotation
 
 If you need to rotate a secret:
@@ -434,3 +454,29 @@ If you need to rotate a secret:
 2. Run `pnpm exec wrangler secret put NAME` (add `--env staging` for staging). Workers use the new value from the next request on, with no redeploy.
 3. `NEXT_PUBLIC_*` values are the exception, because they're compiled into the build. Change the GitHub variable and redeploy.
 4. Revoke the old value in the provider.
+
+## D1 tables (OPS-100)
+
+The 50 tables of `src/db/schema` are written a second time for Cloudflare D1 (SQLite) in `src/db/d1/schema`, one file per Postgres file, same export, table and column names. Nothing live reads them yet; later rows convert the data code one domain at a time.
+
+How types map, decided once:
+
+- `uuid` is `text`, made in the app (`newId`). `timestamp` is `integer` in `timestamp_ms` mode: UTC milliseconds, read back as `Date`. `date` and `time` are `text` (`YYYY-MM-DD`, `HH:MM:SS`); `numeric` is `text`, so decimals stay exact strings. `boolean` is `integer` in `boolean` mode. `jsonb` and `text[]` are `text` holding JSON. `char(n)` is `text` plus a length CHECK.
+- A Postgres enum is `text` with the same values (read from the Postgres enum, so there is one list) plus a CHECK named `<table>_<column>_enum` (`enumCheck` in `src/db/d1/helpers.ts`).
+- Defaults that Postgres ran in the database (`now()`, `current_date`, `gen_random_uuid()`, `encode(gen_random_bytes(24), 'hex')`, `now() + interval`) run in the app (`src/db/d1/helpers.ts`). Raw SQL inserts no longer get them.
+- No equal in D1: the `auth` schema (so `users.id` has no foreign key), row level security, and Postgres functions and triggers (OPS-101). `api_keys` scope CHECKs are rewritten with string tests because SQLite forbids subqueries in CHECK.
+- Regenerate with `pnpm db:d1:generate` (`drizzle.d1.config.ts`); the migration goes to `src/db/d1/migrations` and the staging deploy applies it. The test `src/db/d1/parity.test.ts` runs in CI and fails when a Postgres table, column, not-null flag, primary key, foreign key count, index count or enum CHECK has no D1 twin.
+
+
+## Copy Postgres to staging D1 (OPS-105)
+
+Step 5 of the move to Cloudflare (OPS-93): fill staging's own D1 database from Postgres and prove the copy is whole. Production's database is never written.
+
+- Run the GitHub workflow **D1 copy** by hand (Actions, Run workflow). `mode = load` applies the D1 migrations, wipes the staging D1 tables, copies all 51 tables and then checks; `mode = check` only compares. It uses the repo secrets `DATABASE_URL`, `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`.
+- Postgres is read in one read-only snapshot, so every table comes from the same moment. Values are mapped by the rules in "D1 tables (OPS-100)" above (`scripts/d1-copy/map.mjs`).
+- The log has one line per table: Postgres rows, D1 rows, and "checksum equal yes or no". The checksum is an order-independent hash of each row's key and its `updated_at` (or `created_at`). No row value is printed, and wrangler's own text is not echoed. A failure prints an error code only.
+- The tool refuses any target other than the database `jetnine-staging` with `--env staging`; the guard runs before any call. `pnpm exec tsx scripts/d1-copy/copy.mjs --list` prints the table plan with no network.
+- **Held back on purpose:** `user_credentials` (password hashes), `user_sessions` (session token hashes), `api_keys` (key hashes) and `ai_providers` (encrypted provider keys). These are not copied to staging. Moving credentials is the owner's decision and belongs to the cutover row.
+- Staging D1 is a test copy, not a source of truth. Run the copy again whenever a fresh copy is needed; it starts by wiping.
+- The reverse copy (D1 back to Postgres, for a rollback) is not part of this row.
+- Tests (`scripts/d1-copy/*.test.*`) run in CI and need no secrets or network.

@@ -179,7 +179,7 @@ export const quotes = pgTable(
       .default(sql`now()`),
     updatedAt: timestamp("updated_at", { withTimezone: true })
       .notNull()
-      .default(sql`now()`),
+      .default(sql`now()`).$onUpdate(() => new Date()),
   },
   (t) => [
     uniqueIndex("quotes_quote_code_uq").on(t.quoteCode),

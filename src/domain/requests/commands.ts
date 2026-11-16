@@ -1,6 +1,7 @@
 import { and, asc, eq, ilike, inArray, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { syncTripScheduleBlock } from "@/domain/trips/schedule-block";
+import { nextCode } from "@/db/codes";
 import { aircraft } from "@/db/schema/aircraft";
 import { messages, type NewMessage } from "@/db/schema/audit";
 import { invoices, type NewInvoice } from "@/db/schema/invoices";
@@ -1345,7 +1346,10 @@ export async function convertRequestToTrip(
   };
   try {
     inserted = await db.transaction(async (tx) => {
+      // Codes are made by the app (OPS-101); the triggers fill them only when empty.
+      const tripCode = await nextCode(tx, "trip");
       const tripValues: NewTrip = {
+        tripCode,
         memberId,
         quoteId,
         assignedDispatcherId: quote.assignedDispatcherId ?? null,
@@ -1394,7 +1398,9 @@ export async function convertRequestToTrip(
       // flip it to 'paid' from the reserve. Otherwise it stays 'draft' for
       // the dispatcher to review + finalize manually (current default).
       const memberHasCardBalance = total !== null && total > 0;
+      const invoiceCode = await nextCode(tx, "invoice");
       const invoiceValues: NewInvoice = {
+        invoiceCode,
         memberId,
         tripId: tripRow.id,
         kind: "charter",

@@ -2,12 +2,17 @@
 // and /admin/health (dispatcher-facing dashboard).
 //
 // Each check returns a stable shape that's safe to render: no secrets,
-// no DB content, no user data. The hardest one is the DB probe — that's
-// the only check that does any I/O. Everything else is env-var presence.
+// no DB content, no user data. Three checks do I/O: the DB probe, the
+// Supabase Auth probe ("auth": emailed links, reset and invites still go
+// through Supabase Auth until OPS-94) and the site's own sign-in probe
+// ("signin": sessions and password hashes in the database, OPS-91).
+// Everything else is env-var presence.
 
 import { sql as drizzleSql } from "drizzle-orm";
 import { db } from "@/db";
+import { d1Binding, dbTarget } from "@/db/d1";
 import { commitSha, deployEnv, deployRegion, platformBaseUrl } from "@/lib/deploy-env";
+import { probeSupabaseAuth } from "@/lib/auth-probe.mjs";
 
 export type CheckResult = { ok: boolean } & Record<string, unknown>;
 
@@ -19,6 +24,7 @@ export type HealthSnapshot = {
   sha: string;
   checks: {
     db: CheckResult;
+    auth: CheckResult;
     signin: CheckResult;
     site: CheckResult;
     stripe: CheckResult;
@@ -31,11 +37,33 @@ export type HealthSnapshot = {
   timestamp: string;
 };
 
+const D1_TABLE_COUNT_SQL =
+  "select count(*) as n from sqlite_master where type = 'table' and name not like 'sqlite_%' and name not like '_cf_%' and name != 'd1_migrations'";
+
+/**
+ * The D1 binding (OPS-99): "absent" when the deployment has none (production),
+ * else "ok" with the number of tables, or "error" with the error name only.
+ * Informational: it never changes the db check's ok or the overall status.
+ */
+async function probeD1(): Promise<Record<string, unknown>> {
+  const binding = d1Binding();
+  if (!binding) return { d1: "absent" };
+  try {
+    const row = await binding.prepare(D1_TABLE_COUNT_SQL).first<{ n: number }>();
+    return { d1: "ok", d1Tables: Number(row?.n ?? 0) };
+  } catch (err) {
+    console.error("[health] d1 probe failed", { name: err instanceof Error ? err.name : "unknown" });
+    return { d1: "error", d1Error: err instanceof Error ? err.name : "unknown" };
+  }
+}
+
 export async function checkDb(): Promise<CheckResult> {
-  const t0 = performance.now();
+  const target = dbTarget();
+  const d1 = await probeD1();
+  const t0 = performance.now(); // latency is Postgres only
   try {
     await db.execute(drizzleSql`select 1 as ok`);
-    return { ok: true, latencyMs: Math.round(performance.now() - t0) };
+    return { ok: true, latencyMs: Math.round(performance.now() - t0), target, ...d1 };
   } catch (err) {
     // Log to stderr so Vercel runtime logs surface the cause without
     // leaking it in the public JSON. Keep the response body sanitized
@@ -54,8 +82,28 @@ export async function checkDb(): Promise<CheckResult> {
       ok: false,
       latencyMs: Math.round(performance.now() - t0),
       error: err instanceof Error ? err.name : "unknown",
+      target,
+      ...d1,
     };
   }
+}
+
+/**
+ * Supabase Auth, asked the way sign-in asks it (OPS-90). On 2026-11-16 the
+ * project was restricted for a day and every sign-in failed while this
+ * endpoint said "healthy", because the database probe does not go through
+ * Supabase's API. A failure makes the status "degraded" and puts "auth" in the
+ * public failing list. It never changes `ok` or the HTTP code: a 503 here
+ * would fail every deploy smoke test while the project is down, which would
+ * block the fix. Not configured (no URL or key) counts as ok.
+ */
+export async function checkAuth(): Promise<CheckResult> {
+  const r = await probeSupabaseAuth({
+    url: process.env.NEXT_PUBLIC_SUPABASE_URL,
+    anonKey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+  });
+  if (!r.ok) console.error("[health] auth probe failed", { httpStatus: r.httpStatus, detail: r.detail });
+  return { ok: r.ok, configured: r.configured, httpStatus: r.httpStatus, detail: r.detail };
 }
 
 /**
@@ -195,8 +243,9 @@ export async function snapshot(): Promise<HealthSnapshot> {
   const region = deployRegion();
   const sha = commitSha().slice(0, 12) || "unknown";
 
-  const [db, signin, stripe, email, twilio, sentry, posthog] = await Promise.all([
+  const [db, auth, signin, stripe, email, twilio, sentry, posthog] = await Promise.all([
     checkDb(),
+    checkAuth(),
     checkSignin(),
     Promise.resolve(checkStripe()),
     Promise.resolve(checkEmail()),
@@ -205,7 +254,7 @@ export async function snapshot(): Promise<HealthSnapshot> {
     Promise.resolve(checkPosthog()),
   ]);
 
-  const checks = { db, signin, site: checkSite(), stripe, email, twilio, sentry, posthog, ai: checkAi() };
+  const checks = { db, auth, signin, site: checkSite(), stripe, email, twilio, sentry, posthog, ai: checkAi() };
   const ok = db.ok;
   const allOptionalsConfigured =
     Boolean(stripe.configured) &&
@@ -214,7 +263,7 @@ export async function snapshot(): Promise<HealthSnapshot> {
     Boolean(sentry.serverConfigured);
   const status: HealthSnapshot["status"] = !ok
     ? "unhealthy"
-    : allOptionalsConfigured && signin.ok
+    : auth.ok && signin.ok && allOptionalsConfigured
       ? "healthy"
       : "degraded";
 

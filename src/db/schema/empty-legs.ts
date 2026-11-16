@@ -117,7 +117,7 @@ export const emptyLegs = pgTable(
       .default(sql`now()`),
     updatedAt: timestamp("updated_at", { withTimezone: true })
       .notNull()
-      .default(sql`now()`),
+      .default(sql`now()`).$onUpdate(() => new Date()),
   },
   (t) => [
     uniqueIndex("empty_legs_code_uq").on(t.code),

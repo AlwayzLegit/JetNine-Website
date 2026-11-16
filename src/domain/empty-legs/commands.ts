@@ -1,5 +1,6 @@
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
+import { nextCode } from "@/db/codes";
 import { aircraft } from "@/db/schema/aircraft";
 import { emptyLegs, type NewEmptyLeg } from "@/db/schema/empty-legs";
 import { logAudit } from "@/lib/audit";
@@ -99,7 +100,12 @@ export async function createEmptyLeg(
 
   let row: { id: string; code: string };
   try {
-    [row] = await db.insert(emptyLegs).values(values).returning({ id: emptyLegs.id, code: emptyLegs.code });
+    // The app makes the code (OPS-101); the empty_legs_default_code trigger
+    // fills it only when empty. One transaction, so a failed insert gives the number back.
+    [row] = await db.transaction(async (tx) => {
+      const code = await nextCode(tx, "empty_leg");
+      return tx.insert(emptyLegs).values({ ...values, code }).returning({ id: emptyLegs.id, code: emptyLegs.code });
+    });
   } catch (e) {
     console.error("createEmptyLeg failed", e);
     return err("internal", "DB_INSERT_FAILED");

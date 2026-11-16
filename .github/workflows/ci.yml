@@ -82,6 +82,10 @@ jobs:
       - name: Monitor tests
         run: node --test monitor/monitor.test.mjs
 
+      # App-made codes and updated_at (OPS-101): format, UTC year, the upsert, the call sites.
+      - name: Codes and updated-at tests
+        run: pnpm exec tsx --test src/db/codes.test.ts
+
       - name: Monitor Worker bundle dry run
         run: pnpm exec wrangler deploy -c monitor/wrangler.jsonc --env "" --dry-run
 
@@ -90,9 +94,24 @@ jobs:
       - name: Trigger-logic tests
         run: pnpm exec tsx --test src/domain/trips/schedule-block.test.ts src/domain/memberships/tier.test.ts src/lib/role-lock.test.ts
 
+      # The Supabase Auth probe behind /api/health's "auth" check (OPS-90).
+      - name: Auth probe tests
+        run: node --test src/lib/auth-probe.test.mjs
+
       # The site's own sessions (OPS-91): token, hash, cookie and timeout rules.
       - name: Session tests
         run: node --test src/lib/session/core.test.mjs
+
+      # The D1 tables stay a faithful twin of the Postgres ones (OPS-100).
+      - name: D1 schema parity test
+        run: pnpm exec tsx --test src/db/d1/parity.test.ts
+
+      # The Postgres to staging D1 copy tool (OPS-105): value mapping, the staging-only
+      # guard, the table plan and the held-back credential tables. Needs no database.
+      - name: D1 copy tests
+        run: |
+          node --test scripts/d1-copy/map.test.mjs
+          pnpm exec tsx --test scripts/d1-copy/tables.test.ts
 
   e2e:
     name: playwright smoke

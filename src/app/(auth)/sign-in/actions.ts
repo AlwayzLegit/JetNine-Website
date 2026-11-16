@@ -2,7 +2,8 @@
 
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { findUserForMail, issueToken } from "@/lib/auth-tokens";
+import { sendAuthLinkEmail } from "@/lib/auth-mail";
 import { createSession, endSession, getSessionUser, isCurrentPassword, setPassword, verifyPassword } from "@/lib/session";
 import { safeNext } from "@/lib/safe-next";
 import { checkRateLimit } from "@/lib/rate-limit";
@@ -83,13 +84,6 @@ async function authRateLimited(
   return null;
 }
 
-async function requestOrigin(): Promise<string> {
-  const hdrs = await headers();
-  const host = hdrs.get("x-forwarded-host") ?? hdrs.get("host");
-  const proto = hdrs.get("x-forwarded-proto") ?? "https";
-  return `${proto}://${host}`;
-}
-
 const LINK_LIMITS = {
   ipMax: IP_MAX,
   ipWindowS: IP_WINDOW_S,
@@ -99,21 +93,19 @@ const LINK_LIMITS = {
 const TOO_MANY_LINKS = "Too many link requests — wait a few minutes, or call dispatch.";
 
 /**
- * Sends a magic-link email via Supabase Auth. The link points back at
- * /auth/callback?next=<dest> which exchanges the code for a session.
+ * Emails a one-time sign-in link from the site's own mail (OPS-94). The link
+ * opens /auth/link, which shows a button; the token is spent by the POST
+ * behind it, then the site starts its own session and sends the person on
+ * to <dest>.
  *
  * Accounts are provisioned by dispatch (member invite) — there is no
- * self-serve signup, so this action never creates users
- * (shouldCreateUser: false). Unknown emails get the neutral response and
- * nothing is sent or stored.
+ * self-serve signup, so this action never creates users. Unknown or banned
+ * emails get the neutral response and nothing is sent or stored.
  */
 export async function sendMagicLink(formData: FormData): Promise<SignInResult> {
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
-  // Sanitize `next` here too — Supabase encodes whatever we pass into the
-  // magic link, so an unfiltered absolute URL ends up baked into a link
-  // the attacker can trick the user into clicking. The callback also
-  // re-sanitizes (defense in depth) but blocking at this layer keeps the
-  // link itself benign in case a future caller forwards it elsewhere.
+  // Sanitize `next` before it goes into the link. The link page and the
+  // action behind it sanitize it again (defense in depth).
   const next = safeNext(formData.get("next") as string | null);
 
   // Honeypot: the visible form never exposes this field, so any value here
@@ -131,32 +123,42 @@ export async function sendMagicLink(formData: FormData): Promise<SignInResult> {
   const limited = await authRateLimited("signin", ip, LINK_LIMITS, TOO_MANY_LINKS);
   if (limited) return { ok: false, error: limited };
 
-  const supabase = await createClient();
-  const origin = await requestOrigin();
+  return mailLink(email, "signin", next, ip, NEUTRAL_OK);
+}
 
-  const { error } = await supabase.auth.signInWithOtp({
-    email,
-    options: {
-      emailRedirectTo: `${origin}/auth/callback?next=${encodeURIComponent(next)}`,
-      shouldCreateUser: false,
-    },
-  });
+const COULD_NOT_SEND = "Couldn't send the link — try again or call dispatch.";
 
-  if (error) {
-    // Unknown email + shouldCreateUser:false comes back as a "signups not
-    // allowed" error — that's the expected non-member path, not a failure.
-    // Swallow it into the neutral response; surface only real transport
-    // errors (so a member whose send genuinely failed isn't told "sent").
-    const msg = error.message ?? "";
-    if (error.code === "otp_disabled" || /signups? not allowed/i.test(msg)) {
-      console.warn(`magic link request for unknown email (no send) — ip=${ip}`);
-      return NEUTRAL_OK;
+/**
+ * Looks the account up, issues a token and sends the mail. A missing or
+ * banned account returns the neutral answer and sends nothing. A failure to
+ * look up, store or send says so: a member whose send genuinely failed must
+ * not be told it was sent.
+ */
+async function mailLink(
+  email: string,
+  purpose: "signin" | "reset",
+  next: string | undefined,
+  ip: string,
+  neutral: SignInResult,
+): Promise<SignInResult> {
+  try {
+    const user = await findUserForMail(email);
+    if (!user) {
+      console.warn(`${purpose} link requested for an email with no account (no send) — ip=${ip}`);
+      return neutral;
     }
-    console.error("magic link error", error);
-    return { ok: false, error: "Couldn't send the link — try again or call dispatch." };
+    const token = await issueToken(user.id, purpose);
+    const sent = await sendAuthLinkEmail({ to: email, purpose, token, next });
+    if (!sent.ok) {
+      console.error(`${purpose} link mail not sent`, { reason: sent.error.split(":")[0].slice(0, 40) });
+      return { ok: false, error: COULD_NOT_SEND };
+    }
+  } catch (err) {
+    const e = err as { name?: string; code?: string };
+    console.error(`${purpose} link request failed`, { name: e?.name, code: e?.code });
+    return { ok: false, error: COULD_NOT_SEND };
   }
-
-  return NEUTRAL_OK;
+  return neutral;
 }
 
 export type PasswordSignInResult =
@@ -228,9 +230,8 @@ const WRONG_CREDENTIALS =
   "That email and password don't match. Try again, or email yourself a sign-in link below.";
 
 /**
- * Emails a password-reset link. Supabase sends the member to
- * `${origin}/auth/reset`; the middleware hands the auth code to
- * /auth/callback, which establishes the session and returns to
+ * Emails a password-reset link from the site's own mail (OPS-94). The link
+ * opens /auth/link, whose button starts a session and sends the member to
  * /auth/reset, where the new password is set. The same neutral sentence
  * comes back whether or not the email has an account.
  */
@@ -252,21 +253,7 @@ export async function requestPasswordReset(formData: FormData): Promise<SignInRe
   const limited = await authRateLimited("signin", ip, LINK_LIMITS, TOO_MANY_LINKS);
   if (limited) return { ok: false, error: limited };
 
-  const supabase = await createClient();
-  const origin = await requestOrigin();
-
-  const { error } = await supabase.auth.resetPasswordForEmail(email, {
-    redirectTo: `${origin}/auth/reset`,
-  });
-
-  if (error) {
-    // Supabase answers unknown emails with success already; anything that
-    // does come back is a transport or config problem worth saying so.
-    console.error("password reset request error", error);
-    return { ok: false, error: "Couldn't send the link — try again or call dispatch." };
-  }
-
-  return NEUTRAL_RESET_OK;
+  return mailLink(email, "reset", undefined, ip, NEUTRAL_RESET_OK);
 }
 
 export type UpdatePasswordResult = { ok: true } | { ok: false; error: string };

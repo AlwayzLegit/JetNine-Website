@@ -3,9 +3,10 @@ import { db } from "@/db";
 import { staff } from "@/db/schema/staff";
 import { users } from "@/db/schema/users";
 import { logAudit } from "@/lib/audit";
-import { findAuthUserIdByEmail, setUserRole } from "@/lib/auth-users";
+import { findOrCreateUser, setUserRole, userHasPassword } from "@/lib/auth-users";
+import { issueToken } from "@/lib/auth-tokens";
+import { sendAuthLinkEmail } from "@/lib/auth-mail";
 import { deskRole, personName, type DeskRole } from "@/lib/desk-status";
-import { createAdminClient } from "@/lib/supabase/admin";
 import { auditFields, type Actor } from "@/domain/actor";
 import { isUuid } from "@/domain/common";
 import { err, ok, type Result } from "@/domain/result";
@@ -102,63 +103,75 @@ export type InviteOutcome = {
 
 export async function inviteTeammate(actor: Actor, input: TeamInviteInput): Promise<Result<InviteOutcome>> {
   const { email, firstName, lastName, role } = input;
-  const supa = createAdminClient();
 
-  // 1) Resolve the auth user — reuse if it exists, otherwise invite. Same
-  //    pattern as the client invite.
-  let authUserId: string;
-  let isNewAuthUser = false;
-  const hit = await findAuthUserIdByEmail(email);
-  if (hit) {
-    authUserId = hit;
-  } else {
-    const { data: invited, error: inviteErr } = await supa.auth.admin.inviteUserByEmail(email, {
-      data: { first_name: firstName, last_name: lastName },
-    });
-    if (inviteErr || !invited?.user) {
-      console.error("inviteUserByEmail failed", inviteErr);
-      return err("unavailable", inviteErr?.message ?? "The invite did not go out. Try again.");
+  // 1) The person's row: the oldest public.users row for the email, or a new
+  //    one made here (OPS-94: no Supabase call, no trigger to wait for).
+  let userRow;
+  try {
+    userRow = await findOrCreateUser(email, { firstName, lastName });
+  } catch (e) {
+    const x = e as { name?: string; code?: string };
+    console.error("[team] account lookup failed", { name: x?.name, code: x?.code });
+    return err("unavailable", "The account could not be set up. Try again in a moment.");
+  }
+  const authUserId = userRow.id;
+  const isNewUser = userRow.created;
+
+  // 2) Someone already on the desk with a password is a conflict. Someone on
+  //    the desk with no password yet gets the invite mail again (their role is
+  //    left as it is), so a send that failed can be retried by inviting again.
+  const alreadyStaff = (STAFF_ROLES as readonly string[]).includes(userRow.role);
+  let hasPassword = false;
+  if (!isNewUser) {
+    try {
+      hasPassword = await userHasPassword(authUserId);
+    } catch {
+      hasPassword = true; // unknown: do not mail
     }
-    authUserId = invited.user.id;
-    isNewAuthUser = true;
   }
-
-  // 2) The handle_new_auth_user trigger inserts public.users; brief retry
-  //    because the GoTrue call crosses an HTTP boundary.
-  const userRow = await waitForUserRow(authUserId);
-  if (!userRow) {
-    return err("unavailable", "The account was created but did not show up yet. Try again in a moment.");
-  }
-  if ((STAFF_ROLES as readonly string[]).includes(userRow.role)) {
+  if (alreadyStaff && hasPassword) {
     return err("conflict", `${personName(userRow.firstName, userRow.lastName, email)} is already on the desk.`);
   }
+  const needsMail = !hasPassword;
 
-  // 3) Role + names.
-  const dbRole = dbRoleFor(role);
-  try {
-    await setUserRole(authUserId, dbRole, {
-      firstName: firstName ?? userRow.firstName,
-      lastName: lastName ?? userRow.lastName,
-    });
-  } catch (e) {
-    console.error("[team] role update failed", e);
-    return err(
-      "internal",
-      isNewAuthUser
-        ? "The invite email went out, but the desk role could not be set. Open Team again and use Change on their row."
-        : "The desk role could not be set. Try again.",
-    );
-  }
-
-  // 4) Staff row (display name) when none exists; a removed teammate's
-  //    row is switched back on.
+  // 3) Role + names, and 4) the staff row (display name) when none exists; a
+  //    removed teammate's row is switched back on. Skipped for someone already
+  //    on the desk: a re-invite never changes a role.
+  const dbRole = alreadyStaff ? userRow.role : dbRoleFor(role);
   const displayName =
     personName(firstName ?? userRow.firstName, lastName ?? userRow.lastName, "") || email.split("@")[0];
-  const [staffRow] = await db.select({ id: staff.id }).from(staff).where(eq(staff.userId, authUserId)).limit(1);
-  if (!staffRow) {
-    await db.insert(staff).values({ userId: authUserId, displayName, status: "on_call" });
-  } else {
-    await db.update(staff).set({ status: "on_call", updatedAt: new Date() }).where(eq(staff.id, staffRow.id));
+  if (!alreadyStaff) {
+    try {
+      await setUserRole(authUserId, dbRoleFor(role), {
+        firstName: firstName ?? userRow.firstName,
+        lastName: lastName ?? userRow.lastName,
+      });
+    } catch (e) {
+      console.error("[team] role update failed", e);
+      return err("internal", "The desk role could not be set. Try again.");
+    }
+    const [staffRow] = await db.select({ id: staff.id }).from(staff).where(eq(staff.userId, authUserId)).limit(1);
+    if (!staffRow) {
+      await db.insert(staff).values({ userId: authUserId, displayName, status: "on_call" });
+    } else {
+      await db.update(staff).set({ status: "on_call", updatedAt: new Date() }).where(eq(staff.id, staffRow.id));
+    }
+  }
+
+  // 5) The invite mail: a one-time link to set a password (7 days).
+  let inviteMailSent = false;
+  let mailError: string | null = null;
+  if (needsMail) {
+    try {
+      const token = await issueToken(authUserId, "invite");
+      const sent = await sendAuthLinkEmail({ to: email, purpose: "invite", token });
+      inviteMailSent = sent.ok;
+      if (!sent.ok) mailError = sent.error.split(":")[0].slice(0, 40);
+    } catch (e) {
+      const x = e as { name?: string; code?: string };
+      mailError = `${x?.name ?? "error"} ${x?.code ?? ""}`.trim();
+    }
+    if (!inviteMailSent) console.error("[team] invite mail not sent", { reason: mailError });
   }
 
   const a = auditFields(actor);
@@ -170,10 +183,17 @@ export async function inviteTeammate(actor: Actor, input: TeamInviteInput): Prom
     subjectId: authUserId,
     subjectCode: email,
     diff: { role: { before: userRow.role, after: dbRole } },
-    metadata: { ...a.metadata, name: displayName, role, isNewAuthUser },
+    metadata: { ...a.metadata, name: displayName, role, isNewUser, inviteMailSent },
   });
 
-  return ok({ id: authUserId, email, name: displayName, role, invited: isNewAuthUser });
+  if (needsMail && !inviteMailSent) {
+    return err(
+      "unavailable",
+      "They are on the desk, but the invite email did not go out. Invite them again to send it.",
+    );
+  }
+
+  return ok({ id: authUserId, email, name: displayName, role, invited: inviteMailSent });
 }
 
 // ─── Change role ────────────────────────────────────────────────────────
@@ -256,17 +276,4 @@ export async function removeTeammate(
   });
 
   return ok({ id: target.id, name });
-}
-
-async function waitForUserRow(authUserId: string, tries = 5) {
-  for (let i = 0; i < tries; i++) {
-    const [row] = await db
-      .select({ id: users.id, role: users.role, firstName: users.firstName, lastName: users.lastName })
-      .from(users)
-      .where(eq(users.id, authUserId));
-    if (row) return row;
-    // 100ms · 200ms · 400ms · 800ms · 1.6s — total max ~3s.
-    await new Promise((r) => setTimeout(r, 100 * 2 ** i));
-  }
-  return null;
 }

@@ -89,6 +89,10 @@ jobs:
       - name: Session tests
         run: node --test src/lib/session/core.test.mjs
 
+      # Emailed links (OPS-94): token lifetime, one use, link origin and next.
+      - name: Auth token tests
+        run: node --test src/lib/auth-tokens/core.test.mjs
+
   e2e:
     name: playwright smoke
     runs-on: ubuntu-24.04

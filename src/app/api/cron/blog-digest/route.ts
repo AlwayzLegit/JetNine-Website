@@ -1,9 +1,6 @@
 import { timingSafeEqual } from "crypto";
 import { NextResponse } from "next/server";
-import { and, desc, eq, gt, sql } from "drizzle-orm";
-import { db } from "@/db";
-import { blogPosts } from "@/db/schema/blog";
-import { blogSubscribers } from "@/db/schema/blog-subscribers";
+import { blogStore } from "@/domain/blog/store";
 import { sendEmail } from "@/lib/email";
 import {
   blogDigestEmail,
@@ -28,6 +25,7 @@ export const maxDuration = 120;
 const MAX_PER_RUN = 200;
 const DIGEST_WINDOW_DAYS = 7;
 const MAX_POSTS = 7;
+const DIGEST_FLOOR_DAYS = 6;
 
 function authorized(req: Request): boolean {
   const secret = process.env.CRON_SECRET;
@@ -53,16 +51,8 @@ export async function GET(req: Request) {
 
   const since = new Date(Date.now() - DIGEST_WINDOW_DAYS * 24 * 3600_000);
 
-  const posts = await db
-    .select({
-      slug: blogPosts.slug,
-      title: blogPosts.title,
-      description: blogPosts.description,
-    })
-    .from(blogPosts)
-    .where(and(eq(blogPosts.status, "published"), gt(blogPosts.publishedAt, since)))
-    .orderBy(desc(blogPosts.publishedAt))
-    .limit(MAX_POSTS);
+  const store = blogStore();
+  const posts = await store.publishedSince(since, MAX_POSTS);
 
   if (posts.length === 0) {
     return NextResponse.json({ ok: true, posts: 0, sent: 0 });
@@ -70,23 +60,8 @@ export async function GET(req: Request) {
 
   // Claim before sending. The 6-day floor (not 7) keeps a cron that fires
   // slightly early from skipping everyone until next week.
-  const claimed = await db
-    .update(blogSubscribers)
-    .set({ lastDigestAt: new Date(), updatedAt: new Date() })
-    .where(
-      sql`${blogSubscribers.id} in (
-        select id from ${blogSubscribers}
-        where status = 'confirmed'
-          and (last_digest_at is null or last_digest_at < now() - interval '6 days')
-        order by created_at asc
-        limit ${MAX_PER_RUN}
-      )`,
-    )
-    .returning({
-      id: blogSubscribers.id,
-      email: blogSubscribers.email,
-      unsubscribeToken: blogSubscribers.unsubscribeToken,
-    });
+  const now = new Date();
+  const claimed = await store.claimDigest(new Date(now.getTime() - DIGEST_FLOOR_DAYS * 24 * 3600_000), MAX_PER_RUN, now);
 
   let sent = 0;
   let failed = 0;

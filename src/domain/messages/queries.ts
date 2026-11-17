@@ -1,7 +1,8 @@
 import { asc, eq, inArray } from "drizzle-orm";
-import { db, sql } from "@/db";
+import { db } from "@/db";
 import { THREAD_LIMIT } from "@/domain/requests/queries";
 import { messageStore } from "./store";
+import { callNotesStore, type VoiceCallRow } from "@/domain/voice/call-notes-store";
 import { inquiryStore, type InquiryRow } from "@/domain/contact/store";
 import { members } from "@/db/schema/members";
 import { quotes, quoteLegs } from "@/db/schema/quotes";
@@ -44,19 +45,7 @@ export type ThreadView = {
   callOnly: boolean;
 };
 
-export type VoiceCallRow = {
-  id: string;
-  from_number: string | null;
-  started_at: Date;
-  duration_seconds: number | null;
-  outcome: string | null;
-  summary: string | null;
-  escalation_reason: string | null;
-  recording_url: string | null;
-  returning_caller: boolean;
-  message_reason: string | null;
-  message_callback: string | null;
-};
+export type { VoiceCallRow };
 
 export type { InquiryRow };
 
@@ -342,21 +331,10 @@ export async function listFailedDeliveries(now = new Date()): Promise<FailedDeli
 
 /** The voice agent's log (tables owned by the voice service), newest first. */
 export async function listCallNotes(): Promise<VoiceCallRow[]> {
+  // Picked outside the try: target d1 with no binding must fail loudly, not read empty.
+  const store = callNotesStore();
   try {
-    const rows = await sql<(Omit<VoiceCallRow, "started_at"> & { started_at: string | Date })[]>`
-      select c.id, c.from_number, c.started_at, c.duration_seconds, c.outcome,
-             c.summary, c.escalation_reason, c.recording_url, c.returning_caller,
-             m.reason as message_reason, m.callback as message_callback
-      from public.voice_calls c
-      left join lateral (
-        select reason, callback from public.voice_messages
-        where call_id = c.id
-        order by created_at desc limit 1
-      ) m on true
-      order by c.started_at desc
-      limit 50
-    `;
-    return rows.map((r) => ({ ...r, started_at: new Date(r.started_at) }));
+    return await store.recentCalls(50);
   } catch (err) {
     // The voice tables ship with the voice service's migrations; without
     // them the tab reads empty rather than crashing the desk.

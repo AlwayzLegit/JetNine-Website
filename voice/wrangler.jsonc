@@ -41,6 +41,57 @@
     "TTS_MODEL": "flash_v2_5",
     "STT_PROVIDER": "Deepgram",
     "STT_MODEL": "nova-3-general",
-    "RECORDING_ENABLED": "true"
+    "RECORDING_ENABLED": "true",
+    // Which environment this is. With no DB_TARGET the Worker uses Postgres, and
+    // a production environment can never choose D1 from DB_TARGET alone (the
+    // cutover row lifts that on purpose); see src/db/target.ts.
+    "DEPLOY_ENV": "production"
+  },
+
+  // Staging voice Worker (OPS-137): `wrangler deploy --env staging`, run by the
+  // "Deploy staging voice Worker" step of Deploy (Cloudflare) on a staging target.
+  // It reads and writes the staging D1 database and takes no calls: no custom
+  // domain, and no Twilio, LLM or encryption secret, so /health answers 503
+  // (missingEnv) and that is expected. Only its db field is read.
+  // Nothing is inherited that matters here, so each binding is stated again.
+  "env": {
+    "staging": {
+      "name": "jetnine-voice-staging",
+      "workers_dev": true,
+      "routes": [],
+      "durable_objects": {
+        "bindings": [{ "name": "CALL_RELAY", "class_name": "CallRelay" }]
+      },
+      "migrations": [{ "tag": "v1", "new_sqlite_classes": ["CallRelay"] }],
+      "hyperdrive": [{ "binding": "HYPERDRIVE", "id": "05bdaa66695d43c08fc02b22e39bca77" }],
+      // The same staging D1 database the site's staging Worker binds
+      // (jetnine-staging); its migrations are the site's.
+      "d1_databases": [
+        {
+          "binding": "DB",
+          "database_name": "jetnine-staging",
+          "database_id": "f2f494ab-b051-4b2e-bce7-f4e9fd99e339",
+          "migrations_dir": "../src/db/d1/migrations"
+        }
+      ],
+      "vars": {
+        "PUBLIC_HOST": "jetnine-voice-staging.jetnine-inc.workers.dev",
+        "NODE_ENV": "production",
+        "TWILIO_VALIDATE_RELAY_SIGNATURE": "false",
+        "LOG_RELAY_MESSAGES": "false",
+        "ANTHROPIC_MODEL": "claude-sonnet-5",
+        "LLM_MAX_TOKENS": "600",
+        "SMS_ALERTS_ENABLED": "false",
+        "ESCALATION_DIAL_TIMEOUT": "25",
+        "TTS_PROVIDER": "ElevenLabs",
+        "TTS_VOICE": "",
+        "TTS_MODEL": "flash_v2_5",
+        "STT_PROVIDER": "Deepgram",
+        "STT_MODEL": "nova-3-general",
+        "RECORDING_ENABLED": "true",
+        "DEPLOY_ENV": "staging",
+        "DB_TARGET": "d1"
+      }
+    }
   }
 }

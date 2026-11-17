@@ -13,6 +13,7 @@ import {
   unavailableTwiml,
 } from "./twiml.js";
 import { getCallBySid, setRecording, updateCall } from "./db/queries.js";
+import { dbHealth } from "./db/store.js";
 import { leadSummarySms, sendAlertSms } from "./escalation.js";
 import { describeRouting, resolveRouting } from "./llm/providers.js";
 import { validateTwilioRequest } from "./twilio.js";
@@ -84,9 +85,13 @@ const callRelay = (env: Env, callSid: string) => env.CALL_RELAY.get(env.CALL_REL
 
 async function health(): Promise<Response> {
   const { ready, llm } = await callReady();
+  // Which database side answers (one select 1, 3 second limit). Informational:
+  // it never changes the status code, which callReady() alone decides.
+  const db = await dbHealth();
   return json(ready ? 200 : 503, {
     ok: ready,
     service: "jetnine-voice",
+    db,
     llm,
     tts: `${config.voice.ttsProvider}/${config.voice.ttsVoice || "default"}`,
     stt: `${config.voice.sttProvider}/${config.voice.sttModel}`,

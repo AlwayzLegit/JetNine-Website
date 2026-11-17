@@ -1,5 +1,5 @@
 import { config } from "./config.js";
-import { withDb } from "./db/client.js";
+import { store } from "./db/store.js";
 import { DEFAULT_AGENT_CONFIG, parseAgentConfig, type VoiceAgentConfig } from "./agent-config.js";
 
 // The live voice agent (Settings › Voice agent › Agents on the site, table
@@ -36,11 +36,7 @@ function toAgent(r: Row): LoadedAgent {
 export async function liveAgent(): Promise<LoadedAgent> {
   if (live.agent && Date.now() - live.at < CACHE_MS) return live.agent;
   try {
-    const [data] = await withDb(
-      (sql) => sql<Row[]>`
-        select id, name, version, config from voice_agents
-        where is_live and archived_at is null limit 1`,
-    );
+    const data = await store().liveAgentRow();
     const agent = data ? toAgent(data) : builtInAgent();
     live.at = Date.now();
     live.agent = agent;
@@ -58,7 +54,7 @@ export async function agentById(id: string | undefined): Promise<LoadedAgent> {
   const hit = byId.get(id);
   if (hit && Date.now() - hit.at < CACHE_MS) return hit.agent;
   try {
-    const [data] = await withDb((sql) => sql<Row[]>`select id, name, version, config from voice_agents where id = ${id} limit 1`);
+    const data = await store().agentRowById(id);
     if (!data) return liveAgent();
     const agent = toAgent(data);
     byId.set(id, { at: Date.now(), agent });

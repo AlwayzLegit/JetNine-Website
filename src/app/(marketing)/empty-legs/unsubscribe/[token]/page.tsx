@@ -1,7 +1,5 @@
 import type { Metadata } from "next";
-import { eq } from "drizzle-orm";
-import { db } from "@/db";
-import { emptyLegWatchlists } from "@/db/schema/empty-legs";
+import { watchlistStore } from "@/domain/empty-legs/watchlist-store";
 import { WatchlistUnsubscribeCard } from "@/components/empty-legs/unsubscribe-card";
 import { DeadTokenCard, TokenPageShell } from "@/components/empty-legs/token-page-shell";
 
@@ -23,17 +21,11 @@ export default async function UnsubscribePage({
 }) {
   const { token } = await params;
 
+  // Chosen once, outside the try, so a d1 target without its binding fails loudly.
+  const store = watchlistStore();
   let row;
   try {
-    [row] = await db
-      .select({
-        fromText: emptyLegWatchlists.fromText,
-        toText: emptyLegWatchlists.toText,
-        smsConfirmedAt: emptyLegWatchlists.smsConfirmedAt,
-      })
-      .from(emptyLegWatchlists)
-      .where(eq(emptyLegWatchlists.unsubscribeToken, token))
-      .limit(1);
+    row = await store.byUnsubscribeToken(token);
   } catch (err) {
     console.error("[watchlist-unsubscribe] lookup failed", err);
   }

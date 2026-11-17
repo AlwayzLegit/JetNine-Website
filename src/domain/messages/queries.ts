@@ -2,7 +2,7 @@ import { and, asc, desc, eq, gte, inArray, sql as dsql } from "drizzle-orm";
 import { db, sql } from "@/db";
 import { THREAD_LIMIT } from "@/domain/requests/queries";
 import { messages } from "@/db/schema/audit";
-import { contactInquiries } from "@/db/schema/contact";
+import { inquiryStore, type InquiryRow } from "@/domain/contact/store";
 import { members } from "@/db/schema/members";
 import { quotes, quoteLegs } from "@/db/schema/quotes";
 import { trips, tripLegs } from "@/db/schema/trips";
@@ -58,24 +58,7 @@ export type VoiceCallRow = {
   message_callback: string | null;
 };
 
-export type InquiryRow = {
-  id: string;
-  reason: string;
-  firstName: string;
-  lastName: string;
-  email: string;
-  phone: string | null;
-  fromText: string | null;
-  toText: string | null;
-  dateText: string | null;
-  paxText: string | null;
-  notes: string | null;
-  memberId: string | null;
-  status: string;
-  handledAt: Date | null;
-  createdAt: Date;
-  handledByEmail: string | null;
-};
+export type { InquiryRow };
 
 /** Case-insensitive "any of these fields contains q"; an empty q matches everything. */
 export function matchesSearch(q: string, ...fields: (string | null | undefined)[]): boolean {
@@ -378,31 +361,7 @@ export async function getThread(kind: string, id: string): Promise<Thread | null
 
 /** Contact inquiries, newest first: open ones only unless `show` is "all". */
 export async function listInquiries(opts: { show?: string } = {}): Promise<InquiryRow[]> {
-  const showHandled = opts.show === "all";
-  return db
-    .select({
-      id: contactInquiries.id,
-      reason: contactInquiries.reason,
-      firstName: contactInquiries.firstName,
-      lastName: contactInquiries.lastName,
-      email: contactInquiries.email,
-      phone: contactInquiries.phone,
-      fromText: contactInquiries.fromText,
-      toText: contactInquiries.toText,
-      dateText: contactInquiries.dateText,
-      paxText: contactInquiries.paxText,
-      notes: contactInquiries.notes,
-      memberId: contactInquiries.memberId,
-      status: contactInquiries.status,
-      handledAt: contactInquiries.handledAt,
-      createdAt: contactInquiries.createdAt,
-      handledByEmail: users.email,
-    })
-    .from(contactInquiries)
-    .leftJoin(users, eq(users.id, contactInquiries.handledByUserId))
-    .where(showHandled ? undefined : eq(contactInquiries.status, "new"))
-    .orderBy(desc(contactInquiries.createdAt))
-    .limit(100);
+  return inquiryStore().listInquiries(opts.show === "all", 100);
 }
 
 // ─── Problems ────────────────────────────────────────────────────────────

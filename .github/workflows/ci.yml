@@ -133,6 +133,12 @@ jobs:
       - name: Empty legs store tests
         run: pnpm exec tsx --test src/domain/empty-legs/store-d1.test.ts
 
+      # The empty-leg watchlist store on D1: contract cases on a real SQLite (confirm links,
+      # STOP and START, unsubscribe, the delivery ledger and its chunked read) and the
+      # loud failure when the target is d1 with no binding (OPS-116).
+      - name: Watchlist store tests
+        run: pnpm exec tsx --test src/domain/empty-legs/watchlist-store-d1.test.ts
+
       # The Postgres to staging D1 copy tool (OPS-105): value mapping, the staging-only
       # guard, the table plan and the held-back credential tables. Needs no database.
       - name: D1 copy tests
@@ -144,6 +150,12 @@ jobs:
       # when the target is d1 with no binding (OPS-109).
       - name: Blog store tests
         run: pnpm exec tsx --test src/domain/blog/store-d1.test.ts src/domain/blog/store.test.ts
+
+      # The inquiry store on D1 (the contact form, the guide download leads, the desk count and
+      # the admin Website form tab): contract cases on a real SQLite, and the loud failure when
+      # the target is d1 with no binding (OPS-122).
+      - name: Contact store tests
+        run: pnpm exec tsx --test src/domain/contact/store-d1.test.ts src/domain/contact/store.test.ts
 
       # The audit log and the rate limiter on D1 (OPS-123): the limiter's one upsert and its
       # windows, the audit append (and logAudit never throwing), and Settings > History's read

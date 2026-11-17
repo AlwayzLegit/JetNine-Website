@@ -102,6 +102,10 @@ jobs:
       - name: Session tests
         run: node --test src/lib/session/core.test.mjs
 
+      # Emailed links (OPS-94): token lifetime, one use, link origin and next.
+      - name: Auth token tests
+        run: node --test src/lib/auth-tokens/core.test.mjs
+
       # Who a desk alert goes to (OPS-103): the shared inbox first, staff after.
       - name: Desk alert recipient tests
         run: node --test src/lib/desk-alert-recipients.test.mjs

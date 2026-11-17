@@ -310,11 +310,44 @@ in place (the older bcrypt hash in `auth.users.encrypted_password`, or a newer
 one in `user_credentials`, which wins), keeps the session on the server and
 sets the host-only cookie `__Host-jn_session`. Sessions last 30 days and end
 after 7 idle days, on sign-out and on a password change. Emailed sign-in links,
-password reset mails and invites still go through Supabase until OPS-94; the
-callback hands the user over to a site session. A password changed after this
+password reset mails and invites moved to the site's own mail in OPS-94 (8e3);
+`/auth/callback` stays only for Supabase links already sent. A password changed after this
 change is not known to Supabase, so after a revert that member resets it
 again. `/api/health` shows `signin` in `failing` when the tables are missing.
 No new secret.
+
+## 8e3. Emailed links on the site's own mail (OPS-94)
+
+Schema: migration `0057_auth_tokens.sql` adds `public.auth_tokens` (a one-time
+token per row, only its SHA-256 stored, purpose `signin` 15 min, `reset` 30
+min, `invite` 7 days) and lets the site create a `public.users` row itself: it
+drops the foreign key `users_id_users_id_fk` to `auth.users` and gives `id` a
+default. RLS on, no policies, no grants for `anon` or `authenticated`.
+Additive for the live site. Apply it **before** the deploy (staging shares the
+production database):
+
+```
+DATABASE_URL="$DIRECT_URL" pnpm db:migrate
+```
+
+(or run the file in the SQL editor; it is safe to run twice). Check:
+`select count(*) from public.auth_tokens;` returns 0. Way back: see the header
+of the file.
+
+The sign-in link, the password reset mail and staff and client invites no
+longer call Supabase Auth. They go out through `src/lib/email.ts`, so **each
+environment needs `RESEND_API_KEY` or `POSTMARK_SERVER_TOKEN` plus
+`EMAIL_FROM`**. Links are built from `NEXT_PUBLIC_SITE_URL` (never the Host
+header) and open `/auth/link`, which only shows a button: the token is spent
+by the POST behind it, so a mail scanner that fetches the link cannot use it
+up. In production with no mail provider the send reports a failure instead of
+logging the link. The Supabase email templates are no longer used for new
+links. `/auth/callback` stays for links Supabase already sent.
+
+D1 twin (OPS-100 is on main): `src/db/d1/schema/sessions.ts` gains `authTokens`
+and the D1 `users.id` gets an app-side default. The generated D1 migration is
+`src/db/d1/migrations/0001_cynical_lady_deathstrike.sql` (one new table). It is
+not applied anywhere yet; production stays on Postgres until the cutover row.
 
 ## 8f. Approval queue (API phase 5)
 

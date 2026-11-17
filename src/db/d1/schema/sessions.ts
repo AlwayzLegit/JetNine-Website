@@ -1,7 +1,7 @@
 // D1 (SQLite) twin of src/db/schema/sessions.ts (OPS-100). Same export names, same SQL table
 // and column names. Mapping: see DEPLOY.md "D1 tables (OPS-100)".
 import { index, integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
-import { newId, nowDate } from "../helpers";
+import { enumCheck, newId, nowDate } from "../helpers";
 import { users } from "./users";
 
 // ─── the site's own sign-in ──────────────────────────────────────────────
@@ -32,3 +32,27 @@ export const userCredentials = sqliteTable("user_credentials", {
   updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull().$defaultFn(nowDate),
 });
 
+
+/**
+ * One-time emailed links (OPS-94). Twin of the Postgres table of the same name
+ * in src/db/schema/sessions.ts. Only the SHA-256 of the token is stored.
+ */
+export const authTokens = sqliteTable(
+  "auth_tokens",
+  {
+    id: text("id").primaryKey().$defaultFn(newId),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    purpose: text("purpose", { enum: ["signin", "reset", "invite"] }).notNull(),
+    tokenHash: text("token_hash").notNull().unique(),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().$defaultFn(nowDate),
+    expiresAt: integer("expires_at", { mode: "timestamp_ms" }).notNull(),
+    usedAt: integer("used_at", { mode: "timestamp_ms" }),
+  },
+  (t) => [
+    index("auth_tokens_user_purpose_idx").on(t.userId, t.purpose),
+    index("auth_tokens_expires_idx").on(t.expiresAt),
+    enumCheck("auth_tokens_purpose_enum", t.purpose, ["signin", "reset", "invite"]),
+  ],
+);

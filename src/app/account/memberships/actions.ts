@@ -1,10 +1,7 @@
 "use server";
 
-import { and, eq } from "drizzle-orm";
-import { db } from "@/db";
-import { members } from "@/db/schema/members";
-import { memberships, type NewMembership } from "@/db/schema/memberships";
-import { syncMemberTier } from "@/domain/memberships/tier";
+import type { NewMembership } from "@/db/schema/memberships";
+import { memberStore } from "@/domain/members/store";
 import { logAudit } from "@/lib/audit";
 import { requireUser } from "@/lib/auth";
 import {
@@ -51,19 +48,13 @@ export async function buyMembership(programInput: string): Promise<BuyResult> {
   }
 
   const user = await requireUser("/account/memberships");
+  const store = memberStore();
 
-  const [member] = await db
-    .select({ id: members.id })
-    .from(members)
-    .where(eq(members.userId, user.id));
+  const member = await store.memberRefByUserId(user.id);
   if (!member) return { ok: false, error: "MEMBER_NOT_FOUND" };
 
   // Block double-purchase when an active membership already exists.
-  const [existing] = await db
-    .select({ id: memberships.id, program: memberships.program })
-    .from(memberships)
-    .where(and(eq(memberships.memberId, member.id), eq(memberships.status, "active")))
-    .limit(1);
+  const existing = await store.activeMembership(member.id);
   if (existing) {
     return { ok: false, error: "ALREADY_ACTIVE" };
   }
@@ -83,13 +74,10 @@ export async function buyMembership(programInput: string): Promise<BuyResult> {
     status: "paused",
   };
 
-  const [inserted] = await db
-    .insert(memberships)
-    .values(newMembership)
-    .returning({ id: memberships.id });
+  const inserted = await store.insertMembership(newMembership);
   // The member tier follows the membership (OPS-102). A paused row changes
   // nothing; the call keeps the rule in one place on every write path.
-  await syncMemberTier(db, inserted.id, null);
+  await store.syncTier(inserted.id, null);
 
   let session: { sessionId: string; url: string };
   try {
@@ -107,19 +95,13 @@ export async function buyMembership(programInput: string): Promise<BuyResult> {
     // again, and if they do we'd create another paused row. Cleaner to
     // mark this one cancelled so /admin/member queries don't think
     // it's an in-progress purchase.
-    await db
-      .update(memberships)
-      .set({ status: "cancelled", notes: "checkout-session-create-failed" })
-      .where(eq(memberships.id, inserted.id));
-    await syncMemberTier(db, inserted.id, "paused");
+    await store.patchMembership(inserted.id, { status: "cancelled", notes: "checkout-session-create-failed" });
+    await store.syncTier(inserted.id, "paused");
     return { ok: false, error: "STRIPE_ERROR" };
   }
 
-  await db
-    .update(memberships)
-    .set({ stripeCheckoutSessionId: session.sessionId, updatedAt: new Date() })
-    .where(eq(memberships.id, inserted.id));
-  await syncMemberTier(db, inserted.id, "paused");
+  await store.patchMembership(inserted.id, { stripeCheckoutSessionId: session.sessionId });
+  await store.syncTier(inserted.id, "paused");
 
   await logAudit({
     actorUserId: user.id,
@@ -164,20 +146,14 @@ export async function topUpMembership(amountUsdRaw: number): Promise<BuyResult> 
   const amountUsd = amountUsdRaw;
 
   const user = await requireUser("/account/memberships");
+  const store = memberStore();
 
-  const [member] = await db
-    .select({ id: members.id })
-    .from(members)
-    .where(eq(members.userId, user.id));
+  const member = await store.memberRefByUserId(user.id);
   if (!member) return { ok: false, error: "MEMBER_NOT_FOUND" };
 
   // Only active members can top up — no active card means there's no
   // balance bucket to add to.
-  const [activeMembership] = await db
-    .select({ id: memberships.id, program: memberships.program })
-    .from(memberships)
-    .where(and(eq(memberships.memberId, member.id), eq(memberships.status, "active")))
-    .limit(1);
+  const activeMembership = await store.activeMembership(member.id);
   if (!activeMembership) {
     return { ok: false, error: "NO_ACTIVE_MEMBERSHIP" };
   }

@@ -1,17 +1,13 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { and, eq } from "drizzle-orm";
-import { db } from "@/db";
 import {
-  companions,
-  memberLanes,
-  memberPreferences,
   type NewCompanion,
   type NewMemberLane,
   type NewMemberPreferences,
 } from "@/db/schema/member-prefs";
 import { watchlistStore } from "@/domain/empty-legs/watchlist-store";
+import { memberStore } from "@/domain/members/store";
 import {
   aircraftCategoryEnum,
   cateringTierEnum,
@@ -102,24 +98,12 @@ export async function savePreferences(formData: FormData): Promise<SaveResult> {
   };
 
   // Upsert by primary key (memberId).
-  const [existing] = await db
-    .select({ memberId: memberPreferences.memberId })
-    .from(memberPreferences)
-    .where(eq(memberPreferences.memberId, member.id));
-
-  if (existing) {
-    await db
-      .update(memberPreferences)
-      .set(values)
-      .where(eq(memberPreferences.memberId, member.id));
-  } else {
-    await db.insert(memberPreferences).values(values);
-  }
+  const { created } = await memberStore().upsertPreferences(values);
 
   await logAudit({
     actorUserId: user.id,
     actorRole: user.role,
-    action: existing ? "preferences.update" : "preferences.create",
+    action: created ? "preferences.create" : "preferences.update",
     subjectType: "preferences",
     subjectId: member.id,
     metadata: {
@@ -189,10 +173,7 @@ export async function addCompanion(formData: FormData): Promise<CompanionResult>
   };
 
   try {
-    const [row] = await db
-      .insert(companions)
-      .values(values)
-      .returning({ id: companions.id });
+    const row = await memberStore().addCompanion(values);
 
     await logAudit({
       actorUserId: user.id,
@@ -225,13 +206,11 @@ export async function deleteCompanion(companionId: string): Promise<{ ok: true }
 
   if (!/^[0-9a-f-]{36}$/i.test(companionId)) return { ok: false, error: "That record isn't valid." };
 
-  const [target] = await db
-    .select({ id: companions.id, legalName: companions.legalName, relation: companions.relation })
-    .from(companions)
-    .where(and(eq(companions.id, companionId), eq(companions.memberId, member.id)));
+  const store = memberStore();
+  const target = await store.companionOf(companionId, member.id);
   if (!target) return { ok: false, error: "We couldn't find that record." };
 
-  await db.delete(companions).where(eq(companions.id, target.id));
+  await store.deleteCompanion(target.id);
 
   await logAudit({
     actorUserId: user.id,
@@ -278,16 +257,8 @@ export async function addLane(formData: FormData): Promise<LaneResult> {
   const seasonal = pickBool(formData, "seasonal");
 
   // Conflict check — member_lanes_unique covers this but a clean error is nicer.
-  const [conflict] = await db
-    .select({ id: memberLanes.id })
-    .from(memberLanes)
-    .where(
-      and(
-        eq(memberLanes.memberId, member.id),
-        eq(memberLanes.fromIcao, fromIcao),
-        eq(memberLanes.toIcao, toIcao),
-      ),
-    );
+  const lanes = memberStore();
+  const conflict = await lanes.laneExists(member.id, fromIcao, toIcao);
   if (conflict) return { ok: false, error: "That route is already on file." };
 
   const values: NewMemberLane = {
@@ -299,10 +270,7 @@ export async function addLane(formData: FormData): Promise<LaneResult> {
   };
 
   try {
-    const [row] = await db
-      .insert(memberLanes)
-      .values(values)
-      .returning({ id: memberLanes.id });
+    const row = await lanes.addLane(values);
 
     await logAudit({
       actorUserId: user.id,
@@ -411,13 +379,11 @@ export async function deleteLane(laneId: string): Promise<{ ok: true } | { ok: f
 
   if (!/^[0-9a-f-]{36}$/i.test(laneId)) return { ok: false, error: "That record isn't valid." };
 
-  const [target] = await db
-    .select({ id: memberLanes.id, fromIcao: memberLanes.fromIcao, toIcao: memberLanes.toIcao })
-    .from(memberLanes)
-    .where(and(eq(memberLanes.id, laneId), eq(memberLanes.memberId, member.id)));
+  const store = memberStore();
+  const target = await store.laneOf(laneId, member.id);
   if (!target) return { ok: false, error: "We couldn't find that record." };
 
-  await db.delete(memberLanes).where(eq(memberLanes.id, target.id));
+  await store.deleteLane(target.id);
 
   await logAudit({
     actorUserId: user.id,

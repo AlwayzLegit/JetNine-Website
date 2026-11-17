@@ -179,6 +179,16 @@ jobs:
       - name: Message store tests
         run: pnpm exec tsx --test src/domain/messages/store-d1.test.ts src/domain/messages/store.test.ts
 
+      # Clients and memberships on D1 (OPS-149): the desk's client list (case-insensitive search,
+      # the per-client counts and the reserve balance) and detail, the reserve ledger add and its
+      # balance, the invite taking the next M code in one batch (a failed insert gives the number
+      # back), the membership writes with the tier following them, preferences, companions and
+      # lanes, and the five money-path guard indexes (one active membership per member, one
+      # top-up per payment intent, one refund per draw), on a real SQLite, plus the loud failure
+      # when the target is d1 with no binding.
+      - name: Member store tests
+        run: pnpm exec tsx --test src/domain/members/store-d1.test.ts src/domain/members/store.test.ts
+
       # The API keys on D1 (OPS-138): create with the cap of working keys (one statement, two
       # creates together at the cap give one key), revoke, the list with its 24 hour counts and the
       # creator's name and role, the /api/v1 key sign-in read, the 60 second last-used stamp, one

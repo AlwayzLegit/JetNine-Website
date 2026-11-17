@@ -1,10 +1,5 @@
 import Link from "next/link";
-import { desc, eq, sql } from "drizzle-orm";
-import { db } from "@/db";
-import { memberships } from "@/db/schema/memberships";
-import { reserveTransactions } from "@/db/schema/memberships";
-import { trips } from "@/db/schema/trips";
-import { invoices } from "@/db/schema/invoices";
+import { memberStore } from "@/domain/members/store";
 import { getCurrentUser, requireUser } from "@/lib/auth";
 import { getMemberByUserId } from "@/lib/member";
 import { MEMBERSHIP_SPECS, type MembershipProgram } from "@/lib/memberships";
@@ -61,53 +56,19 @@ export default async function AccountMembersPage() {
     );
   }
 
-  const programs = await db
-    .select()
-    .from(memberships)
-    .where(eq(memberships.memberId, member.id))
-    .orderBy(desc(memberships.activatedOn));
+  const store = memberStore();
+  const programs = await store.membershipsOf(member.id);
 
   const active = programs.find((p) => p.status === "active") ?? null;
 
   // Live balance: signed sum from the ledger.
-  const [balanceRow] = await db
-    .select({
-      balance: sql<number>`coalesce(sum(${reserveTransactions.amountUsd}), 0)::int`,
-    })
-    .from(reserveTransactions)
-    .where(eq(reserveTransactions.memberId, member.id));
-  const balance = balanceRow?.balance ?? 0;
+  const balance = await store.balance(member.id);
 
   // Lifetime cashback only.
-  const [cashbackRow] = await db
-    .select({
-      total: sql<number>`coalesce(sum(${reserveTransactions.amountUsd}), 0)::int`,
-    })
-    .from(reserveTransactions)
-    .where(
-      sql`${reserveTransactions.memberId} = ${member.id} and ${reserveTransactions.kind} = 'credit_accrual'`,
-    );
-  const lifetimeCashback = cashbackRow?.total ?? 0;
+  const lifetimeCashback = await store.creditAccrualTotal(member.id);
 
   // Recent ledger (last 25).
-  const ledger = await db
-    .select({
-      id: reserveTransactions.id,
-      kind: reserveTransactions.kind,
-      amountUsd: reserveTransactions.amountUsd,
-      description: reserveTransactions.description,
-      occurredAt: reserveTransactions.occurredAt,
-      tripId: reserveTransactions.tripId,
-      tripCode: trips.tripCode,
-      invoiceId: reserveTransactions.invoiceId,
-      invoiceCode: invoices.invoiceCode,
-    })
-    .from(reserveTransactions)
-    .leftJoin(trips, eq(trips.id, reserveTransactions.tripId))
-    .leftJoin(invoices, eq(invoices.id, reserveTransactions.invoiceId))
-    .where(eq(reserveTransactions.memberId, member.id))
-    .orderBy(desc(reserveTransactions.occurredAt))
-    .limit(25);
+  const ledger = await store.recentLedgerWithRefs(member.id, 25);
 
   const spec = active ? MEMBERSHIP_SPECS[active.program] : null;
   const title = active ? programFamily(active.program) : "On-demand";

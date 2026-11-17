@@ -6,6 +6,7 @@ import {
   pgTable,
   text,
   timestamp,
+  uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
 import { aircraft } from "./aircraft";
@@ -99,6 +100,10 @@ export const aircraftScheduleBlocks = pgTable(
     index("asb_related_quote_idx").on(t.relatedQuoteId),
     index("asb_from_icao_idx").on(t.fromIcao),
     index("asb_to_icao_idx").on(t.toIcao),
+    // Migration 0032: one soft hold per (aircraft, quote).
+    uniqueIndex("schedule_blocks_hold_per_quote_aircraft_uniq")
+      .on(t.aircraftId, t.relatedQuoteId)
+      .where(sql`${t.kind} = 'hold' and ${t.relatedQuoteId} is not null`),
   ],
 );
 

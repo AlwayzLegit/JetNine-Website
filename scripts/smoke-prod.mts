@@ -215,6 +215,25 @@ async function checkOgImage(): Promise<void> {
   });
 }
 
+// The empty-leg watchlists read one store whichever database sits behind it
+// (OPS-116). A made-up confirm token matches no row, so this reads the table and
+// writes nothing: the page must say the link is no longer valid, and must not say
+// the lookup failed. Printed so staging and production can be compared. Read only.
+async function checkWatchlistConfirmLookup(): Promise<void> {
+  await check("GET /empty-legs/confirm/[unknown token]", "required", async () => {
+    const r = await read(`${TARGET}/empty-legs/confirm/crew-smoke-not-a-token`);
+    if (r.status !== 200) return { ok: false, detail: `expected 200, got ${r.status}` };
+    if (/couldn.{1,8}t check/i.test(r.text)) {
+      return { ok: false, detail: "the page says the lookup failed" };
+    }
+    if (!/This link is no longer valid/.test(r.text)) {
+      return { ok: false, detail: "body missing the no longer valid line" };
+    }
+    console.log("watchlist confirm lookup: ok");
+    return { ok: true, detail: "200 · no longer valid" };
+  });
+}
+
 // ─── API ships-dark surface ──────────────────────────────────────────────
 
 async function checkStripeWebhook(): Promise<void> {
@@ -450,6 +469,7 @@ async function main() {
   await checkBlog();
   await checkOgImage();
   await checkEmptyLegsBoard();
+  await checkWatchlistConfirmLookup();
   await checkStripeWebhook();
   await checkEmailInbound();
   await checkTwilioInbound();

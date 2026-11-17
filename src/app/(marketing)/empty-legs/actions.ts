@@ -2,8 +2,8 @@
 
 import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
-import { db } from "@/db";
-import { emptyLegWatchlists, type NewEmptyLegWatchlist } from "@/db/schema/empty-legs";
+import type { NewEmptyLegWatchlist } from "@/db/schema/empty-legs";
+import { watchlistStore } from "@/domain/empty-legs/watchlist-store";
 import { getCurrentUser } from "@/lib/auth";
 import { getMemberByUserId } from "@/lib/member";
 import { logAudit } from "@/lib/audit";
@@ -123,13 +123,11 @@ export async function createWatchlist(formData: FormData): Promise<WatchlistResu
     confirmExpiresAt: confirmExpiry(now),
   };
 
+  // Chosen once, outside the try, so a d1 target without its binding fails loudly.
+  const store = watchlistStore();
   let insertedId: string;
   try {
-    const [row] = await db
-      .insert(emptyLegWatchlists)
-      .values(values)
-      .returning({ id: emptyLegWatchlists.id });
-    insertedId = row.id;
+    insertedId = await store.createWatchlist(values);
   } catch (err) {
     console.error("createWatchlist failed", err);
     return { ok: false, error: "DB_INSERT_FAILED" };

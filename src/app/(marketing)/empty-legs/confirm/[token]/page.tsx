@@ -1,7 +1,5 @@
 import type { Metadata } from "next";
-import { eq, or } from "drizzle-orm";
-import { db } from "@/db";
-import { emptyLegWatchlists } from "@/db/schema/empty-legs";
+import { watchlistStore } from "@/domain/empty-legs/watchlist-store";
 import { hashToken, isExpired } from "@/lib/watchlist-confirm";
 import { WatchlistConfirmCard } from "@/components/empty-legs/confirm-card";
 import { DeadTokenCard, TokenPageShell } from "@/components/empty-legs/token-page-shell";
@@ -43,25 +41,11 @@ function Dead({ heading, body }: { heading: string; body: string }) {
 export default async function ConfirmPage({ params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
 
+  // Chosen once, outside the try, so a d1 target without its binding fails loudly.
+  const store = watchlistStore();
   let row;
   try {
-    const hash = hashToken(token);
-    [row] = await db
-      .select({
-        fromText: emptyLegWatchlists.fromText,
-        toText: emptyLegWatchlists.toText,
-        earliestOn: emptyLegWatchlists.earliestOn,
-        latestOn: emptyLegWatchlists.latestOn,
-        expiresAt: emptyLegWatchlists.confirmExpiresAt,
-      })
-      .from(emptyLegWatchlists)
-      .where(
-        or(
-          eq(emptyLegWatchlists.confirmSmsTokenHash, hash),
-          eq(emptyLegWatchlists.confirmEmailTokenHash, hash),
-        ),
-      )
-      .limit(1);
+    row = await store.byConfirmHash(hashToken(token));
   } catch (err) {
     console.error("[watchlist-confirm] lookup failed", err);
     return (

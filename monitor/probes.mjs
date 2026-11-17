@@ -23,13 +23,14 @@ const healthy = (body) => {
   }
 };
 
-// OPS-90: /api/health lists "auth" in `failing` when Supabase Auth, the provider
-// sign-in goes through, does not answer 200 (a restricted project answers 402).
-// The answer stays 200 then, so "API health" above does not notice.
+// OPS-121: /api/health lists "signin" in `failing` when the site's own sign-in
+// (sessions, link tokens, password hashes in the database) does not answer.
+// The answer stays 200 then, so "API health" above does not notice. Until
+// OPS-121 this read "auth", the Supabase Auth probe, which sign-in no longer uses.
 const signInServiceUp = (body) => {
   try {
     const failing = JSON.parse(body)?.failing;
-    return !(Array.isArray(failing) && failing.includes("auth"));
+    return !(Array.isArray(failing) && failing.includes("signin"));
   } catch {
     return false;
   }

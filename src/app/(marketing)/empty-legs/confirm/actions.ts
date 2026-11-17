@@ -1,9 +1,7 @@
 "use server";
 
-import { eq, or } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
-import { db } from "@/db";
-import { emptyLegWatchlists } from "@/db/schema/empty-legs";
+import { watchlistStore } from "@/domain/empty-legs/watchlist-store";
 import { logAudit } from "@/lib/audit";
 import { hashToken, isExpired } from "@/lib/watchlist-confirm";
 
@@ -28,23 +26,11 @@ export async function confirmWatchlist(formData: FormData): Promise<ConfirmResul
   if (!token) return { ok: false, error: "INVALID" };
 
   const hash = hashToken(token);
+  // Chosen once, outside the try blocks, so a d1 target without its binding fails loudly.
+  const store = watchlistStore();
   let row;
   try {
-    [row] = await db
-      .select({
-        id: emptyLegWatchlists.id,
-        smsHash: emptyLegWatchlists.confirmSmsTokenHash,
-        emailHash: emptyLegWatchlists.confirmEmailTokenHash,
-        expiresAt: emptyLegWatchlists.confirmExpiresAt,
-      })
-      .from(emptyLegWatchlists)
-      .where(
-        or(
-          eq(emptyLegWatchlists.confirmSmsTokenHash, hash),
-          eq(emptyLegWatchlists.confirmEmailTokenHash, hash),
-        ),
-      )
-      .limit(1);
+    row = await store.byConfirmHash(hash);
   } catch (err) {
     console.error("confirmWatchlist lookup failed", err);
     return { ok: false, error: "FAILED" };
@@ -57,14 +43,7 @@ export async function confirmWatchlist(formData: FormData): Promise<ConfirmResul
   const now = new Date();
 
   try {
-    await db
-      .update(emptyLegWatchlists)
-      .set(
-        channel === "sms"
-          ? { smsConfirmedAt: now, confirmSmsTokenHash: null }
-          : { emailConfirmedAt: now, confirmEmailTokenHash: null },
-      )
-      .where(eq(emptyLegWatchlists.id, row.id));
+    await store.confirmChannel(row.id, channel, now);
   } catch (err) {
     console.error("confirmWatchlist write failed", err);
     return { ok: false, error: "FAILED" };

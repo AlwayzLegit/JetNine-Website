@@ -2,12 +2,11 @@
 
 import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
-import { db } from "@/db";
 import {
-  contactInquiries,
   contactReasonEnum,
   type NewContactInquiry,
 } from "@/db/schema/contact";
+import { inquiryStore } from "@/domain/contact/store";
 import { getCurrentUser } from "@/lib/auth";
 import { getMemberByUserId } from "@/lib/member";
 import { logAudit } from "@/lib/audit";
@@ -138,10 +137,7 @@ export async function submitContactInquiry(formData: FormData): Promise<ContactR
 
   let insertedId: string;
   try {
-    const [row] = await db
-      .insert(contactInquiries)
-      .values(values)
-      .returning({ id: contactInquiries.id });
+    const row = await inquiryStore().insertInquiry(values);
     insertedId = row.id;
   } catch (err) {
     console.error("submitContactInquiry failed", err);

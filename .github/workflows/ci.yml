@@ -151,6 +151,12 @@ jobs:
       - name: Blog store tests
         run: pnpm exec tsx --test src/domain/blog/store-d1.test.ts src/domain/blog/store.test.ts
 
+      # The inquiry store on D1 (the contact form, the guide download leads, the desk count and
+      # the admin Website form tab): contract cases on a real SQLite, and the loud failure when
+      # the target is d1 with no binding (OPS-122).
+      - name: Contact store tests
+        run: pnpm exec tsx --test src/domain/contact/store-d1.test.ts src/domain/contact/store.test.ts
+
   e2e:
     name: playwright smoke
     runs-on: ubuntu-24.04

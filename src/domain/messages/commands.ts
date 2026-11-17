@@ -1,7 +1,7 @@
 import { and, count, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { messages } from "@/db/schema/audit";
-import { contactInquiries } from "@/db/schema/contact";
+import { inquiryStore } from "@/domain/contact/store";
 import { quotes } from "@/db/schema/quotes";
 import { trips } from "@/db/schema/trips";
 import { logAudit } from "@/lib/audit";
@@ -232,10 +232,7 @@ export type InquiryStatusState = {
 
 export async function loadInquiryForStatus(input: InquiryStatusInput): Promise<Result<InquiryStatusState>> {
   if (!isUuid(input.id)) return err("not_found", "NOT_FOUND");
-  const [inquiry] = await db
-    .select({ id: contactInquiries.id, status: contactInquiries.status })
-    .from(contactInquiries)
-    .where(eq(contactInquiries.id, input.id));
+  const inquiry = await inquiryStore().statusOf(input.id);
   if (!inquiry) return err("not_found", "NOT_FOUND");
   return ok({ inquiry });
 }
@@ -253,15 +250,12 @@ export async function setInquiryStatus(
   const a = auditFields(actor);
 
   try {
-    const [row] = await db
-      .update(contactInquiries)
-      .set(
-        input.status === "handled"
-          ? { status: "handled", handledByUserId: a.actorUserId, handledAt: new Date() }
-          : { status: "new", handledByUserId: null, handledAt: null },
-      )
-      .where(eq(contactInquiries.id, inquiry.id))
-      .returning({ id: contactInquiries.id });
+    const row = await inquiryStore().setStatus(
+      inquiry.id,
+      input.status === "handled"
+        ? { status: "handled", handledByUserId: a.actorUserId, handledAt: new Date() }
+        : { status: "new", handledByUserId: null, handledAt: null },
+    );
     if (!row) return err("not_found", "NOT_FOUND");
   } catch (e) {
     console.error("setInquiryStatus failed", e);

@@ -254,23 +254,25 @@ test("publicStatus shows a quiet time it cannot represent as null instead of thr
   assert.equal(edge.body.quietUntil, "+275760-09-13T00:00:00.000Z");
 });
 
-// OPS-90: the "Sign-in service" check reads /api/health's `failing` list and has its own quiet date.
+// OPS-90, OPS-121: the "Sign-in service" check reads /api/health's `failing` list (the name "signin") and has its own quiet date.
 const signin = (body) => {
   const c = CHECKS.find((x) => x.name === "Sign-in service");
   return c.ok(body);
 };
 
-test("Sign-in service fails when failing lists auth, passes when it does not, and fails on bad JSON", () => {
-  assert.equal(signin(JSON.stringify({ ok: true, status: "degraded", failing: ["auth"] })), false);
-  assert.equal(signin(JSON.stringify({ ok: true, status: "degraded", failing: ["stripe", "auth"] })), false);
+test("Sign-in service fails when failing lists signin, passes when it does not, and fails on bad JSON", () => {
+  assert.equal(signin(JSON.stringify({ ok: true, status: "degraded", failing: ["signin"] })), false);
+  assert.equal(signin(JSON.stringify({ ok: true, status: "degraded", failing: ["stripe", "signin"] })), false);
+  // The old name no longer exists in /api/health (OPS-121), so it alone is not a sign-in failure.
+  assert.equal(signin(JSON.stringify({ ok: true, status: "degraded", failing: ["auth"] })), true);
   assert.equal(signin(JSON.stringify({ ok: true, status: "healthy", failing: [] })), true);
   assert.equal(signin(JSON.stringify({ ok: true, status: "healthy" })), true);
   assert.equal(signin("<html>not json</html>"), false);
 });
 
-test("a site whose health says failing auth fails only Sign-in service, with a fixed word", async () => {
+test("a site whose health says failing signin fails only Sign-in service, with a fixed word", async () => {
   const routes = goodRoutes();
-  routes["/api/health"] = [200, JSON.stringify({ ok: true, status: "degraded", failing: ["auth"] })];
+  routes["/api/health"] = [200, JSON.stringify({ ok: true, status: "degraded", failing: ["signin"] })];
   const r = await runProbes(SITE, { fetchImpl: fakeSite(routes).fetchImpl, ...noSleep });
   const by = Object.fromEntries(r.checks.map((c) => [c.name, [c.ok, c.detail]]));
   assert.deepEqual(by["Sign-in service"], [false, "unhealthy"]);
@@ -284,7 +286,7 @@ const signInFail = {
   ],
   canary: { ok: true, ms: 1 },
 };
-const SIGNIN_QUIET = Date.parse("2026-11-19T08:00:00Z");
+const SIGNIN_QUIET = Date.parse("2026-11-20T08:00:00Z");
 
 test("inside its own quiet date Sign-in service is only recorded: no incident, no event, round stays ok", () => {
   const r = nextRound(null, signInFail, T0, QUIET, { "Sign-in service": SIGNIN_QUIET });
@@ -316,17 +318,17 @@ test("another check failing in the same round still raises while Sign-in service
 });
 
 test("checkQuietMs reads SIGNIN_QUIET_UNTIL, and a missing or broken one stays quiet", () => {
-  assert.equal(checkQuietMs({ SIGNIN_QUIET_UNTIL: "2026-11-19T08:00:00Z" })["Sign-in service"], SIGNIN_QUIET);
+  assert.equal(checkQuietMs({ SIGNIN_QUIET_UNTIL: "2026-11-20T08:00:00Z" })["Sign-in service"], SIGNIN_QUIET);
   assert.equal(checkQuietMs({})["Sign-in service"], FAR_FUTURE_MS);
   assert.equal(checkQuietMs({ SIGNIN_QUIET_UNTIL: "garbage" })["Sign-in service"], FAR_FUTURE_MS);
   assert.deepEqual(Object.keys(checkQuietMs({})), ["Sign-in service"]);
 });
 
-test("a full round with auth failing sends no email before SIGNIN_QUIET_UNTIL and records it", async () => {
-  const e = fakeEnv({ ALERT_EMAIL: "ops@x.test", RESEND_API_KEY: "k", SIGNIN_QUIET_UNTIL: "2026-11-19T08:00:00Z" });
+test("a full round with signin failing sends no email before SIGNIN_QUIET_UNTIL and records it", async () => {
+  const e = fakeEnv({ ALERT_EMAIL: "ops@x.test", RESEND_API_KEY: "k", SIGNIN_QUIET_UNTIL: "2026-11-20T08:00:00Z" });
   const mail = [];
   const routes = goodRoutes();
-  routes["/api/health"] = [200, JSON.stringify({ ok: true, status: "degraded", failing: ["auth"] })];
+  routes["/api/health"] = [200, JSON.stringify({ ok: true, status: "degraded", failing: ["signin"] })];
   const state = await runRound(e, {
     now: T0,
     probe: { fetchImpl: fakeSite(routes).fetchImpl, ...noSleep },

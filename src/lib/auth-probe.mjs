@@ -1,3 +1,4 @@
+// Not used by /api/health since OPS-121. Removed with the Supabase clean-up (OPS-93).
 // Is Supabase Auth answering? (OPS-90.) No imports, so `node --test` loads it.
 //
 // The project sheet's sign-in goes through Supabase's API. On 2026-11-16 that

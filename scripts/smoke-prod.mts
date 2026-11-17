@@ -234,6 +234,25 @@ async function checkWatchlistConfirmLookup(): Promise<void> {
   });
 }
 
+// The API key sign-in reads one store whichever database sits behind it (OPS-138). A made-up
+// key of the right format (jn_live_ + 8 base32 characters + 43 token characters) matches no
+// row, so this reads the table and writes nothing: /api/v1/me must answer 401 with the
+// "invalid key" envelope. A 503 would mean the lookup itself failed (no database behind the
+// store). No real key is used or needed. Printed so staging and production can be compared.
+async function checkApiKeyLookup(): Promise<void> {
+  await check("GET /api/v1/me (made-up key)", "required", async () => {
+    const r = await read(`${TARGET}/api/v1/me`, {
+      headers: { authorization: `Bearer jn_live_crewsmok_${"A".repeat(43)}` },
+    });
+    if (r.status === 503 || /temporarily unavailable/i.test(r.text)) {
+      return { ok: false, detail: `the key lookup failed (${r.status})` };
+    }
+    if (r.status !== 401) return { ok: false, detail: `unexpected ${r.status} (expected 401)` };
+    console.log("api key lookup: 401 for a made-up key");
+    return { ok: true, detail: "401 · made-up key rejected" };
+  });
+}
+
 // ─── API ships-dark surface ──────────────────────────────────────────────
 
 async function checkStripeWebhook(): Promise<void> {
@@ -470,6 +489,7 @@ async function main() {
   await checkOgImage();
   await checkEmptyLegsBoard();
   await checkWatchlistConfirmLookup();
+  await checkApiKeyLookup();
   await checkStripeWebhook();
   await checkEmailInbound();
   await checkTwilioInbound();

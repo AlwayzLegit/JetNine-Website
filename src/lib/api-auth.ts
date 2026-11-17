@@ -1,13 +1,10 @@
 import { after } from "next/server";
-import { and, eq, isNull, lt, or, sql as dsql } from "drizzle-orm";
-import { db } from "@/db";
-import { apiKeys } from "@/db/schema/api";
-import { users } from "@/db/schema/users";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { effectiveScopes, hashToken, hashesEqual, parseToken } from "@/lib/api-keys";
 import type { Actor } from "@/domain/actor";
 import { err, ok, type Result } from "@/domain/result";
 import { clientIpFrom } from "@/lib/client-ip";
+import { apiKeyRuntimeStore, type ApiKeyRuntimeStore, type AuthKeyRow } from "@/lib/api-key-store/store";
 
 /**
  * Authenticate an /api/v1 request from its `Authorization: Bearer` key.
@@ -46,40 +43,12 @@ export async function authenticateApiKey(req: Request, opts: { write?: boolean }
   const parsed = parseToken(bearerToken(req));
   if (!parsed) return authFailure(ip);
 
-  let row:
-    | {
-        id: string;
-        name: string;
-        tokenHash: string;
-        scopes: string[];
-        requiresApproval: boolean;
-        rateLimitPerMin: number;
-        expiresAt: Date | null;
-        revokedAt: Date | null;
-        lastUsedAt: Date | null;
-        creatorId: string | null;
-        creatorRole: string | null;
-      }
-    | undefined;
+  let store: ApiKeyRuntimeStore;
+  let row: AuthKeyRow | undefined;
   try {
-    [row] = await db
-      .select({
-        id: apiKeys.id,
-        name: apiKeys.name,
-        tokenHash: apiKeys.tokenHash,
-        scopes: apiKeys.scopes,
-        requiresApproval: apiKeys.requiresApproval,
-        rateLimitPerMin: apiKeys.rateLimitPerMin,
-        expiresAt: apiKeys.expiresAt,
-        revokedAt: apiKeys.revokedAt,
-        lastUsedAt: apiKeys.lastUsedAt,
-        creatorId: users.id,
-        creatorRole: users.role,
-      })
-      .from(apiKeys)
-      .leftJoin(users, eq(users.id, apiKeys.createdBy))
-      .where(eq(apiKeys.prefix, parsed.prefix))
-      .limit(1);
+    // Picked inside the try: target d1 with no binding fails closed, as any failed lookup does.
+    store = apiKeyRuntimeStore();
+    row = await store.keyForAuth(parsed.prefix);
   } catch (e) {
     console.error("[api-auth] key lookup failed", e);
     return err("unavailable", "The API is temporarily unavailable.");
@@ -110,15 +79,7 @@ export async function authenticateApiKey(req: Request, opts: { write?: boolean }
     const keyId = row.id;
     after(async () => {
       try {
-        await db
-          .update(apiKeys)
-          .set({ lastUsedAt: new Date(), lastUsedIp: ip, lastUsedUa: ua })
-          .where(
-            and(
-              eq(apiKeys.id, keyId),
-              or(isNull(apiKeys.lastUsedAt), lt(apiKeys.lastUsedAt, dsql`now() - interval '60 seconds'`)),
-            ),
-          );
+        await store.touchLastUsed(keyId, ip, ua);
       } catch {
         // best-effort
       }

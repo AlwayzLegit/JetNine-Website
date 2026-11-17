@@ -1,6 +1,6 @@
 import { after, NextResponse } from "next/server";
 import { db } from "@/db";
-import { apiRequests } from "@/db/schema/api";
+import { apiKeyRuntimeStore, type ApiKeyRuntimeStore } from "@/lib/api-key-store/store";
 import { clientIp } from "@/lib/api-auth";
 import { authorizeBlogAdmin } from "@/lib/blog-admin-auth";
 import type { Actor } from "@/domain/actor";
@@ -78,9 +78,16 @@ export function legacyRoute(route: string, successor: string, fn: Handler) {
         ua: req.headers.get("user-agent")?.slice(0, 300) ?? null,
         runId: auth.ok ? (auth.value.runId ?? null) : null,
       };
+      // Picked now, while the request's bindings are in reach; a failure here only loses the log line.
+      let store: ApiKeyRuntimeStore | null = null;
+      try {
+        store = apiKeyRuntimeStore();
+      } catch (e) {
+        console.error("[blog-legacy] request log store failed", e);
+      }
       after(async () => {
         try {
-          await db.insert(apiRequests).values(row);
+          await store?.logRequest(row);
         } catch {
           // best-effort
         }

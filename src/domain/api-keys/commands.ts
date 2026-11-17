@@ -1,13 +1,9 @@
-import { and, count, desc, eq, gt, isNull, sql } from "drizzle-orm";
-import { db } from "@/db";
-import { apiKeys, apiRequests } from "@/db/schema/api";
-import { staff } from "@/db/schema/staff";
-import { users } from "@/db/schema/users";
 import { KEY_TEMPLATES, isScope, mintToken, scopesForRole, type Scope } from "@/lib/api-keys";
 import { logAudit } from "@/lib/audit";
 import { personName } from "@/lib/desk-status";
 import { auditFields, type Actor } from "@/domain/actor";
 import { err, ok, type Result } from "@/domain/result";
+import { apiKeyAdminStore } from "@/lib/api-key-store/store";
 
 /**
  * Settings › API keys. Session-only by design: no /api/v1 route ever calls
@@ -47,44 +43,7 @@ export type KeyListRow = {
 };
 
 export async function listKeys(): Promise<KeyListRow[]> {
-  const usage = db
-    .select({
-      keyId: apiRequests.keyId,
-      calls: count().as("calls"),
-      errors: sql<number>`count(*) filter (where ${apiRequests.status} >= 400)`.as("errors"),
-    })
-    .from(apiRequests)
-    .where(gt(apiRequests.at, sql`now() - interval '24 hours'`))
-    .groupBy(apiRequests.keyId)
-    .as("usage");
-
-  const rows = await db
-    .select({
-      id: apiKeys.id,
-      name: apiKeys.name,
-      prefix: apiKeys.prefix,
-      last4: apiKeys.last4,
-      scopes: apiKeys.scopes,
-      requiresApproval: apiKeys.requiresApproval,
-      createdAt: apiKeys.createdAt,
-      expiresAt: apiKeys.expiresAt,
-      lastUsedAt: apiKeys.lastUsedAt,
-      lastUsedIp: apiKeys.lastUsedIp,
-      revokedAt: apiKeys.revokedAt,
-      revokeReason: apiKeys.revokeReason,
-      creatorFirst: users.firstName,
-      creatorLast: users.lastName,
-      creatorEmail: users.email,
-      creatorDisplay: staff.displayName,
-      creatorRole: users.role,
-      calls: usage.calls,
-      errors: usage.errors,
-    })
-    .from(apiKeys)
-    .leftJoin(users, eq(users.id, apiKeys.createdBy))
-    .leftJoin(staff, eq(staff.userId, apiKeys.createdBy))
-    .leftJoin(usage, eq(usage.keyId, apiKeys.id))
-    .orderBy(sql`${apiKeys.revokedAt} is not null`, desc(apiKeys.createdAt));
+  const rows = await apiKeyAdminStore().listKeys();
 
   return rows.map((r) => ({
     id: r.id,
@@ -103,8 +62,8 @@ export async function listKeys(): Promise<KeyListRow[]> {
       ? r.creatorDisplay?.trim() || personName(r.creatorFirst, r.creatorLast, r.creatorEmail.split("@")[0])
       : null,
     creatorRole: r.creatorRole,
-    calls24h: Number(r.calls ?? 0),
-    errors24h: Number(r.errors ?? 0),
+    calls24h: r.calls,
+    errors24h: r.errors,
   }));
 }
 
@@ -150,31 +109,20 @@ export async function createKey(actor: Actor, input: CreateKeyInput): Promise<Re
   const expiresAt = days === null ? null : new Date(Date.now() + days * 86_400_000);
 
   const minted = mintToken();
-  const creatorId = actor.userId;
-  // Count and insert under one advisory lock so two creates can't both
-  // slip past the cap.
-  const row = await db.transaction(async (tx) => {
-    await tx.execute(sql`select pg_advisory_xact_lock(hashtext('api_keys.create'))`);
-    const [{ active }] = await tx
-      .select({ active: count() })
-      .from(apiKeys)
-      .where(and(isNull(apiKeys.revokedAt), sql`(${apiKeys.expiresAt} is null or ${apiKeys.expiresAt} > now())`));
-    if (active >= MAX_ACTIVE_KEYS) return null;
-    const [inserted] = await tx
-      .insert(apiKeys)
-      .values({
-        name,
-        prefix: minted.prefix,
-        tokenHash: minted.hash,
-        last4: minted.last4,
-        scopes,
-        requiresApproval: supervised,
-        createdBy: creatorId,
-        expiresAt,
-      })
-      .returning({ id: apiKeys.id });
-    return inserted;
-  });
+  // The store counts and inserts as one step, so two creates can't both slip past the cap.
+  const row = await apiKeyAdminStore().createIfUnderCap(
+    {
+      name,
+      prefix: minted.prefix,
+      tokenHash: minted.hash,
+      last4: minted.last4,
+      scopes,
+      requiresApproval: supervised,
+      createdBy: actor.userId,
+      expiresAt,
+    },
+    MAX_ACTIVE_KEYS,
+  );
   if (!row) return err("conflict", `There are already ${MAX_ACTIVE_KEYS} working keys. Revoke one first.`);
 
   const a = auditFields(actor);
@@ -198,11 +146,7 @@ export async function revokeKey(actor: Actor, id: unknown, reason: unknown): Pro
   if (typeof id !== "string" || !UUID_RE.test(id)) return err("not_found", "That key no longer exists.");
   const note = typeof reason === "string" ? reason.trim().slice(0, 200) || null : null;
 
-  const [row] = await db
-    .update(apiKeys)
-    .set({ revokedAt: new Date(), revokedBy: actor.userId, revokeReason: note })
-    .where(and(eq(apiKeys.id, id), isNull(apiKeys.revokedAt)))
-    .returning({ id: apiKeys.id, name: apiKeys.name, prefix: apiKeys.prefix });
+  const row = await apiKeyAdminStore().revoke(id, actor.userId, note);
   if (!row) return err("not_found", "That key is already revoked or no longer exists.");
 
   const a = auditFields(actor);
@@ -237,21 +181,14 @@ export type LegacyKeyUsage = {
  */
 export async function legacyKeyUsage(now = new Date()): Promise<LegacyKeyUsage> {
   const configured = Boolean(process.env.BLOG_ADMIN_API_KEY);
-  const [row] = await db
-    .select({
-      lastUsedAt: sql<string | null>`max(${apiRequests.at})`,
-      calls7d: sql<number>`count(*) filter (where ${apiRequests.at} > now() - interval '7 days')::int`,
-      calls30d: sql<number>`count(*)::int`,
-    })
-    .from(apiRequests)
-    .where(eq(apiRequests.legacy, true));
-  const lastUsedAt = row?.lastUsedAt ? new Date(row.lastUsedAt) : null;
-  const calls7d = Number(row?.calls7d ?? 0);
+  const row = await apiKeyAdminStore().legacyUsage();
+  const lastUsedAt = row.lastUsedAt;
+  const calls7d = row.calls7d;
   return {
     configured,
     lastUsedAt,
     calls7d,
-    calls30d: Number(row?.calls30d ?? 0),
+    calls30d: row.calls30d,
     retirable: configured && calls7d === 0 && (!lastUsedAt || now.getTime() - lastUsedAt.getTime() > 7 * 86_400_000),
   };
 }

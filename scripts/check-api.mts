@@ -186,6 +186,9 @@ function check(name: string, cond: boolean, detail?: unknown) {
       `${file}: does not reach key management`,
       !/domain\/api-keys|settings\/api-keys\/actions/.test(src),
     );
+    // OPS-138: the key store has a runtime view (sign-in, limits, request log) that the API may
+    // use and a management view (list, create, revoke) that it may not.
+    check(`${file}: does not use the key management view of the key store`, !/apiKeyAdminStore/.test(src));
   }
 }
 

@@ -179,6 +179,15 @@ jobs:
       - name: Message store tests
         run: pnpm exec tsx --test src/domain/messages/store-d1.test.ts src/domain/messages/store.test.ts
 
+      # The API keys on D1 (OPS-138): create with the cap of working keys (one statement, two
+      # creates together at the cap give one key), revoke, the list with its 24 hour counts and the
+      # creator's name and role, the /api/v1 key sign-in read, the 60 second last-used stamp, one
+      # key's limits, the request log and its 30 day clean-up, the old blog key's usage, and the
+      # table's own refusals (unknown scope, unsupervised agent key, duplicate prefix), on a real
+      # SQLite, plus the loud failure when the target is d1 with no binding.
+      - name: API key store tests
+        run: pnpm exec tsx --test src/lib/api-key-store/store-d1.test.ts src/lib/api-key-store/store.test.ts
+
   e2e:
     name: playwright smoke
     runs-on: ubuntu-24.04

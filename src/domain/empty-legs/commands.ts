@@ -1,13 +1,10 @@
-import { eq } from "drizzle-orm";
-import { db } from "@/db";
-import { nextCode } from "@/db/codes";
-import { aircraft } from "@/db/schema/aircraft";
-import { emptyLegs, type NewEmptyLeg } from "@/db/schema/empty-legs";
+import type { NewEmptyLeg } from "@/db/schema/empty-legs";
 import { logAudit } from "@/lib/audit";
 import { auditFields, type Actor } from "@/domain/actor";
 import { isUuid } from "@/domain/common";
 import { err, ok, type Result } from "@/domain/result";
 import type { EmptyLegCreateInput, EmptyLegStatus, EmptyLegStatusInput } from "./schemas";
+import { emptyLegStore } from "./store";
 
 /**
  * Empty-leg commands, shared by the admin's Server Actions, the API and
@@ -45,16 +42,13 @@ export async function loadForEmptyLegCreate(input: EmptyLegCreateInput): Promise
   if (discountPct < 5) return err("invalid", "Discount under 5% — operator margin floor blocks publish.");
 
   // Look up the aircraft + operator + category by tail.
-  const [ac] = await db
-    .select({ id: aircraft.id, operatorId: aircraft.operatorId, category: aircraft.category })
-    .from(aircraft)
-    .where(eq(aircraft.tailNumber, input.aircraftTail));
+  const ac = await emptyLegStore().tailRef(input.aircraftTail);
   if (!ac) return err("not_found", `Unknown tail ${input.aircraftTail}`);
 
   return ok({ aircraft: ac, wheelsUpAt, discountPct });
 }
 
-/** Insert the leg (code comes from the DB trigger) and record it in History. */
+/** Insert the leg (the app makes its EL code) and record it in History. */
 export async function createEmptyLeg(
   actor: Actor,
   input: EmptyLegCreateInput,
@@ -98,14 +92,15 @@ export async function createEmptyLeg(
     expiresAt: wheelsUpAt,
   };
 
+  // The store is chosen outside the try: a d1 target without its binding must
+  // fail loudly, not come back as DB_INSERT_FAILED.
+  const store = emptyLegStore();
   let row: { id: string; code: string };
   try {
-    // The app makes the code (OPS-101); the empty_legs_default_code trigger
-    // fills it only when empty. One transaction, so a failed insert gives the number back.
-    [row] = await db.transaction(async (tx) => {
-      const code = await nextCode(tx, "empty_leg");
-      return tx.insert(emptyLegs).values({ ...values, code }).returning({ id: emptyLegs.id, code: emptyLegs.code });
-    });
+    // The app makes the code (OPS-101) and the insert uses it, as one unit
+    // (a Postgres transaction, or one D1 batch), so a failed insert gives the
+    // number back. The empty_legs_default_code trigger fills it only when empty.
+    row = await store.createLeg(values, new Date());
   } catch (e) {
     console.error("createEmptyLeg failed", e);
     return err("internal", "DB_INSERT_FAILED");
@@ -143,10 +138,7 @@ export type EmptyLegStatusState = {
 
 export async function loadEmptyLegForStatus(input: EmptyLegStatusInput): Promise<Result<EmptyLegStatusState>> {
   if (!isUuid(input.id)) return err("not_found", NOT_FOUND);
-  const [leg] = await db
-    .select({ id: emptyLegs.id, code: emptyLegs.code, status: emptyLegs.status })
-    .from(emptyLegs)
-    .where(eq(emptyLegs.id, input.id));
+  const leg = await emptyLegStore().legForStatus(input.id);
   if (!leg) return err("not_found", NOT_FOUND);
   return ok({ leg });
 }
@@ -164,7 +156,7 @@ export async function setEmptyLegStatus(
   const { leg } = state;
   const a = auditFields(actor);
 
-  await db.update(emptyLegs).set({ status: input.status, updatedAt: new Date() }).where(eq(emptyLegs.id, leg.id));
+  await emptyLegStore().setStatus(leg.id, input.status, new Date());
 
   await logAudit({
     actorUserId: a.actorUserId,

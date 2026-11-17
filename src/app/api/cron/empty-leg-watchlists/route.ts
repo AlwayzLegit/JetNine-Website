@@ -2,11 +2,8 @@ import { NextResponse } from "next/server";
 import { timingSafeEqual } from "node:crypto";
 import { and, asc, eq, gt, inArray, isNull, lt } from "drizzle-orm";
 import { db } from "@/db";
-import {
-  emptyLegs,
-  emptyLegWatchlists,
-  emptyLegWatchlistMatches,
-} from "@/db/schema/empty-legs";
+import { emptyLegWatchlists, emptyLegWatchlistMatches } from "@/db/schema/empty-legs";
+import { emptyLegStore } from "@/domain/empty-legs/store";
 import { sendSms } from "@/lib/twilio";
 import { sendEmail } from "@/lib/email";
 import { logAudit } from "@/lib/audit";
@@ -74,28 +71,9 @@ function authorized(req: Request): boolean {
 }
 
 async function loadLiveLegs(now: Date): Promise<MatchableLeg[]> {
-  return db
-    .select({
-      id: emptyLegs.id,
-      code: emptyLegs.code,
-      category: emptyLegs.category,
-      fromIcao: emptyLegs.fromIcao,
-      fromIata: emptyLegs.fromIata,
-      fromCity: emptyLegs.fromCity,
-      fromName: emptyLegs.fromName,
-      toIcao: emptyLegs.toIcao,
-      toIata: emptyLegs.toIata,
-      toCity: emptyLegs.toCity,
-      toName: emptyLegs.toName,
-      wheelsUpAt: emptyLegs.wheelsUpAt,
-      listedPriceUsd: emptyLegs.listedPriceUsd,
-      fullCharterRefUsd: emptyLegs.fullCharterRefUsd,
-      discountPct: emptyLegs.discountPct,
-    })
-    .from(emptyLegs)
-    // Same visibility rule as the public board, plus "has not departed".
-    .where(and(eq(emptyLegs.status, "live"), gt(emptyLegs.wheelsUpAt, now)))
-    .orderBy(asc(emptyLegs.wheelsUpAt));
+  // Postgres or D1 by dbTarget() (OPS-113). Same visibility rule as the public
+  // board, plus "has not departed". The watchlists below stay on Postgres.
+  return emptyLegStore().liveLegsAfter(now);
 }
 
 async function loadActiveWatchlists(): Promise<MatchableWatchlist[]> {

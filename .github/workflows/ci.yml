@@ -127,6 +127,12 @@ jobs:
       - name: Reference store tests
         run: pnpm exec tsx --test src/domain/reference/store-d1.test.ts
 
+      # The empty-legs store on D1: contract cases on a real SQLite (the EL code and its
+      # insert as one batch, the rollback), the code SQL against formatCode, and the loud
+      # failure when the target is d1 with no binding (OPS-113).
+      - name: Empty legs store tests
+        run: pnpm exec tsx --test src/domain/empty-legs/store-d1.test.ts
+
       # The Postgres to staging D1 copy tool (OPS-105): value mapping, the staging-only
       # guard, the table plan and the held-back credential tables. Needs no database.
       - name: D1 copy tests

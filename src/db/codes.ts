@@ -1,4 +1,4 @@
-import { sql } from "drizzle-orm";
+import { getTableName, sql, type SQL } from "drizzle-orm";
 import type { db } from "@/db";
 import { emptyLegCodeSequence } from "@/db/schema/empty-legs";
 import { invoiceCodeSequence } from "@/db/schema/invoices";
@@ -74,4 +74,23 @@ export async function nextCode(
     .returning({ n: table.lastValue });
   if (!row) throw new Error(`code sequence for ${kind} returned no row`);
   return formatCode(kind, year, row.n);
+}
+
+/**
+ * The same code, made inside one SQL statement, for D1 (SQLite). D1 from a
+ * Worker has no interactive transaction, so the insert of a row that carries a
+ * code reads the counter in SQL, and one `db.batch([upsert, insert])` runs the
+ * counter move and the insert as one transaction (OPS-113). Put the sequence
+ * upsert first in the batch: the expression reads the value that upsert left.
+ * `printf('%04d')` keeps a number wider than the padding whole, as formatCode does.
+ */
+export function codeSql(kind: CodeKind, year: number): SQL {
+  if (!Number.isInteger(year)) throw new Error("codeSql needs a whole year");
+  const { prefix, pad } = FORMATS[kind];
+  const table = getTableName(SEQUENCES[kind]);
+  // prefix, pad and the table name are constants of this file and the year is a whole number:
+  // inlined as literals so D1 never has to guess the type of a bound value.
+  return sql.raw(
+    `(select '${prefix}-${year}-' || printf('%0${pad}d', last_value) from "${table}" where year = ${year})`,
+  );
 }

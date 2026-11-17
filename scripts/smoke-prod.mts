@@ -167,6 +167,20 @@ async function checkRobots(): Promise<void> {
   });
 }
 
+// The empty-legs board reads one store whichever database sits behind it (OPS-113).
+// The count of distinct EL codes on the page is printed so production and staging
+// can be compared line by line. Read only.
+async function checkEmptyLegsBoard(): Promise<void> {
+  await check("GET /empty-legs (board)", "required", async () => {
+    const r = await read(`${TARGET}/empty-legs`);
+    if (r.status !== 200) return { ok: false, detail: `expected 200, got ${r.status}` };
+    if (!/Empty Leg/.test(r.text)) return { ok: false, detail: "body missing the board title" };
+    const codes = new Set(r.text.match(/EL-\d{4}-\d{4,}/g) ?? []);
+    console.log(`empty legs on board: ${codes.size}`);
+    return { ok: true, detail: `200 · ${codes.size} legs listed` };
+  });
+}
+
 // The blog reads one store whichever database sits behind it (OPS-109). The feed
 // count is printed so production and staging can be compared line by line.
 async function checkBlog(): Promise<void> {
@@ -435,6 +449,7 @@ async function main() {
   await checkRobots();
   await checkBlog();
   await checkOgImage();
+  await checkEmptyLegsBoard();
   await checkStripeWebhook();
   await checkEmailInbound();
   await checkTwilioInbound();

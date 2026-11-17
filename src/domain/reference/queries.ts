@@ -1,5 +1,6 @@
 import { and, asc, eq, gt, lt, sql } from "drizzle-orm";
 import { db } from "@/db";
+import { emptyLegStore } from "@/domain/empty-legs/store";
 import { aircraftScheduleBlocks } from "@/db/schema/schedule-blocks";
 import { trips } from "@/db/schema/trips";
 import { referenceStore, type AircraftListRow, type FleetBoardRow, type OperatorRow } from "./store";
@@ -106,19 +107,21 @@ export type ReferenceCounts = {
 /** Row counts behind /admin/settings/reference. Partial when a table is missing. */
 export async function referenceCounts(): Promise<Partial<ReferenceCounts>> {
   // The store is chosen outside the try: a d1 target without its binding
-  // must fail loudly, not come back as an empty page.
+  // must fail loudly, not come back as an empty page (OPS-112, OPS-113).
   const store = referenceStore();
+  const legs = emptyLegStore();
   try {
-    // empty_legs and ai_providers stay on Postgres until their own rows.
-    const [reference, [rest]] = await Promise.all([
+    // The four reference counts and the empty-legs count go through their
+    // stores (Postgres or D1); ai_providers stays on Postgres until its own row.
+    const [reference, [rest], emptyLegCount] = await Promise.all([
       store.counts(),
-      db.execute<Pick<ReferenceCounts, "empty_legs" | "ai_providers">>(sql`
+      db.execute<Pick<ReferenceCounts, "ai_providers">>(sql`
         select
-          (select count(*)::int from public.empty_legs where status in ('scheduled','live')) as empty_legs,
-          (select count(*)::int from public.ai_providers where enabled)                      as ai_providers
+          (select count(*)::int from public.ai_providers where enabled) as ai_providers
       `),
+      legs.countActive(),
     ]);
-    return { ...reference, ...(rest ?? {}) };
+    return { ...reference, ...(rest ?? {}), empty_legs: emptyLegCount };
   } catch {
     // A missing table (e.g. ai_providers before migration 0047) must not
     // take the whole page down — the links still work.

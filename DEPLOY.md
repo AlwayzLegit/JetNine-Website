@@ -494,3 +494,14 @@ Step 5 of the move to Cloudflare (OPS-93): fill staging's own D1 database from P
 - Staging D1 is a test copy, not a source of truth. Run the copy again whenever a fresh copy is needed; it starts by wiping.
 - The reverse copy (D1 back to Postgres, for a rollback) is not part of this row.
 - Tests (`scripts/d1-copy/*.test.*`) run in CI and need no secrets or network.
+
+### Load order, nulled references and the preflight (OPS-115)
+
+The first load failed with `SQLITE_CONSTRAINT` and the log did not say where. What changed:
+
+- **Parents first.** The table plan is in referential order (a parent table before every table that has a foreign key to it, ties by name). The file deletes children first (the plan in reverse) and inserts parents first. `--list` prints this order. If the keys ever form a cycle, the plan throws and names the tables.
+- **Five references are written as NULL.** `agent_runs.key_id`, `api_requests.key_id` and `approvals.requested_by_key` point to `api_keys`; `ai_routes.primary_provider_id` and `ai_routes.fallback_provider_id` point to `ai_providers`. Both parents are held back and load empty, so a real value would break the key. All five columns are nullable (the plan throws if one ever is not, and then that table would have to be held back too, which is the owner's call). The log says how many rows had such a reference set to null, per table.
+- **Preflight, before staging is touched.** The tool builds an in-memory SQLite database from the repo's own D1 migrations (Node's built-in `node:sqlite`), loads every table's rows into it with foreign keys off, then runs `PRAGMA foreign_key_check`. A rule the real data does not meet is printed as `preflight FAIL [table]: [kind and names]` (for example `UNIQUE members.email`, `NOT NULL quotes.total`, `CHECK agent_memory_kind_check`, or `FOREIGN KEY child -> parent: 2 rows`), followed by `staging D1 not touched`, and the run exits 1. A statement longer than D1's 100,000 bytes is reported the same way. Only table, column and constraint names are printed, never a value. If `node:sqlite` is missing the preflight cannot run and the run stops, also before staging is touched.
+- **Clean preflight** prints `preflight ok: [n] tables, [rows] rows; ...` and the remote load follows as before.
+- **If the remote load still fails** the log prints the error code with the constraint kind and names, then counts the rows of every table in staging D1: `staging D1 after the failed load: empty` or `partial, [x] of [n] tables have rows (a new load wipes it first)`. Running the load again is always safe.
+- Nothing else changed: the staging-only guard, the held-back tables (never read from Postgres), no row value in any log line.

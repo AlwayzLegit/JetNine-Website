@@ -7,12 +7,28 @@ import { applyMigrations, foreignKeyReport, openMemoryDb, readMigrations } from 
 
 const KNOWN_TYPES = new Set(["SQLiteText", "SQLiteTimestamp", "SQLiteInteger", "SQLiteBoolean", "SQLiteTextJson"]);
 
-test("the copy plan covers every D1 table (51 at OPS-100), once each", () => {
+test("the copy plan covers every D1 table (51 at OPS-100, 57 with the four voice tables of OPS-129), once each", () => {
   const plan = copyPlan();
-  assert.ok(plan.length >= 51, `expected at least 51 tables, found ${plan.length}`);
+  assert.ok(plan.length >= 57, `expected at least 57 tables, found ${plan.length}`);
   assert.equal(new Set(plan.map((t) => t.name)).size, plan.length);
   assert.ok(plan.some((t) => t.name === "users"));
   assert.ok(plan.some((t) => t.name === "user_sessions"));
+});
+
+test("the four voice call tables are copied, parents first, and none is held back (OPS-129)", () => {
+  const plan = copyPlan();
+  const at = (n: string) => plan.findIndex((t) => t.name === n);
+  for (const n of ["voice_leads", "voice_calls", "voice_trip_requests", "voice_messages"]) {
+    assert.ok(at(n) >= 0, `${n} is not in the plan`);
+    assert.equal(plan[at(n)].nullRefs.length, 0, `${n} has a nulled reference`);
+    assert.ok(!(n in HELD_BACK), `${n} is held back`);
+  }
+  assert.ok(at("voice_leads") < at("voice_calls"));
+  assert.ok(at("voice_calls") < at("voice_trip_requests"));
+  assert.ok(at("voice_calls") < at("voice_messages"));
+  const plus = (n: string) => plan[at(n)].columns.find((c) => c.name === "transcript" || c.name === "depart_date_iso");
+  assert.equal(plus("voice_calls")?.columnType, "SQLiteTextJson");
+  assert.equal(plus("voice_trip_requests")?.columnType, "SQLiteText");
 });
 
 test("every column has a type the mapping knows, and every table one key", () => {

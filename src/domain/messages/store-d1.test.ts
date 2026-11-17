@@ -181,6 +181,32 @@ test("latestPerThread returns the newest message of each thread and only one per
   assert.deepEqual(await store.latestPerThread(["quote"], []), []);
 });
 
+test("latestPerThread stays inside D1's 100 parameter limit for a full thread list", async () => {
+  const { sqlite, client, store } = fresh();
+  const ids = Array.from({ length: 120 }, (_, i) => `thread-${i}`);
+  await client.insert((await import("@/db/d1/schema/audit")).messages).values(
+    ids.flatMap((subjectId, i) => [
+      { subjectType: "quote", subjectId, channel: "email", direction: "in", body: "old", occurredAt: at("2026-11-01T10:00:00Z") },
+      { subjectType: "quote", subjectId, channel: "email", direction: "out", body: `last-${i}`, occurredAt: at("2026-11-02T10:00:00Z") },
+    ]) as never,
+  );
+  // From here on, refuse a query with more than 100 bound parameters, as D1 does.
+  const prepare = sqlite.prepare.bind(sqlite);
+  sqlite.prepare = ((query: string) => {
+    const stmt = prepare(query);
+    const all = stmt.all.bind(stmt);
+    stmt.all = ((...params: unknown[]) => {
+      if (params.length > 100) throw new Error(`too many SQL variables: ${params.length}`);
+      return all(...(params as never[]));
+    }) as typeof stmt.all;
+    return stmt;
+  }) as typeof sqlite.prepare;
+  const rows = await store.latestPerThread(["quote", "trip", "member"], ids);
+  assert.equal(rows.length, 120);
+  assert.equal(new Set(rows.map((r) => r.subjectId)).size, 120);
+  assert.ok(rows.every((r) => r.body === `last-${r.subjectId.slice(7)}`));
+});
+
 test("unreadThreadCount counts threads, not messages, and only inbound unread on the given kinds", async () => {
   const { store } = fresh();
   await store.insertMessage(inb({ subjectId: "a" }) as never);

@@ -106,31 +106,39 @@ export function d1MessageStore(db: D1Client): MessageStore {
     },
 
     async latestPerThread(kinds, subjectIds) {
-      if (subjectIds.length === 0) return [];
-      const ranked = db
-        .select({
-          subjectType: messages.subjectType,
-          subjectId: messages.subjectId,
-          direction: messages.direction,
-          preview: messages.preview,
-          body: messages.body,
-          rank: sql<number>`row_number() over (partition by ${messages.subjectType}, ${messages.subjectId} order by ${messages.occurredAt} desc)`.as(
-            "rank",
-          ),
-        })
-        .from(messages)
-        .where(and(inArray(messages.subjectType, kinds), inArray(messages.subjectId, subjectIds)))
-        .as("ranked");
-      return db
-        .select({
-          subjectType: ranked.subjectType,
-          subjectId: ranked.subjectId,
-          direction: ranked.direction,
-          preview: ranked.preview,
-          body: ranked.body,
-        })
-        .from(ranked)
-        .where(eq(ranked.rank, 1));
+      // D1 allows 100 bound parameters a query: the kinds and the ids share them, so the
+      // ids go in chunks (the thread list asks for up to 100 threads).
+      const size = Math.max(1, 90 - kinds.length);
+      const out: Awaited<ReturnType<MessageStore["latestPerThread"]>> = [];
+      for (let i = 0; i < subjectIds.length; i += size) {
+        const ids = subjectIds.slice(i, i + size);
+        const ranked = db
+          .select({
+            subjectType: messages.subjectType,
+            subjectId: messages.subjectId,
+            direction: messages.direction,
+            preview: messages.preview,
+            body: messages.body,
+            rank: sql<number>`row_number() over (partition by ${messages.subjectType}, ${messages.subjectId} order by ${messages.occurredAt} desc)`.as(
+              "rank",
+            ),
+          })
+          .from(messages)
+          .where(and(inArray(messages.subjectType, kinds), inArray(messages.subjectId, ids)))
+          .as("ranked");
+        const rows = await db
+          .select({
+            subjectType: ranked.subjectType,
+            subjectId: ranked.subjectId,
+            direction: ranked.direction,
+            preview: ranked.preview,
+            body: ranked.body,
+          })
+          .from(ranked)
+          .where(eq(ranked.rank, 1));
+        out.push(...rows);
+      }
+      return out;
     },
 
     async unreadThreadCount(kinds) {

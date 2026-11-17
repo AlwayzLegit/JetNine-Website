@@ -18,6 +18,8 @@ const pgSchema = { ...pgBarrel, ...pgBlogSubscribers };
 
 // Postgres-only, with no D1 equal: the Supabase `auth` schema.
 const NO_D1_TABLE = new Set(["authUsers"]);
+// D1 tables whose Postgres twin is raw SQL only (OPS-129, migration 0038). Named here, exactly.
+const RAW_SQL_ON_POSTGRES = ["voiceLeads", "voiceCalls", "voiceTripRequests", "voiceMessages"];
 // D1 tables whose Postgres twin arrives in a pull request still open (OPS-101 adds
 // memberCodeSequence to src/db/schema/members.ts). Remove the entry once it is on main.
 const D1_AHEAD = new Set([
@@ -25,6 +27,11 @@ const D1_AHEAD = new Set([
   // OPS-123: the rate limiter's counters. On Postgres the table is reached with raw SQL only and is in no
   // Drizzle schema, so there is no twin to compare. Short-lived counters, never copied.
   "requestRateLimits",
+  // OPS-129: the phone line's call log. On Postgres these four tables are created by raw SQL only
+  // (migration 0038_voice_agent.sql) and written by the voice Worker; they are in no Drizzle
+  // schema, so there is no twin to compare. This set is the only exception: every other D1 table
+  // still has to match a Postgres one.
+  ...RAW_SQL_ON_POSTGRES,
 ]);
 // Foreign keys that point into that schema are not carried over. None left: since OPS-94 the
 // Postgres users table has no foreign key to auth.users either.
@@ -33,6 +40,18 @@ const FK_LEFT_OUT: Record<string, number> = {};
 const pgTables = Object.entries(pgSchema).filter(
   (e) => is(e[1], PgTable) && !NO_D1_TABLE.has(e[0]),
 ) as [string, PgTable][];
+
+test("the four voice call tables are D1 tables with no Drizzle twin on Postgres (OPS-129)", () => {
+  const d1Names = new Set(Object.entries(d1Schema).filter((e) => is(e[1], SQLiteTable)).map((e) => e[0]));
+  for (const name of RAW_SQL_ON_POSTGRES) {
+    assert.ok(d1Names.has(name), `${name} is missing in D1`);
+    assert.ok(!pgTables.some(([p]) => p === name), `${name} now has a Postgres Drizzle table: remove it from RAW_SQL_ON_POSTGRES so the parity check covers it`);
+  }
+  assert.deepEqual(
+    RAW_SQL_ON_POSTGRES.map((n) => getTableName((d1Schema as unknown as Record<string, Parameters<typeof getTableName>[0]>)[n])),
+    ["voice_leads", "voice_calls", "voice_trip_requests", "voice_messages"],
+  );
+});
 
 test("every Postgres table has a D1 twin (50 tables at OPS-100, 51 with OPS-101)", () => {
   assert.ok(pgTables.length >= 50, `expected at least 50 Postgres tables, found ${pgTables.length}`);

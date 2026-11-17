@@ -224,6 +224,34 @@ test("keyForAuth: a key whose creator row is gone comes back with null creator f
   assert.ok(row?.revokedAt instanceof Date);
 });
 
+test("keyForAuth with a canonical role source: the sign-in takes the role from it, not from the copied users row", async () => {
+  const { client } = fresh();
+  const who = await user(client, { role: "admin" });
+  const roles = new Map<string, string | null>([[who, "dispatcher"]]);
+  const store = d1ApiKeyStore(client, () => T0, async (id) => roles.get(id) ?? null);
+  const k = newKey(who, { scopes: ["admin"] });
+  await store.createIfUnderCap(k, 25);
+  assert.equal((await store.keyForAuth(k.prefix))?.creatorRole, "dispatcher", "demoted in the canonical store");
+  roles.set(who, "member");
+  assert.equal((await store.keyForAuth(k.prefix))?.creatorRole, "member");
+  roles.delete(who);
+  const gone = await store.keyForAuth(k.prefix);
+  assert.equal(gone?.creatorRole, null, "removed in the canonical store: no role left");
+  assert.equal(gone?.creatorId, who);
+});
+
+test("keyForAuth with a canonical role source that fails: the error is not swallowed", async () => {
+  const { client } = fresh();
+  const who = await user(client);
+  const store = d1ApiKeyStore(client, () => T0, async () => {
+    throw new Error("canonical store down");
+  });
+  const k = newKey(who);
+  await store.createIfUnderCap(k, 25);
+  await assert.rejects(() => store.keyForAuth(k.prefix), /canonical store down/);
+  assert.equal(await store.keyForAuth("zzzzzzzz"), undefined, "no key, no role read");
+});
+
 test("keyLimits: created, expires and the rate limit of one key, undefined for an unknown id", async () => {
   const { client, store } = fresh();
   const who = await user(client);

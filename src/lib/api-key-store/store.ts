@@ -1,6 +1,6 @@
 import { d1Db, dbTarget } from "@/db";
 import { d1ApiKeyStore } from "./store-d1";
-import { pgApiKeyStore } from "./store-pg";
+import { pgApiKeyStore, pgUserRole } from "./store-pg";
 
 // The one door to the api_keys and api_requests tables (OPS-138): the
 // Settings > API keys list with its 24 hour counts, create with the cap of working keys,
@@ -135,7 +135,7 @@ function apiKeyStore(): ApiKeyStore {
   if (dbTarget() === "d1") {
     const client = d1Db();
     if (!client) throw new Error("DB_TARGET is d1 but the DB binding is missing");
-    return d1ApiKeyStore(client);
+    return d1ApiKeyStore(client, undefined, pgUserRole);
   }
   return pgApiKeyStore();
 }

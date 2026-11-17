@@ -23,7 +23,18 @@ type D1Client = DrizzleD1Database;
 
 const DAY = 86_400_000;
 
-export function d1ApiKeyStore(db: D1Client, now: () => Date = () => new Date()): ApiKeyStore {
+/**
+ * @param canonicalRole where a person's role really lives. Until the users domain moves to D1 that
+ *   is Postgres, and the D1 `users` table is only a periodic copy, so the sign-in must not take a
+ *   key's authority from the copy: a person demoted or removed in Postgres would keep it (Codex
+ *   review of OPS-138). Returns null for a user that no longer exists. When left out, the D1 role is used
+ *   (tests, and the day users are in D1).
+ */
+export function d1ApiKeyStore(
+  db: D1Client,
+  now: () => Date = () => new Date(),
+  canonicalRole?: (userId: string) => Promise<string | null>,
+): ApiKeyStore {
   return {
     async listKeys() {
       const since = new Date(now().getTime() - DAY);
@@ -133,6 +144,10 @@ export function d1ApiKeyStore(db: D1Client, now: () => Date = () => new Date()):
         .leftJoin(users, eq(users.id, apiKeys.createdBy))
         .where(eq(apiKeys.prefix, prefix))
         .limit(1);
+      if (row?.creatorId && canonicalRole) {
+        // A failed read throws, and the sign-in fails closed ("temporarily unavailable").
+        return { ...row, creatorRole: await canonicalRole(row.creatorId) };
+      }
       return row;
     },
 

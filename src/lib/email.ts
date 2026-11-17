@@ -35,9 +35,15 @@ type EmailPayload = {
    * expect on any recurring mail.
    */
   headers?: Record<string, string>;
+  /**
+   * The body carries a one-time link (sign-in, reset, invite). In logger
+   * mode the log line then holds the recipient count and subject only, never
+   * any of the body, so a link cannot end up in a log.
+   */
+  sensitive?: boolean;
 };
 
-type SendResult =
+export type SendResult =
   | { ok: true; provider: "resend" | "postmark" | "logger"; messageId?: string }
   | { ok: false; error: string };
 
@@ -73,6 +79,15 @@ export async function sendEmail(payload: EmailPayload): Promise<SendResult> {
     // Dev / unconfigured path — write the would-be email to stdout so the
     // developer can verify content from `pnpm dev` or Vercel function logs.
     const recipients = Array.isArray(payload.to) ? payload.to.join(", ") : payload.to;
+    if (payload.sensitive) {
+      console.log("[email:dry-run]", {
+        recipientCount: Array.isArray(payload.to) ? payload.to.length : 1,
+        subject: payload.subject,
+        from: FROM,
+        body: "withheld (one-time link)",
+      });
+      return { ok: true, provider: "logger" };
+    }
     console.log("[email:dry-run]", {
       to: recipients,
       subject: payload.subject,
@@ -226,7 +241,7 @@ function plural(n: number, one: string, many: string): string {
   return `${n} ${n === 1 ? one : many}`;
 }
 
-function button(url: string, label: string): string {
+export function button(url: string, label: string): string {
   return `<a href="${escapeHtml(url)}" style="${BUTTON_STYLE}">${escapeHtml(label)}</a>`;
 }
 
@@ -816,7 +831,7 @@ function moneyRow(label: string, value: string): string {
   return `<tr><td style="${LABEL_CELL_STYLE}">${escapeHtml(label)}</td><td style="padding:4px 0;">${escapeHtml(value)}</td></tr>`;
 }
 
-function brandedShell(kicker: string, headline: string, inner: string): string {
+export function brandedShell(kicker: string, headline: string, inner: string): string {
   return `
     <div style="${WRAP_STYLE}">
       <p style="${KICKER_STYLE}">${escapeHtml(kicker)}</p>
@@ -1198,7 +1213,7 @@ export async function sendRefundIssuedEmail(ctx: {
   return sendEmail({ to: ctx.to, subject, html, text, replyTo: DISPATCH_NOTIFY });
 }
 
-function escapeHtml(s: string): string {
+export function escapeHtml(s: string): string {
   return s
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")

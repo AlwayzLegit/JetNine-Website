@@ -1,7 +1,5 @@
 import type { Metadata } from "next";
-import { eq } from "drizzle-orm";
-import { db } from "@/db";
-import { blogSubscribers } from "@/db/schema/blog-subscribers";
+import { blogStore } from "@/domain/blog/store";
 import { hashToken, isExpired } from "@/lib/watchlist-confirm";
 import { BlogConfirmCard } from "@/components/blog/confirm-card";
 import { BlogDeadTokenCard, BlogTokenPageShell } from "@/components/blog/token-page-shell";
@@ -37,11 +35,7 @@ export default async function BlogConfirmPage({
   let row;
   try {
     const hash = hashToken(token);
-    [row] = await db
-      .select({ expiresAt: blogSubscribers.confirmExpiresAt })
-      .from(blogSubscribers)
-      .where(eq(blogSubscribers.confirmTokenHash, hash))
-      .limit(1);
+    row = await blogStore().subscriberByConfirmHash(hash);
   } catch (err) {
     console.error("[blog-confirm] page lookup failed", err);
     return (

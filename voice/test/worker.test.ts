@@ -34,6 +34,14 @@ describe("worker routes", () => {
     expect(body.missingEnv).toContain("ESCALATION_PHONE");
   });
 
+  it("GET /health says which database side is in use and whether it answered, without changing the status", async () => {
+    const res = await worker.fetch("https://voice.example.com/health");
+    const body = (await res.json()) as { db: { target: string; ok: boolean } };
+    // No Postgres behind the test Hyperdrive binding (a closed port): postgres, not ok. Still 503 for the missing env alone.
+    expect(body.db).toEqual({ target: "postgres", ok: false });
+    expect(res.status).toBe(503);
+  });
+
   it("rejects an unsigned webhook", async () => {
     const res = await worker.fetch("https://voice.example.com/twiml", {
       method: "POST",

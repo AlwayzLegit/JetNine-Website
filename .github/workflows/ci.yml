@@ -187,6 +187,43 @@ jobs:
       - name: Voice call notes store tests
         run: pnpm exec tsx --test src/domain/voice/call-notes-store-d1.test.ts src/domain/voice/call-notes-store.test.ts
 
+  # The voice Worker (voice/, OPS-137): its own package, its own lockfile. Typecheck and
+  # the Worker tests run inside workerd, among them the store tests on a real D1
+  # (test/store-d1.test.ts, the site's D1 migrations applied). No secrets, no network.
+  voice:
+    name: voice Worker · typecheck · test
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+          run_install: false
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: pnpm
+          cache-dependency-path: voice/pnpm-lock.yaml
+
+      - name: Install dependencies
+        working-directory: voice
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck
+        working-directory: voice
+        run: pnpm typecheck
+
+      - name: Test
+        working-directory: voice
+        run: pnpm test --reporter=verbose
+
   e2e:
     name: playwright smoke
     runs-on: ubuntu-24.04

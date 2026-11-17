@@ -2,7 +2,7 @@ import { and, count, eq, gte, or, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { quotes } from "@/db/schema/quotes";
 import { messages } from "@/db/schema/audit";
-import { contactInquiries } from "@/db/schema/contact";
+import { inquiryStore } from "@/domain/contact/store";
 import { invoices } from "@/db/schema/invoices";
 import { emptyLegs } from "@/db/schema/empty-legs";
 import { REPLY_PROMISE_DEFAULT, REPLY_PROMISE_KEY, deskSettings } from "@/db/schema/desk";
@@ -92,7 +92,7 @@ export async function deskSnapshot(now: Date = new Date()): Promise<DeskSnapshot
   const since7 = new Date(now.getTime() - 7 * DAY_MS);
   const nowIso = isoParam(now);
 
-  const [[q], [m], [inq], [inv], [el], tripList, promise, pendingApprovals] = await Promise.all([
+  const [[q], [m], newInquiries, [inv], [el], tripList, promise, pendingApprovals] = await Promise.all([
     db
       .select({
         needsReply: sql<number>`count(*) filter (where ${quotes.status} = 'submitted')::int`,
@@ -123,7 +123,7 @@ export async function deskSnapshot(now: Date = new Date()): Promise<DeskSnapshot
           and(eq(messages.direction, "out"), eq(messages.deliveryStatus, "failed"), gte(messages.occurredAt, since7)),
         ),
       ),
-    db.select({ n: count() }).from(contactInquiries).where(eq(contactInquiries.status, "new")),
+    inquiryStore().newCount(),
     db.select({ n: count() }).from(invoices).where(eq(invoices.status, "overdue")),
     db.select({ n: count() }).from(emptyLegs).where(eq(emptyLegs.status, "live")),
     listTrips({ tab: "upcoming", now }),
@@ -138,7 +138,7 @@ export async function deskSnapshot(now: Date = new Date()): Promise<DeskSnapshot
     bookedLast14Days: q?.bookedLast14Days ?? 0,
     overdueReplies: q?.overdueReplies ?? 0,
     unreadMessages: m?.unread ?? 0,
-    newInquiries: inq?.n ?? 0,
+    newInquiries,
     failedDeliveries7Days: m?.failed ?? 0,
     pendingApprovals,
     upcomingTrips30Days: tripList.groups.find((g) => g.key === "soon")?.items.length ?? 0,

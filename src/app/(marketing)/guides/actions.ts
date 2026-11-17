@@ -1,8 +1,7 @@
 "use server";
 
 import { headers } from "next/headers";
-import { db } from "@/db";
-import { contactInquiries } from "@/db/schema/contact";
+import { inquiryStore } from "@/domain/contact/store";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { sendDispatchAlert, sendEmail } from "@/lib/email";
 import { recipientsFor } from "@/lib/desk-settings";
@@ -65,7 +64,7 @@ export async function requestPricingGuide(formData: FormData): Promise<GuideRequ
   const lastName = rest.join(" ") || "—";
 
   try {
-    await db.insert(contactInquiries).values({
+    await inquiryStore().insertInquiry({
       reason: "other",
       firstName,
       lastName,

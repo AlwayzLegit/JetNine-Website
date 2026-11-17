@@ -21,8 +21,9 @@ const NO_D1_TABLE = new Set(["authUsers"]);
 // D1 tables whose Postgres twin arrives in a pull request still open (OPS-101 adds
 // memberCodeSequence to src/db/schema/members.ts). Remove the entry once it is on main.
 const D1_AHEAD = new Set(["memberCodeSequence"]);
-// Foreign keys that point into that schema are not carried over.
-const FK_LEFT_OUT: Record<string, number> = { users: 1 };
+// Foreign keys that point into that schema are not carried over. None left: since OPS-94 the
+// Postgres users table has no foreign key to auth.users either.
+const FK_LEFT_OUT: Record<string, number> = {};
 
 const pgTables = Object.entries(pgSchema).filter(
   (e) => is(e[1], PgTable) && !NO_D1_TABLE.has(e[0]),

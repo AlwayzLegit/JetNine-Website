@@ -66,9 +66,10 @@
         "DEPLOY_ENV": "staging",
         "DEPLOY_REGION": "cloudflare",
         "NEXT_PUBLIC_SITE_URL": "https://staging.jetnine.com",
-        // Which database the data layer uses here: "postgres" or "d1". It stays
-        // "postgres" until the first converted domain row sets it (OPS-99).
-        "DB_TARGET": "postgres"
+        // Which database the data layer uses here: "postgres" or "d1". Staging
+        // is "d1" since the blog store was converted (OPS-109); set it back to
+        // "postgres" and redeploy staging to undo. Production never reads it as d1.
+        "DB_TARGET": "d1"
       },
       "triggers": { "crons": [] },
       "hyperdrive": [{ "binding": "HYPERDRIVE", "id": "05bdaa66695d43c08fc02b22e39bca77" }],

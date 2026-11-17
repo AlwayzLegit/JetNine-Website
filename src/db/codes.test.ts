@@ -5,7 +5,9 @@ import { sql } from "drizzle-orm";
 import { getTableConfig } from "drizzle-orm/pg-core";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
-import { codeYear, formatCode, nextCode, type CodeExecutor, type CodeKind } from "./codes";
+import { DatabaseSync } from "node:sqlite";
+import { SQLiteSyncDialect } from "drizzle-orm/sqlite-core";
+import { codeSql, codeYear, formatCode, nextCode, type CodeExecutor, type CodeKind } from "./codes";
 import * as schema from "./schema";
 
 test("formatCode pads each kind the way the triggers did", () => {
@@ -81,11 +83,11 @@ test("each insert path calls nextCode for its kind", () => {
     ["src/domain/requests/commands.ts", "trip"],
     ["src/domain/requests/commands.ts", "invoice"],
     ["src/domain/clients/commands.ts", "member"],
-    ["src/domain/empty-legs/commands.ts", "empty_leg"],
+    ["src/domain/empty-legs/store-pg.ts", "empty_leg"],
   ];
   for (const [file, kind] of sites) {
     const text = readFileSync(file, "utf8");
-    assert.match(text, new RegExp(`await nextCode\\((tx|db), "${kind}"\\)`), `${file} must call nextCode for ${kind}`);
+    assert.match(text, new RegExp(`await nextCode\\((tx|db), "${kind}"[,)]`), `${file} must call nextCode for ${kind}`);
   }
 });
 
@@ -110,4 +112,32 @@ test("every table whose updated_at a trigger set has $onUpdate", () => {
     found.add(cfg.name);
   }
   assert.deepEqual([...TRIGGER_TABLES].filter((t) => !found.has(t)), [], "tables not found in the schema");
+});
+
+// OPS-113: the code made inside one SQL statement, for D1. On a bare SQLite with
+// the sequence table of each kind, codeSql gives the same text as formatCode.
+test("codeSql gives the same code as formatCode for every kind, whole when wider than the padding", () => {
+  const tables: Record<CodeKind, string> = {
+    quote: "quote_code_sequence",
+    trip: "trip_code_sequence",
+    invoice: "invoice_code_sequence",
+    empty_leg: "empty_leg_code_sequence",
+    member: "member_code_sequence",
+  };
+  const sqlite = new DatabaseSync(":memory:");
+  const dialect = new SQLiteSyncDialect();
+  for (const kind of Object.keys(tables) as CodeKind[]) {
+    sqlite.exec(`create table "${tables[kind]}" (year integer primary key, last_value integer not null)`);
+    for (const [year, n] of [[2026, 1], [2026, 42], [2027, 12345], [2026, 123456]] as const) {
+      sqlite.exec(`delete from "${tables[kind]}"`);
+      sqlite.exec(`insert into "${tables[kind]}" (year, last_value) values (${year}, ${n})`);
+      const { sql: text, params } = dialect.sqlToQuery(sql`select ${codeSql(kind, year)} as code`);
+      const row = sqlite.prepare(text).get(...(params as never[])) as { code: string };
+      assert.equal(row.code, formatCode(kind, year, n), `${kind} ${year} ${n}`);
+    }
+  }
+});
+
+test("codeSql refuses a year that is not a whole number", () => {
+  assert.throws(() => codeSql("empty_leg", 2026.5), /whole year/);
 });

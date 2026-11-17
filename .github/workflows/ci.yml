@@ -102,6 +102,10 @@ jobs:
       - name: Session tests
         run: node --test src/lib/session/core.test.mjs
 
+      # Emailed links (OPS-94): token lifetime, one use, link origin and next.
+      - name: Auth token tests
+        run: node --test src/lib/auth-tokens/core.test.mjs
+
       # Who a desk alert goes to (OPS-103): the shared inbox first, staff after.
       - name: Desk alert recipient tests
         run: node --test src/lib/desk-alert-recipients.test.mjs
@@ -118,6 +122,17 @@ jobs:
       - name: Deploy tail summary tests
         run: node --test scripts/deploy-tail/summarize.test.mjs
 
+      # The reference store on D1 (operators, aircraft, airports, FBOs): contract cases on a
+      # real SQLite, and the loud failure when the target is d1 with no binding (OPS-112).
+      - name: Reference store tests
+        run: pnpm exec tsx --test src/domain/reference/store-d1.test.ts
+
+      # The empty-legs store on D1: contract cases on a real SQLite (the EL code and its
+      # insert as one batch, the rollback), the code SQL against formatCode, and the loud
+      # failure when the target is d1 with no binding (OPS-113).
+      - name: Empty legs store tests
+        run: pnpm exec tsx --test src/domain/empty-legs/store-d1.test.ts
+
       # The empty-leg watchlist store on D1: contract cases on a real SQLite (confirm links,
       # STOP and START, unsubscribe, the delivery ledger and its chunked read) and the
       # loud failure when the target is d1 with no binding (OPS-116).
@@ -130,6 +145,11 @@ jobs:
         run: |
           node --test scripts/d1-copy/map.test.mjs
           pnpm exec tsx --test scripts/d1-copy/tables.test.ts
+
+      # The blog store on D1: contract cases on a real SQLite, and the loud failure
+      # when the target is d1 with no binding (OPS-109).
+      - name: Blog store tests
+        run: pnpm exec tsx --test src/domain/blog/store-d1.test.ts src/domain/blog/store.test.ts
 
   e2e:
     name: playwright smoke

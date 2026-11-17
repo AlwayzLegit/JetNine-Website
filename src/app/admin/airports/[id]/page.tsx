@@ -1,7 +1,5 @@
 import { notFound } from "next/navigation";
-import { asc, eq } from "drizzle-orm";
-import { db } from "@/db";
-import { airports, fbos } from "@/db/schema/airports";
+import { referenceStore } from "@/domain/reference/store";
 import { AirportEditForm } from "@/components/admin/airport-edit-form";
 import { FboEditor } from "@/components/admin/fbo-editor";
 import { DeskCard, DeskHeader, DeskPage, StatusPill } from "@/components/admin/desk-ui";
@@ -13,14 +11,11 @@ type Props = { params: Promise<{ id: string }> };
 export default async function AdminAirportDetailPage({ params }: Props) {
   const { id } = await params;
 
-  const [airport] = await db.select().from(airports).where(eq(airports.id, id));
+  const store = referenceStore();
+  const airport = await store.airportById(id);
   if (!airport) notFound();
 
-  const fboRows = await db
-    .select()
-    .from(fbos)
-    .where(eq(fbos.airportId, id))
-    .orderBy(asc(fbos.name));
+  const fboRows = await store.fbosOf(id);
 
   const leadParts = [
     airport.iata ? `${airport.icao} / ${airport.iata}` : airport.icao,

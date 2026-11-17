@@ -1,8 +1,6 @@
 "use server";
 
-import { eq } from "drizzle-orm";
-import { db } from "@/db";
-import { blogSubscribers } from "@/db/schema/blog-subscribers";
+import { blogStore } from "@/domain/blog/store";
 import { logAudit } from "@/lib/audit";
 import { hashToken, isExpired } from "@/lib/watchlist-confirm";
 
@@ -23,14 +21,7 @@ export async function confirmBlogSubscription(formData: FormData): Promise<BlogC
   const hash = hashToken(token);
   let row;
   try {
-    [row] = await db
-      .select({
-        id: blogSubscribers.id,
-        expiresAt: blogSubscribers.confirmExpiresAt,
-      })
-      .from(blogSubscribers)
-      .where(eq(blogSubscribers.confirmTokenHash, hash))
-      .limit(1);
+    row = await blogStore().subscriberByConfirmHash(hash);
   } catch (err) {
     console.error("[blog-confirm] lookup failed", err);
     return { ok: false, error: "FAILED" };
@@ -41,15 +32,7 @@ export async function confirmBlogSubscription(formData: FormData): Promise<BlogC
 
   const now = new Date();
   try {
-    await db
-      .update(blogSubscribers)
-      .set({
-        status: "confirmed",
-        confirmedAt: now,
-        confirmTokenHash: null,
-        updatedAt: now,
-      })
-      .where(eq(blogSubscribers.id, row.id));
+    await blogStore().confirmSubscriber(row.id, now);
   } catch (err) {
     console.error("[blog-confirm] write failed", err);
     return { ok: false, error: "FAILED" };

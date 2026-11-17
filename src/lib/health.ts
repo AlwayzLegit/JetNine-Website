@@ -2,17 +2,15 @@
 // and /admin/health (dispatcher-facing dashboard).
 //
 // Each check returns a stable shape that's safe to render: no secrets,
-// no DB content, no user data. Three checks do I/O: the DB probe, the
-// Supabase Auth probe ("auth": emailed links, reset and invites still go
-// through Supabase Auth until OPS-94) and the site's own sign-in probe
-// ("signin": sessions and password hashes in the database, OPS-91).
-// Everything else is env-var presence.
+// no DB content, no user data. Two checks do I/O: the DB probe and the
+// site's own sign-in probe ("signin": sessions, link tokens and password
+// hashes in the database; OPS-91, OPS-94, OPS-121). Everything else is
+// env-var presence.
 
 import { sql as drizzleSql } from "drizzle-orm";
 import { db } from "@/db";
 import { d1Binding, dbTarget } from "@/db/d1";
 import { commitSha, deployEnv, deployRegion, platformBaseUrl } from "@/lib/deploy-env";
-import { probeSupabaseAuth } from "@/lib/auth-probe.mjs";
 
 export type CheckResult = { ok: boolean } & Record<string, unknown>;
 
@@ -24,7 +22,6 @@ export type HealthSnapshot = {
   sha: string;
   checks: {
     db: CheckResult;
-    auth: CheckResult;
     signin: CheckResult;
     site: CheckResult;
     stripe: CheckResult;
@@ -89,27 +86,12 @@ export async function checkDb(): Promise<CheckResult> {
 }
 
 /**
- * Supabase Auth, asked the way sign-in asks it (OPS-90). On 2026-11-16 the
- * project was restricted for a day and every sign-in failed while this
- * endpoint said "healthy", because the database probe does not go through
- * Supabase's API. A failure makes the status "degraded" and puts "auth" in the
- * public failing list. It never changes `ok` or the HTTP code: a 503 here
- * would fail every deploy smoke test while the project is down, which would
- * block the fix. Not configured (no URL or key) counts as ok.
- */
-export async function checkAuth(): Promise<CheckResult> {
-  const r = await probeSupabaseAuth({
-    url: process.env.NEXT_PUBLIC_SUPABASE_URL,
-    anonKey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-  });
-  if (!r.ok) console.error("[health] auth probe failed", { httpStatus: r.httpStatus, detail: r.detail });
-  return { ok: r.ok, configured: r.configured, httpStatus: r.httpStatus, detail: r.detail };
-}
-
-/**
- * The site's own sign-in (OPS-91). Two reads, no data returned: the session
- * table exists (migration 0056 applied), and at least one account still has
- * a password hash to check in place. A failure names no table and no row:
+ * The site's own sign-in (OPS-91, OPS-94, OPS-121). Three reads, no data
+ * returned: the session table exists (migration 0056 applied), the link-token
+ * table exists (migration 0057, emailed sign-in links, resets and invites), and
+ * at least one account still has a password hash to check in place. Sign-in no
+ * longer depends on Supabase's API, so there is no probe of it. A failure names
+ * no table and no row:
  * only a fixed word. It makes the status "degraded" and shows "signin" in
  * the public failing list; it never turns the answer into a 503.
  */
@@ -120,6 +102,13 @@ export async function checkSignin(): Promise<CheckResult> {
     const e = err as { name?: string; code?: string };
     console.error("[health] signin probe failed", { name: e?.name, code: e?.code });
     return { ok: false, reason: "sessions" };
+  }
+  try {
+    await db.execute(drizzleSql`select 1 as ok from public.auth_tokens limit 1`);
+  } catch (err) {
+    const e = err as { name?: string; code?: string };
+    console.error("[health] signin probe failed", { name: e?.name, code: e?.code });
+    return { ok: false, reason: "links" };
   }
   try {
     const rows = await db.execute<{ present: boolean }>(
@@ -243,9 +232,8 @@ export async function snapshot(): Promise<HealthSnapshot> {
   const region = deployRegion();
   const sha = commitSha().slice(0, 12) || "unknown";
 
-  const [db, auth, signin, stripe, email, twilio, sentry, posthog] = await Promise.all([
+  const [db, signin, stripe, email, twilio, sentry, posthog] = await Promise.all([
     checkDb(),
-    checkAuth(),
     checkSignin(),
     Promise.resolve(checkStripe()),
     Promise.resolve(checkEmail()),
@@ -254,7 +242,7 @@ export async function snapshot(): Promise<HealthSnapshot> {
     Promise.resolve(checkPosthog()),
   ]);
 
-  const checks = { db, auth, signin, site: checkSite(), stripe, email, twilio, sentry, posthog, ai: checkAi() };
+  const checks = { db, signin, site: checkSite(), stripe, email, twilio, sentry, posthog, ai: checkAi() };
   const ok = db.ok;
   const allOptionalsConfigured =
     Boolean(stripe.configured) &&
@@ -263,7 +251,7 @@ export async function snapshot(): Promise<HealthSnapshot> {
     Boolean(sentry.serverConfigured);
   const status: HealthSnapshot["status"] = !ok
     ? "unhealthy"
-    : auth.ok && signin.ok && allOptionalsConfigured
+    : signin.ok && allOptionalsConfigured
       ? "healthy"
       : "degraded";
 

@@ -3,8 +3,10 @@ import assert from "node:assert/strict";
 import {
   STAGING_DB,
   assertStaging,
+  STATEMENT_LIMIT,
   canonicalLine,
   checksumLines,
+  constraintDetail,
   deleteStatement,
   heldLine,
   insertStatement,
@@ -13,7 +15,9 @@ import {
   reportLine,
   resultRows,
   sqlLiteral,
+  statementTooLong,
 } from "./map.mjs";
+import { applyMigrations, failLine, fkLine, foreignKeyReport, loadTable, openMemoryDb } from "./preflight.mjs";
 
 test("timestamps become UTC milliseconds", () => {
   assert.equal(mapValue("SQLiteTimestamp", new Date("2026-11-16T20:00:00.123Z")), 1794859200123);
@@ -133,4 +137,119 @@ test("the report line holds names and numbers only, and flags any difference", (
 test("a held-back table must be empty in D1", () => {
   assert.match(heldLine({ table: "user_credentials", reason: "password hashes", d1Count: 0 }), /^held\s+user_credentials\s+not copied \(password hashes\); d1=\s+0$/);
   assert.match(heldLine({ table: "user_credentials", reason: "password hashes", d1Count: 2 }), /^FAIL/);
+});
+
+// OPS-115: the load names the rule it breaks, and writes NULL where a key points into a held-back table.
+
+test("constraintDetail gives the kind and the schema names of the four SQLite messages", () => {
+  assert.equal(constraintDetail("D1_ERROR: UNIQUE constraint failed: users.email: SQLITE_CONSTRAINT"), "UNIQUE users.email");
+  assert.equal(constraintDetail("UNIQUE constraint failed: quote_legs.quote_id, quote_legs.position"), "UNIQUE quote_legs.quote_id, quote_legs.position");
+  assert.equal(constraintDetail("NOT NULL constraint failed: members.full_name: SQLITE_CONSTRAINT"), "NOT NULL members.full_name");
+  assert.equal(constraintDetail("CHECK constraint failed: agent_memory_kind_check: SQLITE_CONSTRAINT"), "CHECK agent_memory_kind_check");
+  assert.equal(constraintDetail("FOREIGN KEY constraint failed: SQLITE_CONSTRAINT"), "FOREIGN KEY");
+});
+
+test("constraintDetail returns no detail for anything else and never a quoted value", () => {
+  assert.equal(constraintDetail("something went wrong"), "no detail");
+  assert.equal(constraintDetail(""), "no detail");
+  assert.equal(constraintDetail(undefined), "no detail");
+  // A message that also quotes a value: only the schema names come back.
+  const out = constraintDetail("UNIQUE constraint failed: users.email: 'jane@example.com' already exists");
+  assert.equal(out, "UNIQUE users.email");
+  assert.ok(!out.includes("jane"));
+  // A name with anything but word characters and dots is refused, not echoed.
+  assert.equal(constraintDetail("CHECK constraint failed: 'x; drop table y'"), "no detail");
+  assert.equal(constraintDetail("NOT NULL constraint failed: 'secret value'"), "no detail");
+});
+
+test("insertStatement writes NULL for a reference into a held-back table", () => {
+  const cols = [
+    { name: "id", columnType: "SQLiteText" },
+    { name: "key_id", columnType: "SQLiteText" },
+    { name: "n", columnType: "SQLiteInteger" },
+  ];
+  const row = { id: "a", key_id: "k-1", n: 3 };
+  assert.equal(insertStatement("api_requests", cols, row), `INSERT INTO "api_requests" ("id", "key_id", "n") VALUES ('a', 'k-1', 3);`);
+  assert.equal(insertStatement("api_requests", cols, row, ["key_id"]), `INSERT INTO "api_requests" ("id", "key_id", "n") VALUES ('a', NULL, 3);`);
+  // A column that is already null stays null, and an unrelated column is not touched.
+  assert.equal(insertStatement("api_requests", cols, { id: "b", key_id: null, n: 0 }, ["key_id"]), `INSERT INTO "api_requests" ("id", "key_id", "n") VALUES ('b', NULL, 0);`);
+});
+
+test("statementTooLong is false at the limit and true one byte over, counting bytes not characters", () => {
+  assert.equal(STATEMENT_LIMIT, 100000);
+  assert.equal(statementTooLong("x".repeat(STATEMENT_LIMIT)), false);
+  assert.equal(statementTooLong("x".repeat(STATEMENT_LIMIT + 1)), true);
+  // 2-byte characters: 50,001 of them are 100,002 bytes.
+  assert.equal(statementTooLong("\u00e9".repeat(50001)), true);
+  assert.equal(statementTooLong("\u00e9".repeat(50000)), false);
+});
+
+// OPS-115: the preflight, a dry load into an in-memory SQLite database.
+
+// Two made-up tables, no real data: a parent, and a child with a foreign key, a unique
+// code, a not null column and a check.
+const SCHEMA = `
+CREATE TABLE parent (id text PRIMARY KEY NOT NULL);
+CREATE TABLE child (
+  id text PRIMARY KEY NOT NULL,
+  parent_id text,
+  code text NOT NULL,
+  kind text NOT NULL,
+  FOREIGN KEY (parent_id) REFERENCES parent(id),
+  CONSTRAINT child_kind_check CHECK(kind in ('a','b'))
+);
+CREATE UNIQUE INDEX child_code_unique ON child (code);
+`;
+
+async function fixture() {
+  const db = await openMemoryDb();
+  applyMigrations(db, [SCHEMA]);
+  return db;
+}
+
+test("a clean fixture loads and reports no broken key", async () => {
+  const db = await fixture();
+  assert.deepEqual(loadTable(db, `INSERT INTO parent (id) VALUES ('p1');`), { ok: true });
+  assert.deepEqual(loadTable(db, `INSERT INTO child (id, parent_id, code, kind) VALUES ('c1', 'p1', 'X1', 'a');`), { ok: true });
+  assert.deepEqual(foreignKeyReport(db), []);
+  db.close();
+});
+
+test("a child row with a missing parent is reported as table, parent and row count", async () => {
+  const db = await fixture();
+  loadTable(db, `INSERT INTO child (id, parent_id, code, kind) VALUES ('c1', 'gone', 'X1', 'a');\nINSERT INTO child (id, parent_id, code, kind) VALUES ('c2', 'gone', 'X2', 'a');`);
+  const report = foreignKeyReport(db);
+  assert.deepEqual(report, [{ table: "child", parent: "parent", rows: 2 }]);
+  assert.equal(fkLine(report[0]), "preflight FAIL child: FOREIGN KEY child -> parent: 2 rows");
+  assert.equal(fkLine({ table: "child", parent: "parent", rows: 1 }), "preflight FAIL child: FOREIGN KEY child -> parent: 1 row");
+  db.close();
+});
+
+test("a duplicate code is reported as UNIQUE with the column, and never its value", async () => {
+  const db = await fixture();
+  const res = loadTable(
+    db,
+    `INSERT INTO child (id, parent_id, code, kind) VALUES ('c1', NULL, 'SECRET-CODE', 'a');\nINSERT INTO child (id, parent_id, code, kind) VALUES ('c2', NULL, 'SECRET-CODE', 'a');`,
+  );
+  assert.equal(res.ok, false);
+  assert.equal(res.detail, "UNIQUE child.code");
+  assert.equal(failLine("child", res.detail), "preflight FAIL child: UNIQUE child.code");
+  assert.ok(!failLine("child", res.detail).includes("SECRET"));
+  db.close();
+});
+
+test("a value outside a check and a null in a not null column are named by rule", async () => {
+  const db = await fixture();
+  const check = loadTable(db, `INSERT INTO child (id, parent_id, code, kind) VALUES ('c1', NULL, 'X1', 'zzz');`);
+  assert.deepEqual(check, { ok: false, detail: "CHECK child_kind_check" });
+  const notNull = loadTable(db, `INSERT INTO child (id, parent_id, code, kind) VALUES ('c2', NULL, NULL, 'a');`);
+  assert.deepEqual(notNull, { ok: false, detail: "NOT NULL child.code" });
+  db.close();
+});
+
+test("a failing statement can contain a quote and a newline inside a value and still load", async () => {
+  const db = await fixture();
+  const res = loadTable(db, `INSERT INTO parent (id) VALUES ('it''s\nok');`);
+  assert.deepEqual(res, { ok: true });
+  db.close();
 });

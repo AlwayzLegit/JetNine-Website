@@ -5,9 +5,10 @@ import { members, type NewMember } from "@/db/schema/members";
 import { memberships, reserveTransactions, type NewReserveTransaction } from "@/db/schema/memberships";
 import { users } from "@/db/schema/users";
 import { logAudit } from "@/lib/audit";
-import { findAuthUserIdByEmail } from "@/lib/auth-users";
+import { findOrCreateUser, findUserIdByEmail, userHasPassword } from "@/lib/auth-users";
+import { issueToken } from "@/lib/auth-tokens";
+import { sendAuthLinkEmail } from "@/lib/auth-mail";
 import { personName } from "@/lib/desk-status";
-import { createAdminClient } from "@/lib/supabase/admin";
 import { auditFields, type Actor } from "@/domain/actor";
 import { isUuid } from "@/domain/common";
 import { err, ok, type Result } from "@/domain/result";
@@ -144,7 +145,7 @@ export async function appendLedgerEntry(
 // ─── Invite ──────────────────────────────────────────────────────────────
 
 export type ClientInviteState = {
-  /** The auth user already on file for the email, when there is one. */
+  /** The user row already on file for the email, when there is one. */
   existingAuthUserId: string | null;
 };
 
@@ -153,7 +154,7 @@ export type ClientInviteState = {
  * before anything is sent. The command resolves the user again when it runs.
  */
 export async function loadForClientInvite(input: ClientInviteInput): Promise<Result<ClientInviteState>> {
-  const existingAuthUserId = await findAuthUserIdByEmail(input.email);
+  const existingAuthUserId = await findUserIdByEmail(input.email);
   if (existingAuthUserId) {
     const duplicate = await memberForUser(existingAuthUserId);
     if (duplicate) return err("conflict", `Member ${duplicate.memberCode} already on file for that email`);
@@ -169,24 +170,20 @@ async function memberForUser(userId: string): Promise<{ id: string; memberCode: 
 /**
  * Admin-initiated member onboarding.
  *
- * Flow:
- * 1. Look up an existing auth.users row by email. If present, reuse it
- *    (covers the case where someone signed in once but doesn't have a
- *    member profile yet).
- * 2. If absent, call auth.admin.inviteUserByEmail — Supabase creates an
- *    auth.users row + sends a magic-link email. Our handle_new_auth_user
- *    trigger fires and inserts public.users automatically.
- * 3. Update public.users with the firstName / lastName / phone the admin
- *    typed in (the trigger only sets id + email).
- * 4. Insert public.members. The members_default_member_code trigger fills
+ * Flow (OPS-94, no Supabase call):
+ * 1. Find the oldest public.users row for the email, or make one here.
+ * 2. Update it with the firstName / lastName / phone the admin typed in.
+ * 3. Insert public.members. The members_default_member_code trigger fills
  *    the M-YYYY-NNNN code.
- * 5. Audit-log under subject_type='member', action='member.invite'.
+ * 4. Audit-log under subject_type='member', action='member.invite'.
+ * 5. Send the invite mail (a one-time link to set a password, 7 days) when
+ *    the person is new or has no password yet.
  *
  * Notes:
- * - Idempotent against the auth user but NOT against the member row —
+ * - Idempotent against the user but NOT against the member row —
  *   if a member already exists for the resolved user_id, the command
  *   returns a clean error and does not invite.
- * - Pre-trigger orphans (auth user exists, no member) are silently fixed.
+ * - `isNewAuthUser` in the result now means "an invite mail went out".
  */
 export async function inviteClient(
   actor: Actor,
@@ -200,39 +197,30 @@ export async function inviteClient(
   const legalName = [firstName, lastName].filter(Boolean).join(" ") || null;
   const a = auditFields(actor);
 
-  const supa = createAdminClient();
-
-  // 1) Resolve the auth user — reuse if exists, otherwise invite.
-  let authUserId: string;
-  let isNewAuthUser = false;
-
-  const hit = await findAuthUserIdByEmail(email);
-
-  if (hit) {
-    authUserId = hit;
-  } else {
-    const { data: invited, error: inviteErr } = await supa.auth.admin.inviteUserByEmail(email, {
-      data: { first_name: firstName, last_name: lastName },
-    });
-    if (inviteErr || !invited?.user) {
-      console.error("inviteUserByEmail failed", inviteErr);
-      return err("unavailable", inviteErr?.message ?? "Invite failed");
-    }
-    authUserId = invited.user.id;
-    isNewAuthUser = true;
+  // 1) Resolve the user row: reuse the oldest for the email, otherwise make it.
+  let userRow;
+  try {
+    userRow = await findOrCreateUser(email, { firstName, lastName });
+  } catch (e) {
+    const x = e as { name?: string; code?: string };
+    console.error("[clients] account lookup failed", { name: x?.name, code: x?.code });
+    return err("unavailable", "The account could not be set up. Try again in a moment.");
   }
-
-  // 2) Trigger should have fired — but the call to GoTrue is across an HTTP
-  //    boundary; brief retry if the public.users row isn't visible yet.
-  const userRow = await waitForUserRow(authUserId);
-  if (!userRow) {
-    return err("unavailable", "Auth user created but public.users row didn't materialize. Try again.");
-  }
+  const authUserId = userRow.id;
+  const isNewUser = userRow.created;
 
   // 3) Ensure a member doesn't already exist.
   const duplicate = await memberForUser(authUserId);
   if (duplicate) {
     return err("conflict", `Member ${duplicate.memberCode} already on file for that email`);
+  }
+  let hasPassword = false;
+  if (!isNewUser) {
+    try {
+      hasPassword = await userHasPassword(authUserId);
+    } catch {
+      hasPassword = true; // unknown: do not mail
+    }
   }
 
   // 4) Patch public.users with the typed-in profile fields.
@@ -277,29 +265,32 @@ export async function inviteClient(
       ...a.metadata,
       email,
       tier,
-      isNewAuthUser,
+      isNewUser,
       hasPhone: Boolean(phoneE164),
       hasCompany: Boolean(companyName),
     },
   });
 
-  return ok({ memberId: memberRow.id, memberCode: memberRow.memberCode, userId: authUserId, isNewAuthUser });
-}
-
-async function waitForUserRow(authUserId: string, tries = 5) {
-  for (let i = 0; i < tries; i++) {
-    const [row] = await db
-      .select({
-        id: users.id,
-        firstName: users.firstName,
-        lastName: users.lastName,
-        phoneE164: users.phoneE164,
-      })
-      .from(users)
-      .where(eq(users.id, authUserId));
-    if (row) return row;
-    // 100ms · 200ms · 400ms · 800ms · 1.6s — total max ~3s.
-    await new Promise((r) => setTimeout(r, 100 * 2 ** i));
+  // 5) The invite mail, last: the member row is already saved, so a failed
+  //    send leaves a client the desk can see, and says so.
+  let inviteMailSent = false;
+  if (!hasPassword) {
+    try {
+      const token = await issueToken(authUserId, "invite");
+      const sent = await sendAuthLinkEmail({ to: email, purpose: "invite", token });
+      inviteMailSent = sent.ok;
+      if (!sent.ok) console.error("[clients] invite mail not sent", { reason: sent.error.split(":")[0].slice(0, 40) });
+    } catch (e) {
+      const x = e as { name?: string; code?: string };
+      console.error("[clients] invite mail not sent", { name: x?.name, code: x?.code });
+    }
+    if (!inviteMailSent) {
+      return err(
+        "unavailable",
+        `${memberRow.memberCode} was added, but the invite email did not go out. They can use "Email me a link" on the sign-in page.`,
+      );
+    }
   }
-  return null;
+
+  return ok({ memberId: memberRow.id, memberCode: memberRow.memberCode, userId: authUserId, isNewAuthUser: inviteMailSent });
 }

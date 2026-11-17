@@ -23,7 +23,8 @@
   // only written to wouldHaveRaised. Keep it at least 24 hours after the merge.
   // SIGNIN_QUIET_UNTIL (OPS-90) is the same rule for the "Sign-in service" check alone:
   // at least 24 hours after the merge of that check, never earlier.
-  "vars": { "SITE_URL": "https://jetnine.com", "QUIET_UNTIL": "2026-11-17T08:00:00Z", "SIGNIN_QUIET_UNTIL": "2026-11-19T08:00:00Z" },
+  // OPS-121: the check now reads "signin", a changed alarm, so it is quiet 24 hours after its deploy.
+  "vars": { "SITE_URL": "https://jetnine.com", "QUIET_UNTIL": "2026-11-17T08:00:00Z", "SIGNIN_QUIET_UNTIL": "2026-11-20T08:00:00Z" },
 
   "durable_objects": { "bindings": [{ "name": "MONITOR_STATE", "class_name": "MonitorState" }] },
   "migrations": [{ "tag": "v1", "new_sqlite_classes": ["MonitorState"] }],
@@ -33,7 +34,7 @@
       "name": "jetnine-monitor-staging",
       "workers_dev": true,
       "triggers": { "crons": ["7,22,37,52 * * * *"] },
-      "vars": { "SITE_URL": "https://staging.jetnine.com", "QUIET_UNTIL": "2026-11-17T08:00:00Z", "SIGNIN_QUIET_UNTIL": "2026-11-19T08:00:00Z" },
+      "vars": { "SITE_URL": "https://staging.jetnine.com", "QUIET_UNTIL": "2026-11-17T08:00:00Z", "SIGNIN_QUIET_UNTIL": "2026-11-20T08:00:00Z" },
       "durable_objects": { "bindings": [{ "name": "MONITOR_STATE", "class_name": "MonitorState" }] },
       "migrations": [{ "tag": "v1", "new_sqlite_classes": ["MonitorState"] }]
     }

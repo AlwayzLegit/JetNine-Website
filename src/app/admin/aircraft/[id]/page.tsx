@@ -1,14 +1,12 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { and, asc, desc, eq, gt, lt, notInArray, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gt, lt, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { aircraft } from "@/db/schema/aircraft";
-import { operators } from "@/db/schema/operators";
 import { aircraftScheduleBlocks } from "@/db/schema/schedule-blocks";
 import { trips } from "@/db/schema/trips";
 import { formatUSD } from "@/lib/quote-pricing";
 import { AircraftForm } from "@/components/admin/aircraft-form";
-import { SOURCING_INELIGIBLE_STATUSES } from "@/lib/operator-eligibility";
+import { referenceStore } from "@/domain/reference/store";
 import { DeskCard, DeskHeader, DeskPage, DotSentence, NumberCard, StatusPill } from "@/components/admin/desk-ui";
 import { passengersWords, tripState } from "@/lib/desk-status";
 
@@ -108,58 +106,20 @@ export default async function AdminAircraftDetailPage({ params }: Props) {
   // Pure-aircraft row for the editor's initial value (the join-shape `row`
   // below is missing some columns like cabinHeightIn / lavatoryEnclosed /
   // updatedAt that AircraftForm wants).
-  const [acRow] = await db.select().from(aircraft).where(eq(aircraft.id, id));
+  // The reference reads go through the store (Postgres or D1); the blocks
+  // and trips below stay on Postgres until the trips domain moves.
+  const store = referenceStore();
+  const acRow = await store.aircraftById(id);
   if (!acRow) notFound();
 
-  const [row] = await db
-    .select({
-      id: aircraft.id,
-      tailNumber: aircraft.tailNumber,
-      makeModel: aircraft.makeModel,
-      yearManufactured: aircraft.yearManufactured,
-      category: aircraft.category,
-      seats: aircraft.seats,
-      rangeNm: aircraft.rangeNm,
-      speedKt: aircraft.speedKt,
-      wifiType: aircraft.wifiType,
-      cabinHeightIn: aircraft.cabinHeightIn,
-      standupCabin: aircraft.standupCabin,
-      lavatoryEnclosed: aircraft.lavatoryEnclosed,
-      lieflatCapable: aircraft.lieflatCapable,
-      petFriendly: aircraft.petFriendly,
-      flightAttendantStandard: aircraft.flightAttendantStandard,
-      baseIcao: aircraft.baseIcao,
-      totalHours: aircraft.totalHours,
-      lastCCheckOn: aircraft.lastCCheckOn,
-      status: aircraft.status,
-      createdAt: aircraft.createdAt,
-      operatorId: operators.id,
-      operatorName: operators.name,
-      operatorCertNumber: operators.certNumber,
-      operatorStatus: operators.status,
-      operatorArgus: operators.argusRating,
-      operatorWyvern: operators.wyvernWingman,
-      operatorIsPreferred: operators.isPreferred,
-    })
-    .from(aircraft)
-    .innerJoin(operators, eq(operators.id, aircraft.operatorId))
-    .where(eq(aircraft.id, id));
+  const row = await store.aircraftDetail(id);
   if (!row) notFound();
 
   // Operator options for the editor's operator-swap dropdown — exclude
   // sourcing-ineligible operators (suspended / banned / hold) via the shared
   // safety-floor list, but always keep this aircraft's current operator so an
   // existing assignment to an ineligible operator still renders in the select.
-  const operatorOptions = await db
-    .select({ id: operators.id, name: operators.name })
-    .from(operators)
-    .where(
-      or(
-        notInArray(operators.status, [...SOURCING_INELIGIBLE_STATUSES]),
-        eq(operators.id, row.operatorId),
-      ),
-    )
-    .orderBy(asc(operators.name));
+  const operatorOptions = await store.operatorOptions(row.operatorId);
 
   const today = startOfUtcDay(new Date());
   const horizonEnd = addDays(today, HORIZON_DAYS);

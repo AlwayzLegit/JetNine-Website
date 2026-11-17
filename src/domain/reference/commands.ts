@@ -1,18 +1,11 @@
-import { and, eq, ne } from "drizzle-orm";
-import { db } from "@/db";
-import { aircraft, type Aircraft, type NewAircraft } from "@/db/schema/aircraft";
-import { airports, fbos, type Airport, type NewAirport, type NewFbo } from "@/db/schema/airports";
-import {
-  operatorContacts,
-  operators,
-  type NewOperator,
-  type NewOperatorContact,
-  type Operator,
-} from "@/db/schema/operators";
+import type { Aircraft, NewAircraft } from "@/db/schema/aircraft";
+import type { Airport, NewAirport, NewFbo } from "@/db/schema/airports";
+import type { NewOperator, NewOperatorContact, Operator } from "@/db/schema/operators";
 import { logAudit } from "@/lib/audit";
 import { auditFields, type Actor } from "@/domain/actor";
 import { isUuid } from "@/domain/common";
 import { err, ok, type Result } from "@/domain/result";
+import { referenceStore } from "./store";
 import type {
   AircraftCreateInput,
   AircraftUpdateInput,
@@ -100,7 +93,7 @@ export function operatorValues(input: OperatorCreateInput): NewOperator {
 /** certNumber is unique when present — pre-check for a clean error. */
 export async function loadOperatorForCreate(input: OperatorCreateInput): Promise<Result<Record<string, never>>> {
   if (input.certNumber) {
-    const [conflict] = await db.select({ id: operators.id }).from(operators).where(eq(operators.certNumber, input.certNumber));
+    const conflict = await referenceStore().operatorIdByCert(input.certNumber);
     if (conflict) return err("conflict", "Another operator already has that cert number");
   }
   return ok({});
@@ -112,7 +105,7 @@ export async function createOperator(
 ): Promise<Result<{ id: string; name: string }>> {
   const values = operatorValues(input);
   try {
-    const [row] = await db.insert(operators).values(values).returning({ id: operators.id, name: operators.name });
+    const row = await referenceStore().insertOperator(values);
 
     const a = auditFields(actor);
     await logAudit({
@@ -142,14 +135,15 @@ export type OperatorUpdateState = { before: Operator; values: NewOperator; diff:
 
 export async function loadOperatorForUpdate(input: OperatorUpdateInput): Promise<Result<OperatorUpdateState>> {
   if (!isUuid(input.id)) return err("not_found", NO_OPERATOR);
-  const [before] = await db.select().from(operators).where(eq(operators.id, input.id));
+  const store = referenceStore();
+  const before = await store.operatorById(input.id);
   if (!before) return err("not_found", NO_OPERATOR);
 
   const values = operatorValues(input);
 
   // Cert number collision (excluding self).
   if (values.certNumber && values.certNumber !== before.certNumber) {
-    const [conflict] = await db.select({ id: operators.id }).from(operators).where(eq(operators.certNumber, values.certNumber));
+    const conflict = await store.operatorIdByCert(values.certNumber);
     if (conflict && conflict.id !== input.id) return err("conflict", "Another operator already has that cert number");
   }
 
@@ -162,7 +156,7 @@ export async function updateOperator(
   state: OperatorUpdateState,
 ): Promise<Result<{ id: string; changed: string[] }>> {
   const { before, values, diff } = state;
-  await db.update(operators).set(values).where(eq(operators.id, input.id));
+  await referenceStore().updateOperator(input.id, values);
 
   const a = auditFields(actor);
   await logAudit({
@@ -185,11 +179,7 @@ export type OperatorRef = { id: string; name: string; certNumber: string | null 
 
 async function loadOperatorRef(id: string): Promise<OperatorRef | null> {
   if (!isUuid(id)) return null;
-  const [op] = await db
-    .select({ id: operators.id, name: operators.name, certNumber: operators.certNumber })
-    .from(operators)
-    .where(eq(operators.id, id));
-  return op ?? null;
+  return (await referenceStore().operatorRef(id)) ?? null;
 }
 
 export type ContactAddState = { operator: OperatorRef };
@@ -216,7 +206,7 @@ export async function addOperatorContact(
   };
 
   try {
-    const [row] = await db.insert(operatorContacts).values(values).returning({ id: operatorContacts.id });
+    const row = await referenceStore().insertContact(values);
 
     const a = auditFields(actor);
     await logAudit({
@@ -253,15 +243,7 @@ export async function loadOperatorContact(input: OperatorContactRefInput): Promi
   const operator = await loadOperatorRef(input.id);
   if (!operator) return err("not_found", NO_OPERATOR);
   if (!isUuid(input.contactId)) return err("not_found", NO_CONTACT);
-  const [contact] = await db
-    .select({
-      id: operatorContacts.id,
-      name: operatorContacts.name,
-      role: operatorContacts.role,
-      isEscalation: operatorContacts.isEscalation,
-    })
-    .from(operatorContacts)
-    .where(and(eq(operatorContacts.id, input.contactId), eq(operatorContacts.operatorId, operator.id)));
+  const contact = await referenceStore().contactOf(operator.id, input.contactId);
   if (!contact) return err("not_found", NO_CONTACT);
   return ok({ operator, contact });
 }
@@ -272,7 +254,7 @@ export async function removeOperatorContact(
   state: ContactState,
 ): Promise<Result<{ id: string }>> {
   const { contact } = state;
-  await db.delete(operatorContacts).where(eq(operatorContacts.id, contact.id));
+  await referenceStore().deleteContact(contact.id);
 
   const a = auditFields(actor);
   await logAudit({
@@ -301,7 +283,7 @@ export async function setOperatorContactEscalation(
   const { contact } = state;
   if (contact.isEscalation === input.isEscalation) return ok({ id: contact.id, isEscalation: contact.isEscalation });
 
-  await db.update(operatorContacts).set({ isEscalation: input.isEscalation }).where(eq(operatorContacts.id, contact.id));
+  await referenceStore().setContactEscalation(contact.id, input.isEscalation);
 
   const a = auditFields(actor);
   await logAudit({
@@ -348,14 +330,12 @@ export type AircraftCreateState = { operator: { id: string; name: string } };
 
 export async function loadAircraftForCreate(input: AircraftCreateInput): Promise<Result<AircraftCreateState>> {
   // Verify operator exists.
-  const [operator] = await db
-    .select({ id: operators.id, name: operators.name })
-    .from(operators)
-    .where(eq(operators.id, input.operatorId));
+  const store = referenceStore();
+  const operator = await store.operatorName(input.operatorId);
   if (!operator) return err("not_found", NO_OPERATOR);
 
   // Tail uniqueness pre-check.
-  const [conflict] = await db.select({ id: aircraft.id }).from(aircraft).where(eq(aircraft.tailNumber, input.tailNumber));
+  const conflict = await store.aircraftIdByTail(input.tailNumber);
   if (conflict) return err("conflict", `Tail ${input.tailNumber} already on file`);
 
   return ok({ operator });
@@ -368,7 +348,7 @@ export async function createAircraft(
 ): Promise<Result<{ id: string; tailNumber: string }>> {
   const values = aircraftValues(input);
   try {
-    const [row] = await db.insert(aircraft).values(values).returning({ id: aircraft.id, tailNumber: aircraft.tailNumber });
+    const row = await referenceStore().insertAircraft(values);
 
     const a = auditFields(actor);
     await logAudit({
@@ -399,24 +379,21 @@ export type AircraftUpdateState = { before: Aircraft; values: NewAircraft; diff:
 
 export async function loadAircraftForUpdate(input: AircraftUpdateInput): Promise<Result<AircraftUpdateState>> {
   if (!isUuid(input.id)) return err("not_found", NO_AIRCRAFT);
-  const [before] = await db.select().from(aircraft).where(eq(aircraft.id, input.id));
+  const store = referenceStore();
+  const before = await store.aircraftById(input.id);
   if (!before) return err("not_found", NO_AIRCRAFT);
 
   const values = aircraftValues(input);
 
   // Tail collision (exclude self).
   if (values.tailNumber !== before.tailNumber) {
-    const [conflict] = await db
-      .select({ id: aircraft.id })
-      .from(aircraft)
-      .where(and(eq(aircraft.tailNumber, values.tailNumber), ne(aircraft.id, input.id)));
+    const conflict = await store.aircraftIdByTail(values.tailNumber, input.id);
     if (conflict) return err("conflict", `Another aircraft already uses ${values.tailNumber}`);
   }
 
   // Operator existence check on change.
   if (values.operatorId !== before.operatorId) {
-    const [op] = await db.select({ id: operators.id }).from(operators).where(eq(operators.id, values.operatorId));
-    if (!op) return err("not_found", NO_OPERATOR);
+    if (!(await store.operatorExists(values.operatorId))) return err("not_found", NO_OPERATOR);
   }
 
   return ok({ before, values, diff: diffRow(before, values, true) });
@@ -428,7 +405,7 @@ export async function updateAircraft(
   state: AircraftUpdateState,
 ): Promise<Result<{ id: string; changed: string[] }>> {
   const { values, diff } = state;
-  await db.update(aircraft).set(values).where(eq(aircraft.id, input.id));
+  await referenceStore().updateAircraft(input.id, values);
 
   const a = auditFields(actor);
   await logAudit({
@@ -472,7 +449,7 @@ export function airportValues(input: AirportCreateInput): NewAirport {
 
 /** Conflict check — clean error beats a unique-violation stack trace. */
 export async function loadAirportForCreate(input: AirportCreateInput): Promise<Result<Record<string, never>>> {
-  const [conflict] = await db.select({ id: airports.id }).from(airports).where(eq(airports.icao, input.icao));
+  const conflict = await referenceStore().airportIdByIcao(input.icao);
   if (conflict) return err("conflict", `Airport ${input.icao} already on file`);
   return ok({});
 }
@@ -483,7 +460,7 @@ export async function createAirport(
 ): Promise<Result<{ id: string; icao: string }>> {
   const values = airportValues(input);
   try {
-    const [row] = await db.insert(airports).values(values).returning({ id: airports.id, icao: airports.icao });
+    const row = await referenceStore().insertAirport(values);
 
     const a = auditFields(actor);
     await logAudit({
@@ -507,15 +484,13 @@ export type AirportUpdateState = { before: Airport; values: NewAirport; diff: Fi
 
 export async function loadAirportForUpdate(input: AirportUpdateInput): Promise<Result<AirportUpdateState>> {
   if (!isUuid(input.id)) return err("not_found", NO_AIRPORT);
-  const [before] = await db.select().from(airports).where(eq(airports.id, input.id));
+  const store = referenceStore();
+  const before = await store.airportById(input.id);
   if (!before) return err("not_found", NO_AIRPORT);
 
   // Same rules as create, but an ICAO change needs the "exclude self" check.
   if (input.icao !== before.icao) {
-    const [conflict] = await db
-      .select({ id: airports.id })
-      .from(airports)
-      .where(and(eq(airports.icao, input.icao), ne(airports.id, input.id)));
+    const conflict = await store.airportIdByIcao(input.icao, input.id);
     if (conflict) return err("conflict", `Another airport already uses ${input.icao}`);
   }
 
@@ -529,7 +504,7 @@ export async function updateAirport(
   state: AirportUpdateState,
 ): Promise<Result<{ id: string; changed: string[] }>> {
   const { values, diff } = state;
-  await db.update(airports).set(values).where(eq(airports.id, input.id));
+  await referenceStore().updateAirport(input.id, values);
 
   const a = auditFields(actor);
   await logAudit({
@@ -551,10 +526,7 @@ export type AirportState = { airport: AirportRef };
 
 export async function loadAirport(input: AirportRefInput): Promise<Result<AirportState>> {
   if (!isUuid(input.id)) return err("not_found", NO_AIRPORT);
-  const [airport] = await db
-    .select({ id: airports.id, icao: airports.icao, name: airports.name })
-    .from(airports)
-    .where(eq(airports.id, input.id));
+  const airport = await referenceStore().airportRef(input.id);
   if (!airport) return err("not_found", NO_AIRPORT);
   return ok({ airport });
 }
@@ -571,7 +543,7 @@ export async function deleteAirport(
   state: AirportState,
 ): Promise<Result<{ id: string; icao: string }>> {
   const { airport } = state;
-  await db.delete(airports).where(eq(airports.id, airport.id));
+  await referenceStore().deleteAirport(airport.id);
 
   const a = auditFields(actor);
   await logAudit({
@@ -608,7 +580,7 @@ export async function createFbo(actor: Actor, input: FboCreateInput, state: Airp
   };
 
   try {
-    const [row] = await db.insert(fbos).values(values).returning({ id: fbos.id });
+    const row = await referenceStore().insertFbo(values);
 
     const a = auditFields(actor);
     await logAudit({
@@ -643,17 +615,14 @@ export async function loadFbo(input: FboRefInput): Promise<Result<FboState>> {
   const loaded = await loadAirport(input);
   if (!loaded.ok) return loaded;
   if (!isUuid(input.fboId)) return err("not_found", NO_FBO);
-  const [fbo] = await db
-    .select({ id: fbos.id, name: fbos.name, isPrimary: fbos.isPrimary, isPreferred: fbos.isPreferred })
-    .from(fbos)
-    .where(and(eq(fbos.id, input.fboId), eq(fbos.airportId, loaded.value.airport.id)));
+  const fbo = await referenceStore().fboOf(loaded.value.airport.id, input.fboId);
   if (!fbo) return err("not_found", NO_FBO);
   return ok({ airport: loaded.value.airport, fbo });
 }
 
 export async function deleteFbo(actor: Actor, input: FboRefInput, state: FboState): Promise<Result<{ id: string }>> {
   const { airport, fbo } = state;
-  await db.delete(fbos).where(eq(fbos.id, fbo.id));
+  await referenceStore().deleteFbo(fbo.id);
 
   const a = auditFields(actor);
   await logAudit({
@@ -684,18 +653,13 @@ export async function toggleFboFlag(
   const next = fboToggleTarget(input, state);
   if (before === next) return ok({ id: fbo.id, field, value: before });
 
-  await db
-    .update(fbos)
-    .set({ [field]: next })
-    .where(eq(fbos.id, fbo.id));
+  const store = referenceStore();
+  await store.setFboFlag(fbo.id, field, next);
 
   // If we just promoted this FBO to is_primary, demote any sibling primaries
   // — only one primary per airport.
   if (field === "isPrimary" && next) {
-    await db
-      .update(fbos)
-      .set({ isPrimary: false })
-      .where(and(eq(fbos.airportId, airport.id), ne(fbos.id, fbo.id)));
+    await store.demoteOtherPrimaries(airport.id, fbo.id);
   }
 
   const a = auditFields(actor);

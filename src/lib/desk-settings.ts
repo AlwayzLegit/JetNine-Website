@@ -1,16 +1,12 @@
 import "server-only";
 import { cache } from "react";
-import { and, eq, inArray, sql } from "drizzle-orm";
-import { db } from "@/db";
 import {
   NOTIFICATION_DEFAULTS,
   REPLY_PROMISE_CHOICES,
   REPLY_PROMISE_DEFAULT,
   REPLY_PROMISE_KEY,
-  deskSettings,
-  staffNotificationPrefs,
 } from "@/db/schema/desk";
-import { users } from "@/db/schema/users";
+import { settingsStore } from "@/domain/settings/store";
 
 /**
  * Settings › Notifications and the desk-wide reply-time promise (Phase 5).
@@ -28,9 +24,6 @@ export function isNotificationKind(v: string): v is NotificationKind {
   return (NOTIFICATION_KINDS as string[]).includes(v);
 }
 
-/** DB roles that may open the desk. */
-const STAFF_ROLES = ["dispatcher", "admin", "superadmin"] as const;
-
 // ─── Reply-time promise ────────────────────────────────────────────────
 
 /**
@@ -39,12 +32,8 @@ const STAFF_ROLES = ["dispatcher", "admin", "superadmin"] as const;
  */
 export const getReplyPromiseMinutes = cache(async (): Promise<number> => {
   try {
-    const [row] = await db
-      .select({ value: deskSettings.value })
-      .from(deskSettings)
-      .where(eq(deskSettings.key, REPLY_PROMISE_KEY))
-      .limit(1);
-    const n = Number(row?.value);
+    const value = await settingsStore().getSetting(REPLY_PROMISE_KEY);
+    const n = Number(value);
     if (!Number.isFinite(n) || n <= 0) return REPLY_PROMISE_DEFAULT;
     return Math.round(n);
   } catch {
@@ -58,29 +47,14 @@ export function isReplyPromiseChoice(n: number): n is (typeof REPLY_PROMISE_CHOI
 
 export async function setReplyPromiseMinutes(minutes: number, updatedBy: string | null): Promise<void> {
   if (!isReplyPromiseChoice(minutes)) throw new Error("Reply promise must be 15, 30 or 60 minutes");
-  await db
-    .insert(deskSettings)
-    .values({ key: REPLY_PROMISE_KEY, value: minutes, updatedBy, updatedAt: new Date() })
-    .onConflictDoUpdate({
-      target: deskSettings.key,
-      set: { value: minutes, updatedBy, updatedAt: new Date() },
-    });
+  await settingsStore().upsertSetting(REPLY_PROMISE_KEY, minutes, updatedBy, new Date());
 }
 
 // ─── Per-user notification preferences ────────────────────────────────
 
 export async function getNotificationPrefs(userId: string): Promise<NotificationPrefs> {
   try {
-    const [row] = await db
-      .select({
-        newRequest: staffNotificationPrefs.newRequest,
-        replyDueSoon: staffNotificationPrefs.replyDueSoon,
-        clientPick: staffNotificationPrefs.clientPick,
-        morningSummary: staffNotificationPrefs.morningSummary,
-      })
-      .from(staffNotificationPrefs)
-      .where(eq(staffNotificationPrefs.userId, userId))
-      .limit(1);
+    const row = await settingsStore().getNotificationPrefs(userId);
     return row ? { ...row } : { ...NOTIFICATION_DEFAULTS };
   } catch {
     return { ...NOTIFICATION_DEFAULTS };
@@ -94,24 +68,11 @@ export async function saveNotificationPrefs(
 ): Promise<NotificationPrefs> {
   const current = await getNotificationPrefs(userId);
   const next: NotificationPrefs = { ...current, ...patch };
-  await db
-    .insert(staffNotificationPrefs)
-    .values({ userId, ...next, updatedAt: new Date() })
-    .onConflictDoUpdate({
-      target: staffNotificationPrefs.userId,
-      set: { ...patch, updatedAt: new Date() },
-    });
+  await settingsStore().upsertNotificationPrefs(userId, next, patch, new Date());
   return next;
 }
 
 // ─── Who gets paged ───────────────────────────────────────────────────
-
-const PREF_COLUMN = {
-  newRequest: staffNotificationPrefs.newRequest,
-  replyDueSoon: staffNotificationPrefs.replyDueSoon,
-  clientPick: staffNotificationPrefs.clientPick,
-  morningSummary: staffNotificationPrefs.morningSummary,
-} as const;
 
 /**
  * Emails of the staff users (dispatcher / admin / superadmin) whose toggle
@@ -120,16 +81,10 @@ const PREF_COLUMN = {
  */
 export async function recipientsFor(kind: NotificationKind): Promise<string[]> {
   try {
-    const col = PREF_COLUMN[kind];
-    const fallback = NOTIFICATION_DEFAULTS[kind];
-    const rows = await db
-      .select({ email: users.email })
-      .from(users)
-      .leftJoin(staffNotificationPrefs, eq(staffNotificationPrefs.userId, users.id))
-      .where(and(inArray(users.role, [...STAFF_ROLES]), sql`coalesce(${col}, ${fallback}) = true`));
+    const emails = await settingsStore().recipientEmails(kind);
     const seen = new Set<string>();
-    for (const r of rows) {
-      const e = r.email?.trim().toLowerCase();
+    for (const email of emails) {
+      const e = email?.trim().toLowerCase();
       if (e && e.includes("@")) seen.add(e);
     }
     return [...seen];

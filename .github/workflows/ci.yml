@@ -157,6 +157,13 @@ jobs:
       - name: Contact store tests
         run: pnpm exec tsx --test src/domain/contact/store-d1.test.ts src/domain/contact/store.test.ts
 
+      # The desk settings and the voice agent configs on D1 (OPS-126): the key/value settings,
+      # a person's notification choices and who gets paged, and the agents with their versions
+      # (create, save with the version check, make live, archive), on a real SQLite with
+      # atomic batches, plus the loud failure when the target is d1 with no binding.
+      - name: Settings store tests
+        run: pnpm exec tsx --test src/domain/settings/store-d1.test.ts src/domain/settings/store.test.ts src/domain/voice-agents/store-d1.test.ts src/domain/voice-agents/store.test.ts
+
   e2e:
     name: playwright smoke
     runs-on: ubuntu-24.04

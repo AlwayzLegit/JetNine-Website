@@ -7,8 +7,8 @@ import { auditFields, type Actor } from "@/domain/actor";
 import { err, ok, type Result } from "@/domain/result";
 import { VOICE_ROUTING_KEY, routingWords, type VoiceRouting } from "@/lib/voice-routing";
 import { SOCIAL_LINKS_KEY, socialLinksWords, type SocialLinks } from "@/lib/social-links";
-import { deskSettings } from "@/db/schema/desk";
 import { replyPromiseMinutes, socialLinks, voiceRouting } from "./queries";
+import { settingsStore } from "./store";
 import type { NotificationPrefInput, ReplyPromiseInput, SocialLinksInput, VoiceRoutingInput } from "./schemas";
 
 /**
@@ -104,13 +104,7 @@ export async function setVoiceRouting(
 
   const now = new Date();
   try {
-    await db
-      .insert(deskSettings)
-      .values({ key: VOICE_ROUTING_KEY, value: routing, updatedBy: actor.userId, updatedAt: now })
-      .onConflictDoUpdate({
-        target: deskSettings.key,
-        set: { value: routing, updatedBy: actor.userId, updatedAt: now },
-      });
+    await settingsStore().upsertSetting(VOICE_ROUTING_KEY, routing, actor.userId, now);
   } catch (e) {
     console.error("[settings/voice] routing save failed", e);
     return err("unavailable", "Call routing could not be saved. Try again.");
@@ -149,13 +143,7 @@ export async function setSocialLinks(
 
   const now = new Date();
   try {
-    await db
-      .insert(deskSettings)
-      .values({ key: SOCIAL_LINKS_KEY, value: links, updatedBy: actor.userId, updatedAt: now })
-      .onConflictDoUpdate({
-        target: deskSettings.key,
-        set: { value: links, updatedBy: actor.userId, updatedAt: now },
-      });
+    await settingsStore().upsertSetting(SOCIAL_LINKS_KEY, links, actor.userId, now);
   } catch (e) {
     console.error("[settings/social] save failed", e);
     return err("unavailable", "The social links could not be saved. Try again.");

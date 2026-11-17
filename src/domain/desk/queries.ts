@@ -3,9 +3,10 @@ import { db } from "@/db";
 import { quotes } from "@/db/schema/quotes";
 import { messages } from "@/db/schema/audit";
 import { inquiryStore } from "@/domain/contact/store";
+import { settingsStore } from "@/domain/settings/store";
 import { invoices } from "@/db/schema/invoices";
 import { emptyLegs } from "@/db/schema/empty-legs";
-import { REPLY_PROMISE_DEFAULT, REPLY_PROMISE_KEY, deskSettings } from "@/db/schema/desk";
+import { REPLY_PROMISE_DEFAULT, REPLY_PROMISE_KEY } from "@/db/schema/desk";
 import { NOT_SMOKE, isoParam } from "@/domain/common";
 import { countPending } from "@/domain/approvals/queries";
 import { listTrips } from "@/domain/trips/queries";
@@ -74,12 +75,8 @@ const DAY_MS = 86_400_000;
 /** Reads desk_settings.reply_promise_minutes; defaults to 30 and never throws. */
 export async function replyPromiseMinutes(): Promise<number> {
   try {
-    const [row] = await db
-      .select({ value: deskSettings.value })
-      .from(deskSettings)
-      .where(eq(deskSettings.key, REPLY_PROMISE_KEY))
-      .limit(1);
-    const n = Number(row?.value);
+    const value = await settingsStore().getSetting(REPLY_PROMISE_KEY);
+    const n = Number(value);
     if (!Number.isFinite(n) || n <= 0) return REPLY_PROMISE_DEFAULT;
     return Math.round(n);
   } catch {

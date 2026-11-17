@@ -97,16 +97,44 @@ const q = (name) => `"${String(name).replace(/"/g, '""')}"`;
  * INSERT for one row. `columns` is [{ name, columnType }] in D1 order, `row` the
  * Postgres row by column name. An int8 string of digits is written as a bare number.
  */
-export function insertStatement(table, columns, row) {
+export function insertStatement(table, columns, row, nullRefs = []) {
   const names = columns.map((c) => q(c.name)).join(", ");
   const values = columns
     .map((c) => {
+      // A reference into a held-back table (api_keys, ai_providers) points at nothing: NULL (OPS-115).
+      if (nullRefs.includes(c.name)) return "NULL";
       const m = mapValue(c.columnType, row[c.name]);
       if (c.columnType === "SQLiteInteger" && typeof m === "string") return m;
       return sqlLiteral(m);
     })
     .join(", ");
   return `INSERT INTO ${q(table)} (${names}) VALUES (${values});`;
+}
+
+/** D1's longest statement, in bytes (100,000 per the D1 limits page when OPS-115 was planned). */
+export const STATEMENT_LIMIT = 100000;
+
+/** True when one statement is longer than D1 accepts. */
+export function statementTooLong(sql, limit = STATEMENT_LIMIT) {
+  return Buffer.byteLength(sql, "utf8") > limit;
+}
+
+/**
+ * What a SQLite constraint error says, reduced to the kind and the schema names it
+ * carries ("UNIQUE users.email", "CHECK agent_memory_kind_check"). Only strict patterns
+ * of word characters and dots are returned, so a value that a message might quote never
+ * gets through. Anything else is "no detail".
+ */
+export function constraintDetail(text) {
+  const s = String(text);
+  let m = s.match(/UNIQUE constraint failed: ([\w.]+(?:, [\w.]+)*)(?![\w.])/);
+  if (m) return `UNIQUE ${m[1]}`;
+  m = s.match(/NOT NULL constraint failed: ([\w.]+)(?![\w.])/);
+  if (m) return `NOT NULL ${m[1]}`;
+  m = s.match(/CHECK constraint failed: ([\w.]+)(?![\w.])/);
+  if (m) return `CHECK ${m[1]}`;
+  if (/FOREIGN KEY constraint failed/.test(s)) return "FOREIGN KEY";
+  return "no detail";
 }
 
 export const deleteStatement = (table) => `DELETE FROM ${q(table)};`;

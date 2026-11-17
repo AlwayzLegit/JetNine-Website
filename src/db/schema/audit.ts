@@ -7,6 +7,7 @@ import {
   pgTable,
   text,
   timestamp,
+  uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
 import { users } from "./users";
@@ -146,6 +147,11 @@ export const messages = pgTable(
     index("messages_subject_idx").on(t.subjectType, t.subjectId, t.occurredAt),
     index("messages_unread_idx").on(t.isRead, t.toUserId),
     index("messages_delivery_status_idx").on(t.deliveryStatus, t.occurredAt),
+    // Declared here since OPS-127 so the D1 twin can be checked against it. The index itself
+    // is Postgres migration 0029 (inbound idempotency: one row per provider message id).
+    uniqueIndex("messages_inbound_provider_id_uq")
+      .on(t.deliveryMessageId)
+      .where(sql`${t.direction} = 'in' and ${t.deliveryMessageId} is not null`),
   ],
 );
 

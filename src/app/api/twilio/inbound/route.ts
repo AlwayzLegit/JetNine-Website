@@ -1,7 +1,8 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
-import { messages, type NewMessage } from "@/db/schema/audit";
+import type { NewMessage } from "@/db/schema/audit";
+import { isDuplicateMessage, messageStore } from "@/domain/messages/store";
 import { watchlistStore } from "@/domain/empty-legs/watchlist-store";
 import { members } from "@/db/schema/members";
 import { quotes } from "@/db/schema/quotes";
@@ -193,14 +194,13 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
   let messageId: string;
   try {
-    const [row] = await db.insert(messages).values(values).returning({ id: messages.id });
+    const row = await messageStore().insertMessage(values);
     messageId = row.id;
   } catch (err) {
     // Unique-violation on the inbound idempotency index = duplicate
     // Twilio delivery for the same MessageSid. 200 OK so Twilio stops
     // retrying.
-    const code = (err as { code?: string })?.code;
-    if (code === "23505") {
+    if (isDuplicateMessage(err)) {
       console.log("[twilio:inbound] duplicate delivery ignored", { messageSid });
       return twiml();
     }

@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX `messages_inbound_provider_id_uq` ON `messages` (`delivery_message_id`) WHERE "messages"."direction" = 'in' and "messages"."delivery_message_id" is not null;

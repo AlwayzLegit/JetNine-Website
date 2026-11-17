@@ -1,6 +1,7 @@
 // D1 (SQLite) twin of src/db/schema/audit.ts (OPS-100). Same export names, same SQL table
 // and column names. Mapping: see DEPLOY.md "D1 tables (OPS-100)".
-import { index, integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import { sql } from "drizzle-orm";
+import { index, integer, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
 import { enumCheck, newId, nowDate } from "../helpers";
 import { auditSubjectTypeEnum, messageChannelEnum, messageDirectionEnum, messageDeliveryStatusEnum } from "../../schema/audit";
 import { users } from "./users";
@@ -96,6 +97,12 @@ export const messages = sqliteTable(
     index("messages_subject_idx").on(t.subjectType, t.subjectId, t.occurredAt),
     index("messages_unread_idx").on(t.isRead, t.toUserId),
     index("messages_delivery_status_idx").on(t.deliveryStatus, t.occurredAt),
+    // Inbound idempotency (OPS-127), the twin of Postgres migration 0029: a
+    // webhook retried by the provider must not land twice. Partial, because the
+    // column also holds outbound provider ids, where uniqueness is not wanted.
+    uniqueIndex("messages_inbound_provider_id_uq")
+      .on(t.deliveryMessageId)
+      .where(sql`${t.direction} = 'in' and ${t.deliveryMessageId} is not null`),
     enumCheck("messages_subject_type_enum", t.subjectType, auditSubjectTypeEnum.enumValues),
     enumCheck("messages_channel_enum", t.channel, messageChannelEnum.enumValues),
     enumCheck("messages_direction_enum", t.direction, messageDirectionEnum.enumValues),

@@ -1,7 +1,8 @@
 import { and, asc, eq, inArray, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { syncTripScheduleBlock } from "./schedule-block";
-import { messages, type NewMessage } from "@/db/schema/audit";
+import type { NewMessage } from "@/db/schema/audit";
+import { messageStore } from "@/domain/messages/store";
 import { invoices, type Invoice } from "@/db/schema/invoices";
 import { memberPreferences } from "@/db/schema/member-prefs";
 import { members } from "@/db/schema/members";
@@ -389,7 +390,7 @@ async function fireChannel(args: {
 
   let messageId: string;
   try {
-    const [row] = await db.insert(messages).values(values).returning({ id: messages.id });
+    const row = await messageStore().insertMessage(values);
     messageId = row.id;
   } catch (e) {
     console.error(`[trip-status:${args.channel}] message insert failed`, e);
@@ -402,23 +403,20 @@ async function fireChannel(args: {
     // Honest status: in logger mode nothing left the building — record
     // `queued`, not a false green `sent`.
     const delivered = result.provider !== "logger";
-    await db
-      .update(messages)
-      .set({
-        deliveryStatus: delivered ? "sent" : "queued",
-        deliveryProvider: result.provider,
-        deliveryMessageId: result.messageId ?? null,
-        deliveryError: delivered ? null : "channel not configured — logged only, not delivered",
-        deliveredAt: delivered ? new Date() : null,
-      })
-      .where(eq(messages.id, messageId));
+    await messageStore().setDelivery(messageId, {
+      deliveryStatus: delivered ? "sent" : "queued",
+      deliveryProvider: result.provider,
+      deliveryMessageId: result.messageId ?? null,
+      deliveryError: delivered ? null : "channel not configured — logged only, not delivered",
+      deliveredAt: delivered ? new Date() : null,
+    });
     return { status: "sent" };
   }
 
-  await db
-    .update(messages)
-    .set({ deliveryStatus: "failed", deliveryError: result.error.slice(0, 500) })
-    .where(eq(messages.id, messageId));
+  await messageStore().setDelivery(messageId, {
+    deliveryStatus: "failed",
+    deliveryError: result.error.slice(0, 500),
+  });
   return { status: "failed", error: result.error };
 }
 

@@ -7,7 +7,7 @@ import { invoices } from "@/db/schema/invoices";
 import { aircraft } from "@/db/schema/aircraft";
 import { operators } from "@/db/schema/operators";
 import { staff } from "@/db/schema/staff";
-import { messages } from "@/db/schema/audit";
+import { messageStore } from "@/domain/messages/store";
 import { getCurrentUser, requireUser } from "@/lib/auth";
 import { SITE } from "@/lib/constants";
 import { getMemberByUserId } from "@/lib/member";
@@ -106,23 +106,7 @@ export default async function AccountTripDetailPage({ params }: Props) {
   // Dispatcher-authored thread, visible to the member as a read-only timeline.
   // We only surface outbound messages (direction='out' = dispatch → member);
   // any internal notes stay invisible from this surface.
-  const memberThread = await db
-    .select({
-      id: messages.id,
-      channel: messages.channel,
-      body: messages.body,
-      preview: messages.preview,
-      occurredAt: messages.occurredAt,
-    })
-    .from(messages)
-    .where(
-      and(
-        eq(messages.subjectType, "trip"),
-        eq(messages.subjectId, id),
-        eq(messages.direction, "out"),
-      ),
-    )
-    .orderBy(asc(messages.occurredAt));
+  const memberThread = await messageStore().memberTripTimeline(id);
 
   const status = tripStatusWords(trip.status);
   const route = routeWords(legs);

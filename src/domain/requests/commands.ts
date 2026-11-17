@@ -3,7 +3,8 @@ import { db } from "@/db";
 import { syncTripScheduleBlock } from "@/domain/trips/schedule-block";
 import { nextCode } from "@/db/codes";
 import { aircraft } from "@/db/schema/aircraft";
-import { messages, type NewMessage } from "@/db/schema/audit";
+import type { NewMessage } from "@/db/schema/audit";
+import { messageStore } from "@/domain/messages/store";
 import { invoices, type NewInvoice } from "@/db/schema/invoices";
 import { members } from "@/db/schema/members";
 import { operators } from "@/db/schema/operators";
@@ -220,7 +221,7 @@ export async function postThreadMessage(args: ThreadMessageArgs): Promise<Result
 
   let messageId: string;
   try {
-    const [row] = await db.insert(messages).values(values).returning({ id: messages.id });
+    const row = await messageStore().insertMessage(values);
     messageId = row.id;
   } catch (e) {
     console.error(`post ${args.subjectType} message insert failed`, e);
@@ -241,22 +242,19 @@ export async function postThreadMessage(args: ThreadMessageArgs): Promise<Result
     if (result.ok) {
       // Honest status: logger mode means nothing left the building.
       const logger = result.provider === "logger";
-      await db
-        .update(messages)
-        .set({
-          deliveryStatus: logger ? "queued" : "sent",
-          deliveryProvider: result.provider,
-          deliveryMessageId: result.messageId ?? null,
-          deliveryError: logger ? "channel not configured — logged only, not delivered" : null,
-          deliveredAt: logger ? null : new Date(),
-        })
-        .where(eq(messages.id, messageId));
+      await messageStore().setDelivery(messageId, {
+        deliveryStatus: logger ? "queued" : "sent",
+        deliveryProvider: result.provider,
+        deliveryMessageId: result.messageId ?? null,
+        deliveryError: logger ? "channel not configured — logged only, not delivered" : null,
+        deliveredAt: logger ? null : new Date(),
+      });
       delivery = { status: logger ? "queued" : "sent", provider: result.provider, messageId: result.messageId ?? null };
     } else {
-      await db
-        .update(messages)
-        .set({ deliveryStatus: "failed", deliveryError: result.error.slice(0, 500) })
-        .where(eq(messages.id, messageId));
+      await messageStore().setDelivery(messageId, {
+        deliveryStatus: "failed",
+        deliveryError: result.error.slice(0, 500),
+      });
       delivery = { status: "failed", error: result.error };
     }
   }
@@ -493,7 +491,7 @@ export async function sendRequestOptions(
     .join(", ")}`;
   const preview = summary.length > 140 ? `${summary.slice(0, 139)}…` : summary;
 
-  await db.insert(messages).values({
+  await messageStore().insertMessage({
     subjectType: "quote",
     subjectId: quote.id,
     channel: "email",
@@ -1572,7 +1570,7 @@ export async function convertRequestToTrip(
             }
           : null,
       });
-      await db.insert(messages).values({
+      await messageStore().insertMessage({
         subjectType: "trip",
         subjectId: inserted.trip.id,
         channel: "email",

@@ -9,7 +9,7 @@ import { staff } from "@/db/schema/staff";
 import { users } from "@/db/schema/users";
 import { aircraft } from "@/db/schema/aircraft";
 import { operators } from "@/db/schema/operators";
-import { messages } from "@/db/schema/audit";
+import { messageStore } from "@/domain/messages/store";
 import { trips } from "@/db/schema/trips";
 import { aircraftScheduleBlocks } from "@/db/schema/schedule-blocks";
 import { sourcedOptions } from "@/db/schema/sourced-option";
@@ -272,27 +272,7 @@ export async function listRequests(args: {
 
 /** The CRM thread for one quote or trip, oldest first, as the thread UI reads it. */
 export async function loadThread(subjectType: "quote" | "trip", subjectId: string): Promise<ThreadMessage[]> {
-  const rows = await db
-    .select({
-      id: messages.id,
-      channel: messages.channel,
-      direction: messages.direction,
-      fromAddress: messages.fromAddress,
-      toAddress: messages.toAddress,
-      preview: messages.preview,
-      body: messages.body,
-      occurredAt: messages.occurredAt,
-      fromUserFirstName: users.firstName,
-      fromUserEmail: users.email,
-      deliveryStatus: messages.deliveryStatus,
-      deliveryProvider: messages.deliveryProvider,
-      deliveryError: messages.deliveryError,
-    })
-    .from(messages)
-    .leftJoin(users, eq(users.id, messages.fromUserId))
-    .where(and(eq(messages.subjectType, subjectType), eq(messages.subjectId, subjectId)))
-    .orderBy(desc(messages.occurredAt))
-    .limit(THREAD_LIMIT);
+  const rows = await messageStore().thread(subjectType, subjectId, THREAD_LIMIT);
   rows.reverse(); // oldest first, newest THREAD_LIMIT kept
 
   return rows.map((m) => ({

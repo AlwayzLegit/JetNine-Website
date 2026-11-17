@@ -2,7 +2,8 @@ import { NextResponse, type NextRequest } from "next/server";
 import { timingSafeEqual } from "node:crypto";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
-import { messages, type NewMessage } from "@/db/schema/audit";
+import type { NewMessage } from "@/db/schema/audit";
+import { isDuplicateMessage, messageStore } from "@/domain/messages/store";
 import { quotes } from "@/db/schema/quotes";
 import { trips } from "@/db/schema/trips";
 import { members } from "@/db/schema/members";
@@ -164,12 +165,11 @@ export async function POST(
 
   let inserted: { id: string } | null = null;
   try {
-    const result = await db.insert(messages).values(values).returning({ id: messages.id });
-    inserted = result[0] ?? null;
+    inserted = (await messageStore().insertMessage(values)) ?? null;
   } catch (err) {
     // Unique-violation on the partial index = duplicate Postmark
     // delivery. 200 OK so Postmark stops retrying.
-    if (isUniqueViolation(err)) {
+    if (isDuplicateMessage(err)) {
       return NextResponse.json({ received: true, deduped: true });
     }
     console.error("[email:inbound] insert failed", err);
@@ -290,13 +290,6 @@ async function resolveRoute(code: string): Promise<RouteTarget | null> {
   // surface we've built yet. Drop for now; revisit when invoice has a
   // member-facing comments panel.
   return null;
-}
-
-function isUniqueViolation(err: unknown): boolean {
-  if (!err || typeof err !== "object") return false;
-  // postgres-js attaches the SQLSTATE code as `.code` on errors.
-  const code = (err as { code?: string }).code;
-  return code === "23505";
 }
 
 /**

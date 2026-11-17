@@ -171,6 +171,14 @@ jobs:
       - name: Settings store tests
         run: pnpm exec tsx --test src/domain/settings/store-d1.test.ts src/domain/settings/store.test.ts src/domain/voice-agents/store-d1.test.ts src/domain/voice-agents/store.test.ts
 
+      # The desk's messages on D1 (OPS-127): the inbox threads (newest first, unread counts, the
+      # latest message of each thread), one thread, failed deliveries, mark read, the desk counts,
+      # emails sent in the Los Angeles day (with its daylight saving edges), a member's trip
+      # timeline, the webhooks' writes and the inbound duplicate guard, on a real SQLite, plus the
+      # loud failure when the target is d1 with no binding.
+      - name: Message store tests
+        run: pnpm exec tsx --test src/domain/messages/store-d1.test.ts src/domain/messages/store.test.ts
+
   e2e:
     name: playwright smoke
     runs-on: ubuntu-24.04

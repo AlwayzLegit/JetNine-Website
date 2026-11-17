@@ -14,6 +14,8 @@ import { snapshot, type HealthSnapshot } from "@/lib/health";
 import { VOICE_ROUTING_KEY, parseVoiceRouting, type VoiceRouting } from "@/lib/voice-routing";
 import { SOCIAL_LINKS_KEY, parseSocialLinks, type SocialLinks } from "@/lib/social-links";
 import { settingsStore } from "./store";
+import { messageStore } from "@/domain/messages/store";
+import { laDayBounds } from "@/domain/messages/day";
 
 /**
  * Settings: desk-wide facts shared by the admin pages and /api/v1. Nothing
@@ -142,14 +144,8 @@ export type HealthReport = HealthSnapshot & {
 
 export async function emailsSentToday(): Promise<number | null> {
   try {
-    const [row] = await db.execute<{ n: number }>(sql`
-      select count(*)::int as n
-      from public.messages
-      where channel = 'email' and direction = 'out' and delivery_status = 'sent'
-        and (occurred_at at time zone 'America/Los_Angeles')::date
-            = (now() at time zone 'America/Los_Angeles')::date
-    `);
-    return row?.n ?? 0;
+    const { start, end } = laDayBounds();
+    return await messageStore().emailsSentBetween(start, end);
   } catch {
     return null;
   }

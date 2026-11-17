@@ -1,8 +1,6 @@
 import { timingSafeEqual } from "crypto";
 import { NextResponse, type NextRequest } from "next/server";
-import { eq } from "drizzle-orm";
-import { db } from "@/db";
-import { messages } from "@/db/schema/audit";
+import { messageStore } from "@/domain/messages/store";
 import { logAudit } from "@/lib/audit";
 import { sendDispatchAlert } from "@/lib/email";
 
@@ -81,20 +79,7 @@ export async function POST(
 
   // Downgrade the matching outbound message. No match = another business's
   // traffic on the shared account — ack and move on.
-  const updated = await db
-    .update(messages)
-    .set({
-      deliveryStatus: "failed",
-      deliveryError: `${type}: ${reason}`.slice(0, 500),
-    })
-    .where(eq(messages.deliveryMessageId, emailId))
-    .returning({
-      id: messages.id,
-      subjectType: messages.subjectType,
-      subjectId: messages.subjectId,
-      toAddress: messages.toAddress,
-      preview: messages.preview,
-    });
+  const updated = await messageStore().markFailedByProviderId(emailId, `${type}: ${reason}`.slice(0, 500));
   if (updated.length === 0) {
     return NextResponse.json({ received: true, unmatched: true });
   }

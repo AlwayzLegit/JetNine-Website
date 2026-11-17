@@ -1,7 +1,7 @@
-import { and, asc, desc, eq, gte, inArray, sql as dsql } from "drizzle-orm";
+import { asc, eq, inArray } from "drizzle-orm";
 import { db, sql } from "@/db";
 import { THREAD_LIMIT } from "@/domain/requests/queries";
-import { messages } from "@/db/schema/audit";
+import { messageStore } from "./store";
 import { inquiryStore, type InquiryRow } from "@/domain/contact/store";
 import { members } from "@/db/schema/members";
 import { quotes, quoteLegs } from "@/db/schema/quotes";
@@ -109,19 +109,8 @@ export async function listThreads(opts: { q?: string } = {}): Promise<ThreadList
   const q = searchTerm(opts.q);
 
   // One row per (subject_type, subject_id), newest first.
-  const threadAgg = await db
-    .select({
-      subjectType: messages.subjectType,
-      subjectId: messages.subjectId,
-      lastAt: dsql<string>`max(${messages.occurredAt})`,
-      unread: dsql<number>`count(*) filter (where ${messages.direction} = 'in' and ${messages.isRead} = false)::int`,
-      spoken: dsql<number>`count(*) filter (where ${messages.channel} not in ('call', 'voicemail'))::int`,
-    })
-    .from(messages)
-    .where(inArray(messages.subjectType, THREAD_SUBJECTS))
-    .groupBy(messages.subjectType, messages.subjectId)
-    .orderBy(desc(dsql`max(${messages.occurredAt})`))
-    .limit(100);
+  const store = messageStore();
+  const threadAgg = await store.threadSummaries(THREAD_SUBJECTS, 100);
 
   const threadIds = threadAgg.map((t) => t.subjectId);
   const quoteIds = threadAgg.filter((t) => t.subjectType === "quote").map((t) => t.subjectId);
@@ -129,19 +118,7 @@ export async function listThreads(opts: { q?: string } = {}): Promise<ThreadList
   const memberIds = threadAgg.filter((t) => t.subjectType === "member").map((t) => t.subjectId);
 
   const [latest, quoteRows, quoteLegRows, tripRows, tripLegRows, memberRows] = await Promise.all([
-    threadIds.length
-      ? db
-          .selectDistinctOn([messages.subjectType, messages.subjectId], {
-            subjectType: messages.subjectType,
-            subjectId: messages.subjectId,
-            direction: messages.direction,
-            preview: messages.preview,
-            body: messages.body,
-          })
-          .from(messages)
-          .where(and(inArray(messages.subjectType, THREAD_SUBJECTS), inArray(messages.subjectId, threadIds)))
-          .orderBy(messages.subjectType, messages.subjectId, desc(messages.occurredAt))
-      : Promise.resolve([]),
+    store.latestPerThread(THREAD_SUBJECTS, threadIds),
     quoteIds.length
       ? db
           .select({
@@ -236,8 +213,7 @@ export async function listThreads(opts: { q?: string } = {}): Promise<ThreadList
       subjectId: t.subjectId,
       unread: t.unread > 0,
       preview,
-      // Raw aggregates come back as strings from the driver.
-      lastAt: new Date(t.lastAt),
+      lastAt: t.lastAt,
       callOnly: t.spoken === 0,
     };
     if (t.subjectType === "quote") {
@@ -293,15 +269,7 @@ export async function listThreads(opts: { q?: string } = {}): Promise<ThreadList
 
 /** Threads with at least one unread inbound message. */
 export async function unreadCount(): Promise<number> {
-  const [row] = await db
-    .select({
-      n: dsql<number>`count(distinct (${messages.subjectType}, ${messages.subjectId}))::int`,
-    })
-    .from(messages)
-    .where(
-      and(inArray(messages.subjectType, THREAD_SUBJECTS), eq(messages.direction, "in"), eq(messages.isRead, false)),
-    );
-  return row?.n ?? 0;
+  return messageStore().unreadThreadCount(THREAD_SUBJECTS);
 }
 
 // ─── One thread ──────────────────────────────────────────────────────────
@@ -315,27 +283,7 @@ export type Thread = {
 /** Every message on a quote / trip / member thread, oldest first. Null for a bad id or an empty thread. */
 export async function getThread(kind: string, id: string): Promise<Thread | null> {
   if (!isThreadSubject(kind) || !isUuid(id)) return null;
-  const rows = await db
-    .select({
-      id: messages.id,
-      channel: messages.channel,
-      direction: messages.direction,
-      fromAddress: messages.fromAddress,
-      toAddress: messages.toAddress,
-      preview: messages.preview,
-      body: messages.body,
-      occurredAt: messages.occurredAt,
-      fromUserFirstName: users.firstName,
-      fromUserEmail: users.email,
-      deliveryStatus: messages.deliveryStatus,
-      deliveryProvider: messages.deliveryProvider,
-      deliveryError: messages.deliveryError,
-    })
-    .from(messages)
-    .leftJoin(users, eq(users.id, messages.fromUserId))
-    .where(and(eq(messages.subjectType, kind), eq(messages.subjectId, id)))
-    .orderBy(desc(messages.occurredAt))
-    .limit(THREAD_LIMIT);
+  const rows = await messageStore().thread(kind, id, THREAD_LIMIT);
   if (rows.length === 0) return null;
   rows.reverse(); // oldest first, newest THREAD_LIMIT kept
   return {
@@ -369,32 +317,7 @@ export async function listInquiries(opts: { show?: string } = {}): Promise<Inqui
 /** Outbound texts / emails that failed in the last 7 days. */
 export async function listFailedDeliveries(now = new Date()): Promise<FailedDeliveryRow[]> {
   const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-  const failedRaw = await db
-    .select({
-      id: messages.id,
-      subjectType: messages.subjectType,
-      subjectId: messages.subjectId,
-      channel: messages.channel,
-      toAddress: messages.toAddress,
-      preview: messages.preview,
-      error: messages.deliveryError,
-      occurredAt: messages.occurredAt,
-      quoteCode: quotes.quoteCode,
-      quoteContact: quotes.contactSnapshot,
-      tripCode: trips.tripCode,
-      tripFirstName: users.firstName,
-      tripLastName: users.lastName,
-    })
-    .from(messages)
-    .leftJoin(quotes, and(eq(messages.subjectType, "quote"), eq(quotes.id, messages.subjectId)))
-    .leftJoin(trips, and(eq(messages.subjectType, "trip"), eq(trips.id, messages.subjectId)))
-    .leftJoin(members, eq(members.id, trips.memberId))
-    .leftJoin(users, eq(users.id, members.userId))
-    .where(
-      and(eq(messages.deliveryStatus, "failed"), eq(messages.direction, "out"), gte(messages.occurredAt, sevenDaysAgo)),
-    )
-    .orderBy(desc(messages.occurredAt))
-    .limit(50);
+  const failedRaw = await messageStore().failedSince(sevenDaysAgo);
 
   return failedRaw
     .filter((r) => r.subjectType === "quote" || r.subjectType === "trip")

@@ -1,7 +1,7 @@
-import { and, count, eq, gte, or, sql } from "drizzle-orm";
+import { and, count, eq, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { quotes } from "@/db/schema/quotes";
-import { messages } from "@/db/schema/audit";
+import { messageStore } from "@/domain/messages/store";
 import { inquiryStore } from "@/domain/contact/store";
 import { settingsStore } from "@/domain/settings/store";
 import { invoices } from "@/db/schema/invoices";
@@ -27,18 +27,15 @@ export type DeskCounts = {
 };
 
 export async function deskCounts(): Promise<DeskCounts> {
-  const [[reply], [unread], approvals] = await Promise.all([
+  const [[reply], unread, approvals] = await Promise.all([
     db
       .select({ n: count() })
       .from(quotes)
       .where(and(eq(quotes.status, "submitted"), NOT_SMOKE)),
-    db
-      .select({ n: count() })
-      .from(messages)
-      .where(and(eq(messages.direction, "in"), eq(messages.isRead, false))),
+    messageStore().unreadInbound(),
     countPending(),
   ]);
-  return { needsReply: reply?.n ?? 0, unread: unread?.n ?? 0, approvals };
+  return { needsReply: reply?.n ?? 0, unread, approvals };
 }
 
 export type DeskSnapshot = {
@@ -89,7 +86,7 @@ export async function deskSnapshot(now: Date = new Date()): Promise<DeskSnapshot
   const since7 = new Date(now.getTime() - 7 * DAY_MS);
   const nowIso = isoParam(now);
 
-  const [[q], [m], newInquiries, [inv], [el], tripList, promise, pendingApprovals] = await Promise.all([
+  const [[q], m, newInquiries, [inv], [el], tripList, promise, pendingApprovals] = await Promise.all([
     db
       .select({
         needsReply: sql<number>`count(*) filter (where ${quotes.status} = 'submitted')::int`,
@@ -105,21 +102,7 @@ export async function deskSnapshot(now: Date = new Date()): Promise<DeskSnapshot
       })
       .from(quotes)
       .where(NOT_SMOKE),
-    db
-      .select({
-        unread: sql<number>`count(*) filter (where ${messages.direction} = 'in' and ${messages.isRead} = false)::int`,
-        failed: sql<number>`count(*) filter (
-          where ${messages.direction} = 'out' and ${messages.deliveryStatus} = 'failed'
-            and ${messages.occurredAt} >= ${isoParam(since7)}::timestamptz
-        )::int`,
-      })
-      .from(messages)
-      .where(
-        or(
-          and(eq(messages.direction, "in"), eq(messages.isRead, false)),
-          and(eq(messages.direction, "out"), eq(messages.deliveryStatus, "failed"), gte(messages.occurredAt, since7)),
-        ),
-      ),
+    messageStore().snapshotCounts(since7),
     inquiryStore().newCount(),
     db.select({ n: count() }).from(invoices).where(eq(invoices.status, "overdue")),
     db.select({ n: count() }).from(emptyLegs).where(eq(emptyLegs.status, "live")),

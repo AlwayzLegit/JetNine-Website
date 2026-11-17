@@ -1,6 +1,6 @@
-import { and, count, eq } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { db } from "@/db";
-import { messages } from "@/db/schema/audit";
+import { messageStore } from "./store";
 import { inquiryStore } from "@/domain/contact/store";
 import { quotes } from "@/db/schema/quotes";
 import { trips } from "@/db/schema/trips";
@@ -47,20 +47,7 @@ export type MessageRetryState = {
 export async function loadMessageForRetry(input: MessageRetryInput): Promise<Result<MessageRetryState>> {
   if (!isUuid(input.id)) return err("not_found", "NOT_FOUND");
 
-  const [m] = await db
-    .select({
-      id: messages.id,
-      subjectType: messages.subjectType,
-      subjectId: messages.subjectId,
-      channel: messages.channel,
-      direction: messages.direction,
-      toAddress: messages.toAddress,
-      body: messages.body,
-      preview: messages.preview,
-      deliveryStatus: messages.deliveryStatus,
-    })
-    .from(messages)
-    .where(eq(messages.id, input.id));
+  const m = await messageStore().messageForRetry(input.id);
 
   if (!m) return err("not_found", "NOT_FOUND");
   if (m.direction !== "out") return err("conflict", "NOT_OUTBOUND");
@@ -131,16 +118,13 @@ export async function retryMessageDelivery(
   if (result.ok) {
     // Honest status: logger mode means nothing left the building.
     const logger = result.provider === "logger";
-    await db
-      .update(messages)
-      .set({
-        deliveryStatus: logger ? "queued" : "sent",
-        deliveryProvider: result.provider,
-        deliveryMessageId: result.messageId ?? null,
-        deliveryError: logger ? "channel not configured — logged only, not delivered" : null,
-        deliveredAt: logger ? null : new Date(),
-      })
-      .where(eq(messages.id, m.id));
+    await messageStore().setDelivery(m.id, {
+      deliveryStatus: logger ? "queued" : "sent",
+      deliveryProvider: result.provider,
+      deliveryMessageId: result.messageId ?? null,
+      deliveryError: logger ? "channel not configured — logged only, not delivered" : null,
+      deliveredAt: logger ? null : new Date(),
+    });
 
     await logAudit({
       actorUserId: a.actorUserId,
@@ -162,10 +146,7 @@ export async function retryMessageDelivery(
   }
 
   // Still failing: keep status='failed' but surface the new error.
-  await db
-    .update(messages)
-    .set({ deliveryError: result.error.slice(0, 500) })
-    .where(eq(messages.id, m.id));
+  await messageStore().setDelivery(m.id, { deliveryError: result.error.slice(0, 500) });
 
   await logAudit({
     actorUserId: a.actorUserId,
@@ -189,18 +170,8 @@ export type MarkThreadReadState = {
 
 export async function loadThreadForMarkRead(input: MarkThreadReadInput): Promise<Result<MarkThreadReadState>> {
   if (!isUuid(input.id)) return err("not_found", "No thread with that id.");
-  const [row] = await db
-    .select({ n: count() })
-    .from(messages)
-    .where(
-      and(
-        eq(messages.subjectType, input.kind),
-        eq(messages.subjectId, input.id),
-        eq(messages.direction, "in"),
-        eq(messages.isRead, false),
-      ),
-    );
-  return ok({ unread: row?.n ?? 0 });
+  const unread = await messageStore().unreadInThread(input.kind, input.id);
+  return ok({ unread });
 }
 
 /**
@@ -209,19 +180,8 @@ export async function loadThreadForMarkRead(input: MarkThreadReadInput): Promise
  * thread with nothing unread (or no messages at all) is a no-op success.
  */
 export async function markThreadRead(_actor: Actor, input: MarkThreadReadInput): Promise<Result<{ updated: number }>> {
-  const updated = await db
-    .update(messages)
-    .set({ isRead: true })
-    .where(
-      and(
-        eq(messages.subjectType, input.kind),
-        eq(messages.subjectId, input.id),
-        eq(messages.direction, "in"),
-        eq(messages.isRead, false),
-      ),
-    )
-    .returning({ id: messages.id });
-  return ok({ updated: updated.length });
+  const updated = await messageStore().markThreadRead(input.kind, input.id);
+  return ok({ updated });
 }
 
 // ─── Website inquiries ───────────────────────────────────────────────────

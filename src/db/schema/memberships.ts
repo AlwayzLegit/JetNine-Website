@@ -98,7 +98,7 @@ export const memberships = pgTable(
       .default(sql`now()`),
     updatedAt: timestamp("updated_at", { withTimezone: true })
       .notNull()
-      .default(sql`now()`),
+      .default(sql`now()`).$onUpdate(() => new Date()),
   },
   (t) => [
     index("memberships_member_idx").on(t.memberId, t.status),

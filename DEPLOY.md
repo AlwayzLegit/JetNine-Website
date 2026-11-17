@@ -384,6 +384,7 @@ No schema or env changes. The runbook, in order:
 - **The status address:** `https://jetnine-monitor.jetnine-inc.workers.dev/status` (staging: `jetnine-monitor-staging`). Fixed fields only: `v`, `ok`, `checkedAt`, `failingSince`, `streak`, `checks`, `canary`, `alerts`, `quietUntil`, `wouldHaveRaised`, `incidents`. 503 when the last round is over 45 minutes old. The daily `monitor-status` job of `health-monitor.yml` reads it (and a run by hand can read another address with `status_url`).
 - **Quiet start:** `QUIET_UNTIL` in `monitor/wrangler.jsonc` is at least 24 hours after the merge. Before it a failing round is only written to `wouldHaveRaised`: no incident, no email. Move it first when the merge comes later than the date in the file. The old 15 minute GitHub check stays until that record has been read.
 - **Alerts (owner step, optional):** `pnpm exec wrangler secret put ALERT_EMAIL -c monitor/wrangler.jsonc`, then the same with `RESEND_API_KEY` or `POSTMARK_SERVER_TOKEN` (the value the site uses; `ALERT_FROM` is optional). It worked when `/status` shows `"alerts":"configured"`. Without them the monitor records and never emails.
+- **Sign-in service check (OPS-90):** a fifth check reads `/api/health` and fails when its `failing` list names `auth`, which `/api/health` does when Supabase Auth does not answer 200 (since OPS-91 that guards emailed links, resets and invites; password sign-in has its own `signin` check in the same list, which this monitor check does not read), as when the project was restricted on 2026-11-16 (402). `/api/health` itself stays 200 and `ok` stays true then, so deploy smoke tests do not fail while the project is down. The check has its own quiet date, `SIGNIN_QUIET_UNTIL` in `monitor/wrangler.jsonc` (both envs): before it a failure is only written to `wouldHaveRaised`. Keep it at least 24 hours after the merge, and move it first when the merge comes later than the date in the file. A missing or broken value stays quiet.
 - **Silence it:** `pnpm exec wrangler delete --name jetnine-monitor` (owner), or push `QUIET_UNTIL` far into the future.
 
 ## 8i. Database target (D1 move, OPS-99)
@@ -401,6 +402,15 @@ JetNine's database is moving from Supabase Postgres to Cloudflare D1, one domain
 `jetnine.com` and `www` are custom domains of the edge cache Worker (see §2 → Cutover and Edge cache Worker), and Cloudflare issues their certificates.
 
 `NEXT_PUBLIC_SITE_URL` comes from the `wrangler.jsonc` vars at runtime and from the deploy workflow at build time. The sitemap, OG URLs, Stripe redirects and canonical tags all use it.
+
+## Trigger logic made by the app (OPS-102)
+
+Three more Postgres triggers have an app-side twin, so the rule holds on D1 too. The triggers stay in place on Postgres until the cutover (their removal needs the owner's yes and the exact statement); each app function recomputes from the current rows, so running beside the trigger arrives at the same values.
+
+- **Aircraft calendar.** `syncTripScheduleBlock(tx, tripId)` in `src/domain/trips/schedule-block.ts`, after a trip is converted (`src/domain/requests/commands.ts`, after its legs are inserted) and after a status change (`src/domain/trips/commands.ts`). Same window rules as `trips_sync_schedule_block`: wheels up, else the earliest leg departure (a date alone is 00:00 UTC); wheels down, else the ETA, else the latest leg arrival; no aircraft, no window or a cancelled trip means no block.
+- **Member tier.** `syncMemberTier(tx, membershipId, previousStatus)` in `src/domain/memberships/tier.ts`, after each membership write (`src/app/account/memberships/actions.ts`, and the Stripe webhook, in one transaction with the activation). An active membership sets the tier from its program and tier_since from activated_on; losing the last active one resets the tier to on_demand.
+- **Role lock.** `setUserRole(actorRole, ...)` in `src/lib/auth-users.ts` refuses a role change unless the actor is an admin or superadmin (`src/lib/role-lock.ts`). The only caller is `src/domain/team/commands.ts`.
+- Tests: CI step "Trigger-logic tests".
 
 ## First-deploy verification checklist
 
@@ -460,6 +470,29 @@ If `/api/health` returns `status: "degraded"`, the DB is fine but at least one o
 
 The post-deploy smoke workflow (`.github/workflows/smoke-after-deploy.yml`) fails when `/api/health` returns non-200 against a non-localhost target — so a degraded prod deploy will paint the merge commit red without manual checking. There's also a scheduled health monitor (`.github/workflows/health-monitor.yml`) that probes every 15 minutes for between-deploy regressions.
 
+## After a deploy: retries and the tail summary (OPS-104)
+
+Requests were cut off a few minutes after some production deploys, and the same read passed minutes later. The cause is not yet read from evidence, so a deploy run now records it instead of guessing.
+
+- **Smoke and sitemap reads name their cause.** When a read throws, the smoke line carries the reason (`UND_ERR_SOCKET`, `ECONNRESET`, a timeout, a cut body) and how long it took, plus the `cf-ray` and edge cache state of the latest response. The sitemap audit names the URL and the exception type of every error (for example `https://jetnine.com/blog/x: IncompleteRead(26647 bytes read)`).
+- **One retry, transport errors only.** A GET or HEAD that fails because the connection was reset or closed, the body was cut off or the 15 s timeout fired is tried once more after 10 s (`SMOKE_RETRY_DELAY_MS`, `SITEMAP_RETRY_DELAY`). A wrong status, a wrong redirect, a missing string or a wrong header is never retried and fails at once. A read that fails twice fails the job.
+- **A retry is a warning to look at, not a pass to ignore.** Every first failure is a `::warning` annotation on the run with URL, cause, `cf-ray` and time, and the run ends with "N reads needed a retry". If the same URL needs a retry after several deploys, treat it as a real cut-off for visitors.
+- **The `tail` job.** After the app deploy, `tail` in `deploy-cloudflare.yml` runs `wrangler tail` on the edge and app Workers (the `-staging` names on staging) for up to 6 minutes, or until the smoke and sitemap jobs are done. Its job summary and the artifact `deploy-tail-summary` list, per Worker, every event whose outcome is not `ok` (exception, exceededCpu, exceededMemory, canceled, responseStreamDisconnected) with time, method, path without query string and the exception name. Tokens and ids in paths are masked. It never prints headers, query strings, bodies, log lines or exception messages, and the raw tail is not uploaded. It uses the repo's own deploy token; if that cannot tail, the summary says so in one line and the job passes. The job never fails a deploy.
+- **The summary says how many events it read.** Each Worker block starts with "Events read: N". `wrangler tail --format json` prints every event as indented JSON over many lines, so the summary reads a stream of JSON objects, not one object per line. "0 not ok" next to "Events read: 0" means the tail saw nothing, not that all was well; check the attach time and that the smoke job sent requests in the window.
+- **Reading the summary.** Compare its times with the smoke and sitemap jobs of the same run. Non-ok outcomes on visitor paths (exceededCpu, exceededMemory, responseStreamDisconnected, exceptions on pages) are a real fault to file with that evidence. Retries in the checks and nothing in the tail point at the checks racing the rollout. The tail attaches after the deploy job ends, so the first seconds of the new version can fall before it; its summary prints when it attached.
+- **Staging robots.** The smoke check holds staging to the same rule as previews (`Disallow: /` and no `Sitemap:` line), matching `src/app/robots.ts`. Production is still held to the production rule.
+
+Tests: `pnpm exec tsx --test scripts/smoke-fetch.test.mts`, `node --test scripts/deploy-tail/summarize.test.mjs`, `python3 scripts/test-live-sitemap.py`.
+
+## Codes and timestamps made by the app (OPS-101)
+
+D1 cannot run Postgres triggers, so the work of two kinds of trigger now happens in the app, and the triggers stay in place on Postgres until the cutover (their removal needs the owner's yes and the exact statement).
+
+- **Codes.** `nextCode(tx, kind)` in `src/db/codes.ts` makes JN-YYYY-NNNNN (quote), JN-YYYY-NNNN (trip), INV-YYYY-NNNN, EL-YYYY-NNNN and M-YYYY-NNNN with one upsert on the `[kind]_code_sequence` table (`insert ... on conflict (year) do update set last_value = last_value + 1 returning last_value`). The year is UTC. The five insert paths call it in the same transaction as the insert: `src/app/quote/actions.ts`, `src/domain/requests/commands.ts` (trip and invoice), `src/domain/clients/commands.ts`, `src/domain/empty-legs/commands.ts`. The triggers fill a code only when it is empty, so they do nothing now and the counter moves once.
+- **updated_at.** The 14 tables that had the `set_updated_at` trigger (aircraft, airports, aircraft_schedule_blocks, empty_legs, fbos, invoices, member_preferences, members, memberships, operators, quotes, staff, trips, users) carry `$onUpdate(() => new Date())`. On Postgres the trigger then sets the same value in the same write.
+- Still to move: the schedule-block and member-tier syncs and the role lock (OPS-102), the new-user trigger (OPS-94). Row level security and its helper functions are not moved: D1 has none, and the app's own checks guard the data.
+- Tests: `src/db/codes.test.ts` (CI step "Codes and updated-at tests").
+
 ## Rotation
 
 If you need to rotate a secret:
@@ -481,3 +514,16 @@ How types map, decided once:
 - No equal in D1: the `auth` schema (so `users.id` has no foreign key), row level security, and Postgres functions and triggers (OPS-101). `api_keys` scope CHECKs are rewritten with string tests because SQLite forbids subqueries in CHECK.
 - Regenerate with `pnpm db:d1:generate` (`drizzle.d1.config.ts`); the migration goes to `src/db/d1/migrations` and the staging deploy applies it. The test `src/db/d1/parity.test.ts` runs in CI and fails when a Postgres table, column, not-null flag, primary key, foreign key count, index count or enum CHECK has no D1 twin.
 
+
+## Copy Postgres to staging D1 (OPS-105)
+
+Step 5 of the move to Cloudflare (OPS-93): fill staging's own D1 database from Postgres and prove the copy is whole. Production's database is never written.
+
+- Run the GitHub workflow **D1 copy** by hand (Actions, Run workflow). `mode = load` applies the D1 migrations, wipes the staging D1 tables, copies all 51 tables and then checks; `mode = check` only compares. It uses the repo secrets `DATABASE_URL`, `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`.
+- Postgres is read in one read-only snapshot, so every table comes from the same moment. Values are mapped by the rules in "D1 tables (OPS-100)" above (`scripts/d1-copy/map.mjs`).
+- The log has one line per table: Postgres rows, D1 rows, and "checksum equal yes or no". The checksum is an order-independent hash of each row's key and its `updated_at` (or `created_at`). No row value is printed, and wrangler's own text is not echoed. A failure prints an error code only.
+- The tool refuses any target other than the database `jetnine-staging` with `--env staging`; the guard runs before any call. `pnpm exec tsx scripts/d1-copy/copy.mjs --list` prints the table plan with no network.
+- **Held back on purpose:** `user_credentials` (password hashes), `user_sessions` (session token hashes), `api_keys` (key hashes) and `ai_providers` (encrypted provider keys). These are not copied to staging. Moving credentials is the owner's decision and belongs to the cutover row.
+- Staging D1 is a test copy, not a source of truth. Run the copy again whenever a fresh copy is needed; it starts by wiping.
+- The reverse copy (D1 back to Postgres, for a rollback) is not part of this row.
+- Tests (`scripts/d1-copy/*.test.*`) run in CI and need no secrets or network.

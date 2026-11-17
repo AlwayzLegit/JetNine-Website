@@ -142,7 +142,7 @@ export async function inviteTeammate(actor: Actor, input: TeamInviteInput): Prom
     personName(firstName ?? userRow.firstName, lastName ?? userRow.lastName, "") || email.split("@")[0];
   if (!alreadyStaff) {
     try {
-      await setUserRole(authUserId, dbRoleFor(role), {
+      await setUserRole(actor.role, authUserId, dbRoleFor(role), {
         firstName: firstName ?? userRow.firstName,
         lastName: lastName ?? userRow.lastName,
       });
@@ -219,7 +219,7 @@ export async function setTeammateRole(actor: Actor, input: TeamRoleInput, state:
   }
 
   try {
-    await setUserRole(target.id, dbRole);
+    await setUserRole(actor.role, target.id, dbRole);
   } catch (e) {
     console.error("[team] role update failed", e);
     return err("internal", "The role could not be changed. Try again.");
@@ -256,7 +256,7 @@ export async function removeTeammate(
   }
 
   try {
-    await setUserRole(target.id, "member");
+    await setUserRole(actor.role, target.id, "member");
     await db.update(staff).set({ status: "off", updatedAt: new Date() }).where(eq(staff.userId, target.id));
   } catch (e) {
     console.error("[team] remove failed", e);

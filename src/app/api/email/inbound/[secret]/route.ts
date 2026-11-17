@@ -9,6 +9,8 @@ import { members } from "@/db/schema/members";
 import { users } from "@/db/schema/users";
 import { logAudit } from "@/lib/audit";
 import { sendDispatchAlert } from "@/lib/email";
+import { recipientsFor } from "@/lib/desk-settings";
+import { DESK_ALERT_KIND } from "@/lib/desk-alert-recipients.mjs";
 
 // Inbound email webhook — Postmark's "Inbound Stream" calls this URL
 // with a JSON payload representing a parsed reply. We use a path-based
@@ -210,6 +212,7 @@ export async function POST(
         label: "Open the thread",
         url: `https://jetnine.com/admin/${route.subjectType === "quote" ? "requests" : "trips"}/${route.subjectId}`,
       },
+      to: await recipientsFor(DESK_ALERT_KIND),
     });
   } catch (err) {
     console.error("[email:inbound] desk alert failed (non-fatal)", err);
@@ -237,6 +240,7 @@ async function forwardUnroutedToDesk(
         "Their message (unverified, first 1,200 characters):",
         body || "(empty)",
       ],
+      to: await recipientsFor(DESK_ALERT_KIND),
     });
   } catch (err) {
     console.error("[email:inbound] unrouted forward failed (non-fatal)", err);

@@ -1,5 +1,7 @@
 import { and, asc, eq, ilike, inArray, sql } from "drizzle-orm";
 import { db } from "@/db";
+import { syncTripScheduleBlock } from "@/domain/trips/schedule-block";
+import { nextCode } from "@/db/codes";
 import { aircraft } from "@/db/schema/aircraft";
 import { messages, type NewMessage } from "@/db/schema/audit";
 import { invoices, type NewInvoice } from "@/db/schema/invoices";
@@ -1344,7 +1346,10 @@ export async function convertRequestToTrip(
   };
   try {
     inserted = await db.transaction(async (tx) => {
+      // Codes are made by the app (OPS-101); the triggers fill them only when empty.
+      const tripCode = await nextCode(tx, "trip");
       const tripValues: NewTrip = {
+        tripCode,
         memberId,
         quoteId,
         assignedDispatcherId: quote.assignedDispatcherId ?? null,
@@ -1384,13 +1389,18 @@ export async function convertRequestToTrip(
         distanceNm: l.distanceNm,
       }));
       await tx.insert(tripLegs).values(tripLegRows);
+      // Keep the aircraft calendar in step (OPS-102); the trips_sync_schedule_block
+      // trigger does the same on Postgres and arrives at the same row.
+      await syncTripScheduleBlock(tx, tripRow.id);
 
       // If the member has an active Card / Reserve with sufficient balance,
       // the invoice opens as 'due' so attemptInvoiceDrawdown can immediately
       // flip it to 'paid' from the reserve. Otherwise it stays 'draft' for
       // the dispatcher to review + finalize manually (current default).
       const memberHasCardBalance = total !== null && total > 0;
+      const invoiceCode = await nextCode(tx, "invoice");
       const invoiceValues: NewInvoice = {
+        invoiceCode,
         memberId,
         tripId: tripRow.id,
         kind: "charter",

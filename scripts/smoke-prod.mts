@@ -19,6 +19,7 @@
  * with test keys or a `?test=1` mode in the app — separate batch.
  */
 import { setTimeout as sleep } from "node:timers/promises";
+import { createReader } from "./smoke-fetch.mjs";
 
 const TARGET = (process.env.BASE_URL ?? "https://jet-nine-website.vercel.app").replace(/\/$/, "");
 const FETCH_TIMEOUT_MS = 15_000;
@@ -45,25 +46,23 @@ type CheckResult = {
 
 const results: CheckResult[] = [];
 
-async function fetchWithTimeout(
-  url: string,
-  init?: RequestInit,
-): Promise<{ status: number; headers: Headers; text: string }> {
-  const ctrl = new AbortController();
-  const t = setTimeout(() => ctrl.abort(), FETCH_TIMEOUT_MS);
-  try {
-    const merged: RequestInit = {
-      ...init,
-      signal: ctrl.signal,
-      headers: { ...COMMON_HEADERS, ...(init?.headers as Record<string, string> | undefined) },
-    };
-    const res = await fetch(url, merged);
-    const text = await res.text().catch(() => "");
-    return { status: res.status, headers: res.headers, text };
-  } finally {
-    clearTimeout(t);
-  }
-}
+// Reads, with one retry for transport errors only (scripts/smoke-fetch.mts).
+// Every first failure is printed here, so a real cut-off for visitors is not
+// hidden by the retry: a retry is a warning to look at (OPS-104).
+const retries: string[] = [];
+const reader = createReader({
+  timeoutMs: FETCH_TIMEOUT_MS,
+  retryDelayMs: Number(process.env.SMOKE_RETRY_DELAY_MS ?? 10_000),
+  headers: COMMON_HEADERS,
+  onRetry: (url, err, served) => {
+    const note = served ? ` [${[served.ray && `cf-ray ${served.ray}`, served.cache && `edge-cache ${served.cache}`].filter(Boolean).join(", ")}]` : "";
+    const line = `read needed a retry: ${url} - ${err.message}${note} at ${new Date().toISOString()}`;
+    retries.push(line);
+    // GitHub Actions shows ::warning:: lines as annotations on the run.
+    console.log(process.env.GITHUB_ACTIONS === "true" ? `::warning title=smoke retry::${line}` : `[retry] ${line}`);
+  },
+});
+const read = reader.read;
 
 async function check(
   name: string,
@@ -72,11 +71,13 @@ async function check(
 ): Promise<void> {
   const t0 = Date.now();
   let outcome: { ok: boolean; detail: string };
+  reader.resetServed();
   try {
     outcome = await fn();
   } catch (err) {
     outcome = { ok: false, detail: err instanceof Error ? err.message : String(err) };
   }
+  if (!outcome.ok) outcome = { ok: false, detail: `${outcome.detail}${reader.servedNote()}` };
   const ms = Date.now() - t0;
   results.push({ name, severity, ok: outcome.ok, detail: outcome.detail, ms });
   const tag = outcome.ok ? "ok  " : severity === "required" ? "FAIL" : "warn";
@@ -107,7 +108,7 @@ const MARKETING_PAGES = [
 
 async function checkPage(p: (typeof MARKETING_PAGES)[number]): Promise<void> {
   await check(`GET ${p.path}`, "required", async () => {
-    const r = await fetchWithTimeout(`${TARGET}${p.path}`);
+    const r = await read(`${TARGET}${p.path}`);
     if (r.status !== 200) return { ok: false, detail: `expected 200, got ${r.status}` };
     if (!p.contains.test(r.text)) return { ok: false, detail: `body missing ${p.contains}` };
     return { ok: true, detail: `200 · ${(r.text.length / 1024).toFixed(0)} kB` };
@@ -118,7 +119,7 @@ async function checkPage(p: (typeof MARKETING_PAGES)[number]): Promise<void> {
 
 async function checkSitemap(): Promise<void> {
   await check("GET /sitemap.xml", "required", async () => {
-    const r = await fetchWithTimeout(`${TARGET}/sitemap.xml`);
+    const r = await read(`${TARGET}/sitemap.xml`);
     if (r.status !== 200) return { ok: false, detail: `expected 200, got ${r.status}` };
     if (!r.headers.get("content-type")?.includes("xml")) {
       return { ok: false, detail: `expected xml, got ${r.headers.get("content-type")}` };
@@ -131,13 +132,14 @@ async function checkSitemap(): Promise<void> {
 
 // Which robots policy the target should serve. src/app/robots.ts gives
 // production the crawl rules plus a Sitemap: line, and previews a blanket
-// "Disallow: /" with no Sitemap: line (docs/robots.md). /api/health reports
-// the deployment's environment; anything but "preview" is held to the
-// production policy, so a production deploy can never pass while blocking
-// every crawler.
+// "Disallow: /" with no Sitemap: line (docs/robots.md); staging follows the
+// same rule as previews (src/app/robots.ts serves it for every non-production
+// deploy). /api/health reports the deployment's environment; anything but
+// "preview" or "staging" is held to the production policy, so a production
+// deploy can never pass while blocking every crawler.
 async function targetEnv(): Promise<string | undefined> {
   try {
-    const r = await fetchWithTimeout(`${TARGET}/api/health`);
+    const r = await read(`${TARGET}/api/health`);
     return (JSON.parse(r.text) as { env?: string }).env;
   } catch {
     return undefined;
@@ -147,14 +149,14 @@ async function targetEnv(): Promise<string | undefined> {
 async function checkRobots(): Promise<void> {
   const env = await targetEnv();
   await check("GET /robots.txt", "required", async () => {
-    const r = await fetchWithTimeout(`${TARGET}/robots.txt`);
+    const r = await read(`${TARGET}/robots.txt`);
     if (r.status !== 200) return { ok: false, detail: `expected 200, got ${r.status}` };
     const blocksAll = /^Disallow:\s*\/\s*$/m.test(r.text);
     const hasSitemap = /^Sitemap:/m.test(r.text);
-    if (env === "preview") {
-      if (!blocksAll) return { ok: false, detail: "preview must disallow all crawling" };
-      if (hasSitemap) return { ok: false, detail: "preview must not advertise a sitemap" };
-      return { ok: true, detail: "preview policy · Disallow: /" };
+    if (env === "preview" || env === "staging") {
+      if (!blocksAll) return { ok: false, detail: `${env} must disallow all crawling` };
+      if (hasSitemap) return { ok: false, detail: `${env} must not advertise a sitemap` };
+      return { ok: true, detail: `${env} policy · Disallow: /` };
     }
     if (!hasSitemap) return { ok: false, detail: "missing Sitemap: line" };
     if (blocksAll) return { ok: false, detail: "production robots blocks all crawling" };
@@ -191,7 +193,7 @@ async function checkBlog(): Promise<void> {
 
 async function checkOgImage(): Promise<void> {
   await check("GET /opengraph-image", "required", async () => {
-    const r = await fetchWithTimeout(`${TARGET}/opengraph-image`);
+    const r = await read(`${TARGET}/opengraph-image`);
     if (r.status !== 200) return { ok: false, detail: `expected 200, got ${r.status}` };
     const ct = r.headers.get("content-type") ?? "";
     if (!ct.startsWith("image/")) return { ok: false, detail: `expected image/*, got ${ct}` };
@@ -203,7 +205,7 @@ async function checkOgImage(): Promise<void> {
 
 async function checkStripeWebhook(): Promise<void> {
   await check("POST /api/stripe/webhook (no sig)", "required", async () => {
-    const r = await fetchWithTimeout(`${TARGET}/api/stripe/webhook`, {
+    const r = await read(`${TARGET}/api/stripe/webhook`, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ test: true }),
@@ -219,7 +221,7 @@ async function checkStripeWebhook(): Promise<void> {
 
 async function checkEmailInbound(): Promise<void> {
   await check("POST /api/email/inbound/wrongsecret", "required", async () => {
-    const r = await fetchWithTimeout(`${TARGET}/api/email/inbound/wrongsecret`, {
+    const r = await read(`${TARGET}/api/email/inbound/wrongsecret`, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ Subject: "test", TextBody: "x", MessageID: "smoke" }),
@@ -233,7 +235,7 @@ async function checkEmailInbound(): Promise<void> {
 
 async function checkTwilioInbound(): Promise<void> {
   await check("POST /api/twilio/inbound (no sig)", "required", async () => {
-    const r = await fetchWithTimeout(`${TARGET}/api/twilio/inbound`, {
+    const r = await read(`${TARGET}/api/twilio/inbound`, {
       method: "POST",
       headers: { "content-type": "application/x-www-form-urlencoded" },
       body: "From=%2B15551234567&Body=test&MessageSid=smoke",
@@ -252,12 +254,12 @@ async function checkWatchlistCron(): Promise<void> {
   // credential and a wrong one must be refused: a 200 would mean the
   // guard had been removed or CRON_SECRET had been unset in Vercel.
   await check("GET /api/cron/empty-leg-watchlists (no auth)", "required", async () => {
-    const r = await fetchWithTimeout(`${TARGET}/api/cron/empty-leg-watchlists`);
+    const r = await read(`${TARGET}/api/cron/empty-leg-watchlists`);
     if (r.status !== 401) return { ok: false, detail: `unexpected ${r.status} (expected 401)` };
     return { ok: true, detail: "401 · fails closed without a credential" };
   });
   await check("GET /api/cron/empty-leg-watchlists (bad bearer)", "required", async () => {
-    const r = await fetchWithTimeout(`${TARGET}/api/cron/empty-leg-watchlists`, {
+    const r = await read(`${TARGET}/api/cron/empty-leg-watchlists`, {
       headers: { authorization: "Bearer smoke-not-the-secret" },
     });
     if (r.status !== 401) return { ok: false, detail: `unexpected ${r.status} (expected 401)` };
@@ -272,7 +274,7 @@ async function checkUnsubscribeEndpoint(): Promise<void> {
   // a 404 would tell a prober which tokens are real. A regression to
   // anything else breaks unsubscribe for every recipient at once.
   await check("POST /api/email/unsubscribe (unknown token)", "required", async () => {
-    const r = await fetchWithTimeout(`${TARGET}/api/email/unsubscribe/smoke-not-a-real-token`, {
+    const r = await read(`${TARGET}/api/email/unsubscribe/smoke-not-a-real-token`, {
       method: "POST",
     });
     if (r.status !== 200) return { ok: false, detail: `unexpected ${r.status} (expected 200)` };
@@ -284,7 +286,7 @@ async function checkUnsubscribeEndpoint(): Promise<void> {
 
 async function checkAuthRedirect(path: string): Promise<void> {
   await check(`GET ${path} (gated)`, "required", async () => {
-    const r = await fetchWithTimeout(`${TARGET}${path}`, { redirect: "manual" });
+    const r = await read(`${TARGET}${path}`, { redirect: "manual" });
     // Middleware should 307 to /sign-in?next=... OR render the sign-in
     // page directly. Either is acceptable — what matters is we don't
     // leak the auth-gated content.
@@ -304,7 +306,7 @@ async function checkAuthRedirect(path: string): Promise<void> {
 
 async function checkSecurityHeaders(): Promise<void> {
   await check("HEAD / (security headers)", "required", async () => {
-    const r = await fetchWithTimeout(TARGET, { method: "HEAD" });
+    const r = await read(TARGET, { method: "HEAD" });
     if (r.status !== 200) return { ok: false, detail: `expected 200, got ${r.status}` };
     const missing: string[] = [];
     const required: Array<[string, RegExp]> = [
@@ -330,7 +332,7 @@ async function checkSecurityHeaders(): Promise<void> {
 
 async function checkRegionPin(): Promise<void> {
   await check("region pin (advisory)", "advisory", async () => {
-    const r = await fetchWithTimeout(TARGET, { method: "HEAD" });
+    const r = await read(TARGET, { method: "HEAD" });
     // Cloudflare has no region to pin: Smart Placement moves the Worker
     // near the database. Only a Vercel deploy (the rollback target) can be
     // checked for its cle1 pin.
@@ -360,7 +362,7 @@ async function checkHealthEndpoint(): Promise<void> {
     : {};
 
   await check("GET /api/health", "required", async () => {
-    const r = await fetchWithTimeout(`${TARGET}/api/health`, { headers: healthAuth });
+    const r = await read(`${TARGET}/api/health`, { headers: healthAuth });
     if (r.status !== 200 && r.status !== 503) {
       return { ok: false, detail: `expected 200 or 503, got ${r.status}` };
     }
@@ -442,6 +444,10 @@ async function main() {
   await checkAuthRedirect("/admin");
   await checkSecurityHeaders();
   await checkRegionPin();
+
+  console.log("");
+  console.log(`${retries.length} reads needed a retry`);
+  for (const line of retries) console.log(`  ${line}`);
 
   const required = results.filter((r) => r.severity === "required");
   const failedRequired = required.filter((r) => !r.ok);

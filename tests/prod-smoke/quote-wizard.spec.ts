@@ -90,15 +90,19 @@ test.describe("@prod-smoke quote wizard", () => {
       // Phone is "Phone" label; the country selector is "Country" + a select.
       await page.getByLabel(/^phone$/i).fill("8005550100"); // 555 line, won't ring
 
-      // Both required consents — click the visible <label> wrappers since
-      // the checkboxes are styled and may not be directly clickable.
-      const requiredConsents = page.locator('input[type="checkbox"]');
-      const checkboxCount = await requiredConsents.count();
-      for (let i = 0; i < Math.min(checkboxCount, 2); i++) {
-        const cb = requiredConsents.nth(i);
-        if (!(await cb.isChecked())) {
-          await cb.check({ force: true });
-        }
+      // Both required consents, found by their label, not by position (the
+      // contact channels above are checkbox buttons too). Retry the click until
+      // the box really holds its state: right after a deploy the page can be
+      // clicked before it is hydrated, and the click is then lost (OPS-104).
+      const requiredConsents = [
+        page.getByRole("checkbox", { name: /Part 295 broker disclosure/i }),
+        page.getByRole("checkbox", { name: /consent to JetNine contacting me about this quote/i }),
+      ];
+      for (const cb of requiredConsents) {
+        await expect(async () => {
+          if (!(await cb.isChecked())) await cb.check({ force: true });
+          await expect(cb).toBeChecked({ timeout: 2_000 });
+        }).toPass({ timeout: 15_000 });
       }
 
       await clickNext(page, /review|continue|next/i);

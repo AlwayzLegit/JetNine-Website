@@ -30,6 +30,9 @@ permissions:
   # smoke-after-deploy.yml asks for this; a called workflow may not request
   # more than its caller grants, or the whole run fails at startup.
   deployments: read
+  # The tail job reads the status of the smoke and sitemap jobs of this run
+  # (read only) to know when its window can end.
+  actions: read
 
 concurrency:
   group: deploy-cloudflare-${{ github.event.inputs.target || 'production' }}
@@ -159,6 +162,94 @@ jobs:
           else
             pnpm exec wrangler deploy -c monitor/wrangler.jsonc --env staging
           fi
+
+  # Evidence for cut-off requests after a deploy (OPS-104). Tails the two
+  # Workers while smoke and sitemap run and prints every event whose outcome
+  # is not "ok" (exception, exceededCpu, exceededMemory, canceled,
+  # responseStreamDisconnected, ...) with time, method, path without query
+  # string and the exception name. It never prints headers, query strings,
+  # bodies, log lines or exception messages, and the raw tail is never
+  # uploaded. It uses the repo's own deploy token. If the token cannot tail,
+  # the job says so in one line and passes: it never fails a deploy.
+  # Starts after the deploy job, so the first seconds of the new version can
+  # fall before it attaches; its summary says when it attached.
+  tail:
+    needs: deploy
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+          run_install: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Tail the Workers for the post-deploy window
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          GH_TOKEN: ${{ github.token }}
+          DEPLOY_ENVIRONMENT: ${{ needs.deploy.outputs.environment }}
+          RUN_ID: ${{ github.run_id }}
+          REPO: ${{ github.repository }}
+        run: |
+          set +e
+          if [ "$DEPLOY_ENVIRONMENT" = "production" ]; then
+            EDGE=jetnine-edge; WEB=jetnine-web
+          else
+            EDGE=jetnine-edge-staging; WEB=jetnine-web-staging
+          fi
+          mkdir -p "$RUNNER_TEMP/tail"
+          ATTACHED=$(date -u +%H:%M:%S)
+          # Both tails end by themselves after 6 minutes; they end sooner when
+          # the smoke job (and on production the sitemap job) of this run is done.
+          timeout 360 pnpm exec wrangler tail "$EDGE" --format json > "$RUNNER_TEMP/tail/edge.jsonl" 2> "$RUNNER_TEMP/tail/edge.err" &
+          EDGE_PID=$!
+          timeout 360 pnpm exec wrangler tail "$WEB" --format json > "$RUNNER_TEMP/tail/web.jsonl" 2> "$RUNNER_TEMP/tail/web.err" &
+          WEB_PID=$!
+          sleep 20
+          START=$(date +%s)
+          while [ $(( $(date +%s) - START )) -lt 340 ]; do
+            kill -0 "$EDGE_PID" 2>/dev/null || kill -0 "$WEB_PID" 2>/dev/null || break
+            PENDING=$(curl -sS -m 20 -H "Authorization: Bearer $GH_TOKEN" "https://api.github.com/repos/$REPO/actions/runs/$RUN_ID/jobs?per_page=50"               | jq -r '[.jobs[]? | select((.name | startswith("smoke")) or (.name | startswith("sitemap"))) | select(.status != "completed")] | length' 2>/dev/null)
+            # An empty or non-numeric answer (API trouble) keeps the 6 minute cap.
+            if [ "$PENDING" = "0" ] && [ $(( $(date +%s) - START )) -gt 30 ]; then
+              sleep 15   # let the last requests of those jobs show up
+              break
+            fi
+            sleep 10
+          done
+          kill "$EDGE_PID" "$WEB_PID" 2>/dev/null
+          wait 2>/dev/null
+          {
+            echo "Tail attached at $ATTACHED UTC (job time, not the deploy time)."
+            if [ ! -s "$RUNNER_TEMP/tail/edge.jsonl" ] && [ ! -s "$RUNNER_TEMP/tail/web.jsonl" ] \
+               && grep -qiE "authentication|permission|forbidden|10000|10001|unauthorized" "$RUNNER_TEMP/tail"/*.err 2>/dev/null; then
+              echo
+              echo "The deploy token cannot tail these Workers (or the tail was refused). No evidence from the Workers this time."
+            else
+              node scripts/deploy-tail/summarize.mjs "$EDGE=$RUNNER_TEMP/tail/edge.jsonl" "$WEB=$RUNNER_TEMP/tail/web.jsonl"
+            fi
+          } | tee "$RUNNER_TEMP/tail/deploy-tail-summary.md" >> "$GITHUB_STEP_SUMMARY"
+          cat "$RUNNER_TEMP/tail/deploy-tail-summary.md"
+          exit 0
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: deploy-tail-summary
+          path: ${{ runner.temp }}/tail/deploy-tail-summary.md
+          if-no-files-found: ignore
+          retention-days: 30
 
   smoke:
     needs: deploy

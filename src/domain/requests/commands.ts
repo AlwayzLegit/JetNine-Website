@@ -1,5 +1,6 @@
 import { and, asc, eq, ilike, inArray, sql } from "drizzle-orm";
 import { db } from "@/db";
+import { syncTripScheduleBlock } from "@/domain/trips/schedule-block";
 import { nextCode } from "@/db/codes";
 import { aircraft } from "@/db/schema/aircraft";
 import { messages, type NewMessage } from "@/db/schema/audit";
@@ -1388,6 +1389,9 @@ export async function convertRequestToTrip(
         distanceNm: l.distanceNm,
       }));
       await tx.insert(tripLegs).values(tripLegRows);
+      // Keep the aircraft calendar in step (OPS-102); the trips_sync_schedule_block
+      // trigger does the same on Postgres and arrives at the same row.
+      await syncTripScheduleBlock(tx, tripRow.id);
 
       // If the member has an active Card / Reserve with sufficient balance,
       // the invoice opens as 'due' so attemptInvoiceDrawdown can immediately

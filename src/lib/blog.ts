@@ -1,7 +1,6 @@
-import { and, desc, eq, ne } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
-import { db } from "@/db";
-import { blogPosts, type BlogPost } from "@/db/schema/blog";
+import type { BlogPost } from "@/db/schema/blog";
+import { blogStore } from "@/domain/blog/store";
 import { siteMediaUrl } from "@/lib/media";
 
 // Shared between the admin API routes and the public /blog pages so
@@ -173,29 +172,15 @@ function withSiteMedia<T extends { heroImageUrl: string | null }>(row: T): T {
 
 // Sitemap refreshes only need metadata, not every article's full body.
 export async function getSitemapPosts() {
-  const rows = await db.select({
-    slug: blogPosts.slug,
-    updatedAt: blogPosts.updatedAt,
-    heroImageUrl: blogPosts.heroImageUrl,
-  }).from(blogPosts).where(eq(blogPosts.status, "published"));
-  return rows.map(withSiteMedia);
+  return (await blogStore().sitemapPosts()).map(withSiteMedia);
 }
 
 export async function getPublishedPosts(): Promise<BlogPost[]> {
-  const rows = await db
-    .select()
-    .from(blogPosts)
-    .where(eq(blogPosts.status, "published"))
-    .orderBy(desc(blogPosts.publishedAt));
-  return rows.map(withSiteMedia);
+  return (await blogStore().publishedPosts()).map(withSiteMedia);
 }
 
 export async function getPublishedPost(slug: string): Promise<BlogPost | undefined> {
-  const [row] = await db
-    .select()
-    .from(blogPosts)
-    .where(and(eq(blogPosts.slug, slug), eq(blogPosts.status, "published")))
-    .limit(1);
+  const row = await blogStore().publishedPost(slug);
   return row ? withSiteMedia(row) : undefined;
 }
 
@@ -207,12 +192,7 @@ export async function getPublishedPost(slug: string): Promise<BlogPost | undefin
 // linked from the journal index alone (Semrush: pages with one internal
 // link). Neighbours give every post at least two inbound article links.
 export async function getRelatedPosts(post: BlogPost, limit = 3): Promise<BlogPost[]> {
-  const others = await db
-    .select()
-    .from(blogPosts)
-    .where(and(eq(blogPosts.status, "published"), ne(blogPosts.id, post.id)))
-    .orderBy(desc(blogPosts.publishedAt))
-    .limit(200);
+  const others = await blogStore().otherPublished(post.id, 200);
   const mine = new Set(post.tags.map((t) => t.toLowerCase()));
   const picked = others
     .map((p, i) => ({ p, i, shared: p.tags.filter((t) => mine.has(t.toLowerCase())).length }))

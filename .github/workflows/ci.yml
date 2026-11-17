@@ -102,6 +102,10 @@ jobs:
       - name: Session tests
         run: node --test src/lib/session/core.test.mjs
 
+      # Emailed links (OPS-94): token lifetime, one use, link origin and next.
+      - name: Auth token tests
+        run: node --test src/lib/auth-tokens/core.test.mjs
+
       # Who a desk alert goes to (OPS-103): the shared inbox first, staff after.
       - name: Desk alert recipient tests
         run: node --test src/lib/desk-alert-recipients.test.mjs
@@ -130,6 +134,11 @@ jobs:
         run: |
           node --test scripts/d1-copy/map.test.mjs
           pnpm exec tsx --test scripts/d1-copy/tables.test.ts
+
+      # The blog store on D1: contract cases on a real SQLite, and the loud failure
+      # when the target is d1 with no binding (OPS-109).
+      - name: Blog store tests
+        run: pnpm exec tsx --test src/domain/blog/store-d1.test.ts src/domain/blog/store.test.ts
 
   e2e:
     name: playwright smoke

@@ -181,6 +181,30 @@ async function checkEmptyLegsBoard(): Promise<void> {
   });
 }
 
+// The blog reads one store whichever database sits behind it (OPS-109). The feed
+// count is printed so production and staging can be compared line by line.
+async function checkBlog(): Promise<void> {
+  await check("GET /blog", "required", async () => {
+    const r = await read(`${TARGET}/blog`);
+    if (r.status !== 200) return { ok: false, detail: `expected 200, got ${r.status}` };
+    if (!/Private Jet Charter Blog/.test(r.text)) {
+      return { ok: false, detail: "body missing the blog title" };
+    }
+    return { ok: true, detail: `200 · ${(r.text.length / 1024).toFixed(0)} kB` };
+  });
+  await check("GET /blog/feed.xml (first post)", "required", async () => {
+    const r = await read(`${TARGET}/blog/feed.xml`);
+    if (r.status !== 200) return { ok: false, detail: `expected 200, got ${r.status}` };
+    const items = [...r.text.matchAll(/<item>[\s\S]*?<title>([\s\S]*?)<\/title>[\s\S]*?<link>([^<]+)<\/link>/g)];
+    console.log(`blog feed items: ${(r.text.match(/<item>/g) ?? []).length}`);
+    if (items.length === 0) return { ok: true, detail: "no posts yet, nothing to open" };
+    const link = new URL(items[0][2]);
+    const post = await read(`${TARGET}${link.pathname}`);
+    if (post.status !== 200) return { ok: false, detail: `first post ${link.pathname}: ${post.status}` };
+    return { ok: true, detail: `first post ${link.pathname} 200` };
+  });
+}
+
 async function checkOgImage(): Promise<void> {
   await check("GET /opengraph-image", "required", async () => {
     const r = await read(`${TARGET}/opengraph-image`);
@@ -423,6 +447,7 @@ async function main() {
   await checkHealthEndpoint();
   await checkSitemap();
   await checkRobots();
+  await checkBlog();
   await checkOgImage();
   await checkEmptyLegsBoard();
   await checkStripeWebhook();

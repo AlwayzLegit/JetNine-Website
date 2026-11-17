@@ -310,11 +310,44 @@ in place (the older bcrypt hash in `auth.users.encrypted_password`, or a newer
 one in `user_credentials`, which wins), keeps the session on the server and
 sets the host-only cookie `__Host-jn_session`. Sessions last 30 days and end
 after 7 idle days, on sign-out and on a password change. Emailed sign-in links,
-password reset mails and invites still go through Supabase until OPS-94; the
-callback hands the user over to a site session. A password changed after this
+password reset mails and invites moved to the site's own mail in OPS-94 (8e3);
+`/auth/callback` stays only for Supabase links already sent. A password changed after this
 change is not known to Supabase, so after a revert that member resets it
 again. `/api/health` shows `signin` in `failing` when the tables are missing.
 No new secret.
+
+## 8e3. Emailed links on the site's own mail (OPS-94)
+
+Schema: migration `0057_auth_tokens.sql` adds `public.auth_tokens` (a one-time
+token per row, only its SHA-256 stored, purpose `signin` 15 min, `reset` 30
+min, `invite` 7 days) and lets the site create a `public.users` row itself: it
+drops the foreign key `users_id_users_id_fk` to `auth.users` and gives `id` a
+default. RLS on, no policies, no grants for `anon` or `authenticated`.
+Additive for the live site. Apply it **before** the deploy (staging shares the
+production database):
+
+```
+DATABASE_URL="$DIRECT_URL" pnpm db:migrate
+```
+
+(or run the file in the SQL editor; it is safe to run twice). Check:
+`select count(*) from public.auth_tokens;` returns 0. Way back: see the header
+of the file.
+
+The sign-in link, the password reset mail and staff and client invites no
+longer call Supabase Auth. They go out through `src/lib/email.ts`, so **each
+environment needs `RESEND_API_KEY` or `POSTMARK_SERVER_TOKEN` plus
+`EMAIL_FROM`**. Links are built from `NEXT_PUBLIC_SITE_URL` (never the Host
+header) and open `/auth/link`, which only shows a button: the token is spent
+by the POST behind it, so a mail scanner that fetches the link cannot use it
+up. In production with no mail provider the send reports a failure instead of
+logging the link. The Supabase email templates are no longer used for new
+links. `/auth/callback` stays for links Supabase already sent.
+
+D1 twin (OPS-100 is on main): `src/db/d1/schema/sessions.ts` gains `authTokens`
+and the D1 `users.id` gets an app-side default. The generated D1 migration is
+`src/db/d1/migrations/0001_cynical_lady_deathstrike.sql` (one new table). It is
+not applied anywhere yet; production stays on Postgres until the cutover row.
 
 ## 8f. Approval queue (API phase 5)
 
@@ -362,6 +395,7 @@ JetNine's database is moving from Supabase Postgres to Cloudflare D1, one domain
 - **Switch.** `DB_TARGET` (`postgres` or `d1`) names the database per environment. Staging sets `postgres` until the first converted domain row changes it. `src/db/target.mjs` reads it: anything but exactly `d1` means Postgres, and production refuses `d1` by code until the cutover row lifts that on purpose.
 - **Code.** `dbTarget()` and `d1Db()` in `src/db/d1.ts` (re-exported from `src/db`). `db` and `sql` still point at Postgres; a converted domain calls `d1Db()` when `dbTarget()` is `d1`.
 - **Health.** `checks.db` in `/api/health` (full view and `/admin/health`) shows `target`, `d1` (`absent`, `ok` or `error`) and `d1Tables`. D1 never changes `ok` or the status.
+- **Converted to D1: blog (posts, subscribers), OPS-109.** Staging runs `DB_TARGET` `d1`, so the blog reads and writes the D1 twin tables through `src/domain/blog/store.ts` (a Postgres adapter and a D1 adapter, one chosen per request by `dbTarget()`). Production stays on Postgres. Other domains on staging still use Postgres through Hyperdrive. Undo on staging: set `DB_TARGET` back to `postgres` in `wrangler.jsonc` and redeploy staging.
 - **Migrations.** The staging run of "Deploy (Cloudflare)" applies D1 migrations (`wrangler d1 migrations apply jetnine-staging --env staging --remote`) with the repo's own `CLOUDFLARE_API_TOKEN`, then prints `D1 jetnine-staging tables: N`.
 - **Converted to D1: empty legs and their codes (not watchlists), OPS-113.** The public board at `/empty-legs`, the admin list and the new-leg form, the status change, the v1 empty-legs API, the watchlist cron's read of live legs and the empty-legs count on `/admin/settings/reference` read and write through `src/domain/empty-legs/store.ts` (a Postgres adapter and a D1 adapter, one chosen per request by `dbTarget()`); production stays on Postgres. On D1 the EL code and the insert are one `db.batch` (the counter upsert first, then the insert, which reads the counter in SQL with `codeSql` in `src/db/codes.ts`), so a failed insert gives the number back as the Postgres transaction did. The smoke prints `empty legs on board: N` so staging and production can be compared. Undo on staging: set `DB_TARGET` back to `postgres` in `wrangler.jsonc` and redeploy staging.
 
@@ -495,3 +529,14 @@ Step 5 of the move to Cloudflare (OPS-93): fill staging's own D1 database from P
 - Staging D1 is a test copy, not a source of truth. Run the copy again whenever a fresh copy is needed; it starts by wiping.
 - The reverse copy (D1 back to Postgres, for a rollback) is not part of this row.
 - Tests (`scripts/d1-copy/*.test.*`) run in CI and need no secrets or network.
+
+### Load order, nulled references and the preflight (OPS-115)
+
+The first load failed with `SQLITE_CONSTRAINT` and the log did not say where. What changed:
+
+- **Parents first.** The table plan is in referential order (a parent table before every table that has a foreign key to it, ties by name). The file deletes children first (the plan in reverse) and inserts parents first. `--list` prints this order. If the keys ever form a cycle, the plan throws and names the tables.
+- **Five references are written as NULL.** `agent_runs.key_id`, `api_requests.key_id` and `approvals.requested_by_key` point to `api_keys`; `ai_routes.primary_provider_id` and `ai_routes.fallback_provider_id` point to `ai_providers`. Both parents are held back and load empty, so a real value would break the key. All five columns are nullable (the plan throws if one ever is not, and then that table would have to be held back too, which is the owner's call). The log says how many rows had such a reference set to null, per table.
+- **Preflight, before staging is touched.** The tool builds an in-memory SQLite database from the repo's own D1 migrations (Node's built-in `node:sqlite`), loads every table's rows into it with foreign keys off, then runs `PRAGMA foreign_key_check`. A rule the real data does not meet is printed as `preflight FAIL [table]: [kind and names]` (for example `UNIQUE members.email`, `NOT NULL quotes.total`, `CHECK agent_memory_kind_check`, or `FOREIGN KEY child -> parent: 2 rows`), followed by `staging D1 not touched`, and the run exits 1. A statement longer than D1's 100,000 bytes is reported the same way. Only table, column and constraint names are printed, never a value. If `node:sqlite` is missing the preflight cannot run and the run stops, also before staging is touched.
+- **Clean preflight** prints `preflight ok: [n] tables, [rows] rows; ...` and the remote load follows as before.
+- **If the remote load still fails** the log prints the error code with the constraint kind and names, then counts the rows of every table in staging D1: `staging D1 after the failed load: empty` or `partial, [x] of [n] tables have rows (a new load wipes it first)`. Running the load again is always safe.
+- Nothing else changed: the staging-only guard, the held-back tables (never read from Postgres), no row value in any log line.

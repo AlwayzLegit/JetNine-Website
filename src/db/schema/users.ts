@@ -1,24 +1,15 @@
 import { sql } from "drizzle-orm";
-import { pgSchema, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import { pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
 import { userRoleEnum } from "./enums";
 
 /**
- * Supabase manages auth.users. We reference it for foreign keys but never
- * write to it directly — Supabase Auth owns the lifecycle.
- */
-const authSchema = pgSchema("auth");
-export const authUsers = authSchema.table("users", {
-  id: uuid("id").primaryKey(),
-});
-
-/**
- * public.users extends auth.users with app-level identity fields. One row
- * per auth user. Inserted by a trigger on auth.users (see RLS migration).
+ * public.users holds the app-level identity fields. Rows made before
+ * migration 0057 share their id with a Supabase auth.users row (a trigger on
+ * auth.users inserted them). Since 0057 the id has no foreign key and gets
+ * its own default, so the site can create a user itself (invites, OPS-94).
  */
 export const users = pgTable("users", {
-  id: uuid("id")
-    .primaryKey()
-    .references(() => authUsers.id, { onDelete: "cascade" }),
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
 
   email: text("email").notNull(),
   firstName: text("first_name"),

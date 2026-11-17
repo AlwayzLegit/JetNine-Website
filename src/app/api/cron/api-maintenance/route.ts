@@ -1,8 +1,6 @@
 import { timingSafeEqual } from "crypto";
 import { NextResponse } from "next/server";
-import { lt, sql } from "drizzle-orm";
-import { db } from "@/db";
-import { apiRequests } from "@/db/schema/api";
+import { apiKeyRuntimeStore } from "@/lib/api-key-store/store";
 import { failStaleRuns } from "@/domain/agent/commands";
 import { expirePending } from "@/domain/approvals/commands";
 import { pruneSmokeQuotes } from "@/domain/requests/prune-smoke";
@@ -34,10 +32,7 @@ export async function GET(request: Request): Promise<NextResponse> {
   if (!authorized(request)) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
-  const pruned = await db
-    .delete(apiRequests)
-    .where(lt(apiRequests.at, sql`now() - interval '30 days'`))
-    .returning({ id: apiRequests.id });
+  const pruned = await apiKeyRuntimeStore().deleteRequestsOlderThan30Days();
   const staleRuns = await failStaleRuns();
   const expiredApprovals = await expirePending();
   // Last, and never fatal: the housekeeping above must not depend on it.
@@ -48,5 +43,5 @@ export async function GET(request: Request): Promise<NextResponse> {
     console.error("[api-maintenance] smoke quote prune failed", error);
     smokeQuotes = "failed";
   }
-  return NextResponse.json({ ok: true, pruned: pruned.length, staleRuns, expiredApprovals, smokeQuotes });
+  return NextResponse.json({ ok: true, pruned, staleRuns, expiredApprovals, smokeQuotes });
 }

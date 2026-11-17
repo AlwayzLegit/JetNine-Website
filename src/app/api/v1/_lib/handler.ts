@@ -2,7 +2,7 @@ import { after, type NextResponse } from "next/server";
 import { randomUUID } from "node:crypto";
 import type { z } from "zod";
 import { db } from "@/db";
-import { apiRequests } from "@/db/schema/api";
+import { apiKeyRuntimeStore, type ApiKeyRuntimeStore } from "@/lib/api-key-store/store";
 import { authenticateApiKey, clientIp } from "@/lib/api-auth";
 import type { Scope } from "@/lib/api-keys";
 import type { Actor } from "@/domain/actor";
@@ -102,9 +102,16 @@ export function apiHandler(def: RouteDef) {
           runId,
           requestId,
         };
+        // Picked now, while the request's bindings are in reach; a failure here only loses the log line.
+        let store: ApiKeyRuntimeStore | null = null;
+        try {
+          store = apiKeyRuntimeStore();
+        } catch (e) {
+          console.error("[api] request log store failed", e);
+        }
         after(async () => {
           try {
-            await db.insert(apiRequests).values(row);
+            await store?.logRequest(row);
           } catch {
             // best-effort
           }

@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
-import { apiKeys } from "@/db/schema/api";
+import { apiKeyRuntimeStore } from "@/lib/api-key-store/store";
 import { SCOPE_WORDS } from "@/lib/api-keys";
 import {
   HERO_LIBRARY,
@@ -47,13 +47,7 @@ const me: RouteDef = {
   tag: "Discovery",
   scope: "any",
   run: async ({ actor }) => {
-    const [key] = actor.key
-      ? await db
-          .select({ createdAt: apiKeys.createdAt, expiresAt: apiKeys.expiresAt, rateLimitPerMin: apiKeys.rateLimitPerMin })
-          .from(apiKeys)
-          .where(eq(apiKeys.id, actor.key.id))
-          .limit(1)
-      : [];
+    const key = actor.key ? await apiKeyRuntimeStore().keyLimits(actor.key.id) : undefined;
     return ok({
       data: {
         key: actor.key

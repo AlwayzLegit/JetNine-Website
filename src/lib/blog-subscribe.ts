@@ -1,6 +1,4 @@
-import { eq } from "drizzle-orm";
-import { db } from "@/db";
-import { blogSubscribers } from "@/db/schema/blog-subscribers";
+import { blogStore } from "@/domain/blog/store";
 import { SITE } from "@/lib/constants";
 import { CONFIRM_WINDOW_HOURS } from "@/lib/watchlist-confirm";
 
@@ -117,10 +115,7 @@ export async function unsubscribeBlogByToken(token: string): Promise<BlogUnsubsc
   const t = token.trim();
   if (!t) return { ok: true };
   try {
-    await db
-      .update(blogSubscribers)
-      .set({ status: "unsubscribed", unsubscribedAt: new Date(), updatedAt: new Date() })
-      .where(eq(blogSubscribers.unsubscribeToken, t));
+    await blogStore().unsubscribeByToken(t, new Date());
     return { ok: true };
   } catch (err) {
     console.error("[blog-unsubscribe] write failed", err);

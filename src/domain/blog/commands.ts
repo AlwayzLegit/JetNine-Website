@@ -1,6 +1,5 @@
-import { desc, eq } from "drizzle-orm";
-import { db } from "@/db";
-import { blogPosts, type BlogPost } from "@/db/schema/blog";
+import type { BlogPost } from "@/db/schema/blog";
+import { blogStore, type PostSummary } from "@/domain/blog/store";
 import { BLOG_DEFAULT_AUTHOR, SLUG_RE, revalidateBlog, slugify, validatePostInput } from "@/lib/blog";
 import { HERO_LIBRARY } from "@/lib/blog-hero-library";
 import { pingIndexNow } from "@/lib/indexnow";
@@ -21,37 +20,19 @@ import { ImageResizeUnavailable, toWebpCover } from "@/lib/image-resize";
 export const siteBase = () => (process.env.NEXT_PUBLIC_SITE_URL || "https://jetnine.com").replace(/\/$/, "");
 export const postUrl = (slug: string) => `${siteBase()}/blog/${slug}`;
 
-export type PostSummary = Pick<
-  BlogPost,
-  "id" | "slug" | "title" | "status" | "tags" | "author" | "publishedAt" | "updatedAt" | "createdAt"
->;
+export type { PostSummary };
 
 export async function listPosts(): Promise<PostSummary[]> {
-  return db
-    .select({
-      id: blogPosts.id,
-      slug: blogPosts.slug,
-      title: blogPosts.title,
-      status: blogPosts.status,
-      tags: blogPosts.tags,
-      author: blogPosts.author,
-      publishedAt: blogPosts.publishedAt,
-      updatedAt: blogPosts.updatedAt,
-      createdAt: blogPosts.createdAt,
-    })
-    .from(blogPosts)
-    .orderBy(desc(blogPosts.createdAt));
+  return blogStore().summaries();
 }
 
 export async function getPost(slug: string): Promise<BlogPost | undefined> {
   if (!SLUG_RE.test(slug)) return undefined;
-  const [row] = await db.select().from(blogPosts).where(eq(blogPosts.slug, slug)).limit(1);
-  return row;
+  return blogStore().bySlug(slug);
 }
 
 async function slugTaken(slug: string): Promise<boolean> {
-  const [row] = await db.select({ id: blogPosts.id }).from(blogPosts).where(eq(blogPosts.slug, slug)).limit(1);
-  return Boolean(row);
+  return blogStore().slugTaken(slug);
 }
 
 export async function createPost(actor: Actor, body: unknown): Promise<Result<{ post: BlogPost; url: string }>> {
@@ -73,22 +54,19 @@ export async function createPost(actor: Actor, body: unknown): Promise<Result<{ 
   const publishedAt =
     input.publishedAt != null ? new Date(input.publishedAt) : status === "published" ? new Date() : null;
 
-  const [post] = await db
-    .insert(blogPosts)
-    .values({
-      slug,
-      title: input.title!,
-      description: input.description!,
-      bodyMd: input.bodyMd!,
-      heroImageUrl: input.heroImageUrl ?? null,
-      heroImageAlt: input.heroImageAlt ?? null,
-      tags: input.tags ?? [],
-      faq: input.faq ?? [],
-      author: input.author ?? BLOG_DEFAULT_AUTHOR,
-      status,
-      publishedAt,
-    })
-    .returning();
+  const post = await blogStore().insertPost({
+    slug,
+    title: input.title!,
+    description: input.description!,
+    bodyMd: input.bodyMd!,
+    heroImageUrl: input.heroImageUrl ?? null,
+    heroImageAlt: input.heroImageAlt ?? null,
+    tags: input.tags ?? [],
+    faq: input.faq ?? [],
+    author: input.author ?? BLOG_DEFAULT_AUTHOR,
+    status,
+    publishedAt,
+  });
 
   revalidateBlog([post.slug]);
   if (post.status === "published") await pingIndexNow(["/blog", `/blog/${post.slug}`]);
@@ -137,9 +115,7 @@ export async function updatePost(
         ? new Date()
         : post.publishedAt;
 
-  const [updated] = await db
-    .update(blogPosts)
-    .set({
+  const updated = await blogStore().updatePost(post.id, {
       ...(input.slug !== undefined ? { slug: input.slug } : {}),
       ...(input.title !== undefined ? { title: input.title } : {}),
       ...(input.description !== undefined ? { description: input.description } : {}),
@@ -152,9 +128,7 @@ export async function updatePost(
       status: nextStatus,
       publishedAt,
       updatedAt: new Date(),
-    })
-    .where(eq(blogPosts.id, post.id))
-    .returning();
+  });
 
   revalidateBlog([post.slug, updated.slug]);
   // Ping when the live surface changed: publish, edit-in-place, unpublish, slug move.
@@ -187,7 +161,7 @@ export async function deletePost(actor: Actor, slug: string): Promise<Result<{ d
   const post = await getPost(slug);
   if (!post) return err("not_found", "No post with that slug.");
 
-  await db.delete(blogPosts).where(eq(blogPosts.id, post.id));
+  await blogStore().deletePost(post.id);
   revalidateBlog([post.slug]);
   if (post.status === "published") await pingIndexNow(["/blog", `/blog/${post.slug}`]);
 

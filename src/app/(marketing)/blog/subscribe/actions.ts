@@ -1,9 +1,7 @@
 "use server";
 
 import { headers } from "next/headers";
-import { eq, sql as dsql } from "drizzle-orm";
-import { db } from "@/db";
-import { blogSubscribers } from "@/db/schema/blog-subscribers";
+import { blogStore } from "@/domain/blog/store";
 import { sendEmail } from "@/lib/email";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { confirmExpiry, issueToken } from "@/lib/watchlist-confirm";
@@ -54,15 +52,8 @@ export async function subscribeToBlog(formData: FormData): Promise<SubscribeResu
   if (!globalRl.ok) return NEUTRAL;
 
   try {
-    const [existing] = await db
-      .select({
-        id: blogSubscribers.id,
-        status: blogSubscribers.status,
-        confirmSentAt: blogSubscribers.confirmSentAt,
-      })
-      .from(blogSubscribers)
-      .where(eq(dsql`lower(${blogSubscribers.email})`, email))
-      .limit(1);
+    const store = blogStore();
+    const existing = await store.subscriberByEmail(email);
 
     // Already confirmed → nothing to do, nothing to reveal.
     if (existing?.status === "confirmed") return NEUTRAL;
@@ -82,24 +73,17 @@ export async function subscribeToBlog(formData: FormData): Promise<SubscribeResu
     if (existing) {
       // Pending re-request or an unsubscribed reader opting back in —
       // either way it's a fresh consent cycle: back to pending, new token.
-      await db
-        .update(blogSubscribers)
-        .set({
-          status: "pending",
-          confirmTokenHash: hash,
-          confirmExpiresAt: confirmExpiry(now),
-          confirmSentAt: now,
-          unsubscribedAt: null,
-          updatedAt: now,
-        })
-        .where(eq(blogSubscribers.id, existing.id));
+      await store.resetSubscriberToPending(existing.id, {
+        hash,
+        expiresAt: confirmExpiry(now),
+        sentAt: now,
+      });
     } else {
-      await db.insert(blogSubscribers).values({
+      await store.insertPendingSubscriber({
         email,
-        status: "pending",
-        confirmTokenHash: hash,
-        confirmExpiresAt: confirmExpiry(now),
-        confirmSentAt: now,
+        hash,
+        expiresAt: confirmExpiry(now),
+        sentAt: now,
       });
     }
 

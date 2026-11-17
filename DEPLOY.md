@@ -395,6 +395,7 @@ JetNine's database is moving from Supabase Postgres to Cloudflare D1, one domain
 - **Switch.** `DB_TARGET` (`postgres` or `d1`) names the database per environment. Staging sets `postgres` until the first converted domain row changes it. `src/db/target.mjs` reads it: anything but exactly `d1` means Postgres, and production refuses `d1` by code until the cutover row lifts that on purpose.
 - **Code.** `dbTarget()` and `d1Db()` in `src/db/d1.ts` (re-exported from `src/db`). `db` and `sql` still point at Postgres; a converted domain calls `d1Db()` when `dbTarget()` is `d1`.
 - **Health.** `checks.db` in `/api/health` (full view and `/admin/health`) shows `target`, `d1` (`absent`, `ok` or `error`) and `d1Tables`. D1 never changes `ok` or the status.
+- **Converted to D1: blog (posts, subscribers), OPS-109.** Staging runs `DB_TARGET` `d1`, so the blog reads and writes the D1 twin tables through `src/domain/blog/store.ts` (a Postgres adapter and a D1 adapter, one chosen per request by `dbTarget()`). Production stays on Postgres. Other domains on staging still use Postgres through Hyperdrive. Undo on staging: set `DB_TARGET` back to `postgres` in `wrangler.jsonc` and redeploy staging.
 - **Migrations.** The staging run of "Deploy (Cloudflare)" applies D1 migrations (`wrangler d1 migrations apply jetnine-staging --env staging --remote`) with the repo's own `CLOUDFLARE_API_TOKEN`, then prints `D1 jetnine-staging tables: N`.
 
 ## 9. Custom domain

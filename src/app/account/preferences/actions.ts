@@ -11,7 +11,7 @@ import {
   type NewMemberLane,
   type NewMemberPreferences,
 } from "@/db/schema/member-prefs";
-import { emptyLegWatchlists } from "@/db/schema/empty-legs";
+import { watchlistStore } from "@/domain/empty-legs/watchlist-store";
 import {
   aircraftCategoryEnum,
   cateringTierEnum,
@@ -339,22 +339,11 @@ export async function deleteWatchlist(
 
   if (!/^[0-9a-f-]{36}$/i.test(watchlistId)) return { ok: false, error: "That record isn't valid." };
 
-  const [target] = await db
-    .select({
-      id: emptyLegWatchlists.id,
-      fromText: emptyLegWatchlists.fromText,
-      toText: emptyLegWatchlists.toText,
-    })
-    .from(emptyLegWatchlists)
-    .where(
-      and(
-        eq(emptyLegWatchlists.id, watchlistId),
-        eq(emptyLegWatchlists.memberId, member.id),
-      ),
-    );
+  const store = watchlistStore();
+  const target = await store.memberWatchlist(watchlistId, member.id);
   if (!target) return { ok: false, error: "We couldn't find that record." };
 
-  await db.delete(emptyLegWatchlists).where(eq(emptyLegWatchlists.id, target.id));
+  await store.deleteWatchlist(target.id);
 
   await logAudit({
     actorUserId: user.id,
@@ -384,20 +373,8 @@ export async function toggleWatchlistActive(
 
   if (!/^[0-9a-f-]{36}$/i.test(watchlistId)) return { ok: false, error: "That record isn't valid." };
 
-  const [target] = await db
-    .select({
-      id: emptyLegWatchlists.id,
-      active: emptyLegWatchlists.active,
-      smsConfirmedAt: emptyLegWatchlists.smsConfirmedAt,
-      emailConfirmedAt: emptyLegWatchlists.emailConfirmedAt,
-    })
-    .from(emptyLegWatchlists)
-    .where(
-      and(
-        eq(emptyLegWatchlists.id, watchlistId),
-        eq(emptyLegWatchlists.memberId, member.id),
-      ),
-    );
+  const store = watchlistStore();
+  const target = await store.memberWatchlist(watchlistId, member.id);
   if (!target) return { ok: false, error: "We couldn't find that record." };
 
   // Owning the row is not the same as controlling the number on it. A
@@ -410,10 +387,7 @@ export async function toggleWatchlistActive(
 
   if (target.active === next) return { ok: true, active: target.active };
 
-  await db
-    .update(emptyLegWatchlists)
-    .set({ active: next })
-    .where(eq(emptyLegWatchlists.id, target.id));
+  await store.setActive(target.id, next);
 
   await logAudit({
     actorUserId: user.id,

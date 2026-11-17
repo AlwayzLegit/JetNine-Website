@@ -1,8 +1,8 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { and, eq } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { messages, type NewMessage } from "@/db/schema/audit";
-import { emptyLegWatchlists } from "@/db/schema/empty-legs";
+import { watchlistStore } from "@/domain/empty-legs/watchlist-store";
 import { members } from "@/db/schema/members";
 import { quotes } from "@/db/schema/quotes";
 import { trips } from "@/db/schema/trips";
@@ -11,7 +11,7 @@ import { sendDispatchAlert } from "@/lib/email";
 import { recipientsFor } from "@/lib/desk-settings";
 import { DESK_ALERT_KIND } from "@/lib/desk-alert-recipients.mjs";
 import { isTwilioConfigured, verifyTwilioSignatureAny } from "@/lib/twilio";
-import { DEACTIVATED_BY_SMS_STOP, optOutKeyword } from "@/lib/sms-optout";
+import { optOutKeyword } from "@/lib/sms-optout";
 
 // Inbound SMS / WhatsApp webhook — Twilio POSTs form-urlencoded data
 // here when a customer replies to one of our outbound numbers.
@@ -267,33 +267,10 @@ async function applyWatchlistKeyword(
   fromE164: string,
 ): Promise<number> {
   if (keyword === "help" || !fromE164) return 0;
+  // Chosen once, outside the try, so a d1 target without its binding fails loudly.
+  const store = watchlistStore();
   try {
-    if (keyword === "stop") {
-      const rows = await db
-        .update(emptyLegWatchlists)
-        .set({
-          active: false,
-          deactivatedAt: new Date(),
-          deactivatedReason: DEACTIVATED_BY_SMS_STOP,
-        })
-        .where(
-          and(eq(emptyLegWatchlists.phoneE164, fromE164), eq(emptyLegWatchlists.active, true)),
-        )
-        .returning({ id: emptyLegWatchlists.id });
-      return rows.length;
-    }
-    const rows = await db
-      .update(emptyLegWatchlists)
-      .set({ active: true, deactivatedAt: null, deactivatedReason: null })
-      .where(
-        and(
-          eq(emptyLegWatchlists.phoneE164, fromE164),
-          eq(emptyLegWatchlists.active, false),
-          eq(emptyLegWatchlists.deactivatedReason, DEACTIVATED_BY_SMS_STOP),
-        ),
-      )
-      .returning({ id: emptyLegWatchlists.id });
-    return rows.length;
+    return await store.smsKeyword(keyword, fromE164, new Date());
   } catch (err) {
     // Never fail the webhook over this — Twilio would retry, and the
     // carrier block is already in force regardless of our bookkeeping.

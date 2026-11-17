@@ -1,12 +1,12 @@
 import Link from "next/link";
-import { asc, desc, eq } from "drizzle-orm";
+import { asc, eq } from "drizzle-orm";
 import { db } from "@/db";
 import {
   companions,
   memberLanes,
   memberPreferences,
 } from "@/db/schema/member-prefs";
-import { emptyLegWatchlists } from "@/db/schema/empty-legs";
+import { watchlistStore } from "@/domain/empty-legs/watchlist-store";
 import { getCurrentUser, requireUser } from "@/lib/auth";
 import { getMemberByUserId } from "@/lib/member";
 import { BTN_PRIMARY, PageHead } from "@/components/account/panel";
@@ -54,11 +54,7 @@ export default async function AccountPreferencesPage() {
       .from(memberLanes)
       .where(eq(memberLanes.memberId, member.id))
       .orderBy(asc(memberLanes.createdAt)),
-    db
-      .select()
-      .from(emptyLegWatchlists)
-      .where(eq(emptyLegWatchlists.memberId, member.id))
-      .orderBy(desc(emptyLegWatchlists.createdAt)),
+    watchlistStore().memberWatchlists(member.id),
   ]);
 
   return (

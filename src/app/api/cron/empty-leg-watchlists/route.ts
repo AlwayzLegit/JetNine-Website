@@ -1,12 +1,9 @@
 import { NextResponse } from "next/server";
 import { timingSafeEqual } from "node:crypto";
-import { and, asc, eq, gt, inArray, isNull, lt } from "drizzle-orm";
+import { and, asc, eq, gt } from "drizzle-orm";
 import { db } from "@/db";
-import {
-  emptyLegs,
-  emptyLegWatchlists,
-  emptyLegWatchlistMatches,
-} from "@/db/schema/empty-legs";
+import { emptyLegs } from "@/db/schema/empty-legs";
+import { watchlistStore, type WatchlistStore } from "@/domain/empty-legs/watchlist-store";
 import { sendSms } from "@/lib/twilio";
 import { sendEmail } from "@/lib/email";
 import { logAudit } from "@/lib/audit";
@@ -98,29 +95,6 @@ async function loadLiveLegs(now: Date): Promise<MatchableLeg[]> {
     .orderBy(asc(emptyLegs.wheelsUpAt));
 }
 
-async function loadActiveWatchlists(): Promise<MatchableWatchlist[]> {
-  return db
-    .select({
-      id: emptyLegWatchlists.id,
-      email: emptyLegWatchlists.email,
-      phoneE164: emptyLegWatchlists.phoneE164,
-      fromIcao: emptyLegWatchlists.fromIcao,
-      fromText: emptyLegWatchlists.fromText,
-      toIcao: emptyLegWatchlists.toIcao,
-      toText: emptyLegWatchlists.toText,
-      earliestOn: emptyLegWatchlists.earliestOn,
-      latestOn: emptyLegWatchlists.latestOn,
-      minDiscountPct: emptyLegWatchlists.minDiscountPct,
-      notifyChannels: emptyLegWatchlists.notifyChannels,
-      active: emptyLegWatchlists.active,
-      smsConfirmedAt: emptyLegWatchlists.smsConfirmedAt,
-      emailConfirmedAt: emptyLegWatchlists.emailConfirmedAt,
-      unsubscribeToken: emptyLegWatchlists.unsubscribeToken,
-    })
-    .from(emptyLegWatchlists)
-    .where(eq(emptyLegWatchlists.active, true));
-}
-
 type SendOutcome = {
   ok: boolean;
   provider?: string;
@@ -168,6 +142,9 @@ export async function GET(req: Request) {
 
   const now = new Date();
   const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL || "https://jetnine.com").replace(/\/$/, "");
+  // Chosen once per run, outside the try blocks, so a d1 target without its
+  // binding fails loudly instead of looking like an empty table (OPS-116).
+  const store: WatchlistStore = watchlistStore();
 
   // Sweep opt-ins nobody completed. The confirmation email promises the
   // request is deleted when the link expires, so this is the code that
@@ -175,17 +152,7 @@ export async function GET(req: Request) {
   // details for people who never agreed to anything.
   let swept = 0;
   try {
-    const gone = await db
-      .delete(emptyLegWatchlists)
-      .where(
-        and(
-          isNull(emptyLegWatchlists.smsConfirmedAt),
-          isNull(emptyLegWatchlists.emailConfirmedAt),
-          lt(emptyLegWatchlists.confirmExpiresAt, now),
-        ),
-      )
-      .returning({ id: emptyLegWatchlists.id });
-    swept = gone.length;
+    swept = await store.sweepUnconfirmed(now);
   } catch (err) {
     console.error("[watchlist-cron] expired opt-in sweep failed", err);
   }
@@ -193,7 +160,7 @@ export async function GET(req: Request) {
   let legs: MatchableLeg[];
   let watchlists: MatchableWatchlist[];
   try {
-    [legs, watchlists] = await Promise.all([loadLiveLegs(now), loadActiveWatchlists()]);
+    [legs, watchlists] = await Promise.all([loadLiveLegs(now), store.activeWatchlists()]);
   } catch (err) {
     console.error("[watchlist-cron] load failed", err);
     return NextResponse.json({ ok: false, error: "Database unavailable." }, { status: 503 });
@@ -233,19 +200,7 @@ export async function GET(req: Request) {
   // run the function out of time before reaching the new ones.
   const alreadyNotified = new Set<string>();
   try {
-    const rows = await db
-      .select({
-        watchlistId: emptyLegWatchlistMatches.watchlistId,
-        legId: emptyLegWatchlistMatches.legId,
-        channel: emptyLegWatchlistMatches.channel,
-      })
-      .from(emptyLegWatchlistMatches)
-      .where(
-        inArray(
-          emptyLegWatchlistMatches.legId,
-          legs.map((l) => l.id),
-        ),
-      );
+    const rows = await store.notifiedFor(legs.map((l) => l.id));
     for (const r of rows) alreadyNotified.add(`${r.watchlistId}:${r.legId}:${r.channel}`);
   } catch (err) {
     // Fall through with an empty set: the claim insert still prevents
@@ -272,12 +227,7 @@ export async function GET(req: Request) {
     // it, so there is nothing to do.
     let claimId: string | undefined;
     try {
-      const claimed = await db
-        .insert(emptyLegWatchlistMatches)
-        .values({ watchlistId: w.id, legId: leg.id, channel, status: "pending" })
-        .onConflictDoNothing()
-        .returning({ id: emptyLegWatchlistMatches.id });
-      claimId = claimed[0]?.id;
+      claimId = await store.claimMatch(w.id, leg.id, channel);
     } catch (err) {
       console.error("[watchlist-cron] claim failed", { watchlist: w.id, leg: leg.code, err });
       failed++;
@@ -293,21 +243,18 @@ export async function GET(req: Request) {
     else failed++;
 
     try {
-      await db
-        .update(emptyLegWatchlistMatches)
-        .set({
-          // Honest status: a logger-mode "send" never reached the customer —
-          // record it failed (with why) instead of a false green sent.
-          status: outcome.ok && outcome.provider !== "logger" ? "sent" : "failed",
-          provider: outcome.provider ?? null,
-          providerMessageId: outcome.messageId ?? null,
-          error:
-            outcome.ok && outcome.provider === "logger"
-              ? "channel not configured — logged only, not delivered"
-              : (outcome.error?.slice(0, 500) ?? null),
-          sentAt: new Date(),
-        })
-        .where(eq(emptyLegWatchlistMatches.id, claimId));
+      await store.recordMatch(claimId, {
+        // Honest status: a logger-mode "send" never reached the customer —
+        // record it failed (with why) instead of a false green sent.
+        status: outcome.ok && outcome.provider !== "logger" ? "sent" : "failed",
+        provider: outcome.provider ?? null,
+        providerMessageId: outcome.messageId ?? null,
+        error:
+          outcome.ok && outcome.provider === "logger"
+            ? "channel not configured — logged only, not delivered"
+            : (outcome.error?.slice(0, 500) ?? null),
+        sentAt: new Date(),
+      });
     } catch (err) {
       // The message went out; only the bookkeeping failed. Log loudly —
       // the row stays `pending`, which blocks a duplicate rather than

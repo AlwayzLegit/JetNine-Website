@@ -1,7 +1,5 @@
 import "server-only";
-import { eq } from "drizzle-orm";
-import { db } from "@/db";
-import { emptyLegWatchlists } from "@/db/schema/empty-legs";
+import { watchlistStore, type UnsubscribeScope } from "@/domain/empty-legs/watchlist-store";
 import { logAudit } from "@/lib/audit";
 
 /**
@@ -19,7 +17,7 @@ import { logAudit } from "@/lib/audit";
  * one-click POST must not see a failure.
  */
 
-export type UnsubscribeScope = "email" | "all";
+export type { UnsubscribeScope };
 
 export async function unsubscribeByToken(
   token: string,
@@ -27,13 +25,11 @@ export async function unsubscribeByToken(
 ): Promise<{ ok: boolean; found: boolean }> {
   if (!token) return { ok: false, found: false };
 
+  // Chosen once, outside the try blocks, so a d1 target without its binding fails loudly.
+  const store = watchlistStore();
   let row;
   try {
-    [row] = await db
-      .select({ id: emptyLegWatchlists.id, email: emptyLegWatchlists.email })
-      .from(emptyLegWatchlists)
-      .where(eq(emptyLegWatchlists.unsubscribeToken, token))
-      .limit(1);
+    row = await store.byUnsubscribeToken(token);
   } catch (err) {
     console.error("[watchlist-unsubscribe] lookup failed", err);
     return { ok: false, found: false };
@@ -41,20 +37,7 @@ export async function unsubscribeByToken(
   if (!row) return { ok: true, found: false };
 
   try {
-    await db
-      .update(emptyLegWatchlists)
-      .set(
-        scope === "all"
-          ? {
-              active: false,
-              deactivatedAt: new Date(),
-              deactivatedReason: "email_unsubscribe",
-              emailConfirmedAt: null,
-              notifyChannels: { email: false, sms: false },
-            }
-          : { emailConfirmedAt: null, notifyChannels: { email: false, sms: true } },
-      )
-      .where(eq(emptyLegWatchlists.id, row.id));
+    await store.unsubscribe(row.id, scope, new Date());
   } catch (err) {
     console.error("[watchlist-unsubscribe] write failed", err);
     return { ok: false, found: true };

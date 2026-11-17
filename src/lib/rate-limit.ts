@@ -1,12 +1,14 @@
 import { after } from "next/server";
-import { sql } from "@/db";
+import { d1Db, dbTarget, sql } from "@/db";
+import { d1CountHit, d1PruneBefore } from "@/lib/rate-limit-d1";
 
 export type RateLimitResult =
   | { ok: true; remaining: number }
   | { ok: false; retryAfterMs: number };
 
 /**
- * Postgres-backed fixed-window rate limiter. Counts hits per (bucket,
+ * Postgres-backed fixed-window rate limiter (D1-backed where DB_TARGET is "d1",
+ * OPS-123). Counts hits per (bucket,
  * window_start) tuple; rejects once `max` is reached. Survives cold starts
  * on serverless and doesn't require Redis/KV.
  *
@@ -33,14 +35,22 @@ export async function checkRateLimit(
   const windowStart = new Date(windowStartMs).toISOString();
 
   try {
-    const rows = await sql<{ hits: number }[]>`
-      insert into public.request_rate_limits (bucket, window_start, hits)
-      values (${bucket}, ${windowStart}::timestamptz, 1)
-      on conflict (bucket, window_start)
-      do update set hits = public.request_rate_limits.hits + 1
-      returning hits
-    `;
-    const hits = rows[0]?.hits ?? 1;
+    let hits: number;
+    if (dbTarget() === "d1") {
+      // A missing binding throws here and fails open below, like any other error.
+      const client = d1Db();
+      if (!client) throw new Error("DB_TARGET is d1 but the DB binding is missing");
+      hits = await d1CountHit(client, bucket, windowStartMs);
+    } else {
+      const rows = await sql<{ hits: number }[]>`
+        insert into public.request_rate_limits (bucket, window_start, hits)
+        values (${bucket}, ${windowStart}::timestamptz, 1)
+        on conflict (bucket, window_start)
+        do update set hits = public.request_rate_limits.hits + 1
+        returning hits
+      `;
+      hits = rows[0]?.hits ?? 1;
+    }
     // First hit of a fresh window: piggyback a best-effort prune so the
     // table can't grow unbounded. Nothing else calls pruneRateLimits.
     // after() keeps it alive past the response (waitUntil on Workers).
@@ -67,6 +77,12 @@ export async function checkRateLimit(
  */
 export async function pruneRateLimits(olderThanSeconds = 3600): Promise<void> {
   try {
+    if (dbTarget() === "d1") {
+      const client = d1Db();
+      if (!client) throw new Error("DB_TARGET is d1 but the DB binding is missing");
+      await d1PruneBefore(client, Date.now() - olderThanSeconds * 1000);
+      return;
+    }
     // ISO string, not Date — see the serialization note in checkRateLimit.
     const cutoff = new Date(Date.now() - olderThanSeconds * 1000).toISOString();
     await sql`delete from public.request_rate_limits where window_start < ${cutoff}::timestamptz`;

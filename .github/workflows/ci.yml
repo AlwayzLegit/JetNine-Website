@@ -157,6 +157,13 @@ jobs:
       - name: Contact store tests
         run: pnpm exec tsx --test src/domain/contact/store-d1.test.ts src/domain/contact/store.test.ts
 
+      # The audit log and the rate limiter on D1 (OPS-123): the limiter's one upsert and its
+      # windows, the audit append (and logAudit never throwing), and Settings > History's read
+      # side (tabs, search, subject names), on a real SQLite, plus the loud failure when the
+      # target is d1 with no binding.
+      - name: Audit and rate limit store tests
+        run: pnpm exec tsx --test src/lib/rate-limit-d1.test.ts src/lib/audit-store.test.ts src/domain/history/store-d1.test.ts src/domain/history/store.test.ts
+
   e2e:
     name: playwright smoke
     runs-on: ubuntu-24.04

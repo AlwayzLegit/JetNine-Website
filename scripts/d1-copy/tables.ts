@@ -7,16 +7,18 @@ import { SQLiteTable, getTableConfig } from "drizzle-orm/sqlite-core";
 import * as ns from "../../src/db/d1/schema/index";
 
 /**
- * Tables that hold credential material. The copy wipes them in staging's D1 and loads
- * nothing into them, and it never reads them from Postgres. Moving password hashes is
- * the owner's yes (OPS-93, "Rows still to file", item 3), and the same reasoning holds
- * for session, API key and AI provider key material.
+ * Tables the copy never reads from Postgres: credential material, and the rate limiter's
+ * counters. The copy wipes them in staging's D1 and loads nothing into them. Moving password
+ * hashes is the owner's yes (OPS-93, "Rows still to file", item 3), and the same reasoning
+ * holds for session, API key and AI provider key material. The counters (OPS-123) live for
+ * minutes and their columns differ from the Postgres table, so there is nothing to carry over.
  */
 export const HELD_BACK: Record<string, string> = {
   user_credentials: "password hashes",
   user_sessions: "session token hashes",
   api_keys: "API key hashes",
   ai_providers: "encrypted provider keys",
+  request_rate_limits: "short-lived rate-limit counters, never copied",
 };
 
 export type CopyColumn = { name: string; columnType: string };

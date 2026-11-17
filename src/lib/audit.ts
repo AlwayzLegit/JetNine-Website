@@ -1,6 +1,6 @@
 import { headers } from "next/headers";
-import { db } from "@/db";
-import { auditLog, type NewAuditLog } from "@/db/schema/audit";
+import type { NewAuditLog } from "@/db/schema/audit";
+import { auditStore } from "@/lib/audit-store";
 import { clientIpFrom } from "@/lib/client-ip";
 
 type SubjectType = NewAuditLog["subjectType"];
@@ -39,7 +39,7 @@ export async function logAudit(input: LogInput): Promise<void> {
       // job). Audit still fires; just no request context.
     }
 
-    await db.insert(auditLog).values({
+    await auditStore().insertAudit({
       actorUserId: input.actorUserId ?? null,
       actorRole: input.actorRole ?? null,
       action: input.action,

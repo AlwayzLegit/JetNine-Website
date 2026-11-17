@@ -1,10 +1,6 @@
-import { and, desc, eq, gte, inArray, isNull, sql } from "drizzle-orm";
+import { inArray } from "drizzle-orm";
 import { db } from "@/db";
 import {
-  agentMemory,
-  agentPlaybooks,
-  agentRunItems,
-  agentRuns,
   type AgentMemory,
   type AgentPlaybook,
   type AgentRun,
@@ -20,11 +16,15 @@ import { isUuid } from "@/domain/common";
 import { deskSnapshot } from "@/domain/desk/queries";
 import { healthSnapshot } from "@/domain/settings/queries";
 import { STARTER_GENERAL_MD, STARTER_JOBS, jobsDueOn } from "./starter-playbook";
+import { agentStore } from "./store";
 
 /**
  * What the assistant reads. `agentContext` is the one call a run starts
  * with; everything else is for the Settings › Assistant pages and the
- * narrower endpoints.
+ * narrower endpoints. The assistant's own tables are read through the agent
+ * store (store.ts, OPS-142), Postgres or D1 by dbTarget(); the quote and trip
+ * statuses behind a flag, the blog, the desk and the health snapshot stay on
+ * their own domains.
  */
 
 const LA = "America/Los_Angeles";
@@ -41,57 +41,32 @@ export type Playbook = Pick<AgentPlaybook, "version" | "generalMd" | "jobs" | "n
 };
 
 export async function currentPlaybook(): Promise<Playbook> {
-  const [row] = await db.select().from(agentPlaybooks).orderBy(desc(agentPlaybooks.version)).limit(1);
+  const row = await agentStore().latestPlaybook();
   if (row) return { version: row.version, generalMd: row.generalMd, jobs: row.jobs, note: row.note, createdAt: row.createdAt, starter: false };
   return { version: 0, generalMd: STARTER_GENERAL_MD, jobs: STARTER_JOBS, note: null, createdAt: new Date(0), starter: true };
 }
 
 export async function listPlaybookVersions(limit = 20): Promise<Pick<AgentPlaybook, "version" | "note" | "createdAt" | "createdBy">[]> {
-  return db
-    .select({ version: agentPlaybooks.version, note: agentPlaybooks.note, createdAt: agentPlaybooks.createdAt, createdBy: agentPlaybooks.createdBy })
-    .from(agentPlaybooks)
-    .orderBy(desc(agentPlaybooks.version))
-    .limit(limit);
+  return agentStore().listPlaybookVersions(limit);
 }
 
 export type RunRow = AgentRun & { itemCount: number };
 
 export async function listRuns({ limit = 14 }: { limit?: number } = {}): Promise<RunRow[]> {
-  const rows = await db
-    .select({
-      run: agentRuns,
-      itemCount: sql<number>`(select count(*)::int from ${agentRunItems} i where i.run_id = ${agentRuns.id})`,
-    })
-    .from(agentRuns)
-    .orderBy(desc(agentRuns.runDate), desc(agentRuns.startedAt))
-    .limit(Math.min(Math.max(limit, 1), 60));
-  return rows.map((r) => ({ ...r.run, itemCount: Number(r.itemCount ?? 0) }));
+  return agentStore().listRunsWithCounts(Math.min(Math.max(limit, 1), 60));
 }
 
 export async function getRun(id: string): Promise<(AgentRun & { items: AgentRunItem[] }) | null> {
   if (!isUuid(id)) return null;
-  const [run] = await db.select().from(agentRuns).where(eq(agentRuns.id, id)).limit(1);
-  if (!run) return null;
-  const items = await db.select().from(agentRunItems).where(eq(agentRunItems.runId, id)).orderBy(agentRunItems.createdAt);
-  return { ...run, items };
+  return (await agentStore().getRunWithItems(id)) ?? null;
 }
 
 export async function openRunForKey(keyId: string): Promise<AgentRun | null> {
-  const [run] = await db
-    .select()
-    .from(agentRuns)
-    .where(and(eq(agentRuns.keyId, keyId), eq(agentRuns.status, "open")))
-    .limit(1);
-  return run ?? null;
+  return (await agentStore().openRunForKey(keyId)) ?? null;
 }
 
 export async function listMemory({ includeArchived = false }: { includeArchived?: boolean } = {}): Promise<AgentMemory[]> {
-  return db
-    .select()
-    .from(agentMemory)
-    .where(includeArchived ? undefined : isNull(agentMemory.archivedAt))
-    .orderBy(desc(agentMemory.pinned), desc(agentMemory.updatedAt))
-    .limit(includeArchived ? 400 : 200);
+  return agentStore().listMemory(includeArchived);
 }
 
 export type OpenFlag = Pick<AgentRunItem, "id" | "runId" | "subjectType" | "subjectId" | "subjectCode" | "title" | "createdAt"> & {
@@ -100,20 +75,7 @@ export type OpenFlag = Pick<AgentRunItem, "id" | "runId" | "subjectType" | "subj
 };
 
 export async function listOpenFlags(): Promise<OpenFlag[]> {
-  const flags = await db
-    .select({
-      id: agentRunItems.id,
-      runId: agentRunItems.runId,
-      subjectType: agentRunItems.subjectType,
-      subjectId: agentRunItems.subjectId,
-      subjectCode: agentRunItems.subjectCode,
-      title: agentRunItems.title,
-      createdAt: agentRunItems.createdAt,
-    })
-    .from(agentRunItems)
-    .where(and(eq(agentRunItems.kind, "flag"), eq(agentRunItems.status, "open")))
-    .orderBy(desc(agentRunItems.createdAt))
-    .limit(100);
+  const flags = await agentStore().openFlags();
 
   const quoteIds = flags.filter((f) => f.subjectType === "quote" && f.subjectId).map((f) => f.subjectId!);
   const tripIds = flags.filter((f) => f.subjectType === "trip" && f.subjectId).map((f) => f.subjectId!);
@@ -142,29 +104,7 @@ export async function itemsForSubject(
   { includeDismissed = false }: { includeDismissed?: boolean } = {},
 ): Promise<SubjectItem[]> {
   if (!isUuid(subjectId)) return [];
-  return db
-    .select({
-      id: agentRunItems.id,
-      kind: agentRunItems.kind,
-      title: agentRunItems.title,
-      bodyMd: agentRunItems.bodyMd,
-      url: agentRunItems.url,
-      status: agentRunItems.status,
-      createdAt: agentRunItems.createdAt,
-      dismissedAt: agentRunItems.dismissedAt,
-      runDate: agentRuns.runDate,
-    })
-    .from(agentRunItems)
-    .innerJoin(agentRuns, eq(agentRuns.id, agentRunItems.runId))
-    .where(
-      and(
-        eq(agentRunItems.subjectType, subjectType),
-        eq(agentRunItems.subjectId, subjectId),
-        includeDismissed ? undefined : eq(agentRunItems.status, "open"),
-      ),
-    )
-    .orderBy(desc(agentRunItems.createdAt))
-    .limit(20);
+  return agentStore().itemsForSubject(subjectType, subjectId, includeDismissed);
 }
 
 export type AgentContext = {
@@ -202,11 +142,7 @@ function trimRun(r: RunRow): AgentContext["recentRuns"][number] {
 /** Days in the last week (LA calendar) with no closed run: the assistant catches up quietly, the owner sees them on Today. */
 export async function missedRunDays(now: Date = new Date()): Promise<string[]> {
   const weekAgo = dayKeyLA(new Date(now.getTime() - 7 * 86_400_000));
-  const closedDays = await db
-    .selectDistinct({ d: agentRuns.runDate })
-    .from(agentRuns)
-    .where(and(eq(agentRuns.status, "closed"), gte(agentRuns.runDate, weekAgo)));
-  const ran = new Set(closedDays.map((r) => r.d));
+  const ran = new Set(await agentStore().closedRunDatesSince(weekAgo));
   const missed: string[] = [];
   for (let i = 1; i <= 7; i++) {
     const d = dayKeyLA(new Date(now.getTime() - i * 86_400_000));
@@ -256,20 +192,11 @@ export async function agentContext(now: Date = new Date()): Promise<AgentContext
 }
 
 /** Memory rows written by the assistant during one run (for the per-run cap). */
-export async function memoryAddedInRun(runId: string, tx: Pick<typeof db, "select"> = db): Promise<number> {
-  const [row] = await tx
-    .select({ n: sql<number>`count(*)::int` })
-    .from(agentMemory)
-    .where(and(eq(agentMemory.sourceRunId, runId), eq(agentMemory.author, "agent")));
-  return Number(row?.n ?? 0);
+export async function memoryAddedInRun(runId: string): Promise<number> {
+  return agentStore().memoryAddedInRun(runId);
 }
 
 /** True when the run exists, is open and belongs to the key (used to trust X-Agent-Run). */
 export async function runIsOpenForKey(runId: string, keyId: string): Promise<boolean> {
-  const [row] = await db
-    .select({ id: agentRuns.id })
-    .from(agentRuns)
-    .where(and(eq(agentRuns.id, runId), eq(agentRuns.keyId, keyId), eq(agentRuns.status, "open")))
-    .limit(1);
-  return Boolean(row);
+  return agentStore().runIsOpenForKey(runId, keyId);
 }

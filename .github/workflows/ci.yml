@@ -188,6 +188,14 @@ jobs:
       - name: API key store tests
         run: pnpm exec tsx --test src/lib/api-key-store/store-d1.test.ts src/lib/api-key-store/store.test.ts
 
+      # The desk assistant on D1 (OPS-142): playbook versions (the next version in one statement),
+      # runs (one open run per key, stale and left-open sweeps, the list with item counts), run
+      # items (the cap of 100 and the one open flag per subject as one conditional insert, a
+      # dismiss), and memory (the 60 item cap and the per-run cap, the archive), on a real SQLite
+      # with the repo's D1 migrations, plus the loud failure when the target is d1 with no binding.
+      - name: Agent store tests
+        run: pnpm exec tsx --test src/domain/agent/store-d1.test.ts src/domain/agent/store.test.ts
+
       # The phone line's call notes on D1 (OPS-129): the Calls tab's read (newest calls first, the
       # limit, the latest message of each call, the types the tab expects), the four voice tables'
       # constraints and foreign keys, on a real SQLite, plus the loud failure when the target is d1

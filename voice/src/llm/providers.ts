@@ -1,5 +1,5 @@
 import { config } from "../config.js";
-import { dbConfigured, withDb } from "../db/client.js";
+import { dbConfigured, store } from "../db/store.js";
 import { openSealed, secretboxConfigured } from "../secretbox.js";
 
 // Which vendor runs the call. Source of truth is the ai_routes /
@@ -29,15 +29,6 @@ export type LlmRouting = {
 const CACHE_MS = 60_000;
 let cached: { at: number; routing: LlmRouting } | null = null;
 
-type ProviderRow = {
-  id: string;
-  provider: ProviderKind;
-  label: string;
-  api_key_enc: string;
-  default_model: string;
-  enabled: boolean;
-};
-
 function envFallback(): ProviderConfig | null {
   if (!config.anthropic.apiKey) return null;
   return {
@@ -49,23 +40,8 @@ function envFallback(): ProviderConfig | null {
   };
 }
 
-type RouteRow = { primary_provider_id: string | null; fallback_provider_id: string | null };
-
 async function loadFromDb(): Promise<LlmRouting> {
-  const { route, rows } = await withDb(async (sql) => {
-    const [route] = await sql<RouteRow[]>`
-      select primary_provider_id, fallback_provider_id from ai_routes where purpose = 'voice_agent' limit 1`;
-    const ids = [route?.primary_provider_id, route?.fallback_provider_id].filter(
-      (v): v is string => typeof v === "string" && v.length > 0,
-    );
-    const rows =
-      ids.length === 0
-        ? []
-        : await sql<ProviderRow[]>`
-            select id, provider, label, api_key_enc, default_model, enabled
-            from ai_providers where id in ${sql(ids)}`;
-    return { route, rows };
-  });
+  const { route, rows } = await store().voiceRoute();
 
   if (!route?.primary_provider_id && !route?.fallback_provider_id) {
     const env = envFallback();

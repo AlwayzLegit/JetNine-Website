@@ -22,8 +22,8 @@ type Hyperdrive = { connectionString: string };
 // (config.ts asks at that point), so that happens inside withDb.
 const hyperdrive = (): Hyperdrive | undefined => (env as unknown as { HYPERDRIVE?: Hyperdrive }).HYPERDRIVE;
 
-/** True when the Worker has a database to talk to. */
-export const dbConfigured = (): boolean => hyperdrive() !== undefined;
+/** True when the Worker has the Postgres side to talk to (the HYPERDRIVE binding). store.ts decides which side is used. */
+export const pgConfigured = (): boolean => hyperdrive() !== undefined;
 
 /** Runs `fn` with a client that is closed when it returns. */
 export async function withDb<T>(fn: (sql: Sql) => Promise<T>): Promise<T> {

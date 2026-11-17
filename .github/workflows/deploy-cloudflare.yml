@@ -163,6 +163,58 @@ jobs:
             pnpm exec wrangler deploy -c monitor/wrangler.jsonc --env staging
           fi
 
+  # The staging voice Worker (voice/, OPS-137): jetnine-voice-staging, bound to the staging
+  # D1 database that the deploy job above just migrated. It takes no calls (no custom
+  # domain, no Twilio, LLM or encryption secret), so its /health answers 503 for the
+  # missing settings and that is expected; only its db field is read. The step fails
+  # unless the Worker answers with target d1 and ok true. Staging only: the production
+  # voice Worker is deployed by hand by the owner (voice/README.md) and is not touched
+  # here. Same two secrets as the other Worker steps; if the token cannot create the
+  # Worker, the step fails with Cloudflare's own message.
+  voice-staging:
+    needs: deploy
+    if: needs.deploy.outputs.environment == 'staging'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+          run_install: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: pnpm
+          cache-dependency-path: voice/pnpm-lock.yaml
+
+      - name: Install voice dependencies
+        working-directory: voice
+        run: pnpm install --frozen-lockfile
+
+      - name: Deploy staging voice Worker
+        working-directory: voice
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          set -o pipefail
+          pnpm exec wrangler deploy --env staging 2>&1 | tee deploy.log
+          URL=$(grep -oE 'https://jetnine-voice-staging[A-Za-z0-9.-]*workers\.dev' deploy.log | head -n 1)
+          URL=${URL:-https://jetnine-voice-staging.jetnine-inc.workers.dev}
+          for i in 1 2 3 4 5 6; do
+            BODY=$(curl -sS -m 20 "$URL/health" || true)
+            T=$(echo "$BODY" | jq -r '.db.target // "none"' 2>/dev/null || echo none)
+            OK=$(echo "$BODY" | jq -r '.db.ok // false' 2>/dev/null || echo false)
+            echo "voice staging db: target=$T ok=$OK"
+            if [ "$T" = "d1" ] && [ "$OK" = "true" ]; then exit 0; fi
+            sleep 5
+          done
+          echo "The staging voice Worker did not answer with target d1 and ok true."
+          exit 1
+
   # Evidence for cut-off requests after a deploy (OPS-104). Tails the two
   # Workers while smoke and sitemap run and prints every event whose outcome
   # is not "ok" (exception, exceededCpu, exceededMemory, canceled,

@@ -33,10 +33,10 @@ test("the staging database the tool may write to is the one wrangler.jsonc names
   assert.doesNotMatch(before, /"binding": "DB"/);
 });
 
-test("the credential tables are held back, and each held name is a real table", () => {
+test("the credential tables and the rate-limit counters are held back, and each held name is a real table", () => {
   const names = new Set(copyPlan().map((t) => t.name));
   for (const held of Object.keys(HELD_BACK)) assert.ok(names.has(held), `${held} is not a D1 table`);
-  assert.deepEqual(Object.keys(HELD_BACK).sort(), ["ai_providers", "api_keys", "user_credentials", "user_sessions"]);
+  assert.deepEqual(Object.keys(HELD_BACK).sort(), ["ai_providers", "api_keys", "request_rate_limits", "user_credentials", "user_sessions"]);
 });
 
 // OPS-115: the load order, and the references into the held-back tables.

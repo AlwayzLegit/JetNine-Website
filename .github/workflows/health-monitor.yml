@@ -1,20 +1,17 @@
 name: Health monitor
 
-# Free, GitHub-Actions-native uptime check. Hits /api/health every 15
-# minutes and fails the workflow if status != 'healthy' or 'degraded'
-# for two consecutive runs. Failure surfaces as an email to the repo
-# owner (default GitHub notifications) and as a red badge in Actions.
-#
-# Catches between-deploy regressions: DB pause, env-var drift, Supabase
-# password rotation that wasn't mirrored to the host's secrets, etc. The smoke
-# workflow only fires on deploys; this fills the gap.
-#
-# Why not Vercel monitors? They're a Pro-plan feature. This is free
-# and tied to the same repo + same auth as the rest of the CI.
+# The site is watched from outside by the monitor Worker (monitor/): it checks
+# every 15 minutes and emails on failure. This workflow no longer polls.
+#   - Once a day it reads the monitor's /status and goes red when the answer is
+#     not 200, the last round is over 45 minutes old, or an incident began in
+#     the last 24 hours (job monitor-status).
+#   - On a run by hand it can also probe /api/health directly (job health), for
+#     the operator or the Merge captain to check on demand.
+# The 15 minute schedule was removed by OPS-63 so a private repo spends about
+# 31 workflow minutes a month here, not about 2,900.
 
 on:
   schedule:
-    - cron: "*/15 * * * *" # every 15 min
     - cron: "41 18 * * *" # once a day: read the monitor Worker's /status (OPS-60)
   workflow_dispatch: # operator can trigger manually
     inputs:
@@ -28,9 +25,9 @@ permissions:
 
 jobs:
   health:
-    # The 15 minute schedule and a run by hand. The daily schedule starts only
-    # the monitor-status job below.
-    if: github.event_name != 'schedule' || github.event.schedule == '*/15 * * * *'
+    # A run by hand only. The daily schedule starts only the monitor-status job
+    # below.
+    if: github.event_name == 'workflow_dispatch'
     name: probe ${{ matrix.target }}
     runs-on: ubuntu-latest
     timeout-minutes: 3
@@ -74,7 +71,7 @@ jobs:
   # last 24 hours. The monitor's status address is read here because the Crew's
   # plain shell reads do not cover it. Runs on the daily schedule and by hand.
   monitor-status:
-    if: github.event_name != 'schedule' || github.event.schedule == '41 18 * * *'
+    if: github.event_name == 'workflow_dispatch' || github.event.schedule == '41 18 * * *'
     name: monitor status
     runs-on: ubuntu-latest
     timeout-minutes: 3

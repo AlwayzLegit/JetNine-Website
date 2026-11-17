@@ -15,6 +15,13 @@
       "when": 1794863159800,
       "tag": "0001_cynical_lady_deathstrike",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1794935457057,
+      "tag": "0002_spotty_jimmy_woo",
+      "breakpoints": true
     }
   ]
 }

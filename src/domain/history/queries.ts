@@ -1,9 +1,7 @@
-import { and, desc, eq, ilike, inArray, notInArray, sql, type SQL } from "drizzle-orm";
-import { db } from "@/db";
-import { auditLog } from "@/db/schema/audit";
-import { users } from "@/db/schema/users";
+import type { auditLog } from "@/db/schema/audit";
 import { actorName, auditSentence, whenWords, type AuditSentence } from "@/lib/desk-history";
-import { likePattern, searchTerm } from "@/domain/common";
+import { searchTerm } from "@/domain/common";
+import { historyStore, type HistoryFilter } from "./store";
 
 /**
  * Settings › History: the audit log as plain sentences. Shared by the admin
@@ -58,64 +56,19 @@ export function historyTab(type: string | undefined): (typeof HISTORY_TABS)[numb
   return HISTORY_TABS.find((t) => t.key === type) ?? HISTORY_TABS[0];
 }
 
-// The client's name for the sentence, resolved from the subject row so
-// "Alex sent 3 options to Tom Okafor" reads like the prototype.
-const subjectName = sql<string | null>`case ${auditLog.subjectType}
-  when 'quote' then (
-    select nullif(trim(coalesce(q.contact_snapshot->>'firstName', '') || ' ' || coalesce(q.contact_snapshot->>'lastName', '')), '')
-    from public.quotes q where q.id = ${auditLog.subjectId})
-  when 'trip' then (
-    select nullif(trim(coalesce(u.first_name, '') || ' ' || coalesce(u.last_name, '')), '')
-    from public.trips t join public.members m on m.id = t.member_id join public.users u on u.id = m.user_id
-    where t.id = ${auditLog.subjectId})
-  when 'invoice' then (
-    select nullif(trim(coalesce(u.first_name, '') || ' ' || coalesce(u.last_name, '')), '')
-    from public.invoices i join public.members m on m.id = i.member_id join public.users u on u.id = m.user_id
-    where i.id = ${auditLog.subjectId})
-  when 'member' then (
-    select nullif(trim(coalesce(u.first_name, '') || ' ' || coalesce(u.last_name, '')), '')
-    from public.members m join public.users u on u.id = m.user_id where m.id = ${auditLog.subjectId})
-  when 'membership' then (
-    select nullif(trim(coalesce(u.first_name, '') || ' ' || coalesce(u.last_name, '')), '')
-    from public.members m join public.users u on u.id = m.user_id where m.id = ${auditLog.subjectId})
-  else null end`;
-
 export async function listHistory(input: ListHistoryInput = {}): Promise<HistoryList> {
   const tab = historyTab(input.type);
   const q = searchTerm(input.q);
   const limit = Math.min(HISTORY_MAX_LIMIT, Math.max(1, Math.floor(input.limit ?? HISTORY_MAX_LIMIT)));
   const now = input.now ?? new Date();
 
-  const conditions: SQL[] = [];
-  if (tab.key === "other") conditions.push(notInArray(auditLog.subjectType, NAMED_TYPES));
-  else if (tab.types) conditions.push(inArray(auditLog.subjectType, tab.types));
-  if (q) conditions.push(ilike(auditLog.action, likePattern(q)));
-  const whereExpr = conditions.length > 0 ? and(...conditions) : undefined;
+  const filter: HistoryFilter = {
+    ...(tab.key === "other" ? { excludeTypes: NAMED_TYPES } : tab.types ? { types: tab.types } : {}),
+    ...(q ? { q } : {}),
+  };
 
-  const [rows, [{ total }]] = await Promise.all([
-    db
-      .select({
-        id: auditLog.id,
-        action: auditLog.action,
-        subjectType: auditLog.subjectType,
-        subjectId: auditLog.subjectId,
-        subjectCode: auditLog.subjectCode,
-        diff: auditLog.diff,
-        metadata: auditLog.metadata,
-        occurredAt: auditLog.occurredAt,
-        actorEmail: users.email,
-        actorFirstName: users.firstName,
-        actorLastName: users.lastName,
-        actorRole: auditLog.actorRole,
-        subjectName,
-      })
-      .from(auditLog)
-      .leftJoin(users, eq(users.id, auditLog.actorUserId))
-      .where(whereExpr)
-      .orderBy(desc(auditLog.occurredAt))
-      .limit(limit),
-    db.select({ total: sql<number>`count(*)::int` }).from(auditLog).where(whereExpr),
-  ]);
+  const store = historyStore();
+  const [rows, total] = await Promise.all([store.historyRows(filter, limit), store.historyTotal(filter)]);
 
   return {
     tab: tab.key,

@@ -112,7 +112,7 @@ export default async function ConnectionsPage({ searchParams }: Props) {
       action: emailOk ? { label: "Send a test", test: true } : { label: "Open Resend ↗", href: "https://resend.com/", external: true },
       hint: emailOk
         ? "Set EMAIL_FROM to a verified sender, e.g. 'JetNine <dispatch@jetnine.com>' (verify the jetnine.com domain in Resend)."
-        : "Without outbound email, dispatcher thread messages log to the server console instead of sending. Set RESEND_API_KEY (or POSTMARK_SERVER_TOKEN) and EMAIL_FROM as Worker secrets and verify the jetnine.com domain in the provider. Sign-in links and invites are sent by Supabase Auth, not this layer: point Supabase › Auth › SMTP at Resend so those are branded too.",
+        : "Without outbound email, dispatcher thread messages log to the server console instead of sending. Set RESEND_API_KEY (or POSTMARK_SERVER_TOKEN) and EMAIL_FROM as Worker secrets and verify the jetnine.com domain in the provider. Sign-in links, password resets and staff invites go out through this same layer, so they stop too.",
     },
     {
       key: "twilio",

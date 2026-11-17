@@ -6,7 +6,6 @@ import {
   REPLY_PROMISE_CHOICES,
   REPLY_PROMISE_DEFAULT,
   REPLY_PROMISE_KEY,
-  deskSettings as deskSettingsTable,
 } from "@/db/schema/desk";
 import { staff } from "@/db/schema/staff";
 import { users } from "@/db/schema/users";
@@ -14,6 +13,7 @@ import { deskRole, personName, type DeskRole } from "@/lib/desk-status";
 import { snapshot, type HealthSnapshot } from "@/lib/health";
 import { VOICE_ROUTING_KEY, parseVoiceRouting, type VoiceRouting } from "@/lib/voice-routing";
 import { SOCIAL_LINKS_KEY, parseSocialLinks, type SocialLinks } from "@/lib/social-links";
+import { settingsStore } from "./store";
 
 /**
  * Settings: desk-wide facts shared by the admin pages and /api/v1. Nothing
@@ -34,12 +34,8 @@ export type DeskSettings = {
 /** Same read as src/lib/desk-settings.ts getReplyPromiseMinutes, minus the React cache. Never throws. */
 export async function replyPromiseMinutes(): Promise<number> {
   try {
-    const [row] = await db
-      .select({ value: deskSettingsTable.value })
-      .from(deskSettingsTable)
-      .where(eq(deskSettingsTable.key, REPLY_PROMISE_KEY))
-      .limit(1);
-    const n = Number(row?.value);
+    const value = await settingsStore().getSetting(REPLY_PROMISE_KEY);
+    const n = Number(value);
     if (!Number.isFinite(n) || n <= 0) return REPLY_PROMISE_DEFAULT;
     return Math.round(n);
   } catch {
@@ -54,12 +50,7 @@ export async function replyPromiseMinutes(): Promise<number> {
  */
 export async function voiceRouting(): Promise<VoiceRouting> {
   try {
-    const [row] = await db
-      .select({ value: deskSettingsTable.value })
-      .from(deskSettingsTable)
-      .where(eq(deskSettingsTable.key, VOICE_ROUTING_KEY))
-      .limit(1);
-    return parseVoiceRouting(row?.value);
+    return parseVoiceRouting(await settingsStore().getSetting(VOICE_ROUTING_KEY));
   } catch (e) {
     console.error("[settings/voice] routing read failed", e);
     return parseVoiceRouting(null);
@@ -69,12 +60,7 @@ export async function voiceRouting(): Promise<VoiceRouting> {
 /** Settings › Social links. Never throws: no row, no table or no database all read as no links. */
 export async function socialLinks(): Promise<SocialLinks> {
   try {
-    const [row] = await db
-      .select({ value: deskSettingsTable.value })
-      .from(deskSettingsTable)
-      .where(eq(deskSettingsTable.key, SOCIAL_LINKS_KEY))
-      .limit(1);
-    return parseSocialLinks(row?.value);
+    return parseSocialLinks(await settingsStore().getSetting(SOCIAL_LINKS_KEY));
   } catch (e) {
     console.error("[settings/social] read failed", e);
     return {};

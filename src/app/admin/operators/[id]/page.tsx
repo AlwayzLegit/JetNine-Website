@@ -1,10 +1,9 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { asc, desc, eq, sql } from "drizzle-orm";
+import { desc, eq, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { operators, operatorContacts } from "@/db/schema/operators";
-import { aircraft } from "@/db/schema/aircraft";
 import { trips } from "@/db/schema/trips";
+import { referenceStore } from "@/domain/reference/store";
 import { OperatorContactsEditor } from "@/components/admin/operator-contacts-editor";
 import { OperatorEditForm } from "@/components/admin/operator-edit-form";
 import { DeskCard, DeskHeader, DeskPage, DotSentence, NumberCard, StatusPill } from "@/components/admin/desk-ui";
@@ -78,20 +77,14 @@ export default async function AdminOperatorDetailPage({ params }: Props) {
   const { id } = await params;
   const now = new Date();
 
-  const [op] = await db.select().from(operators).where(eq(operators.id, id));
+  // The reference reads go through the store (Postgres or D1); the trips below stay on Postgres.
+  const store = referenceStore();
+  const op = await store.operatorById(id);
   if (!op) notFound();
 
-  const contacts = await db
-    .select()
-    .from(operatorContacts)
-    .where(eq(operatorContacts.operatorId, id))
-    .orderBy(desc(operatorContacts.isEscalation), asc(operatorContacts.name));
+  const contacts = await store.contactsOf(id);
 
-  const fleet = await db
-    .select()
-    .from(aircraft)
-    .where(eq(aircraft.operatorId, id))
-    .orderBy(asc(aircraft.category), asc(aircraft.tailNumber));
+  const fleet = await store.fleetOf(id);
 
   const recentTrips = await db
     .select({

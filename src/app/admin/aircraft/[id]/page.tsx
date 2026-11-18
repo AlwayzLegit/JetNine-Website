@@ -1,12 +1,9 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { and, asc, desc, eq, gt, lt, sql } from "drizzle-orm";
-import { db } from "@/db";
-import { aircraftScheduleBlocks } from "@/db/schema/schedule-blocks";
-import { trips } from "@/db/schema/trips";
 import { formatUSD } from "@/lib/quote-pricing";
 import { AircraftForm } from "@/components/admin/aircraft-form";
 import { referenceStore } from "@/domain/reference/store";
+import { tripStore } from "@/domain/trips/store";
 import { DeskCard, DeskHeader, DeskPage, DotSentence, NumberCard, StatusPill } from "@/components/admin/desk-ui";
 import { passengersWords, tripState } from "@/lib/desk-status";
 
@@ -106,8 +103,8 @@ export default async function AdminAircraftDetailPage({ params }: Props) {
   // Pure-aircraft row for the editor's initial value (the join-shape `row`
   // below is missing some columns like cabinHeightIn / lavatoryEnclosed /
   // updatedAt that AircraftForm wants).
-  // The reference reads go through the store (Postgres or D1); the blocks
-  // and trips below stay on Postgres until the trips domain moves.
+  // The reference reads and the blocks and trips below go through the
+  // stores (Postgres or D1).
   const store = referenceStore();
   const acRow = await store.aircraftById(id);
   if (!acRow) notFound();
@@ -125,51 +122,13 @@ export default async function AdminAircraftDetailPage({ params }: Props) {
   const horizonEnd = addDays(today, HORIZON_DAYS);
 
   // ── 14-day timeline blocks for this tail ──
-  const blocks = await db
-    .select({
-      id: aircraftScheduleBlocks.id,
-      kind: aircraftScheduleBlocks.kind,
-      startAt: aircraftScheduleBlocks.startAt,
-      endAt: aircraftScheduleBlocks.endAt,
-      relatedTripId: aircraftScheduleBlocks.relatedTripId,
-      notes: aircraftScheduleBlocks.notes,
-      tripCode: trips.tripCode,
-    })
-    .from(aircraftScheduleBlocks)
-    .leftJoin(trips, eq(trips.id, aircraftScheduleBlocks.relatedTripId))
-    .where(
-      and(
-        eq(aircraftScheduleBlocks.aircraftId, id),
-        lt(aircraftScheduleBlocks.startAt, horizonEnd),
-        gt(aircraftScheduleBlocks.endAt, today),
-      ),
-    )
-    .orderBy(asc(aircraftScheduleBlocks.startAt));
+  const tripReads = tripStore();
+  const blocks = await tripReads.tailBlocks(id, today, horizonEnd);
 
   // ── Recent trips on this tail (last 12) ──
-  const recentTrips = await db
-    .select({
-      id: trips.id,
-      tripCode: trips.tripCode,
-      status: trips.status,
-      paxCount: trips.paxCount,
-      revenueUsd: trips.revenueUsd,
-      wheelsUpAt: trips.wheelsUpAt,
-      createdAt: trips.createdAt,
-    })
-    .from(trips)
-    .where(eq(trips.aircraftId, id))
-    .orderBy(desc(trips.createdAt))
-    .limit(12);
+  const recentTrips = await tripReads.tailRecentTrips(id, 12);
 
-  const [aggregate] = await db
-    .select({
-      lifetimeTrips: sql<number>`coalesce(count(*)::int, 0)`,
-      lifetimeRevenue: sql<number>`coalesce(sum(${trips.revenueUsd}), 0)::int`,
-      totalPax: sql<number>`coalesce(sum(${trips.paxCount}), 0)::int`,
-    })
-    .from(trips)
-    .where(eq(trips.aircraftId, id));
+  const aggregate = await tripReads.tailTotals(id);
 
   const cabinFeatures: string[] = [];
   if (row.standupCabin) cabinFeatures.push("Stand-up cabin");

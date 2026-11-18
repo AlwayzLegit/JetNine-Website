@@ -1,8 +1,5 @@
 import Link from "next/link";
-import { asc, desc, eq, inArray } from "drizzle-orm";
-import { db } from "@/db";
-import { aircraft } from "@/db/schema/aircraft";
-import { trips, tripLegs } from "@/db/schema/trips";
+import { tripStore } from "@/domain/trips/store";
 import { getCurrentUser, requireUser } from "@/lib/auth";
 import { getMemberByUserId } from "@/lib/member";
 import { USD, formatDay } from "@/lib/request-page";
@@ -50,39 +47,9 @@ export default async function AccountTripsPage() {
     );
   }
 
-  const rows = await db
-    .select({
-      id: trips.id,
-      tripCode: trips.tripCode,
-      status: trips.status,
-      paxCount: trips.paxCount,
-      missionType: trips.missionType,
-      revenueUsd: trips.revenueUsd,
-      createdAt: trips.createdAt,
-      aircraft: aircraft.makeModel,
-    })
-    .from(trips)
-    .leftJoin(aircraft, eq(aircraft.id, trips.aircraftId))
-    .where(eq(trips.memberId, member.id))
-    .orderBy(desc(trips.createdAt))
-    .limit(50);
-
-  const ids = rows.map((r) => r.id);
-  const legs = ids.length
-    ? await db
-        .select({
-          tripId: tripLegs.tripId,
-          legNumber: tripLegs.legNumber,
-          fromIata: tripLegs.fromIata,
-          toIata: tripLegs.toIata,
-          fromCity: tripLegs.fromCity,
-          toCity: tripLegs.toCity,
-          departDate: tripLegs.departDate,
-        })
-        .from(tripLegs)
-        .where(inArray(tripLegs.tripId, ids))
-        .orderBy(asc(tripLegs.legNumber))
-    : [];
+  const store = tripStore();
+  const rows = await store.memberTrips(member.id, 50);
+  const legs = await store.accountLegs(rows.map((r) => r.id));
   const legsByTrip = new Map<string, typeof legs>();
   for (const l of legs) {
     const arr = legsByTrip.get(l.tripId) ?? [];

@@ -244,6 +244,16 @@ jobs:
       - name: Request store tests
         run: pnpm exec tsx --test src/domain/requests/store-d1.test.ts src/domain/requests/store.test.ts src/app/admin/settings/reports/period.test.ts
 
+      # The trips and the aircraft calendar on D1 (OPS-156): the trip list (newest first, the limit,
+      # search by last name, email and leg city with % and _ literal), legs, invoices and options
+      # across chunks of 50, the one-trip page's parts, the status write with its schedule block
+      # (made for a trip with an aircraft and times, moved, removed on a cancellation), the manual
+      # blocks, the client's trip pages (no row for another client's trip), the aircraft page's
+      # window, recent trips and totals, and the status notice's reads, on a real SQLite with the
+      # repo's D1 migrations, plus the loud failure when the target is d1 with no binding.
+      - name: Trip store tests
+        run: pnpm exec tsx --test src/domain/trips/store-d1.test.ts src/domain/trips/store.test.ts
+
   # The voice Worker (voice/, OPS-137): its own package, its own lockfile. Typecheck and
   # the Worker tests run inside workerd, among them the store tests on a real D1
   # (test/store-d1.test.ts, the site's D1 migrations applied). No secrets, no network.

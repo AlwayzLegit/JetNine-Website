@@ -1,11 +1,9 @@
-import { eq } from "drizzle-orm";
-import { db } from "@/db";
-import { aircraft } from "@/db/schema/aircraft";
-import { aircraftScheduleBlocks, type NewAircraftScheduleBlock } from "@/db/schema/schedule-blocks";
+import type { NewAircraftScheduleBlock } from "@/db/schema/schedule-blocks";
 import { logAudit } from "@/lib/audit";
 import { auditFields, type Actor } from "@/domain/actor";
 import { isUuid } from "@/domain/common";
 import { err, ok, type Result } from "@/domain/result";
+import { tripStore } from "@/domain/trips/store";
 import { isManualBlockKind, type ScheduleBlockCreateInput, type ScheduleBlockDeleteInput, type ScheduleBlockKind } from "./schemas";
 
 /**
@@ -41,10 +39,7 @@ export async function loadForScheduleBlockCreate(input: ScheduleBlockCreateInput
   if (endAt.getTime() - startAt.getTime() > ONE_YEAR_MS) return err("invalid", "Window exceeds 1 year");
 
   if (!isUuid(input.aircraftId)) return err("not_found", "Aircraft not found");
-  const [ac] = await db
-    .select({ id: aircraft.id, tailNumber: aircraft.tailNumber })
-    .from(aircraft)
-    .where(eq(aircraft.id, input.aircraftId));
+  const ac = await tripStore().aircraftForBlock(input.aircraftId);
   if (!ac) return err("not_found", "Aircraft not found");
 
   return ok({ aircraft: ac, startAt, endAt });
@@ -71,7 +66,7 @@ export async function createScheduleBlock(
 
   let row: { id: string };
   try {
-    [row] = await db.insert(aircraftScheduleBlocks).values(values).returning({ id: aircraftScheduleBlocks.id });
+    row = await tripStore().insertBlock(values);
   } catch (e) {
     console.error("createScheduleBlock failed", e);
     return err("internal", "DB_INSERT_FAILED");
@@ -105,16 +100,7 @@ export type ScheduleBlockDeleteState = {
 
 export async function loadScheduleBlockForDelete(input: ScheduleBlockDeleteInput): Promise<Result<ScheduleBlockDeleteState>> {
   if (!isUuid(input.id)) return err("not_found", "Not found");
-  const [target] = await db
-    .select({
-      id: aircraftScheduleBlocks.id,
-      aircraftId: aircraftScheduleBlocks.aircraftId,
-      kind: aircraftScheduleBlocks.kind,
-      relatedTripId: aircraftScheduleBlocks.relatedTripId,
-      relatedQuoteId: aircraftScheduleBlocks.relatedQuoteId,
-    })
-    .from(aircraftScheduleBlocks)
-    .where(eq(aircraftScheduleBlocks.id, input.id));
+  const target = await tripStore().blockById(input.id);
   if (!target) return err("not_found", "Not found");
   if (target.relatedTripId || target.relatedQuoteId) return err("conflict", AUTO_MANAGED_BLOCK);
   return ok({ block: { id: target.id, aircraftId: target.aircraftId, kind: target.kind } });
@@ -128,7 +114,7 @@ export async function deleteScheduleBlock(
   const { block } = state;
   const a = auditFields(actor);
 
-  await db.delete(aircraftScheduleBlocks).where(eq(aircraftScheduleBlocks.id, block.id));
+  await tripStore().deleteBlock(block.id);
 
   await logAudit({
     actorUserId: a.actorUserId,

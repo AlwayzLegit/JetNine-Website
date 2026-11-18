@@ -1,13 +1,12 @@
-import { and, asc, eq, inArray, sql } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { syncTripScheduleBlock } from "./schedule-block";
+import { tripStore, type TripStatusPatch } from "./store";
 import type { NewMessage } from "@/db/schema/audit";
 import { messageStore } from "@/domain/messages/store";
 import { invoices, type Invoice } from "@/db/schema/invoices";
-import { memberPreferences } from "@/db/schema/member-prefs";
 import { members } from "@/db/schema/members";
 import { reserveTransactions, type NewReserveTransaction } from "@/db/schema/memberships";
-import { tripLegs, trips, tripStatusEnum } from "@/db/schema/trips";
+import { trips, tripStatusEnum } from "@/db/schema/trips";
 import { users } from "@/db/schema/users";
 import { logAudit } from "@/lib/audit";
 import {
@@ -47,21 +46,8 @@ export type TripMessageState = {
 
 export async function loadTripForMessage(input: TripMessageInput): Promise<Result<TripMessageState>> {
   if (!isUuid(input.id)) return err("not_found", NOT_FOUND);
-  // A trip always has a client; the joins also give the default address.
-  const [t] = await db
-    .select({
-      id: trips.id,
-      code: trips.tripCode,
-      memberId: trips.memberId,
-      memberUserId: members.userId,
-      memberEmail: users.email,
-      memberPhone: users.phoneE164,
-    })
-    .from(trips)
-    .innerJoin(members, eq(members.id, trips.memberId))
-    .innerJoin(users, eq(users.id, members.userId))
-    .where(eq(trips.id, input.id))
-    .limit(1);
+  // A trip always has a client; the store's join also gives the default address.
+  const t = await tripStore().tripForMessage(input.id);
   if (!t) return err("not_found", NOT_FOUND);
 
   const c = input.channel;
@@ -121,11 +107,7 @@ export type TripStatusState = {
 
 export async function loadTripForStatus(input: TripStatusInput): Promise<Result<TripStatusState>> {
   if (!isUuid(input.id)) return err("not_found", NOT_FOUND);
-  const [t] = await db
-    .select({ id: trips.id, code: trips.tripCode, status: trips.status })
-    .from(trips)
-    .where(eq(trips.id, input.id))
-    .limit(1);
+  const t = await tripStore().tripForStatus(input.id);
   if (!t) return err("not_found", NOT_FOUND);
   return ok({ trip: t });
 }
@@ -160,14 +142,13 @@ export async function setTripStatus(
   const status = input.status;
   const a = auditFields(actor);
 
-  const patch: Partial<typeof trips.$inferInsert> = { status };
+  const patch: TripStatusPatch = { status };
   const now = new Date();
   if (status === "airborne") patch.wheelsUpAt = now;
   if (status === "wheels_down" || status === "completed") patch.wheelsDownAt = now;
 
-  await db.update(trips).set(patch).where(eq(trips.id, trip.id));
-  // Keep the aircraft calendar in step (OPS-102); the trigger does the same on Postgres.
-  await syncTripScheduleBlock(db, trip.id);
+  // The store writes the status and keeps the aircraft calendar in step (OPS-102).
+  await tripStore().setStatus(trip.id, patch);
 
   // Auto-refund: when a trip transitions into a cancelled state, look for
   // any charter_draw rows inserted at conversion time and post
@@ -222,31 +203,8 @@ async function notifyTripStatus(args: {
   actorUserId: string | null;
 }): Promise<{ status: "sent" | "failed" | "skipped"; error?: string }> {
   // Member + itinerary lookups are independent — parallelize.
-  const [targetRows, legs] = await Promise.all([
-    db
-      .select({
-        memberUserId: members.userId,
-        memberEmail: users.email,
-        memberPhone: users.phoneE164,
-        memberFirstName: users.firstName,
-        paxCount: trips.paxCount,
-        smsOptIn: memberPreferences.commsSmsUpdates,
-        quietStart: memberPreferences.quietHoursStart,
-        quietEnd: memberPreferences.quietHoursEnd,
-        quietTz: memberPreferences.quietHoursTz,
-      })
-      .from(trips)
-      .innerJoin(members, eq(members.id, trips.memberId))
-      .innerJoin(users, eq(users.id, members.userId))
-      .leftJoin(memberPreferences, eq(memberPreferences.memberId, trips.memberId))
-      .where(eq(trips.id, args.tripId)),
-    db
-      .select({ fromIcao: tripLegs.fromIcao, toIcao: tripLegs.toIcao, departDate: tripLegs.departDate })
-      .from(tripLegs)
-      .where(eq(tripLegs.tripId, args.tripId))
-      .orderBy(asc(tripLegs.legNumber)),
-  ]);
-  const target = targetRows[0];
+  const store = tripStore();
+  const [target, legs] = await Promise.all([store.noticeTarget(args.tripId), store.noticeLegs(args.tripId)]);
 
   if (!target || !args.tripCode) return { status: "skipped" };
   if (!target.memberEmail && !target.memberPhone) return { status: "skipped" };

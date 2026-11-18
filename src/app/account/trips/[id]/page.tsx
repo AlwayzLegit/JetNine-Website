@@ -1,12 +1,6 @@
 import { BTN_LINE, BTN_NAVY_LINE, Eyebrow, PANEL, PageHead, UnderLink } from "@/components/account/panel";
 import { notFound } from "next/navigation";
-import { and, asc, eq } from "drizzle-orm";
-import { db } from "@/db";
-import { trips, tripLegs } from "@/db/schema/trips";
-import { invoices } from "@/db/schema/invoices";
-import { aircraft } from "@/db/schema/aircraft";
-import { operators } from "@/db/schema/operators";
-import { staff } from "@/db/schema/staff";
+import { tripStore } from "@/domain/trips/store";
 import { messageStore } from "@/domain/messages/store";
 import { getCurrentUser, requireUser } from "@/lib/auth";
 import { SITE } from "@/lib/constants";
@@ -56,52 +50,15 @@ export default async function AccountTripDetailPage({ params }: Props) {
   const member = await getMemberByUserId(user.id);
   if (!member) notFound();
 
-  // Owner-only: explicit eq on member_id so members can't peek at other
-  // trips even by guessing UUIDs.
-  const [trip] = await db
-    .select()
-    .from(trips)
-    .where(and(eq(trips.id, id), eq(trips.memberId, member.id)));
-  if (!trip) notFound();
-
-  const legs = await db
-    .select()
-    .from(tripLegs)
-    .where(eq(tripLegs.tripId, id))
-    .orderBy(asc(tripLegs.legNumber));
-
-  const [tripInvoice] = await db
-    .select()
-    .from(invoices)
-    .where(eq(invoices.tripId, id));
-
-  const [acRow] = trip.aircraftId
-    ? await db
-        .select({
-          makeModel: aircraft.makeModel,
-          category: aircraft.category,
-          seats: aircraft.seats,
-          yearManufactured: aircraft.yearManufactured,
-        })
-        .from(aircraft)
-        .where(eq(aircraft.id, trip.aircraftId))
-    : [];
-
-  const [opRow] = trip.operatorId
-    ? await db
-        .select({ name: operators.name })
-        .from(operators)
-        .where(eq(operators.id, trip.operatorId))
-    : [];
+  // Owner-only: the store reads the trip with an explicit member_id match, so members
+  // can't peek at other trips even by guessing ids.
+  const store = tripStore();
+  const parts = await store.memberTripParts(id, member.id);
+  if (!parts) notFound();
+  const { trip, legs, invoice: tripInvoice, aircraft: acRow, operator: opRow } = parts;
 
   const dispatcherId = trip.assignedDispatcherId ?? member.primaryDispatcherId;
-  const [dispatcher] = dispatcherId
-    ? await db
-        .select({ displayName: staff.displayName, directLineE164: staff.directLineE164 })
-        .from(staff)
-        .where(eq(staff.id, dispatcherId))
-        .limit(1)
-    : [];
+  const dispatcher = dispatcherId ? await store.staffContact(dispatcherId) : undefined;
 
   // Dispatcher-authored thread, visible to the member as a read-only timeline.
   // We only surface outbound messages (direction='out' = dispatch → member);

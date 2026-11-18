@@ -15,8 +15,9 @@ import { pgMessageStore } from "./store-pg";
 // (staging first; the code refuses "d1" in production, see src/db/target.mjs).
 //
 // Lookups into quotes, trips, members and users that are not part of a messages
-// query stay where they are (their own rows move them). The voice service's
-// tables are OPS-129's.
+// query stay where they are (their own rows move them), except the two the inbound
+// email and SMS webhooks make to find the thread a reply belongs to (OPS-164:
+// threadByCode and userIdByEmail). The voice service's tables are OPS-129's.
 
 export type ThreadSubjectKind = "quote" | "trip" | "member";
 
@@ -115,6 +116,14 @@ export type MemberTimelineRow = {
   occurredAt: Date;
 };
 
+/** The thread a reply belongs to, found from the code in its subject or body (OPS-164). */
+export type ThreadTarget = {
+  subjectType: "quote" | "trip";
+  subjectId: string;
+  /** The member's user, or null (a quote with no client linked yet). */
+  toUserId: string | null;
+};
+
 export interface MessageStore {
   /** A new message. Throws when the insert fails (a duplicate inbound delivery included, see isDuplicateMessage). */
   insertMessage(values: NewMessage): Promise<{ id: string }>;
@@ -147,6 +156,15 @@ export interface MessageStore {
   emailsSentBetween(start: Date, end: Date): Promise<number>;
   /** What a member sees on a trip: outbound messages only, oldest first. */
   memberTripTimeline(tripId: string): Promise<MemberTimelineRow[]>;
+  /**
+   * The thread a QT- or JN- code belongs to. Quote codes and trip codes both start with JN-
+   * (JN-YYYY-NNNNN for quotes, JN-YYYY-NNNN for trips), so a JN- code is tried as a quote code
+   * first (a quote needs no client: toUserId may be null), then as a trip code (a trip needs
+   * its member, so none means no route). Any other code, and an unknown one, is null.
+   */
+  threadByCode(code: string): Promise<ThreadTarget | null>;
+  /** The user with exactly this email, or null. */
+  userIdByEmail(email: string): Promise<{ id: string } | null>;
 }
 
 /** The store for this request. One call per request; nothing is cached across requests. */

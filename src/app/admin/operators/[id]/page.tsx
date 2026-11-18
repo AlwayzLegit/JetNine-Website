@@ -1,9 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { desc, eq, sql } from "drizzle-orm";
-import { db } from "@/db";
-import { trips } from "@/db/schema/trips";
 import { referenceStore } from "@/domain/reference/store";
+import { tripStore } from "@/domain/trips/store";
 import { OperatorContactsEditor } from "@/components/admin/operator-contacts-editor";
 import { OperatorEditForm } from "@/components/admin/operator-edit-form";
 import { DeskCard, DeskHeader, DeskPage, DotSentence, NumberCard, StatusPill } from "@/components/admin/desk-ui";
@@ -77,7 +75,7 @@ export default async function AdminOperatorDetailPage({ params }: Props) {
   const { id } = await params;
   const now = new Date();
 
-  // The reference reads go through the store (Postgres or D1); the trips below stay on Postgres.
+  // The reference reads and the operator's trips go through their stores (Postgres or D1).
   const store = referenceStore();
   const op = await store.operatorById(id);
   if (!op) notFound();
@@ -86,27 +84,8 @@ export default async function AdminOperatorDetailPage({ params }: Props) {
 
   const fleet = await store.fleetOf(id);
 
-  const recentTrips = await db
-    .select({
-      id: trips.id,
-      tripCode: trips.tripCode,
-      status: trips.status,
-      paxCount: trips.paxCount,
-      revenueUsd: trips.revenueUsd,
-      createdAt: trips.createdAt,
-    })
-    .from(trips)
-    .where(eq(trips.operatorId, id))
-    .orderBy(desc(trips.createdAt))
-    .limit(10);
-
-  const [aggregates] = await db
-    .select({
-      lifetimeTrips: sql<number>`coalesce(count(*)::int, 0)`,
-      lifetimeRevenue: sql<number>`coalesce(sum(${trips.revenueUsd}), 0)::int`,
-    })
-    .from(trips)
-    .where(eq(trips.operatorId, id));
+  const trips = tripStore();
+  const [recentTrips, aggregates] = await Promise.all([trips.operatorRecentTrips(id, 10), trips.operatorTotals(id)]);
 
   const renewals = [
     { label: "ARG/US", date: op.argusRenewsOn },
@@ -151,10 +130,10 @@ export default async function AdminOperatorDetailPage({ params }: Props) {
 
       <div className="mt-6 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <NumberCard label="Aircraft" value={fleet.length} />
-        <NumberCard label="Trips flown" value={aggregates?.lifetimeTrips ?? 0} />
+        <NumberCard label="Trips flown" value={aggregates.lifetimeTrips} />
         <NumberCard
           label="Lifetime revenue"
-          value={aggregates?.lifetimeRevenue ? formatUSD(aggregates.lifetimeRevenue) : "$0"}
+          value={aggregates.lifetimeRevenue ? formatUSD(aggregates.lifetimeRevenue) : "$0"}
         />
         <NumberCard
           label="Liability limit"

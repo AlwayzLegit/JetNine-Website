@@ -1,8 +1,5 @@
-import { sql } from "drizzle-orm";
-import { db } from "@/db";
-import { users } from "@/db/schema/users";
-import { asc, eq } from "drizzle-orm";
-import { RoleChangeRefused, roleChangeAllowed } from "@/lib/role-lock";
+import type { users } from "@/db/schema/users";
+import { identityStore } from "@/lib/identity-store/store";
 
 /**
  * The id of the public.users row for an email (oldest first), or null.
@@ -30,14 +27,7 @@ export async function setUserRole(
   role: typeof users.$inferSelect.role,
   extra: Partial<Pick<typeof users.$inferInsert, "firstName" | "lastName">> = {},
 ): Promise<void> {
-  await db.transaction(async (tx) => {
-    const [current] = await tx.select({ role: users.role }).from(users).where(eq(users.id, userId)).limit(1);
-    if (current && !roleChangeAllowed({ actorRole, currentRole: current.role, nextRole: role })) {
-      throw new RoleChangeRefused();
-    }
-    await tx.execute(sql`select set_config('jn.allow_role_change', '1', true)`);
-    await tx.update(users).set({ role, ...extra, updatedAt: new Date() }).where(eq(users.id, userId));
-  });
+  await identityStore().setRoleGuarded(actorRole, userId, role, extra);
 }
 
 export type UserForInvite = {
@@ -51,19 +41,7 @@ export type UserForInvite = {
 };
 
 async function oldestUserByEmail(clean: string) {
-  const [row] = await db
-    .select({
-      id: users.id,
-      role: users.role,
-      firstName: users.firstName,
-      lastName: users.lastName,
-      phoneE164: users.phoneE164,
-    })
-    .from(users)
-    .where(sql`lower(${users.email}) = ${clean}`)
-    .orderBy(asc(users.createdAt), asc(users.id))
-    .limit(1);
-  return row ?? null;
+  return identityStore().oldestUserByEmail(clean);
 }
 
 /**
@@ -85,14 +63,12 @@ export async function findOrCreateUser(
   const hit = await oldestUserByEmail(clean);
   if (hit) return { ...hit, created: false };
 
-  const [made] = await db
-    .insert(users)
-    .values({ email: clean, role: "member", firstName: names.firstName ?? null, lastName: names.lastName ?? null })
-    .returning({ id: users.id });
+  const store = identityStore();
+  const made = await store.insertUser({ email: clean, firstName: names.firstName ?? null, lastName: names.lastName ?? null });
 
   const oldest = await oldestUserByEmail(clean);
   if (oldest && oldest.id !== made.id) {
-    await db.delete(users).where(eq(users.id, made.id));
+    await store.deleteUser(made.id);
     return { ...oldest, created: false };
   }
   return {
@@ -107,18 +83,10 @@ export async function findOrCreateUser(
 
 /**
  * Whether this user can sign in with a password: a row in user_credentials,
- * or the older bcrypt hash in auth.users (read in place, never returned).
+ * or (Postgres only) the older bcrypt hash in auth.users (read in place, never returned).
  * An invite mail is sent to anyone who has none, so a failed send can be
  * retried by inviting again.
  */
 export async function userHasPassword(userId: string): Promise<boolean> {
-  const rows = await db.execute<{ has: boolean }>(sql`
-    select (c.user_id is not null or coalesce(a.encrypted_password, '') <> '') as has
-    from public.users u
-    left join public.user_credentials c on c.user_id = u.id
-    left join auth.users a on a.id = u.id
-    where u.id = ${userId}
-    limit 1
-  `);
-  return rows[0]?.has === true;
+  return identityStore().hasPassword(userId);
 }

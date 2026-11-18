@@ -1,11 +1,9 @@
-import { eq } from "drizzle-orm";
-import { db } from "@/db";
 import type { NewMember } from "@/db/schema/members";
 import type { NewReserveTransaction } from "@/db/schema/memberships";
-import { users } from "@/db/schema/users";
 import { logAudit } from "@/lib/audit";
 import { findOrCreateUser, findUserIdByEmail, userHasPassword } from "@/lib/auth-users";
 import { issueToken } from "@/lib/auth-tokens";
+import { identityStore } from "@/lib/identity-store/store";
 import { sendAuthLinkEmail } from "@/lib/auth-mail";
 import { personName } from "@/lib/desk-status";
 import { auditFields, type Actor } from "@/domain/actor";
@@ -209,14 +207,11 @@ export async function inviteClient(
   }
 
   // 4) Patch public.users with the typed-in profile fields.
-  await db
-    .update(users)
-    .set({
-      firstName: firstName ?? userRow.firstName,
-      lastName: lastName ?? userRow.lastName,
-      phoneE164: phoneE164 ?? userRow.phoneE164,
-    })
-    .where(eq(users.id, authUserId));
+  await identityStore().patchUserProfile(authUserId, {
+    firstName: firstName ?? userRow.firstName,
+    lastName: lastName ?? userRow.lastName,
+    phoneE164: phoneE164 ?? userRow.phoneE164,
+  });
 
   // 5) Insert public.members. The app makes the member code (OPS-101); the
   //    members_default_member_code trigger fills it only when empty.

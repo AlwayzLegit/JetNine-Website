@@ -38,3 +38,14 @@ export function periodBounds(period: PeriodKey): { start: SQL; prevStart: SQL } 
     prevStart: sql`current_date - ${days * 2}::int`,
   };
 }
+
+/**
+ * The start of the window as a date (UTC midnight), for the CSV export, which reads through
+ * the request store and so cannot take the Postgres expressions of periodBounds. Same day as
+ * `current_date - n` and `date_trunc('year', current_date)` on a UTC database.
+ */
+export function periodStartDate(period: PeriodKey, now: Date = new Date()): Date {
+  if (period === "ytd") return new Date(Date.UTC(now.getUTCFullYear(), 0, 1));
+  const days = period === "90" ? 90 : 30;
+  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()) - days * 86_400_000);
+}

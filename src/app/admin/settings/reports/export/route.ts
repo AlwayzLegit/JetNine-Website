@@ -1,9 +1,8 @@
 import { NextResponse } from "next/server";
-import { sql } from "drizzle-orm";
-import { db } from "@/db";
 import { requireAdmin } from "@/lib/auth";
 import { requestStage } from "@/lib/desk-status";
-import { NOT_SMOKE, parsePeriod, periodBounds } from "../period";
+import { requestStore } from "@/domain/requests/store";
+import { parsePeriod, periodStartDate } from "../period";
 
 // Settings › Reports › "Download this period as a spreadsheet". Owner-only.
 // One row per request received in the period: when, who, route, status in
@@ -12,21 +11,8 @@ import { NOT_SMOKE, parsePeriod, periodBounds } from "../period";
 
 export const dynamic = "force-dynamic";
 
-type ExportRow = {
-  received_at: Date;
-  client_name: string | null;
-  email: string | null;
-  from_city: string | null;
-  from_name: string | null;
-  from_iata: string | null;
-  to_city: string | null;
-  to_name: string | null;
-  to_iata: string | null;
-  legs: number;
-  pax_count: number;
-  status: string;
-  booked_usd: number | null;
-};
+// The query is the request store's (OPS-154), Postgres or D1 by dbTarget().
+const EXPORT_LIMIT = 5000;
 
 function csvCell(v: string | number | null | undefined): string {
   if (v === null || v === undefined) return "";
@@ -54,33 +40,9 @@ export async function GET(request: Request): Promise<Response> {
   await requireAdmin();
 
   const period = parsePeriod(new URL(request.url).searchParams.get("period"));
-  const { start } = periodBounds(period);
+  const start = periodStartDate(period);
 
-  const rows = await db.execute<ExportRow>(sql`
-    select
-      q.received_at,
-      nullif(trim(coalesce(q.contact_snapshot->>'firstName', '') || ' ' || coalesce(q.contact_snapshot->>'lastName', '')), '') as client_name,
-      q.contact_snapshot->>'email' as email,
-      f.from_city, f.from_name, f.from_iata,
-      l.to_city, l.to_name, l.to_iata,
-      (select count(*)::int from public.quote_legs x where x.quote_id = q.id) as legs,
-      q.pax_count,
-      q.status,
-      case when q.status in ('accepted','converted')
-           then coalesce(q.final_price_usd,
-                         (select o.client_price_usd from public.sourced_options o
-                           where o.quote_id = q.id and o.is_chosen limit 1))
-           else null end as booked_usd
-    from public.quotes q
-    left join public.quote_legs f on f.quote_id = q.id
-      and f.leg_number = (select min(leg_number) from public.quote_legs a where a.quote_id = q.id)
-    left join public.quote_legs l on l.quote_id = q.id
-      and l.leg_number = (select max(leg_number) from public.quote_legs b where b.quote_id = q.id)
-    where q.received_at >= ${start}
-      and ${NOT_SMOKE}
-    order by q.received_at desc
-    limit 5000
-  `);
+  const rows = await requestStore().exportRows(start, EXPORT_LIMIT);
 
   const header = ["Received", "Name", "Email", "Route", "Legs", "Passengers", "Status", "Booked value (USD)"];
   const lines = [header.map(csvCell).join(",")];

@@ -1,20 +1,9 @@
-import { and, asc, desc, eq, gt, gte, inArray, ne, notInArray, or, sql } from "drizzle-orm";
-import { db } from "@/db";
-
 /** A thread longer than this keeps its newest messages. */
 export const THREAD_LIMIT = 500;
-import { quotes, quoteLegs, type Quote, type QuoteLeg } from "@/db/schema/quotes";
-import { members } from "@/db/schema/members";
-import { staff } from "@/db/schema/staff";
-import { users } from "@/db/schema/users";
-import { aircraft } from "@/db/schema/aircraft";
-import { operators } from "@/db/schema/operators";
+import type { Quote, QuoteLeg } from "@/db/schema/quotes";
 import { messageStore } from "@/domain/messages/store";
-import { trips } from "@/db/schema/trips";
-import { aircraftScheduleBlocks } from "@/db/schema/schedule-blocks";
-import { sourcedOptions } from "@/db/schema/sourced-option";
+import { requestStore } from "@/domain/requests/store";
 import {
-  OPEN_REQUEST_STATUSES,
   REQUEST_TABS,
   replyDueLine,
   requestStage,
@@ -25,7 +14,7 @@ import type { ThreadMessage } from "@/components/admin/message-thread";
 import type { HeldAircraft } from "@/components/admin/soft-hold-list";
 import type { SourcedOptionRow } from "@/components/admin/sourced-options";
 import type { MemberOption } from "@/components/admin/member-attach";
-import { NOT_SMOKE, isUuid, isoParam, likePattern, searchTerm } from "@/domain/common";
+import { isUuid, likePattern, searchTerm } from "@/domain/common";
 
 /**
  * Requests (quotes) as the desk reads them. Shared by /admin/requests and
@@ -128,96 +117,15 @@ export async function listRequests(args: {
 
   const bookedSince = new Date(now.getTime() - BOOKED_WINDOW_DAYS * 86_400_000);
   const closedSince = new Date(now.getTime() - CLOSED_WINDOW_DAYS * 86_400_000);
-  const openOrRecentlyBooked = or(
-    inArray(quotes.status, [...OPEN_REQUEST_STATUSES]),
-    and(
-      inArray(quotes.status, ["accepted", "converted"]),
-      sql`coalesce(${quotes.acceptedAt}, ${quotes.updatedAt}) >= ${isoParam(bookedSince)}::timestamptz`,
-    ),
-    // Closed (declined / expired / cancelled) stays findable for a month.
-    and(
-      inArray(quotes.status, ["declined", "expired", "cancelled"]),
-      sql`${quotes.updatedAt} >= ${isoParam(closedSince)}::timestamptz`,
-    ),
-  );
-
   const pattern = q ? likePattern(q) : null;
-  const search = pattern
-    ? or(
-        sql`${quotes.contactSnapshot}->>'firstName' ilike ${pattern}`,
-        sql`${quotes.contactSnapshot}->>'lastName' ilike ${pattern}`,
-        sql`(${quotes.contactSnapshot}->>'firstName' || ' ' || ${quotes.contactSnapshot}->>'lastName') ilike ${pattern}`,
-        sql`${quotes.contactSnapshot}->>'email' ilike ${pattern}`,
-        sql`exists (
-          select 1 from ${quoteLegs}
-          where ${quoteLegs.quoteId} = ${quotes.id}
-            and (
-              ${quoteLegs.fromCity} ilike ${pattern} or ${quoteLegs.toCity} ilike ${pattern}
-              or ${quoteLegs.fromName} ilike ${pattern} or ${quoteLegs.toName} ilike ${pattern}
-              or ${quoteLegs.fromIata} ilike ${pattern} or ${quoteLegs.toIata} ilike ${pattern}
-            )
-        )`,
-      )
-    : undefined;
 
-  const rows = await db
-    .select({
-      id: quotes.id,
-      quoteCode: quotes.quoteCode,
-      status: quotes.status,
-      source: quotes.source,
-      tripType: quotes.tripType,
-      paxCount: quotes.paxCount,
-      notes: quotes.notes,
-      contactSnapshot: quotes.contactSnapshot,
-      memberId: quotes.memberId,
-      memberTier: members.tier,
-      receivedAt: quotes.receivedAt,
-      slaDeadlineAt: quotes.slaDeadlineAt,
-      respondedAt: quotes.respondedAt,
-      acceptedAt: quotes.acceptedAt,
-      updatedAt: quotes.updatedAt,
-      convertedTripId: quotes.convertedTripId,
-      dispatcherName: staff.displayName,
-    })
-    .from(quotes)
-    .leftJoin(members, eq(members.id, quotes.memberId))
-    .leftJoin(staff, eq(staff.id, quotes.assignedDispatcherId))
-    .where(and(NOT_SMOKE, openOrRecentlyBooked, search))
-    .orderBy(desc(quotes.receivedAt))
-    .limit(limit);
-
+  const store = requestStore();
+  const rows = await store.listRows({ bookedSince, closedSince, pattern, limit });
   const ids = rows.map((r) => r.id);
 
   // Legs + option counts for every row in two queries (no N+1).
   const [legRows, optionRows] = ids.length
-    ? await Promise.all([
-        db
-          .select({
-            quoteId: quoteLegs.quoteId,
-            legNumber: quoteLegs.legNumber,
-            fromIata: quoteLegs.fromIata,
-            fromCity: quoteLegs.fromCity,
-            fromName: quoteLegs.fromName,
-            toIata: quoteLegs.toIata,
-            toCity: quoteLegs.toCity,
-            toName: quoteLegs.toName,
-            departDate: quoteLegs.departDate,
-            departTime: quoteLegs.departTime,
-          })
-          .from(quoteLegs)
-          .where(inArray(quoteLegs.quoteId, ids))
-          .orderBy(asc(quoteLegs.legNumber)),
-        db
-          .select({
-            quoteId: sourcedOptions.quoteId,
-            total: sql<number>`count(*)::int`,
-            sent: sql<number>`count(*) filter (where ${sourcedOptions.status} in ('sent_to_client', 'accepted'))::int`,
-          })
-          .from(sourcedOptions)
-          .where(inArray(sourcedOptions.quoteId, ids))
-          .groupBy(sourcedOptions.quoteId),
-      ])
+    ? await Promise.all([store.legsFor(ids), store.optionCountsFor(ids)])
     : [[] as RequestListLeg[], [] as { quoteId: string; total: number; sent: number }[]];
 
   const legsByQuote = new Map<string, RequestListLeg[]>();
@@ -343,102 +251,12 @@ export type RequestBundle = {
 /** Everything the one-request page shows. Null for a bad id or no such quote. */
 export async function getRequest(id: string, now: Date = new Date()): Promise<RequestBundle | null> {
   if (!isUuid(id)) return null;
-  const [quote] = await db.select().from(quotes).where(eq(quotes.id, id)).limit(1);
+  const store = requestStore();
+  const quote = await store.getQuote(id);
   if (!quote) return null;
 
-  const [legs, memberRows, dispatchers, assigneeRows, flownRows, thread, heldRows, conflictRows, sourcedRows] =
-    await Promise.all([
-      db.select().from(quoteLegs).where(eq(quoteLegs.quoteId, id)).orderBy(asc(quoteLegs.legNumber)),
-      // Full roster: the picker shows active members; the linked row may be paused.
-      db
-        .select({
-          id: members.id,
-          memberCode: members.memberCode,
-          preferredName: members.preferredName,
-          legalName: members.legalName,
-          status: members.status,
-          tier: members.tier,
-        })
-        .from(members)
-        .orderBy(asc(members.memberCode)),
-      db
-        .select({ id: staff.id, displayName: staff.displayName })
-        .from(staff)
-        .innerJoin(users, eq(users.id, staff.userId))
-        .where(eq(users.role, "dispatcher")),
-      quote.assignedDispatcherId
-        ? db
-            .select({ id: staff.id, displayName: staff.displayName })
-            .from(staff)
-            .where(eq(staff.id, quote.assignedDispatcherId))
-            .limit(1)
-        : Promise.resolve([] as StaffOption[]),
-      quote.memberId
-        ? db
-            .select({ n: sql<number>`count(*)::int` })
-            .from(trips)
-            .where(
-              and(
-                eq(trips.memberId, quote.memberId),
-                notInArray(trips.status, ["draft", "cancelled_wx", "cancelled_other"]),
-              ),
-            )
-        : Promise.resolve([] as { n: number }[]),
-      loadThread("quote", id),
-      db
-        .select({
-          blockId: aircraftScheduleBlocks.id,
-          aircraftId: aircraftScheduleBlocks.aircraftId,
-          startAt: aircraftScheduleBlocks.startAt,
-          endAt: aircraftScheduleBlocks.endAt,
-          tailNumber: aircraft.tailNumber,
-          makeModel: aircraft.makeModel,
-        })
-        .from(aircraftScheduleBlocks)
-        .innerJoin(aircraft, eq(aircraft.id, aircraftScheduleBlocks.aircraftId))
-        .where(and(eq(aircraftScheduleBlocks.relatedQuoteId, id), eq(aircraftScheduleBlocks.kind, "hold")))
-        .orderBy(asc(aircraftScheduleBlocks.startAt)),
-      db
-        .select({
-          aircraftId: aircraftScheduleBlocks.aircraftId,
-          relatedQuoteId: aircraftScheduleBlocks.relatedQuoteId,
-          quoteCode: quotes.quoteCode,
-        })
-        .from(aircraftScheduleBlocks)
-        .innerJoin(quotes, eq(quotes.id, aircraftScheduleBlocks.relatedQuoteId))
-        // Only holds still in force; a request's old holds are no longer a conflict.
-        .where(and(eq(aircraftScheduleBlocks.kind, "hold"), gt(aircraftScheduleBlocks.endAt, now))),
-      db
-        .select({
-          id: sourcedOptions.id,
-          optionNumber: sourcedOptions.optionNumber,
-          avinodeRef: sourcedOptions.avinodeRef,
-          aircraftType: sourcedOptions.aircraftType,
-          tailNumber: sourcedOptions.tailNumber,
-          isFloatingFleet: sourcedOptions.isFloatingFleet,
-          yearOfMake: sourcedOptions.yearOfMake,
-          category: sourcedOptions.category,
-          paxCapacity: sourcedOptions.paxCapacity,
-          refurbInteriorYear: sourcedOptions.refurbInteriorYear,
-          refurbExteriorYear: sourcedOptions.refurbExteriorYear,
-          operatorNameRaw: sourcedOptions.operatorNameRaw,
-          operatorMatched: sourcedOptions.operatorMatched,
-          safetyFloorPassed: sourcedOptions.safetyFloorPassed,
-          positioningTimeMin: sourcedOptions.positioningTimeMin,
-          positioningAirport: sourcedOptions.positioningAirport,
-          totalFlightTimeMin: sourcedOptions.totalFlightTimeMin,
-          operatorCostUsd: sourcedOptions.operatorCostUsd,
-          markupType: sourcedOptions.markupType,
-          markupValue: sourcedOptions.markupValue,
-          clientPriceUsd: sourcedOptions.clientPriceUsd,
-          isChosen: sourcedOptions.isChosen,
-          status: sourcedOptions.status,
-          dispatcherNotes: sourcedOptions.dispatcherNotes,
-        })
-        .from(sourcedOptions)
-        .where(eq(sourcedOptions.quoteId, id))
-        .orderBy(asc(sourcedOptions.optionNumber)),
-    ]);
+  const [parts, thread] = await Promise.all([store.requestParts(quote, now), loadThread("quote", id)]);
+  const { legs, memberRows, dispatchers, assignee, timesFlown, holds, conflicts, sourcedOptions: sourcedRows } = parts;
 
   const toOption = (m: (typeof memberRows)[number]): MemberOption => ({
     id: m.id,
@@ -452,7 +270,7 @@ export async function getRequest(id: string, now: Date = new Date()): Promise<Re
     : null;
 
   const otherHolds: Record<string, string[]> = {};
-  for (const c of conflictRows) {
+  for (const c of conflicts) {
     if (c.relatedQuoteId === id) continue;
     (otherHolds[c.aircraftId] ??= []).push(c.quoteCode);
   }
@@ -464,48 +282,7 @@ export async function getRequest(id: string, now: Date = new Date()): Promise<Re
   // seats + enough range, operator not suspended/banned/on hold. Preferred
   // partners first, then ARG/US tier, then Wyvern. Cap at 8.
   const candidates: CandidateAircraft[] = quote.requestedCategory
-    ? await db
-        .select({
-          id: aircraft.id,
-          tailNumber: aircraft.tailNumber,
-          makeModel: aircraft.makeModel,
-          yearManufactured: aircraft.yearManufactured,
-          seats: aircraft.seats,
-          rangeNm: aircraft.rangeNm,
-          speedKt: aircraft.speedKt,
-          wifiType: aircraft.wifiType,
-          baseIcao: aircraft.baseIcao,
-          status: aircraft.status,
-          operatorId: aircraft.operatorId,
-          operatorName: operators.name,
-          isPreferred: operators.isPreferred,
-          argusRating: operators.argusRating,
-          wyvernWingman: operators.wyvernWingman,
-        })
-        .from(aircraft)
-        .innerJoin(operators, eq(operators.id, aircraft.operatorId))
-        .where(
-          and(
-            eq(aircraft.category, quote.requestedCategory),
-            eq(aircraft.status, "available"),
-            gte(aircraft.seats, quote.paxCount),
-            gte(aircraft.rangeNm, longestLegNm),
-            ne(operators.status, "suspended"),
-            ne(operators.status, "banned"),
-            ne(operators.status, "hold"),
-          ),
-        )
-        .orderBy(
-          desc(operators.isPreferred),
-          sql`case ${operators.argusRating}
-            when 'platinum' then 0
-            when 'gold' then 1
-            when 'silver' then 2
-            else 3 end`,
-          desc(operators.wyvernWingman),
-          asc(aircraft.tailNumber),
-        )
-        .limit(8)
+    ? await store.candidates({ category: quote.requestedCategory, pax: quote.paxCount, longestLegNm })
     : [];
 
   return {
@@ -514,10 +291,10 @@ export async function getRequest(id: string, now: Date = new Date()): Promise<Re
     member,
     memberRoster,
     dispatchers,
-    assignee: assigneeRows[0] ?? null,
-    timesFlown: quote.memberId ? (flownRows[0]?.n ?? 0) : null,
+    assignee,
+    timesFlown,
     messages: thread,
-    holds: heldRows,
+    holds,
     otherHolds,
     candidates,
     sourcedOptions: sourcedRows,

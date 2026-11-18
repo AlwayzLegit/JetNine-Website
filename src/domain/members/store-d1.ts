@@ -1,6 +1,7 @@
 import { and, asc, desc, eq, inArray, ne, notInArray, or, sql } from "drizzle-orm";
 import type { DrizzleD1Database } from "drizzle-orm/d1";
 import { codeSql, codeYear } from "@/db/codes";
+import { chunks } from "@/db/d1/helpers";
 import { aircraft } from "@/db/d1/schema/aircraft";
 import { airports } from "@/db/d1/schema/airports";
 import { invoices } from "@/db/d1/schema/invoices";
@@ -30,14 +31,6 @@ import type { MemberStore, TripLegFacts } from "./store";
 //   number back. No interactive transaction exists on D1 from a Worker.
 
 type D1Client = DrizzleD1Database;
-
-const CHUNK = 50;
-
-function chunks<T>(items: readonly T[]): T[][] {
-  const out: T[][] = [];
-  for (let i = 0; i < items.length; i += CHUNK) out.push(items.slice(i, i + CHUNK));
-  return out;
-}
 
 const LEG_COLUMNS = {
   tripId: tripLegs.tripId,

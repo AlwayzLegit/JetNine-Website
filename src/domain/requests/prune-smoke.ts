@@ -1,9 +1,4 @@
-import { and, eq, inArray, lt, notExists, sql } from "drizzle-orm";
-import { db } from "@/db";
-import { messages } from "@/db/schema/audit";
-import { quotes } from "@/db/schema/quotes";
-import { trips } from "@/db/schema/trips";
-import { IS_SMOKE } from "@/domain/common";
+import { requestStore } from "@/domain/requests/store";
 
 /** Most rows removed per run, so one backlog never holds a long transaction. */
 const BATCH = 200;
@@ -20,26 +15,9 @@ const BATCH = 200;
  *
  * Legs, sourced options and schedule blocks cascade from the quote. Thread
  * messages are polymorphic with no foreign key, so they go first, in the
- * same transaction.
+ * same transaction (an atomic batch on D1). The queries live in the request
+ * store (OPS-154).
  */
 export async function pruneSmokeQuotes(): Promise<number> {
-  return db.transaction(async (tx) => {
-    const stale = await tx
-      .select({ id: quotes.id })
-      .from(quotes)
-      .where(
-        and(
-          IS_SMOKE,
-          lt(quotes.createdAt, sql`now() - interval '7 days'`),
-          notExists(tx.select({ one: sql`1` }).from(trips).where(eq(trips.quoteId, quotes.id))),
-        ),
-      )
-      .limit(BATCH);
-    if (stale.length === 0) return 0;
-
-    const ids = stale.map((row) => row.id);
-    await tx.delete(messages).where(and(eq(messages.subjectType, "quote"), inArray(messages.subjectId, ids)));
-    await tx.delete(quotes).where(inArray(quotes.id, ids));
-    return ids.length;
-  });
+  return requestStore().pruneSmoke(new Date(), BATCH);
 }

@@ -233,6 +233,17 @@ jobs:
       - name: Quote store tests
         run: pnpm exec tsx --test src/domain/quotes/store-d1.test.ts src/domain/quotes/store.test.ts
 
+      # The desk's request reads on D1 (OPS-154): the request list (open, booked within 14 days,
+      # closed within 30, smoke quotes hidden, search by name, email, leg city with % and _ literal),
+      # legs and option counts across chunks of 50, the one-request page's parts and candidate
+      # aircraft, the SLA watch's claim (one claim per quote, the limit, the 24 hour window) and its
+      # due-soon list, the smoke prune (the guard repeated in every statement, in batches) and the
+      # reports export, on a real SQLite with the repo's D1 migrations and a batch that is one
+      # transaction, plus the loud failure when the target is d1 with no binding and the export's
+      # window start.
+      - name: Request store tests
+        run: pnpm exec tsx --test src/domain/requests/store-d1.test.ts src/domain/requests/store.test.ts src/app/admin/settings/reports/period.test.ts
+
   # The voice Worker (voice/, OPS-137): its own package, its own lockfile. Typecheck and
   # the Worker tests run inside workerd, among them the store tests on a real D1
   # (test/store-d1.test.ts, the site's D1 migrations applied). No secrets, no network.

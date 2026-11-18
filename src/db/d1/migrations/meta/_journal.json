@@ -57,6 +57,13 @@
       "when": 1795008070637,
       "tag": "0007_red_jamie_braddock",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1795021501972,
+      "tag": "0008_sparkling_revanche",
+      "breakpoints": true
     }
   ]
 }

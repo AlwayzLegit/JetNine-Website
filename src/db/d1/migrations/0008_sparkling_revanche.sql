@@ -1,0 +1,2 @@
+CREATE UNIQUE INDEX `memberships_stripe_session_uq` ON `memberships` (`stripe_checkout_session_id`) WHERE "memberships"."stripe_checkout_session_id" is not null;--> statement-breakpoint
+CREATE UNIQUE INDEX `memberships_stripe_pi_uq` ON `memberships` (`stripe_payment_intent_id`) WHERE "memberships"."stripe_payment_intent_id" is not null;

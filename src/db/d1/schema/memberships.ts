@@ -72,6 +72,14 @@ export const memberships = sqliteTable(
     index("memberships_program_idx").on(t.program),
     // Migration 0032 (Postgres), carried over by OPS-149: at most one active membership per member.
     uniqueIndex("memberships_active_per_member_uniq").on(t.memberId).where(sql`${t.status} = 'active'`),
+    // Migration 0030 (Postgres), carried over by OPS-162: one Checkout session and one Stripe payment
+    // per membership. The webhook's activation relies on them against a double charge.
+    uniqueIndex("memberships_stripe_session_uq")
+      .on(t.stripeCheckoutSessionId)
+      .where(sql`${t.stripeCheckoutSessionId} is not null`),
+    uniqueIndex("memberships_stripe_pi_uq")
+      .on(t.stripePaymentIntentId)
+      .where(sql`${t.stripePaymentIntentId} is not null`),
     enumCheck("memberships_program_enum", t.program, membershipProgramEnum.enumValues),
     enumCheck("memberships_catering_included_tier_enum", t.cateringIncludedTier, cateringTierEnum.enumValues),
     enumCheck("memberships_status_enum", t.status, membershipStatusEnum.enumValues),

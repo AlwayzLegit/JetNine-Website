@@ -270,6 +270,18 @@ jobs:
       - name: Payment store tests
         run: pnpm exec tsx --test src/domain/payments/store-d1.test.ts src/domain/payments/store.test.ts
 
+      # The desk's counts, the Reports summary and the 7 AM morning summary on D1 (OPS-163): the
+      # sidebar count and the snapshot's five quote counts (smoke quotes left out, booked inside and
+      # outside 14 days, an overdue reply), overdue invoices and live empty legs, the request counts
+      # of a 30 day and a year window with the previous window, the money summary (paid, due,
+      # overdue, void and draft invoices, true margin over the cost-known trips), the most overdue
+      # invoice with its days late, today's flights (time order, an untimed leg last, cancelled trips
+      # out) and the open requests (smoke and closed out, by deadline), on a real SQLite with the
+      # repo's D1 migrations, plus the previous window start of period.ts and the loud failure when
+      # the target is d1 with no binding.
+      - name: Report store tests
+        run: pnpm exec tsx --test src/domain/reports/store-d1.test.ts src/domain/reports/store.test.ts src/app/admin/settings/reports/period.test.ts
+
   # The voice Worker (voice/, OPS-137): its own package, its own lockfile. Typecheck and
   # the Worker tests run inside workerd, among them the store tests on a real D1
   # (test/store-d1.test.ts, the site's D1 migrations applied). No secrets, no network.

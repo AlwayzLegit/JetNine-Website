@@ -49,3 +49,14 @@ export function periodStartDate(period: PeriodKey, now: Date = new Date()): Date
   const days = period === "90" ? 90 : 30;
   return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()) - days * 86_400_000);
 }
+
+/**
+ * The start of the previous window (UTC midnight), for the D1 report store (OPS-163), which
+ * cannot take the Postgres expressions of periodBounds. Same day as `current_date - 2n` and
+ * `date_trunc('year', current_date) - interval '1 year'` on a UTC database.
+ */
+export function periodPrevStartDate(period: PeriodKey, now: Date = new Date()): Date {
+  if (period === "ytd") return new Date(Date.UTC(now.getUTCFullYear() - 1, 0, 1));
+  const days = period === "90" ? 90 : 30;
+  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()) - days * 2 * 86_400_000);
+}

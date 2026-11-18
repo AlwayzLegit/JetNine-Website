@@ -1,4 +1,5 @@
 import { d1Db, dbTarget } from "@/db";
+import { isUniqueViolation } from "@/db/unique";
 import type { NewMessage } from "@/db/schema/audit";
 import type { quotes } from "@/db/schema/quotes";
 import { d1MessageStore } from "./store-d1";
@@ -165,12 +166,5 @@ export function messageStore(): MessageStore {
  * "UNIQUE constraint failed". Errors may arrive wrapped, so the cause chain is read.
  */
 export function isDuplicateMessage(err: unknown): boolean {
-  let e: unknown = err;
-  for (let depth = 0; depth < 4 && e && typeof e === "object"; depth++) {
-    const { code, message, cause } = e as { code?: unknown; message?: unknown; cause?: unknown };
-    if (code === "23505") return true;
-    if (typeof message === "string" && /UNIQUE constraint failed/i.test(message)) return true;
-    e = cause;
-  }
-  return false;
+  return isUniqueViolation(err);
 }

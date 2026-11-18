@@ -1,13 +1,11 @@
-import { and, eq, lt } from "drizzle-orm";
-import { db } from "@/db";
-import { TEAM_APPROVABLE_RISKS, approvals, type Approval } from "@/db/schema/approvals";
-import { apiKeys } from "@/db/schema/api";
+import { TEAM_APPROVABLE_RISKS, type Approval } from "@/db/schema/approvals";
 import { logAudit } from "@/lib/audit";
 import { auditFields, type Actor } from "@/domain/actor";
 import { isUuid } from "@/domain/common";
 import { getOp } from "@/domain/ops";
 import { revalidateQuietly } from "@/domain/ops/registry";
 import { err, ok, type Result } from "@/domain/result";
+import { approvalStore } from "./store";
 
 /**
  * Deciding a proposal. Session only: a key can never approve, not even its
@@ -26,11 +24,7 @@ function canDecide(actor: Actor, a: Approval): Result<true> {
 }
 
 async function claim(id: string, actor: Actor | null, next: "executing" | "rejected" | "expired", note: string | null): Promise<Approval | null> {
-  const [row] = await db
-    .update(approvals)
-    .set({ status: next, decidedBy: actor?.userId ?? null, decidedAt: new Date(), decisionNote: note })
-    .where(and(eq(approvals.id, id), eq(approvals.status, "pending")))
-    .returning();
+  const row = await approvalStore().claim(id, actor?.userId ?? null, next, note, new Date());
   return row ?? null;
 }
 
@@ -40,7 +34,7 @@ export async function approve(
   opts: { edits?: Record<string, unknown>; note?: string } = {},
 ): Promise<Result<{ approval: Approval; result: unknown }>> {
   if (!isUuid(id)) return err("not_found", "No approval with that id.");
-  const [existing] = await db.select().from(approvals).where(eq(approvals.id, id)).limit(1);
+  const existing = await approvalStore().getById(id);
   if (!existing) return err("not_found", "No approval with that id.");
   if (existing.status !== "pending") return err("conflict", `This was already ${existing.status}.`);
   if (existing.expiresAt.getTime() <= Date.now()) {
@@ -69,9 +63,7 @@ export async function approve(
   if (!claimed) return err("conflict", "Someone else just decided this.");
 
   // Act as the approver, carrying the key's name so History reads "Alex (approving Daily assistant)".
-  const [key] = claimed.requestedByKey
-    ? await db.select({ id: apiKeys.id, name: apiKeys.name }).from(apiKeys).where(eq(apiKeys.id, claimed.requestedByKey)).limit(1)
-    : [];
+  const key = claimed.requestedByKey ? await approvalStore().keyName(claimed.requestedByKey) : undefined;
   const asApprover: Actor = {
     ...actor,
     via: "approval",
@@ -90,15 +82,13 @@ export async function approve(
     outcome = err("internal", "Something went wrong while carrying this out.");
   }
 
-  const [final] = await db
-    .update(approvals)
-    .set(
-      outcome.ok
-        ? { status: "executed", result: outcome.value ?? null, editedPayload: Object.keys(edits).length ? payload : null }
-        : { status: "failed", error: outcome.error, editedPayload: Object.keys(edits).length ? payload : null },
-    )
-    .where(eq(approvals.id, id))
-    .returning();
+  const editedPayload = Object.keys(edits).length ? payload : null;
+  const final = await approvalStore().finish(
+    id,
+    outcome.ok
+      ? { status: "executed", result: outcome.value ?? null, editedPayload }
+      : { status: "failed", error: outcome.error, editedPayload },
+  );
 
   const a = auditFields(actor);
   await logAudit({
@@ -120,12 +110,12 @@ export async function approve(
   });
 
   if (!outcome.ok) return err(outcome.code, `Approved, but it did not go through: ${outcome.error}`, outcome.details);
-  return ok({ approval: final, result: outcome.value });
+  return ok({ approval: final as Approval, result: outcome.value });
 }
 
 export async function reject(actor: Actor, id: unknown, note: string): Promise<Result<Approval>> {
   if (!isUuid(id)) return err("not_found", "No approval with that id.");
-  const [existing] = await db.select().from(approvals).where(eq(approvals.id, id)).limit(1);
+  const existing = await approvalStore().getById(id);
   if (!existing) return err("not_found", "No approval with that id.");
   if (existing.status !== "pending") return err("conflict", `This was already ${existing.status}.`);
   if (existing.expiresAt.getTime() <= Date.now()) {
@@ -158,15 +148,5 @@ export async function reject(actor: Actor, id: unknown, note: string): Promise<R
  * so it stops looking in flight. Maintenance cron.
  */
 export async function expirePending(now = new Date()): Promise<number> {
-  const rows = await db
-    .update(approvals)
-    .set({ status: "expired", decidedAt: now })
-    .where(and(eq(approvals.status, "pending"), lt(approvals.expiresAt, now)))
-    .returning({ id: approvals.id });
-  const stuck = await db
-    .update(approvals)
-    .set({ status: "failed", error: "The desk lost track of this while carrying it out. Propose it again if it still matters." })
-    .where(and(eq(approvals.status, "executing"), lt(approvals.decidedAt, new Date(now.getTime() - 60 * 60_000))))
-    .returning({ id: approvals.id });
-  return rows.length + stuck.length;
+  return approvalStore().expirePending(now);
 }

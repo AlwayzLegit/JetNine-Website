@@ -196,6 +196,15 @@ jobs:
       - name: Agent store tests
         run: pnpm exec tsx --test src/domain/agent/store-d1.test.ts src/domain/agent/store.test.ts
 
+      # The assistant's approvals on D1 (OPS-150): one pending proposal per dedupe key (the second
+      # insert is refused by the partial unique index and the first handed back), the conditional
+      # claim (a second caller gets nothing), the final write, the expiry sweep (pending past
+      # expiry, an executing row stuck over an hour), the 24 hour per-key window, the joined lists
+      # and counts and what was decided since a date, on a real SQLite with the repo's D1
+      # migrations, plus the loud failure when the target is d1 with no binding.
+      - name: Approval store tests
+        run: pnpm exec tsx --test src/domain/approvals/store-d1.test.ts src/domain/approvals/store.test.ts
+
       # The phone line's call notes on D1 (OPS-129): the Calls tab's read (newest calls first, the
       # limit, the latest message of each call, the types the tab expects), the four voice tables'
       # constraints and foreign keys, on a real SQLite, plus the loud failure when the target is d1

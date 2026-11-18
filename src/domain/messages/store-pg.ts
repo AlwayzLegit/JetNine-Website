@@ -238,5 +238,36 @@ export function pgMessageStore(): MessageStore {
         .where(and(eq(messages.subjectType, "trip"), eq(messages.subjectId, tripId), eq(messages.direction, "out")))
         .orderBy(asc(messages.occurredAt));
     },
+
+    async threadByCode(code) {
+      // Quote codes AND trip codes both use the JN- prefix (JN-YYYY-NNNNN for quotes,
+      // JN-YYYY-NNNN for trips, see migrations 0003/0008), so a JN- code is tried against
+      // BOTH tables: quotes first (the options-sheet reply is the highest-volume inbound),
+      // then trips. QT- is kept for backward compatibility with older outbound subjects.
+      if (code.startsWith("QT-") || code.startsWith("JN-")) {
+        const [row] = await db
+          .select({ id: quotes.id, memberUserId: members.userId })
+          .from(quotes)
+          .leftJoin(members, eq(members.id, quotes.memberId))
+          .where(eq(quotes.quoteCode, code));
+        if (row) return { subjectType: "quote", subjectId: row.id, toUserId: row.memberUserId ?? null };
+      }
+      if (code.startsWith("JN-")) {
+        const [row] = await db
+          .select({ id: trips.id, memberUserId: members.userId })
+          .from(trips)
+          .innerJoin(members, eq(members.id, trips.memberId))
+          .where(eq(trips.tripCode, code));
+        if (!row) return null;
+        return { subjectType: "trip", subjectId: row.id, toUserId: row.memberUserId };
+      }
+      // INV-... could route to the invoice's trip, but that is not a thread surface yet.
+      return null;
+    },
+
+    async userIdByEmail(email) {
+      const [hit] = await db.select({ id: users.id }).from(users).where(eq(users.email, email)).limit(1);
+      return hit ?? null;
+    },
   };
 }

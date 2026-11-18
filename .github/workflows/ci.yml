@@ -214,6 +214,16 @@ jobs:
       - name: Voice call notes store tests
         run: pnpm exec tsx --test src/domain/voice/call-notes-store-d1.test.ts src/domain/voice/call-notes-store.test.ts
 
+      # The public quote and the request page on D1 (OPS-153): the quote wizard's submit (the JN code
+      # from the counter in the same batch, the missing airports, the legs, a second submit with the
+      # same idempotency key refused by the new unique index and rolled back whole, number included),
+      # the request page's reads (legs, options, dispatcher, trip) and the client's pick (one claim,
+      # a second claim and a same-millisecond claim change nothing, a re-opened quote takes a fair new
+      # pick), on a real SQLite with the repo's D1 migrations and a batch that is one transaction, plus
+      # the loud failure when the target is d1 with no binding.
+      - name: Quote store tests
+        run: pnpm exec tsx --test src/domain/quotes/store-d1.test.ts src/domain/quotes/store.test.ts
+
   # The voice Worker (voice/, OPS-137): its own package, its own lockfile. Typecheck and
   # the Worker tests run inside workerd, among them the store tests on a real D1
   # (test/store-d1.test.ts, the site's D1 migrations applied). No secrets, no network.

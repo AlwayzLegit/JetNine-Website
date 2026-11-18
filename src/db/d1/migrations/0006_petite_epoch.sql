@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX `quotes_client_idempotency_key_uq` ON `quotes` (`client_idempotency_key`) WHERE "quotes"."client_idempotency_key" is not null;

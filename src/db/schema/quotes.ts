@@ -184,6 +184,12 @@ export const quotes = pgTable(
   (t) => [
     uniqueIndex("quotes_quote_code_uq").on(t.quoteCode),
     uniqueIndex("quotes_status_token_uq").on(t.statusToken),
+    // Migration 0021: a retried submit with the same key finds the first quote. The
+    // index already exists in production; it is declared here so the schema, and the
+    // D1 twin's parity test (OPS-153), match the database.
+    uniqueIndex("quotes_client_idempotency_key_uq")
+      .on(t.clientIdempotencyKey)
+      .where(sql`${t.clientIdempotencyKey} is not null`),
     index("quotes_status_idx").on(t.status),
     index("quotes_member_idx").on(t.memberId),
     index("quotes_dispatcher_idx").on(t.assignedDispatcherId),

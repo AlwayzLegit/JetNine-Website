@@ -1,11 +1,8 @@
 "use server";
 
-import { and, eq, inArray } from "drizzle-orm";
 import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
-import { db } from "@/db";
-import { quotes } from "@/db/schema/quotes";
-import { sourcedOptions } from "@/db/schema/sourced-option";
+import { quoteStore } from "@/domain/quotes/store";
 import { getCurrentUser } from "@/lib/auth";
 import { logAudit } from "@/lib/audit";
 import { checkRateLimit } from "@/lib/rate-limit";
@@ -41,31 +38,14 @@ export async function chooseOption(token: string, optionId: string): Promise<Cho
     if (!rl.ok) return { ok: false, error: "RATE_LIMITED" };
   }
 
-  const [q] = await db
-    .select({
-      id: quotes.id,
-      code: quotes.quoteCode,
-      status: quotes.status,
-      contactSnapshot: quotes.contactSnapshot,
-    })
-    .from(quotes)
-    .where(eq(quotes.statusToken, token))
-    .limit(1);
+  const store = quoteStore();
+  const q = await store.quoteForChoice(token);
   if (!q) return { ok: false, error: "NOT_FOUND" };
   if (q.status !== "options_sent" && q.status !== "held") {
     return { ok: false, error: "NOT_OPEN" };
   }
 
-  const [opt] = await db
-    .select({
-      id: sourcedOptions.id,
-      status: sourcedOptions.status,
-      aircraftType: sourcedOptions.aircraftType,
-      clientPriceUsd: sourcedOptions.clientPriceUsd,
-    })
-    .from(sourcedOptions)
-    .where(and(eq(sourcedOptions.id, optionId), eq(sourcedOptions.quoteId, q.id)))
-    .limit(1);
+  const opt = await store.optionForChoice(q.id, optionId);
   if (!opt || opt.status !== "sent_to_client" || opt.clientPriceUsd == null) {
     return { ok: false, error: "OPTION_NOT_AVAILABLE" };
   }
@@ -78,29 +58,14 @@ export async function chooseOption(token: string, optionId: string): Promise<Cho
   }
 
   // Claim the quote first, conditionally on it still being open: two
-  // holders of the link choosing at once can both pass the read above,
-  // but only one UPDATE … WHERE status IN (open) will match a row. The
-  // loser sees NOT_OPEN and the page refreshes to the winner's choice.
+  // holders of the link choosing at once can both pass the reads above, but
+  // only one conditional update will match a row. The loser sees NOT_OPEN and
+  // the page refreshes to the winner's choice. The store does it as one
+  // transaction on Postgres and one guarded batch on D1.
   const now = new Date();
   let claimed = false;
   try {
-    await db.transaction(async (tx) => {
-      const rows = await tx
-        .update(quotes)
-        .set({ status: "accepted", acceptedAt: now, updatedAt: now })
-        .where(and(eq(quotes.id, q.id), inArray(quotes.status, ["options_sent", "held"])))
-        .returning({ id: quotes.id });
-      if (rows.length === 0) return;
-      claimed = true;
-      await tx
-        .update(sourcedOptions)
-        .set({ isChosen: false, updatedAt: now })
-        .where(eq(sourcedOptions.quoteId, q.id));
-      await tx
-        .update(sourcedOptions)
-        .set({ isChosen: true, status: "accepted", updatedAt: now })
-        .where(eq(sourcedOptions.id, opt.id));
-    });
+    claimed = await store.claimOption(q.id, opt.id, now);
   } catch (err) {
     console.error("chooseOption failed", err);
     return { ok: false, error: "DB_UPDATE_FAILED" };

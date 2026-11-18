@@ -261,6 +261,15 @@ jobs:
       - name: Invoice store tests
         run: pnpm exec tsx --test src/domain/invoices/store-d1.test.ts src/domain/invoices/store.test.ts
 
+      # OPS-162: the payment store's D1 adapter, the Stripe webhook's queries: the event claim
+      # (once, then false; processed and error stamps), the reserve credit caught on its unique
+      # index, the invoice turned paid with the UTC day, the membership activation with the member's
+      # tier as one batch (a second active membership rolls both back), the two Stripe unique
+      # indexes of D1 migration 0008 on memberships, and the void on a full refund, on a real
+      # SQLite with the repo's D1 migrations, plus the loud failure when the target is d1 with no binding.
+      - name: Payment store tests
+        run: pnpm exec tsx --test src/domain/payments/store-d1.test.ts src/domain/payments/store.test.ts
+
       # The desk's counts, the Reports summary and the 7 AM morning summary on D1 (OPS-163): the
       # sidebar count and the snapshot's five quote counts (smoke quotes left out, booked inside and
       # outside 14 days, an overdue reply), overdue invoices and live empty legs, the request counts

@@ -1,5 +1,6 @@
 // D1 (SQLite) twin of src/db/schema/invoices.ts (OPS-100). Same export names, same SQL table
 // and column names. Mapping: see DEPLOY.md "D1 tables (OPS-100)".
+import { sql } from "drizzle-orm";
 import { index, integer, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
 import { enumCheck, newId, nowDate, todayText } from "../helpers";
 import { invoiceKindEnum, invoiceStatusEnum } from "../../schema/invoices";
@@ -68,6 +69,14 @@ export const invoices = sqliteTable(
     index("invoices_status_idx").on(t.status),
     index("invoices_member_idx").on(t.memberId, t.issuedOn),
     index("invoices_trip_idx").on(t.tripId),
+    // Migration 0027 (Postgres), carried over by OPS-161: one Stripe payment and one Checkout
+    // session per invoice. The Checkout claim, the webhook and the refund path rely on them.
+    uniqueIndex("invoices_stripe_payment_intent_uq")
+      .on(t.stripePaymentIntentId)
+      .where(sql`${t.stripePaymentIntentId} is not null`),
+    uniqueIndex("invoices_stripe_checkout_session_uq")
+      .on(t.stripeCheckoutSessionId)
+      .where(sql`${t.stripeCheckoutSessionId} is not null`),
     enumCheck("invoices_kind_enum", t.kind, invoiceKindEnum.enumValues),
     enumCheck("invoices_status_enum", t.status, invoiceStatusEnum.enumValues),
   ]);

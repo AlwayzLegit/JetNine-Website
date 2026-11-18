@@ -254,6 +254,13 @@ jobs:
       - name: Trip store tests
         run: pnpm exec tsx --test src/domain/trips/store-d1.test.ts src/domain/trips/store.test.ts
 
+      # OPS-161: the invoice store's D1 adapter: the cancel refunds (all or nothing, caught on the
+      # unique index), the invoice editor, the dunning cron's two claims, the client's invoice list
+      # and the Checkout claim, and the two Stripe unique indexes of D1 migration 0007, on a real
+      # SQLite with the repo's D1 migrations, plus the loud failure when the target is d1 with no binding.
+      - name: Invoice store tests
+        run: pnpm exec tsx --test src/domain/invoices/store-d1.test.ts src/domain/invoices/store.test.ts
+
       # The desk's counts, the Reports summary and the 7 AM morning summary on D1 (OPS-163): the
       # sidebar count and the snapshot's five quote counts (smoke quotes left out, booked inside and
       # outside 14 days, an overdue reply), overdue invoices and live empty legs, the request counts

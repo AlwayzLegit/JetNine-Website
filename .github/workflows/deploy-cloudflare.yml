@@ -303,8 +303,27 @@ jobs:
           if-no-files-found: ignore
           retention-days: 30
 
-  smoke:
+  # The warm-up gate (OPS-175): the main pages must answer 200 three times in a row, and
+  # /api/health must say ok, before smoke and the sitemap audit start and before the
+  # deploy can read green. It reads one data centre (the one nearest the runner), so it
+  # catches a rollout that serves 500s near the runner, not every data centre. No secret.
+  # tail, monitor and voice-staging stay on `needs: deploy`: the tail must attach early.
+  warm:
     needs: deploy
+    runs-on: ubuntu-24.04
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Warm the main pages
+        run: node scripts/deploy-warm/warm.mjs "${{ needs.deploy.outputs.url }}"
+
+  smoke:
+    needs: [deploy, warm]
     uses: ./.github/workflows/smoke-after-deploy.yml
     with:
       url: ${{ needs.deploy.outputs.url }}
@@ -313,6 +332,6 @@ jobs:
     secrets: inherit
 
   sitemap:
-    needs: deploy
+    needs: [deploy, warm]
     if: needs.deploy.outputs.environment == 'production'
     uses: ./.github/workflows/sitemap-monitor.yml

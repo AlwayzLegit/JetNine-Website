@@ -122,6 +122,11 @@ jobs:
       - name: Deploy tail summary tests
         run: node --test scripts/deploy-tail/summarize.test.mjs
 
+      # The warm-up gate of Deploy (Cloudflare) (OPS-175): three answers in a row, health must
+      # say ok, a thrown error or a cut body is a failed read, nothing but a status label printed.
+      - name: Deploy warm-up tests
+        run: node --test scripts/deploy-warm/warm.test.mjs
+
       # The reference store on D1 (operators, aircraft, airports, FBOs): contract cases on a
       # real SQLite, and the loud failure when the target is d1 with no binding (OPS-112).
       - name: Reference store tests

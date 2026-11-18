@@ -21,6 +21,13 @@ export const users = sqliteTable("users", {
 
   role: text("role", { enum: userRoleEnum.enumValues }).notNull().default("member"),
 
+  /**
+   * D1 only (OPS-174). On Postgres a ban is auth.users.banned_until, read in place; D1 has no auth
+   * schema, so the ban lives here. Null means not banned. The app never writes it today (a ban can
+   * only come from the Supabase dashboard), so the cutover carries any existing ban across.
+   */
+  bannedUntil: integer("banned_until", { mode: "timestamp_ms" }),
+
   createdAt: integer("created_at", { mode: "timestamp_ms" })
     .notNull()
     .$defaultFn(nowDate),

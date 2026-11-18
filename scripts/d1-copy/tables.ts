@@ -21,6 +21,15 @@ export const HELD_BACK: Record<string, string> = {
   request_rate_limits: "short-lived rate-limit counters, never copied",
 };
 
+/**
+ * Columns D1 has and Postgres does not, by table name. The copy neither reads nor writes them: they load
+ * as NULL on staging. users.banned_until (OPS-174): on Postgres a ban is auth.users.banned_until, read in
+ * place; D1 has no auth schema. Carrying real bans across is the cutover's job, with the password hashes.
+ */
+export const D1_ONLY_COLUMNS: Record<string, string[]> = {
+  users: ["banned_until"],
+};
+
 export type CopyColumn = { name: string; columnType: string };
 export type CopyTable = {
   exportName: string;
@@ -70,7 +79,8 @@ export function copyPlan(): CopyTable[] {
   for (const [exportName, t] of Object.entries(schema)) {
     if (!is(t, SQLiteTable)) continue;
     const cfg = getTableConfig(t as SQLiteTable);
-    const columns = cfg.columns.map((c) => ({ name: c.name, columnType: c.columnType }));
+    const skip = D1_ONLY_COLUMNS[cfg.name] ?? [];
+    const columns = cfg.columns.filter((c) => !skip.includes(c.name)).map((c) => ({ name: c.name, columnType: c.columnType }));
     const pks = cfg.columns.filter((c) => c.primary).map((c) => c.name);
     if (pks.length !== 1 || cfg.primaryKeys.length !== 0) {
       throw new Error(`${cfg.name}: the copy needs exactly one single-column primary key`);

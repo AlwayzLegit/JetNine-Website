@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { HELD_BACK, copyPlan, referentialOrder } from "./tables";
+import { D1_ONLY_COLUMNS, HELD_BACK, copyPlan, referentialOrder } from "./tables";
 import { applyMigrations, foreignKeyReport, openMemoryDb, readMigrations } from "./preflight.mjs";
 
 const KNOWN_TYPES = new Set(["SQLiteText", "SQLiteTimestamp", "SQLiteInteger", "SQLiteBoolean", "SQLiteTextJson"]);
@@ -114,5 +114,23 @@ test("the D1 migrations load in memory, hold every table of the plan, and the em
     for (const c of t.columns) assert.ok(cols.has(c.name), `${t.name}.${c.name} is not in the migrations`);
   }
   assert.deepEqual(foreignKeyReport(db), []);
+  db.close();
+});
+
+test("D1-only columns are left out of the copy plan, and each one is a nullable D1 column (OPS-174)", async () => {
+  assert.deepEqual(D1_ONLY_COLUMNS, { users: ["banned_until"] });
+  const users = copyPlan().find((t) => t.name === "users")!;
+  assert.ok(users.columns.length > 0);
+  assert.ok(!users.columns.some((c) => c.name === "banned_until"), "users.banned_until must not be copied");
+  const db = await openMemoryDb();
+  applyMigrations(db, readMigrations(join(import.meta.dirname, "../../src/db/d1/migrations")));
+  for (const [table, names] of Object.entries(D1_ONLY_COLUMNS)) {
+    const info = db.prepare(`pragma table_info("${table}")`).all() as { name: string; notnull: number }[];
+    for (const n of names) {
+      const col = info.find((c) => c.name === n);
+      assert.ok(col, `${table}.${n} is not in the migrations`);
+      assert.equal(col.notnull, 0, `${table}.${n} must be nullable: the copy loads it as NULL`);
+    }
+  }
   db.close();
 });

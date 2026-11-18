@@ -5,6 +5,7 @@ import { users } from "@/db/schema/users";
 import { logAudit } from "@/lib/audit";
 import { findOrCreateUser, setUserRole, userHasPassword } from "@/lib/auth-users";
 import { issueToken } from "@/lib/auth-tokens";
+import { identityStore } from "@/lib/identity-store/store";
 import { sendAuthLinkEmail } from "@/lib/auth-mail";
 import { deskRole, personName, type DeskRole } from "@/lib/desk-status";
 import { auditFields, type Actor } from "@/domain/actor";
@@ -150,11 +151,12 @@ export async function inviteTeammate(actor: Actor, input: TeamInviteInput): Prom
       console.error("[team] role update failed", e);
       return err("internal", "The desk role could not be set. Try again.");
     }
-    const [staffRow] = await db.select({ id: staff.id }).from(staff).where(eq(staff.userId, authUserId)).limit(1);
+    const identity = identityStore();
+    const staffRow = await identity.staffIdOfUser(authUserId);
     if (!staffRow) {
-      await db.insert(staff).values({ userId: authUserId, displayName, status: "on_call" });
+      await identity.insertStaff({ userId: authUserId, displayName, status: "on_call" });
     } else {
-      await db.update(staff).set({ status: "on_call", updatedAt: new Date() }).where(eq(staff.id, staffRow.id));
+      await identity.setStaffStatusById(staffRow.id, "on_call");
     }
   }
 
@@ -257,7 +259,7 @@ export async function removeTeammate(
 
   try {
     await setUserRole(actor.role, target.id, "member");
-    await db.update(staff).set({ status: "off", updatedAt: new Date() }).where(eq(staff.userId, target.id));
+    await identityStore().setStaffStatusByUser(target.id, "off");
   } catch (e) {
     console.error("[team] remove failed", e);
     return err("internal", "Access could not be removed. Try again.");

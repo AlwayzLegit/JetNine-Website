@@ -1,12 +1,10 @@
 "use server";
 
-import { eq } from "drizzle-orm";
-import { db } from "@/db";
-import { sourcedOptions } from "@/db/schema/sourced-option";
 import { DEFAULT_MARKUP_PCT } from "@/lib/constants";
 import { sessionActor } from "@/domain/actor";
 import { runOp } from "@/domain/ops/registry";
 import { REQUEST_NOT_FOUND } from "@/domain/requests/commands";
+import { requestStore } from "@/domain/requests/store";
 import {
   requestAssignOp,
   requestConvertOp,
@@ -238,12 +236,8 @@ function optionFieldsFromForm(formData: FormData): { fields: OptionFields } | { 
 /** The option's request, so the op can check the option belongs to it. */
 async function quoteIdForOption(optionId: string): Promise<{ quoteId: string } | { error: string }> {
   if (!UUID_RE.test(optionId)) return { error: "Bad option id" };
-  const [opt] = await db
-    .select({ quoteId: sourcedOptions.quoteId })
-    .from(sourcedOptions)
-    .where(eq(sourcedOptions.id, optionId))
-    .limit(1);
-  return opt ? { quoteId: opt.quoteId } : { error: "Option not found" };
+  const quoteId = await requestStore().quoteIdForOption(optionId);
+  return quoteId ? { quoteId } : { error: "Option not found" };
 }
 
 export async function addSourcedOption(

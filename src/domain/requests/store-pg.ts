@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, gt, gte, inArray, lt, ne, notExists, notInArray, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gt, gte, ilike, inArray, lt, ne, notExists, notInArray, or, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { aircraft } from "@/db/schema/aircraft";
 import { messages } from "@/db/schema/audit";
@@ -12,8 +12,9 @@ import { trips } from "@/db/schema/trips";
 import { users } from "@/db/schema/users";
 import { auditLog } from "@/db/schema/audit";
 import { OPEN_REQUEST_STATUSES } from "@/lib/desk-status";
+import { isUniqueViolation } from "@/db/unique";
 import { IS_SMOKE, NOT_SMOKE, isoParam } from "@/domain/common";
-import type { RequestStaffRow, RequestStore } from "./store";
+import { HoldTaken, type RequestStaffRow, type RequestStore } from "./store";
 
 // The Postgres side of the request store (OPS-154): the queries of listRequests,
 // getRequest, the SLA watch cron, the smoke prune and the reports export, moved here as
@@ -403,6 +404,293 @@ export function pgRequestStore(): RequestStore {
     limit ${limit}
   `);
       return Array.from(rows);
+    },
+
+    // ─── The desk's commands (OPS-155): today's queries, moved as they were ──────
+
+    async quoteHead(id) {
+      const [row] = await db.select({ id: quotes.id, code: quotes.quoteCode }).from(quotes).where(eq(quotes.id, id)).limit(1);
+      return row;
+    },
+
+    async quoteForStatus(id) {
+      const [row] = await db
+        .select({
+          id: quotes.id,
+          status: quotes.status,
+          code: quotes.quoteCode,
+          memberId: quotes.memberId,
+          contactSnapshot: quotes.contactSnapshot,
+        })
+        .from(quotes)
+        .where(eq(quotes.id, id))
+        .limit(1);
+      return row;
+    },
+
+    async memberContact(memberId) {
+      const [row] = await db
+        .select({ userId: members.userId, email: users.email })
+        .from(members)
+        .innerJoin(users, eq(users.id, members.userId))
+        .where(eq(members.id, memberId));
+      return row;
+    },
+
+    async memberUserId(memberId) {
+      const [row] = await db.select({ userId: members.userId }).from(members).where(eq(members.id, memberId));
+      return row;
+    },
+
+    async setStatus(id, status, respondedAt) {
+      await db.update(quotes).set({ status, respondedAt }).where(eq(quotes.id, id));
+    },
+
+    async quoteForMessage(id) {
+      const [row] = await db
+        .select({
+          id: quotes.id,
+          code: quotes.quoteCode,
+          memberId: quotes.memberId,
+          contactSnapshot: quotes.contactSnapshot,
+        })
+        .from(quotes)
+        .where(eq(quotes.id, id))
+        .limit(1);
+      return row;
+    },
+
+    async quoteForSendOptions(id) {
+      const [row] = await db
+        .select({
+          id: quotes.id,
+          code: quotes.quoteCode,
+          status: quotes.status,
+          paxCount: quotes.paxCount,
+          memberId: quotes.memberId,
+          contactSnapshot: quotes.contactSnapshot,
+          statusToken: quotes.statusToken,
+        })
+        .from(quotes)
+        .where(eq(quotes.id, id))
+        .limit(1);
+      return row;
+    },
+
+    async vettedOptions(quoteId) {
+      return db
+        .select()
+        .from(sourcedOptions)
+        .where(and(eq(sourcedOptions.quoteId, quoteId), eq(sourcedOptions.safetyFloorPassed, true)))
+        .orderBy(asc(sourcedOptions.optionNumber));
+    },
+
+    async legRoute(quoteId) {
+      return db
+        .select({ fromIata: quoteLegs.fromIata, toIata: quoteLegs.toIata })
+        .from(quoteLegs)
+        .where(eq(quoteLegs.quoteId, quoteId))
+        .orderBy(asc(quoteLegs.legNumber));
+    },
+
+    // Both updates as they were, in the same order. The request's move now carries its
+    // condition in the WHERE (the plan of OPS-155) instead of a status read earlier in the app.
+    async markOptionsSent(quoteId, optionIds, now) {
+      await db
+        .update(sourcedOptions)
+        .set({ status: "sent_to_client", updatedAt: now })
+        .where(and(eq(sourcedOptions.quoteId, quoteId), inArray(sourcedOptions.id, optionIds)));
+      await db
+        .update(quotes)
+        .set({ status: "options_sent", respondedAt: now, updatedAt: now })
+        .where(and(eq(quotes.id, quoteId), inArray(quotes.status, ["submitted", "triaged", "sourcing"])));
+    },
+
+    async quoteForAssign(id) {
+      const [row] = await db
+        .select({ id: quotes.id, code: quotes.quoteCode, assignedDispatcherId: quotes.assignedDispatcherId })
+        .from(quotes)
+        .where(eq(quotes.id, id))
+        .limit(1);
+      return row;
+    },
+
+    async staffById(id) {
+      const [row] = await db
+        .select({ id: staff.id, displayName: staff.displayName })
+        .from(staff)
+        .where(eq(staff.id, id))
+        .limit(1);
+      return row;
+    },
+
+    async assign(quoteId, staffId) {
+      await db.update(quotes).set({ assignedDispatcherId: staffId }).where(eq(quotes.id, quoteId));
+    },
+
+    async quoteForLink(id) {
+      const [row] = await db
+        .select({ id: quotes.id, code: quotes.quoteCode, memberId: quotes.memberId, convertedTripId: quotes.convertedTripId })
+        .from(quotes)
+        .where(eq(quotes.id, id))
+        .limit(1);
+      return row;
+    },
+
+    async memberById(id) {
+      const [row] = await db
+        .select({ id: members.id, memberCode: members.memberCode })
+        .from(members)
+        .where(eq(members.id, id))
+        .limit(1);
+      return row;
+    },
+
+    async linkMember(quoteId, memberId, now) {
+      await db.update(quotes).set({ memberId, updatedAt: now }).where(eq(quotes.id, quoteId));
+    },
+
+    async quoteForHold(id) {
+      const [row] = await db
+        .select({ id: quotes.id, code: quotes.quoteCode, status: quotes.status })
+        .from(quotes)
+        .where(eq(quotes.id, id))
+        .limit(1);
+      return row;
+    },
+
+    async aircraftById(id) {
+      const [row] = await db
+        .select({ id: aircraft.id, tailNumber: aircraft.tailNumber, status: aircraft.status })
+        .from(aircraft)
+        .where(eq(aircraft.id, id))
+        .limit(1);
+      return row;
+    },
+
+    async holdLegs(quoteId) {
+      return db
+        .select({ departDate: quoteLegs.departDate, departTime: quoteLegs.departTime })
+        .from(quoteLegs)
+        .where(eq(quoteLegs.quoteId, quoteId))
+        .orderBy(asc(quoteLegs.departDate), asc(quoteLegs.departTime));
+    },
+
+    async holdFor(quoteId, aircraftId) {
+      const [row] = await db
+        .select({ id: aircraftScheduleBlocks.id })
+        .from(aircraftScheduleBlocks)
+        .where(
+          and(
+            eq(aircraftScheduleBlocks.aircraftId, aircraftId),
+            eq(aircraftScheduleBlocks.relatedQuoteId, quoteId),
+            eq(aircraftScheduleBlocks.kind, "hold"),
+          ),
+        )
+        .limit(1);
+      return row;
+    },
+
+    async insertHold(values) {
+      try {
+        const [row] = await db.insert(aircraftScheduleBlocks).values(values).returning({ id: aircraftScheduleBlocks.id });
+        return row;
+      } catch (e) {
+        // The partial unique index (migration 0032) catches the race where two people both
+        // passed the duplicate check.
+        if (isUniqueViolation(e)) throw new HoldTaken();
+        throw e;
+      }
+    },
+
+    async holdById(id) {
+      const [row] = await db
+        .select({
+          id: aircraftScheduleBlocks.id,
+          kind: aircraftScheduleBlocks.kind,
+          relatedQuoteId: aircraftScheduleBlocks.relatedQuoteId,
+          aircraftId: aircraftScheduleBlocks.aircraftId,
+          tailNumber: aircraft.tailNumber,
+        })
+        .from(aircraftScheduleBlocks)
+        .leftJoin(aircraft, eq(aircraft.id, aircraftScheduleBlocks.aircraftId))
+        .where(eq(aircraftScheduleBlocks.id, id))
+        .limit(1);
+      return row;
+    },
+
+    async deleteHold(id) {
+      await db.delete(aircraftScheduleBlocks).where(eq(aircraftScheduleBlocks.id, id));
+    },
+
+    async operatorLike(pattern) {
+      const [row] = await db
+        .select({
+          id: operators.id,
+          name: operators.name,
+          status: operators.status,
+          argusRating: operators.argusRating,
+          wyvernWingman: operators.wyvernWingman,
+          isbaoStage: operators.isbaoStage,
+          insuranceRenewsOn: operators.insuranceRenewsOn,
+          nextAuditOn: operators.nextAuditOn,
+        })
+        .from(operators)
+        .where(ilike(operators.name, pattern))
+        .limit(1);
+      return row;
+    },
+
+    async nextOptionNumber(quoteId) {
+      const [{ maxNum }] = await db
+        .select({ maxNum: sql<number>`coalesce(max(${sourcedOptions.optionNumber}), 0)` })
+        .from(sourcedOptions)
+        .where(eq(sourcedOptions.quoteId, quoteId));
+      return Number(maxNum) + 1;
+    },
+
+    async insertOption(values) {
+      const [row] = await db.insert(sourcedOptions).values(values).returning({ id: sourcedOptions.id });
+      return row;
+    },
+
+    async optionOf(quoteId, optionId) {
+      const [row] = await db
+        .select()
+        .from(sourcedOptions)
+        .where(and(eq(sourcedOptions.id, optionId), eq(sourcedOptions.quoteId, quoteId)))
+        .limit(1);
+      return row;
+    },
+
+    async updateOption(id, fields, now) {
+      await db
+        .update(sourcedOptions)
+        .set({ ...fields, updatedAt: now })
+        .where(eq(sourcedOptions.id, id));
+    },
+
+    async chooseOption(quoteId, optionId, now) {
+      await db.transaction(async (tx) => {
+        await tx.update(sourcedOptions).set({ isChosen: false, updatedAt: now }).where(eq(sourcedOptions.quoteId, quoteId));
+        await tx
+          .update(sourcedOptions)
+          .set({ isChosen: true, status: "shortlisted", updatedAt: now })
+          .where(eq(sourcedOptions.id, optionId));
+      });
+    },
+
+    async deleteOption(id) {
+      await db.delete(sourcedOptions).where(eq(sourcedOptions.id, id));
+    },
+
+    async quoteIdForOption(optionId) {
+      const [row] = await db
+        .select({ quoteId: sourcedOptions.quoteId })
+        .from(sourcedOptions)
+        .where(eq(sourcedOptions.id, optionId))
+        .limit(1);
+      return row?.quoteId;
     },
   };
 }

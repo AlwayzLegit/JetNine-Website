@@ -12,13 +12,16 @@ import { sourcedOptions } from "@/db/d1/schema/sourced-option";
 import { staff } from "@/db/d1/schema/staff";
 import { trips } from "@/db/d1/schema/trips";
 import { users } from "@/db/d1/schema/users";
+import { isUniqueViolation } from "@/db/unique";
 import { likePattern } from "@/domain/common";
+import { HoldTaken } from "./store";
 import { d1RequestStore } from "./store-d1";
 
 // OPS-154: contract tests for the D1 request store (the desk's request list and request page,
 // the SLA watch, the smoke prune and the reports export), on a real SQLite with the repo's own
 // D1 migrations applied, foreign keys on and a batch that is one transaction, as D1 has them.
-// Each case is the call the Postgres adapter answers.
+// Each case is the call the Postgres adapter answers. OPS-155 adds the desk's commands (status,
+// messages, send options, assign, link a client, holds, options) at the end of the file.
 
 const DAY = 86_400_000;
 const NOW = new Date("2026-11-17T20:00:00.000Z");
@@ -442,4 +445,259 @@ test("exportRows: first and last leg, leg count, the chosen option's price once 
   assert.equal(r4.email, null);
 
   assert.equal((await store.exportRows(start, 2)).length, 2);
+});
+
+// ─── The desk's commands (OPS-155) ─────────────────────────────────────────────────────────
+
+const stamp = (d: Date | null | undefined) => (d ? new Date(d).getTime() : null);
+
+test("setStatus writes the status, and responded_at only when one is given", async () => {
+  const { client, store } = fresh();
+  const id = await quote(client, "submitted");
+  await store.setStatus(id, "triaged", undefined);
+  let [row] = await client.select().from(quotes).where(eq(quotes.id, id));
+  assert.equal(row.status, "triaged");
+  assert.equal(row.respondedAt, null, "an undefined respondedAt leaves the column alone");
+
+  await store.setStatus(id, "held", NOW);
+  [row] = await client.select().from(quotes).where(eq(quotes.id, id));
+  assert.equal(row.status, "held");
+  assert.equal(stamp(row.respondedAt), NOW.getTime());
+
+  const head = await store.quoteForStatus(id);
+  assert.equal(head?.status, "held");
+  assert.match(head?.code ?? "", /^JN-2026-/);
+  assert.equal(head?.contactSnapshot?.firstName, "Ada");
+  assert.equal(await store.quoteForStatus("00000000-0000-4000-8000-000000000000"), undefined);
+  assert.equal((await store.quoteHead(id))?.id, id);
+});
+
+test("memberContact joins the account's email; memberUserId reads the user id alone", async () => {
+  const { client, store } = fresh();
+  const userId = await user(client, { email: "client@example.com" } as never);
+  const [m] = await client.insert(members).values({ userId, memberCode: "M-2026-0900" }).returning({ id: members.id });
+  assert.deepEqual(await store.memberContact(m.id), { userId, email: "client@example.com" });
+  assert.deepEqual(await store.memberUserId(m.id), { userId });
+  assert.equal(await store.memberContact("nobody"), undefined);
+  assert.equal(await store.memberUserId("nobody"), undefined);
+  assert.equal((await store.memberById(m.id))?.memberCode, "M-2026-0900");
+  assert.equal(await store.memberById("nobody"), undefined);
+});
+
+test("quoteForMessage and quoteForSendOptions return the fields the commands read", async () => {
+  const { client, store } = fresh();
+  const id = await quote(client, "sourcing", { paxCount: 5, statusToken: "tok-1" } as never);
+  const msg = await store.quoteForMessage(id);
+  assert.equal(msg?.id, id);
+  assert.equal(msg?.contactSnapshot?.email, "ada@example.com");
+  const send = await store.quoteForSendOptions(id);
+  assert.equal(send?.paxCount, 5);
+  assert.equal(send?.status, "sourcing");
+  assert.equal(send?.statusToken, "tok-1");
+  assert.equal(await store.quoteForSendOptions("nope"), undefined);
+});
+
+test("vettedOptions keeps only the options that passed the safety floor, in option order; legRoute is in leg order", async () => {
+  const { client, store } = fresh();
+  const id = await quote(client, "sourcing");
+  await option(client, id, 3, { safetyFloorPassed: true, clientPriceUsd: 3 });
+  await option(client, id, 1, { safetyFloorPassed: true, clientPriceUsd: 1 });
+  await option(client, id, 2, { safetyFloorPassed: false, clientPriceUsd: 2 });
+  const vetted = await store.vettedOptions(id);
+  assert.deepEqual(vetted.map((o) => o.optionNumber), [1, 3]);
+  assert.equal(vetted[0].safetyFloorPassed, true, "booleans come back as booleans");
+
+  await leg(client, id, 2, { fromIata: "TEB", toIata: "VNY" } as never);
+  await leg(client, id, 1, { fromIata: "VNY", toIata: "TEB" } as never);
+  assert.deepEqual(await store.legRoute(id), [
+    { fromIata: "VNY", toIata: "TEB" },
+    { fromIata: "TEB", toIata: "VNY" },
+  ]);
+});
+
+test("markOptionsSent flips only the given options (more than one chunk) and moves an early request to options_sent", async () => {
+  const { client, store } = fresh();
+  const id = await quote(client, "sourcing");
+  const other = await quote(client, "sourcing");
+  for (let i = 1; i <= 60; i++) await option(client, id, i, { clientPriceUsd: i });
+  await option(client, id, 61, { clientPriceUsd: 61 }); // not in the list
+  await option(client, other, 1, { clientPriceUsd: 1 }); // another request
+  const all = await client.select().from(sourcedOptions).where(eq(sourcedOptions.quoteId, id));
+  const ids = all.filter((o) => o.optionNumber <= 60).map((o) => o.id);
+
+  await store.markOptionsSent(id, ids, NOW);
+
+  const after = await client.select().from(sourcedOptions).where(eq(sourcedOptions.quoteId, id));
+  assert.equal(after.filter((o) => o.status === "sent_to_client").length, 60);
+  assert.equal(after.find((o) => o.optionNumber === 61)?.status, "sourced");
+  const [o2] = await client.select().from(sourcedOptions).where(eq(sourcedOptions.quoteId, other));
+  assert.equal(o2.status, "sourced");
+  const [q] = await client.select().from(quotes).where(eq(quotes.id, id));
+  assert.equal(q.status, "options_sent");
+  assert.equal(stamp(q.respondedAt), NOW.getTime());
+});
+
+test("markOptionsSent leaves a request that moved on (accepted) alone", async () => {
+  const { client, store } = fresh();
+  const id = await quote(client, "accepted", { respondedAt: ago(DAY) });
+  await option(client, id, 1, { clientPriceUsd: 5 });
+  const [o] = await client.select().from(sourcedOptions).where(eq(sourcedOptions.quoteId, id));
+  await store.markOptionsSent(id, [o.id], NOW);
+  const [q] = await client.select().from(quotes).where(eq(quotes.id, id));
+  assert.equal(q.status, "accepted", "never pulled back");
+  assert.equal(stamp(q.respondedAt), ago(DAY).getTime());
+  const [o2] = await client.select().from(sourcedOptions).where(eq(sourcedOptions.id, o.id));
+  assert.equal(o2.status, "sent_to_client", "the options still flip");
+});
+
+test("assign and linkMember write the dispatcher and the client; null clears them", async () => {
+  const { client, store } = fresh();
+  const id = await quote(client, "submitted");
+  const staffId = await dispatcher(client, "Dee Dispatch");
+  const memberId = await member(client);
+
+  assert.deepEqual(await store.staffById(staffId), { id: staffId, displayName: "Dee Dispatch" });
+  assert.equal(await store.staffById("nobody"), undefined);
+
+  await store.assign(id, staffId);
+  await store.linkMember(id, memberId, NOW);
+  let head = await store.quoteForAssign(id);
+  assert.equal(head?.assignedDispatcherId, staffId);
+  let link = await store.quoteForLink(id);
+  assert.equal(link?.memberId, memberId);
+  assert.equal(link?.convertedTripId, null);
+  const [row] = await client.select().from(quotes).where(eq(quotes.id, id));
+  assert.equal(stamp(row.updatedAt), NOW.getTime());
+
+  await store.assign(id, null);
+  await store.linkMember(id, null, NOW);
+  head = await store.quoteForAssign(id);
+  link = await store.quoteForLink(id);
+  assert.equal(head?.assignedDispatcherId, null);
+  assert.equal(link?.memberId, null);
+});
+
+test("soft holds: place one, find it, a second for the same request and aircraft throws HoldTaken, release removes it", async () => {
+  const { client, store } = fresh();
+  const id = await quote(client, "sourcing");
+  const other = await quote(client, "sourcing");
+  const op = await operator(client, "Acme Jets");
+  const tail = await plane(client, op, "N100AB");
+  const userId = await user(client);
+
+  assert.deepEqual(await store.aircraftById(tail), { id: tail, tailNumber: "N100AB", status: "available" });
+  assert.equal(await store.aircraftById("nobody"), undefined);
+  assert.equal((await store.quoteForHold(id))?.status, "sourcing");
+  assert.equal(await store.holdFor(id, tail), undefined);
+
+  const values = { aircraftId: tail, kind: "hold" as const, startAt: NOW, endAt: new Date(NOW.getTime() + 4 * 3_600_000), relatedQuoteId: id, notes: "JN", createdByUserId: userId };
+  const { id: blockId } = await store.insertHold(values as never);
+  assert.ok(blockId);
+  assert.deepEqual(await store.holdFor(id, tail), { id: blockId });
+
+  await assert.rejects(() => store.insertHold(values as never), (e) => e instanceof HoldTaken);
+  // Another request may hold the same aircraft; a non-hold block is no duplicate.
+  await store.insertHold({ ...values, relatedQuoteId: other } as never);
+
+  const block = await store.holdById(blockId);
+  assert.deepEqual(block, { id: blockId, kind: "hold", relatedQuoteId: id, aircraftId: tail, tailNumber: "N100AB" });
+  assert.equal(await store.holdById("nobody"), undefined);
+
+  await store.deleteHold(blockId);
+  assert.equal(await store.holdById(blockId), undefined);
+  assert.equal(await store.holdFor(id, tail), undefined);
+  // Released, it can be placed again.
+  await store.insertHold(values as never);
+});
+
+test("holdLegs sorts by date then time with undated legs last, as Postgres does", async () => {
+  const { client, store } = fresh();
+  const id = await quote(client, "sourcing");
+  await leg(client, id, 1, { departDate: null, departTime: null } as never);
+  await leg(client, id, 2, { departDate: "2026-12-02", departTime: "09:00" } as never);
+  await leg(client, id, 3, { departDate: "2026-12-01", departTime: null } as never);
+  await leg(client, id, 4, { departDate: "2026-12-01", departTime: "08:30" } as never);
+  const legs = await store.holdLegs(id);
+  assert.deepEqual(legs, [
+    { departDate: "2026-12-01", departTime: "08:30" },
+    { departDate: "2026-12-01", departTime: null },
+    { departDate: "2026-12-02", departTime: "09:00" },
+    { departDate: null, departTime: null },
+  ]);
+});
+
+test("operatorLike matches a name by a %text% pattern, any case", async () => {
+  const { client, store } = fresh();
+  await operator(client, "Acme Jets", { argusRating: "gold", wyvernWingman: true } as never);
+  await operator(client, "Zenith Air");
+  const a = await store.operatorLike("%acme%");
+  assert.equal(a?.name, "Acme Jets");
+  assert.equal(a?.argusRating, "gold");
+  assert.equal(a?.wyvernWingman, true);
+  assert.equal((await store.operatorLike("%ACME%"))?.name, "Acme Jets");
+  assert.equal((await store.operatorLike("%zen%"))?.name, "Zenith Air");
+  assert.equal(await store.operatorLike("%nothing%"), undefined);
+  // The wildcard is the caller's, as on Postgres: a lone underscore matches one character.
+  assert.equal((await store.operatorLike("%Zenith _ir%"))?.name, "Zenith Air");
+});
+
+test("options: the next number is 1, then the highest plus one; a second option with the same number fails on the unique index", async () => {
+  const { client, store } = fresh();
+  const id = await quote(client, "sourcing");
+  assert.equal(await store.nextOptionNumber(id), 1);
+  const first = await store.insertOption({ quoteId: id, optionNumber: 1, aircraftType: "Citation XLS", markupType: "percent", markupValue: "12", operatorCostUsd: 10_000, clientPriceUsd: 11_200 });
+  assert.ok(first.id);
+  await store.insertOption({ quoteId: id, optionNumber: 5 });
+  assert.equal(await store.nextOptionNumber(id), 6);
+  await assert.rejects(
+    () => store.insertOption({ quoteId: id, optionNumber: 5 }),
+    (e) => isUniqueViolation(e),
+  );
+
+  const row = await store.optionOf(id, first.id);
+  assert.equal(row?.aircraftType, "Citation XLS");
+  assert.equal(row?.markupValue, "12");
+  assert.equal(row?.isChosen, false);
+  assert.equal(row?.safetyFloorPassed, false);
+  assert.equal(await store.quoteIdForOption(first.id), id);
+  assert.equal(await store.quoteIdForOption("nobody"), undefined);
+  // An option of another request is none.
+  const other = await quote(client, "sourcing");
+  assert.equal(await store.optionOf(other, first.id), undefined);
+});
+
+test("updateOption changes the given fields and bumps updated_at; deleteOption removes the row", async () => {
+  const { client, store } = fresh();
+  const id = await quote(client, "sourcing");
+  const { id: optionId } = await store.insertOption({ quoteId: id, optionNumber: 1, aircraftType: "Phenom 300" });
+  await store.updateOption(optionId, { aircraftType: "Challenger 350", operatorMatched: true, safetyFloorPassed: true, clientPriceUsd: 42_000, isFloatingFleet: true }, NOW);
+  const row = await store.optionOf(id, optionId);
+  assert.equal(row?.aircraftType, "Challenger 350");
+  assert.equal(row?.operatorMatched, true);
+  assert.equal(row?.safetyFloorPassed, true);
+  assert.equal(row?.isFloatingFleet, true);
+  assert.equal(row?.clientPriceUsd, 42_000);
+  assert.equal(stamp(row?.updatedAt), NOW.getTime());
+
+  await store.deleteOption(optionId);
+  assert.equal(await store.optionOf(id, optionId), undefined);
+});
+
+test("chooseOption leaves exactly one chosen, shortlisted option on the request and touches no other request", async () => {
+  const { client, store } = fresh();
+  const id = await quote(client, "sourcing");
+  const other = await quote(client, "sourcing");
+  const a = await store.insertOption({ quoteId: id, optionNumber: 1 });
+  const b = await store.insertOption({ quoteId: id, optionNumber: 2 });
+  const o = await store.insertOption({ quoteId: other, optionNumber: 1 });
+  await client.update(sourcedOptions).set({ isChosen: true }).where(eq(sourcedOptions.id, o.id));
+
+  await store.chooseOption(id, a.id, NOW);
+  await store.chooseOption(id, b.id, NOW);
+
+  const rows = await client.select().from(sourcedOptions).where(eq(sourcedOptions.quoteId, id));
+  assert.deepEqual(rows.filter((r) => r.isChosen).map((r) => r.id), [b.id]);
+  assert.equal(rows.find((r) => r.id === b.id)?.status, "shortlisted");
+  const [untouched] = await client.select().from(sourcedOptions).where(eq(sourcedOptions.id, o.id));
+  assert.equal(untouched.isChosen, true, "another request's chosen option stays chosen");
 });

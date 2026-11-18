@@ -14,7 +14,8 @@ import { trips } from "@/db/d1/schema/trips";
 import { users } from "@/db/d1/schema/users";
 import { OPEN_REQUEST_STATUSES } from "@/lib/desk-status";
 import { IS_SMOKE_D1, NOT_SMOKE_D1 } from "@/domain/smoke-d1";
-import type { RequestStaffRow, RequestStore } from "./store";
+import { isUniqueViolation } from "@/db/unique";
+import { HoldTaken, type RequestStaffRow, type RequestStore } from "./store";
 
 // The D1 (SQLite) side of the request store (OPS-154). Same methods and the same results as
 // store-pg.ts, on the D1 twin tables (src/db/d1/schema, OPS-100). The client is passed in so
@@ -28,6 +29,12 @@ import type { RequestStaffRow, RequestStore } from "./store";
 // - Every timestamp is integer milliseconds. Drizzle maps a Date for a column; in raw SQL the
 //   caller binds getTime().
 // - D1 allows 100 bound values per statement: the id lists are read and written in chunks of 50.
+// - OPS-155 (the desk's commands): the two multi-statement writes (markOptionsSent,
+//   chooseOption) are one db.batch each, which D1 runs as one transaction. The request's
+//   move to options_sent carries its status condition in the WHERE. Postgres sorts NULL dates
+//   last and SQLite first, so the hold legs sort on "is null" first to keep the earliest dated leg
+//   first. A duplicate soft hold fails on the unique index
+//   ("UNIQUE constraint failed: aircraft_schedule_blocks...") and becomes HoldTaken.
 // - No interactive transaction from a Worker: the prune is atomic batches, and every
 //   statement repeats the guard that picked the rows, so a quote that got a trip between the
 //   read and the batch keeps its messages and itself.
@@ -429,6 +436,311 @@ export function d1RequestStore(db: D1Client): RequestStore {
         .orderBy(desc(quotes.receivedAt))
         .limit(limit);
       return rows.map((r) => ({ ...r, legs: Number(r.legs) }));
+    },
+
+    // ─── The desk's commands (OPS-155): the same calls as store-pg.ts on the D1 twins ─────
+
+    async quoteHead(id) {
+      const [row] = await db.select({ id: quotes.id, code: quotes.quoteCode }).from(quotes).where(eq(quotes.id, id)).limit(1);
+      return row;
+    },
+
+    async quoteForStatus(id) {
+      const [row] = await db
+        .select({
+          id: quotes.id,
+          status: quotes.status,
+          code: quotes.quoteCode,
+          memberId: quotes.memberId,
+          contactSnapshot: quotes.contactSnapshot,
+        })
+        .from(quotes)
+        .where(eq(quotes.id, id))
+        .limit(1);
+      return row as Awaited<ReturnType<RequestStore["quoteForStatus"]>>;
+    },
+
+    async memberContact(memberId) {
+      const [row] = await db
+        .select({ userId: members.userId, email: users.email })
+        .from(members)
+        .innerJoin(users, eq(users.id, members.userId))
+        .where(eq(members.id, memberId));
+      return row;
+    },
+
+    async memberUserId(memberId) {
+      const [row] = await db.select({ userId: members.userId }).from(members).where(eq(members.id, memberId));
+      return row;
+    },
+
+    async setStatus(id, status, respondedAt) {
+      // An undefined respondedAt is left out of the SET, as on Postgres.
+      await db.update(quotes).set({ status, respondedAt }).where(eq(quotes.id, id));
+    },
+
+    async quoteForMessage(id) {
+      const [row] = await db
+        .select({
+          id: quotes.id,
+          code: quotes.quoteCode,
+          memberId: quotes.memberId,
+          contactSnapshot: quotes.contactSnapshot,
+        })
+        .from(quotes)
+        .where(eq(quotes.id, id))
+        .limit(1);
+      return row as Awaited<ReturnType<RequestStore["quoteForMessage"]>>;
+    },
+
+    async quoteForSendOptions(id) {
+      const [row] = await db
+        .select({
+          id: quotes.id,
+          code: quotes.quoteCode,
+          status: quotes.status,
+          paxCount: quotes.paxCount,
+          memberId: quotes.memberId,
+          contactSnapshot: quotes.contactSnapshot,
+          statusToken: quotes.statusToken,
+        })
+        .from(quotes)
+        .where(eq(quotes.id, id))
+        .limit(1);
+      return row as Awaited<ReturnType<RequestStore["quoteForSendOptions"]>>;
+    },
+
+    async vettedOptions(quoteId) {
+      const rows = await db
+        .select()
+        .from(sourcedOptions)
+        .where(and(eq(sourcedOptions.quoteId, quoteId), eq(sourcedOptions.safetyFloorPassed, true)))
+        .orderBy(asc(sourcedOptions.optionNumber));
+      return rows as Awaited<ReturnType<RequestStore["vettedOptions"]>>;
+    },
+
+    async legRoute(quoteId) {
+      return db
+        .select({ fromIata: quoteLegs.fromIata, toIata: quoteLegs.toIata })
+        .from(quoteLegs)
+        .where(eq(quoteLegs.quoteId, quoteId))
+        .orderBy(asc(quoteLegs.legNumber));
+    },
+
+    // One batch: the options in chunks of 50 ids (D1 binds 100 values a statement), then the
+    // request's move with its condition in the WHERE. One transaction, all or nothing.
+    async markOptionsSent(quoteId, optionIds, now) {
+      const flips = chunks(optionIds).map((part) =>
+        db
+          .update(sourcedOptions)
+          .set({ status: "sent_to_client", updatedAt: now })
+          .where(and(eq(sourcedOptions.quoteId, quoteId), inArray(sourcedOptions.id, part))),
+      );
+      const advance = db
+        .update(quotes)
+        .set({ status: "options_sent", respondedAt: now, updatedAt: now })
+        .where(and(eq(quotes.id, quoteId), inArray(quotes.status, ["submitted", "triaged", "sourcing"])));
+      await db.batch([...flips, advance] as unknown as [typeof advance]);
+    },
+
+    async quoteForAssign(id) {
+      const [row] = await db
+        .select({ id: quotes.id, code: quotes.quoteCode, assignedDispatcherId: quotes.assignedDispatcherId })
+        .from(quotes)
+        .where(eq(quotes.id, id))
+        .limit(1);
+      return row;
+    },
+
+    async staffById(id) {
+      const [row] = await db
+        .select({ id: staff.id, displayName: staff.displayName })
+        .from(staff)
+        .where(eq(staff.id, id))
+        .limit(1);
+      return row;
+    },
+
+    async assign(quoteId, staffId) {
+      await db.update(quotes).set({ assignedDispatcherId: staffId }).where(eq(quotes.id, quoteId));
+    },
+
+    async quoteForLink(id) {
+      const [row] = await db
+        .select({ id: quotes.id, code: quotes.quoteCode, memberId: quotes.memberId, convertedTripId: quotes.convertedTripId })
+        .from(quotes)
+        .where(eq(quotes.id, id))
+        .limit(1);
+      return row;
+    },
+
+    async memberById(id) {
+      const [row] = await db
+        .select({ id: members.id, memberCode: members.memberCode })
+        .from(members)
+        .where(eq(members.id, id))
+        .limit(1);
+      return row;
+    },
+
+    async linkMember(quoteId, memberId, now) {
+      await db.update(quotes).set({ memberId, updatedAt: now }).where(eq(quotes.id, quoteId));
+    },
+
+    async quoteForHold(id) {
+      const [row] = await db
+        .select({ id: quotes.id, code: quotes.quoteCode, status: quotes.status })
+        .from(quotes)
+        .where(eq(quotes.id, id))
+        .limit(1);
+      return row as Awaited<ReturnType<RequestStore["quoteForHold"]>>;
+    },
+
+    async aircraftById(id) {
+      const [row] = await db
+        .select({ id: aircraft.id, tailNumber: aircraft.tailNumber, status: aircraft.status })
+        .from(aircraft)
+        .where(eq(aircraft.id, id))
+        .limit(1);
+      return row;
+    },
+
+    async holdLegs(quoteId) {
+      return db
+        .select({ departDate: quoteLegs.departDate, departTime: quoteLegs.departTime })
+        .from(quoteLegs)
+        .where(eq(quoteLegs.quoteId, quoteId))
+        // Postgres puts NULL last when ascending; SQLite puts it first, so say it.
+        .orderBy(
+          sql`${quoteLegs.departDate} is null`,
+          asc(quoteLegs.departDate),
+          sql`${quoteLegs.departTime} is null`,
+          asc(quoteLegs.departTime),
+        );
+    },
+
+    async holdFor(quoteId, aircraftId) {
+      const [row] = await db
+        .select({ id: aircraftScheduleBlocks.id })
+        .from(aircraftScheduleBlocks)
+        .where(
+          and(
+            eq(aircraftScheduleBlocks.aircraftId, aircraftId),
+            eq(aircraftScheduleBlocks.relatedQuoteId, quoteId),
+            eq(aircraftScheduleBlocks.kind, "hold"),
+          ),
+        )
+        .limit(1);
+      return row;
+    },
+
+    async insertHold(values) {
+      try {
+        // The id comes from the column default (crypto.randomUUID()).
+        const [row] = await db
+          .insert(aircraftScheduleBlocks)
+          .values(values as never)
+          .returning({ id: aircraftScheduleBlocks.id });
+        return row;
+      } catch (e) {
+        if (isUniqueViolation(e)) throw new HoldTaken();
+        throw e;
+      }
+    },
+
+    async holdById(id) {
+      const [row] = await db
+        .select({
+          id: aircraftScheduleBlocks.id,
+          kind: aircraftScheduleBlocks.kind,
+          relatedQuoteId: aircraftScheduleBlocks.relatedQuoteId,
+          aircraftId: aircraftScheduleBlocks.aircraftId,
+          tailNumber: aircraft.tailNumber,
+        })
+        .from(aircraftScheduleBlocks)
+        .leftJoin(aircraft, eq(aircraft.id, aircraftScheduleBlocks.aircraftId))
+        .where(eq(aircraftScheduleBlocks.id, id))
+        .limit(1);
+      return row;
+    },
+
+    async deleteHold(id) {
+      await db.delete(aircraftScheduleBlocks).where(eq(aircraftScheduleBlocks.id, id));
+    },
+
+    // The pattern is the caller's `%text%`, not escaped, as on Postgres (where ilike's own
+    // escape character is the backslash too).
+    async operatorLike(pattern) {
+      const [row] = await db
+        .select({
+          id: operators.id,
+          name: operators.name,
+          status: operators.status,
+          argusRating: operators.argusRating,
+          wyvernWingman: operators.wyvernWingman,
+          isbaoStage: operators.isbaoStage,
+          insuranceRenewsOn: operators.insuranceRenewsOn,
+          nextAuditOn: operators.nextAuditOn,
+        })
+        .from(operators)
+        .where(ilike(sql`${operators.name}`, pattern))
+        .limit(1);
+      return row as Awaited<ReturnType<RequestStore["operatorLike"]>>;
+    },
+
+    async nextOptionNumber(quoteId) {
+      const [{ maxNum }] = await db
+        .select({ maxNum: sql<number>`coalesce(max(${sourcedOptions.optionNumber}), 0)` })
+        .from(sourcedOptions)
+        .where(eq(sourcedOptions.quoteId, quoteId));
+      return Number(maxNum) + 1;
+    },
+
+    async insertOption(values) {
+      const [row] = await db
+        .insert(sourcedOptions)
+        .values(values as never)
+        .returning({ id: sourcedOptions.id });
+      return row;
+    },
+
+    async optionOf(quoteId, optionId) {
+      const [row] = await db
+        .select()
+        .from(sourcedOptions)
+        .where(and(eq(sourcedOptions.id, optionId), eq(sourcedOptions.quoteId, quoteId)))
+        .limit(1);
+      return row as Awaited<ReturnType<RequestStore["optionOf"]>>;
+    },
+
+    async updateOption(id, fields, now) {
+      await db
+        .update(sourcedOptions)
+        .set({ ...fields, updatedAt: now } as never)
+        .where(eq(sourcedOptions.id, id));
+    },
+
+    // Two updates, nothing read between them: one batch, one transaction.
+    async chooseOption(quoteId, optionId, now) {
+      const clear = db.update(sourcedOptions).set({ isChosen: false, updatedAt: now }).where(eq(sourcedOptions.quoteId, quoteId));
+      const pick = db
+        .update(sourcedOptions)
+        .set({ isChosen: true, status: "shortlisted", updatedAt: now })
+        .where(eq(sourcedOptions.id, optionId));
+      await db.batch([clear, pick]);
+    },
+
+    async deleteOption(id) {
+      await db.delete(sourcedOptions).where(eq(sourcedOptions.id, id));
+    },
+
+    async quoteIdForOption(optionId) {
+      const [row] = await db
+        .select({ quoteId: sourcedOptions.quoteId })
+        .from(sourcedOptions)
+        .where(eq(sourcedOptions.id, optionId))
+        .limit(1);
+      return row?.quoteId;
     },
   };
 }

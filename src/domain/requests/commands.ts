@@ -1,4 +1,4 @@
-import { and, asc, eq, ilike, inArray, sql } from "drizzle-orm";
+import { and, asc, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { syncTripScheduleBlock } from "@/domain/trips/schedule-block";
 import { nextCode } from "@/db/codes";
@@ -7,11 +7,9 @@ import type { NewMessage } from "@/db/schema/audit";
 import { messageStore } from "@/domain/messages/store";
 import { invoices, type NewInvoice } from "@/db/schema/invoices";
 import { members } from "@/db/schema/members";
-import { operators } from "@/db/schema/operators";
 import { quoteLegs, quotes, quoteStatusEnum, type Quote } from "@/db/schema/quotes";
 import { aircraftScheduleBlocks, type NewAircraftScheduleBlock } from "@/db/schema/schedule-blocks";
 import { sourcedOptions, type NewSourcedOption, type SourcedOption } from "@/db/schema/sourced-option";
-import { staff } from "@/db/schema/staff";
 import { tripLegs, trips, type NewTrip, type NewTripLeg } from "@/db/schema/trips";
 import { users } from "@/db/schema/users";
 import { logAudit } from "@/lib/audit";
@@ -25,6 +23,7 @@ import { isE164, toE164 } from "@/lib/phone";
 import { statusUrl } from "@/lib/request-status";
 import { auditFields, type Actor } from "@/domain/actor";
 import { isUuid } from "@/domain/common";
+import { HoldTaken, requestStore, type RequestOperatorRow } from "./store";
 import { err, ok, type Result } from "@/domain/result";
 import {
   OPTION_MONEY_FIELDS,
@@ -88,26 +87,13 @@ export type RequestStatusState = {
 
 export async function loadRequestForStatus(input: RequestStatusInput): Promise<Result<RequestStatusState>> {
   if (!isUuid(input.id)) return err("not_found", NOT_FOUND);
-  const [quote] = await db
-    .select({
-      id: quotes.id,
-      status: quotes.status,
-      code: quotes.quoteCode,
-      memberId: quotes.memberId,
-      contactSnapshot: quotes.contactSnapshot,
-    })
-    .from(quotes)
-    .where(eq(quotes.id, input.id))
-    .limit(1);
+  const store = requestStore();
+  const quote = await store.quoteForStatus(input.id);
   if (!quote) return err("not_found", NOT_FOUND);
 
   let clientEmail = quote.contactSnapshot?.email?.trim() || null;
   if (!clientEmail && quote.memberId) {
-    const [m] = await db
-      .select({ email: users.email })
-      .from(members)
-      .innerJoin(users, eq(users.id, members.userId))
-      .where(eq(members.id, quote.memberId));
+    const m = await store.memberContact(quote.memberId);
     clientEmail = m?.email ?? null;
   }
   const isSmoke =
@@ -137,10 +123,7 @@ export async function setRequestStatus(
 ): Promise<Result<{ id: string; status: RequestStatus }>> {
   const { quote } = state;
 
-  await db
-    .update(quotes)
-    .set({ status: input.status, respondedAt: respondedAtPatch(input.status) })
-    .where(eq(quotes.id, quote.id));
+  await requestStore().setStatus(quote.id, input.status, respondedAtPatch(input.status));
 
   const a = auditFields(actor);
   await logAudit({
@@ -273,16 +256,8 @@ export type RequestMessageState = {
 
 export async function loadRequestForMessage(input: RequestMessageInput): Promise<Result<RequestMessageState>> {
   if (!isUuid(input.id)) return err("not_found", NOT_FOUND);
-  const [quote] = await db
-    .select({
-      id: quotes.id,
-      code: quotes.quoteCode,
-      memberId: quotes.memberId,
-      contactSnapshot: quotes.contactSnapshot,
-    })
-    .from(quotes)
-    .where(eq(quotes.id, input.id))
-    .limit(1);
+  const store = requestStore();
+  const quote = await store.quoteForMessage(input.id);
   if (!quote) return err("not_found", NOT_FOUND);
 
   // Phone channels want E.164. Post-launch requests store it normalised at
@@ -303,7 +278,7 @@ export async function loadRequestForMessage(input: RequestMessageInput): Promise
   // The linked client's user id, so their inbox query joins cleanly.
   let toUserId: string | null = null;
   if (quote.memberId) {
-    const [m] = await db.select({ userId: members.userId }).from(members).where(eq(members.id, quote.memberId));
+    const m = await store.memberUserId(quote.memberId);
     toUserId = m?.userId ?? null;
   }
 
@@ -391,30 +366,15 @@ export type SendOptionsState = {
 
 export async function loadRequestForSendOptions(input: SendOptionsInput): Promise<Result<SendOptionsState>> {
   if (!isUuid(input.id)) return err("not_found", NOT_FOUND);
-  const [quote] = await db
-    .select({
-      id: quotes.id,
-      code: quotes.quoteCode,
-      status: quotes.status,
-      paxCount: quotes.paxCount,
-      memberId: quotes.memberId,
-      contactSnapshot: quotes.contactSnapshot,
-      statusToken: quotes.statusToken,
-    })
-    .from(quotes)
-    .where(eq(quotes.id, input.id))
-    .limit(1);
+  const store = requestStore();
+  const quote = await store.quoteForSendOptions(input.id);
   if (!quote) return err("not_found", NOT_FOUND);
 
   // Recipient: contact snapshot first, the client's account email as fallback.
   let toEmail = quote.contactSnapshot?.email?.trim() || null;
   let toUserId: string | null = null;
   if (quote.memberId) {
-    const [m] = await db
-      .select({ userId: members.userId, email: users.email })
-      .from(members)
-      .innerJoin(users, eq(users.id, members.userId))
-      .where(eq(members.id, quote.memberId));
+    const m = await store.memberContact(quote.memberId);
     toUserId = m?.userId ?? null;
     if (!toEmail) toEmail = m?.email ?? null;
   }
@@ -422,19 +382,11 @@ export async function loadRequestForSendOptions(input: SendOptionsInput): Promis
 
   // Sendable = vetted operator + priced. Blocked or unmatched options never
   // reach the client by construction.
-  const opts = await db
-    .select()
-    .from(sourcedOptions)
-    .where(and(eq(sourcedOptions.quoteId, quote.id), eq(sourcedOptions.safetyFloorPassed, true)))
-    .orderBy(asc(sourcedOptions.optionNumber));
+  const opts = await store.vettedOptions(quote.id);
   const sendable = opts.filter((o) => o.clientPriceUsd != null && o.clientPriceUsd > 0);
   if (sendable.length === 0) return err("conflict", "No sendable options — need vetted + priced");
 
-  const legs = await db
-    .select({ fromIata: quoteLegs.fromIata, toIata: quoteLegs.toIata })
-    .from(quoteLegs)
-    .where(eq(quoteLegs.quoteId, quote.id))
-    .orderBy(asc(quoteLegs.legNumber));
+  const legs = await store.legRoute(quote.id);
   const route = legs.map((l) => `${l.fromIata ?? "—"} → ${l.toIata ?? "—"}`).join(" · ") || "your route";
 
   const items: QuoteOptionEmailItem[] = sendable.map((o) => {
@@ -510,25 +462,13 @@ export async function sendRequestOptions(
     deliveredAt: delivery === "sent" ? new Date() : null,
   });
 
-  // Flip the sent options and advance the request (never regress a later state).
-  await db
-    .update(sourcedOptions)
-    .set({ status: "sent_to_client", updatedAt: new Date() })
-    .where(
-      and(
-        eq(sourcedOptions.quoteId, quote.id),
-        inArray(
-          sourcedOptions.id,
-          sendable.map((o) => o.id),
-        ),
-      ),
-    );
-  if (["submitted", "triaged", "sourcing"].includes(quote.status)) {
-    await db
-      .update(quotes)
-      .set({ status: "options_sent", respondedAt: new Date(), updatedAt: new Date() })
-      .where(eq(quotes.id, quote.id));
-  }
+  // Flip the sent options and advance the request (never regress a later state: the move
+  // to options_sent carries its status condition in the WHERE).
+  await requestStore().markOptionsSent(
+    quote.id,
+    sendable.map((o) => o.id),
+    new Date(),
+  );
 
   const a = auditFields(actor);
   await logAudit({
@@ -554,21 +494,14 @@ export type RequestAssignState = {
 
 export async function loadRequestForAssign(input: RequestAssignInput): Promise<Result<RequestAssignState>> {
   if (!isUuid(input.id)) return err("not_found", NOT_FOUND);
-  const [quote] = await db
-    .select({ id: quotes.id, code: quotes.quoteCode, assignedDispatcherId: quotes.assignedDispatcherId })
-    .from(quotes)
-    .where(eq(quotes.id, input.id))
-    .limit(1);
+  const store = requestStore();
+  const quote = await store.quoteForAssign(input.id);
   if (!quote) return err("not_found", NOT_FOUND);
 
   let who: RequestAssignState["staff"] = null;
   if (input.staffId) {
     if (!isUuid(input.staffId)) return err("invalid", "Unknown dispatcher");
-    const [s] = await db
-      .select({ id: staff.id, displayName: staff.displayName })
-      .from(staff)
-      .where(eq(staff.id, input.staffId))
-      .limit(1);
+    const s = await store.staffById(input.staffId);
     if (!s) return err("invalid", "Unknown dispatcher");
     who = s;
   }
@@ -581,7 +514,7 @@ export async function assignRequest(
   state: RequestAssignState,
 ): Promise<Result<{ id: string; staffId: string | null }>> {
   const { quote } = state;
-  await db.update(quotes).set({ assignedDispatcherId: input.staffId }).where(eq(quotes.id, quote.id));
+  await requestStore().assign(quote.id, input.staffId);
 
   const a = auditFields(actor);
   await logAudit({
@@ -610,22 +543,15 @@ export type RequestLinkClientState = {
 
 export async function loadRequestForLinkClient(input: RequestLinkClientInput): Promise<Result<RequestLinkClientState>> {
   if (!isUuid(input.id)) return err("not_found", NOT_FOUND);
-  const [q] = await db
-    .select({ id: quotes.id, code: quotes.quoteCode, memberId: quotes.memberId, convertedTripId: quotes.convertedTripId })
-    .from(quotes)
-    .where(eq(quotes.id, input.id))
-    .limit(1);
+  const store = requestStore();
+  const q = await store.quoteForLink(input.id);
   if (!q) return err("not_found", NOT_FOUND);
   if (q.convertedTripId) return err("conflict", "Quote already converted — member is locked to the trip");
 
   let member: RequestLinkClientState["member"] = null;
   if (input.memberId) {
     if (!isUuid(input.memberId)) return err("invalid", "Member not found");
-    const [m] = await db
-      .select({ id: members.id, memberCode: members.memberCode })
-      .from(members)
-      .where(eq(members.id, input.memberId))
-      .limit(1);
+    const m = await store.memberById(input.memberId);
     if (!m) return err("invalid", "Member not found");
     member = m;
   }
@@ -639,7 +565,7 @@ export async function linkRequestClient(
 ): Promise<Result<{ id: string; memberId: string | null; memberCode: string | null }>> {
   const { quote } = state;
   const memberCode = state.member?.memberCode ?? null;
-  await db.update(quotes).set({ memberId: input.memberId, updatedAt: new Date() }).where(eq(quotes.id, quote.id));
+  await requestStore().linkMember(quote.id, input.memberId, new Date());
 
   const a = auditFields(actor);
   await logAudit({
@@ -676,28 +602,17 @@ export type HoldCreateState = {
 export async function loadRequestForHoldCreate(input: HoldCreateInput): Promise<Result<HoldCreateState>> {
   if (!isUuid(input.id)) return err("not_found", NOT_FOUND);
   if (!isUuid(input.aircraftId)) return err("invalid", "Aircraft not found");
-  const [q] = await db
-    .select({ id: quotes.id, code: quotes.quoteCode, status: quotes.status })
-    .from(quotes)
-    .where(eq(quotes.id, input.id))
-    .limit(1);
+  const store = requestStore();
+  const q = await store.quoteForHold(input.id);
   if (!q) return err("not_found", NOT_FOUND);
   if (HOLD_BLOCKED_STATUSES.includes(q.status)) return err("conflict", `Quote is ${q.status} — can't soft-hold`);
 
-  const [ac] = await db
-    .select({ id: aircraft.id, tailNumber: aircraft.tailNumber, status: aircraft.status })
-    .from(aircraft)
-    .where(eq(aircraft.id, input.aircraftId))
-    .limit(1);
+  const ac = await store.aircraftById(input.aircraftId);
   if (!ac) return err("invalid", "Aircraft not found");
   if (ac.status === "sold") return err("conflict", "Aircraft is sold");
 
   // Derive the window from the request's legs.
-  const legs = await db
-    .select({ departDate: quoteLegs.departDate, departTime: quoteLegs.departTime })
-    .from(quoteLegs)
-    .where(eq(quoteLegs.quoteId, q.id))
-    .orderBy(asc(quoteLegs.departDate), asc(quoteLegs.departTime));
+  const legs = await store.holdLegs(q.id);
   if (legs.length === 0) return err("conflict", "Quote has no legs");
 
   function legAt(d: string | null, t: string | null): Date | null {
@@ -717,17 +632,7 @@ export async function loadRequestForHoldCreate(input: HoldCreateInput): Promise<
   if (endAt <= startAt) return err("conflict", "Computed hold window is degenerate");
 
   // Soft holds are idempotent against (request, aircraft).
-  const [dup] = await db
-    .select({ id: aircraftScheduleBlocks.id })
-    .from(aircraftScheduleBlocks)
-    .where(
-      and(
-        eq(aircraftScheduleBlocks.aircraftId, ac.id),
-        eq(aircraftScheduleBlocks.relatedQuoteId, q.id),
-        eq(aircraftScheduleBlocks.kind, "hold"),
-      ),
-    )
-    .limit(1);
+  const dup = await store.holdFor(q.id, ac.id);
   if (dup) return err("conflict", "Already holding this aircraft for this quote");
 
   return ok({ quote: q, aircraft: { id: ac.id, tailNumber: ac.tailNumber }, startAt, endAt });
@@ -750,7 +655,7 @@ export async function createHold(
   };
 
   try {
-    const [row] = await db.insert(aircraftScheduleBlocks).values(values).returning({ id: aircraftScheduleBlocks.id });
+    const row = await requestStore().insertHold(values);
 
     const a = auditFields(actor);
     await logAudit({
@@ -773,7 +678,7 @@ export async function createHold(
   } catch (e) {
     // The partial unique index (migration 0032) catches the race where two
     // people both passed the dup-check above. Same friendly message.
-    if (isUniqueViolation(e)) return err("conflict", "Already holding this aircraft for this quote");
+    if (e instanceof HoldTaken || isUniqueViolation(e)) return err("conflict", "Already holding this aircraft for this quote");
     console.error("createHold failed", e);
     return err("internal", "DB_INSERT_FAILED");
   }
@@ -787,25 +692,11 @@ export type HoldReleaseState = {
 export async function loadRequestForHoldRelease(input: HoldReleaseInput): Promise<Result<HoldReleaseState>> {
   if (!isUuid(input.id)) return err("not_found", NOT_FOUND);
   if (!isUuid(input.blockId)) return err("not_found", "Hold not found");
-  const [q] = await db
-    .select({ id: quotes.id, code: quotes.quoteCode })
-    .from(quotes)
-    .where(eq(quotes.id, input.id))
-    .limit(1);
+  const store = requestStore();
+  const q = await store.quoteHead(input.id);
   if (!q) return err("not_found", NOT_FOUND);
 
-  const [target] = await db
-    .select({
-      id: aircraftScheduleBlocks.id,
-      kind: aircraftScheduleBlocks.kind,
-      relatedQuoteId: aircraftScheduleBlocks.relatedQuoteId,
-      aircraftId: aircraftScheduleBlocks.aircraftId,
-      tailNumber: aircraft.tailNumber,
-    })
-    .from(aircraftScheduleBlocks)
-    .leftJoin(aircraft, eq(aircraft.id, aircraftScheduleBlocks.aircraftId))
-    .where(eq(aircraftScheduleBlocks.id, input.blockId))
-    .limit(1);
+  const target = await store.holdById(input.blockId);
   if (!target) return err("not_found", "Hold not found");
   if (target.relatedQuoteId !== q.id || target.kind !== "hold") return err("conflict", "Not a soft hold on this quote");
 
@@ -818,7 +709,7 @@ export async function releaseHold(
   state: HoldReleaseState,
 ): Promise<Result<{ blockId: string }>> {
   const { quote, block } = state;
-  await db.delete(aircraftScheduleBlocks).where(eq(aircraftScheduleBlocks.id, block.id));
+  await requestStore().deleteHold(block.id);
 
   const a = auditFields(actor);
   await logAudit({
@@ -845,37 +736,19 @@ export function computeClientPrice(costUsd: number | null, markupType: "percent"
   return markupType === "flat" ? costUsd + Math.round(markupValue) : Math.round(costUsd * (1 + markupValue / 100));
 }
 
-type MatchedOperator = {
-  id: string;
-  name: string;
-  status: string;
-  argusRating: (typeof operators.$inferSelect)["argusRating"];
-  wyvernWingman: boolean;
-  isbaoStage: number | null;
-  insuranceRenewsOn: string | null;
-  nextAuditOn: string | null;
-};
+type MatchedOperator = RequestOperatorRow;
 
 // Fuzzy-match a pasted Avinode seller name against the operators table: try
 // a full contains-match, then fall back to the first token.
 async function reconcileOperator(nameRaw: string | null): Promise<MatchedOperator | null> {
   const q = nameRaw?.trim();
   if (!q || q.length < 2) return null;
-  const cols = {
-    id: operators.id,
-    name: operators.name,
-    status: operators.status,
-    argusRating: operators.argusRating,
-    wyvernWingman: operators.wyvernWingman,
-    isbaoStage: operators.isbaoStage,
-    insuranceRenewsOn: operators.insuranceRenewsOn,
-    nextAuditOn: operators.nextAuditOn,
-  };
-  const [full] = await db.select(cols).from(operators).where(ilike(operators.name, `%${q}%`)).limit(1);
+  const store = requestStore();
+  const full = await store.operatorLike(`%${q}%`);
   if (full) return full;
   const first = q.split(/\s+/)[0];
   if (first.length >= 3) {
-    const [tok] = await db.select(cols).from(operators).where(ilike(operators.name, `%${first}%`)).limit(1);
+    const tok = await store.operatorLike(`%${first}%`);
     if (tok) return tok;
   }
   return null;
@@ -1009,17 +882,10 @@ export type OptionAddState = {
 
 export async function loadRequestForOptionAdd(input: OptionAddInput): Promise<Result<OptionAddState>> {
   if (!isUuid(input.id)) return err("not_found", NOT_FOUND);
-  const [quote] = await db
-    .select({ id: quotes.id, code: quotes.quoteCode })
-    .from(quotes)
-    .where(eq(quotes.id, input.id))
-    .limit(1);
+  const store = requestStore();
+  const quote = await store.quoteHead(input.id);
   if (!quote) return err("not_found", NOT_FOUND);
-  const [{ maxNum }] = await db
-    .select({ maxNum: sql<number>`coalesce(max(${sourcedOptions.optionNumber}), 0)` })
-    .from(sourcedOptions)
-    .where(eq(sourcedOptions.quoteId, quote.id));
-  return ok({ quote, optionNumber: Number(maxNum) + 1 });
+  return ok({ quote, optionNumber: await store.nextOptionNumber(quote.id) });
 }
 
 export async function addOption(
@@ -1032,10 +898,7 @@ export async function addOption(
   const { quote, optionNumber } = state;
   const built = await buildOptionValues(input, EMPTY_OPTION);
 
-  const [row] = await db
-    .insert(sourcedOptions)
-    .values({ quoteId: quote.id, optionNumber, ...built.fields })
-    .returning({ id: sourcedOptions.id });
+  const row = await requestStore().insertOption({ quoteId: quote.id, optionNumber, ...built.fields });
 
   const a = auditFields(actor);
   await logAudit({
@@ -1066,17 +929,10 @@ export type OptionState = {
 export async function loadRequestOption(input: OptionRefInput): Promise<Result<OptionState>> {
   if (!isUuid(input.id)) return err("not_found", NOT_FOUND);
   if (!isUuid(input.optionId)) return err("not_found", "Option not found");
-  const [quote] = await db
-    .select({ id: quotes.id, code: quotes.quoteCode })
-    .from(quotes)
-    .where(eq(quotes.id, input.id))
-    .limit(1);
+  const store = requestStore();
+  const quote = await store.quoteHead(input.id);
   if (!quote) return err("not_found", NOT_FOUND);
-  const [option] = await db
-    .select()
-    .from(sourcedOptions)
-    .where(and(eq(sourcedOptions.id, input.optionId), eq(sourcedOptions.quoteId, quote.id)))
-    .limit(1);
+  const option = await store.optionOf(quote.id, input.optionId);
   if (!option) return err("not_found", "Option not found");
   return ok({ quote, option });
 }
@@ -1091,10 +947,7 @@ export async function updateOption(
   const { quote, option } = state;
   const built = await buildOptionValues(input, optionBase(option));
 
-  await db
-    .update(sourcedOptions)
-    .set({ ...built.fields, updatedAt: new Date() })
-    .where(eq(sourcedOptions.id, option.id));
+  await requestStore().updateOption(option.id, built.fields, new Date());
 
   const a = auditFields(actor);
   await logAudit({
@@ -1136,16 +989,7 @@ export async function chooseOption(
   state: OptionState,
 ): Promise<Result<{ optionId: string }>> {
   const { quote, option } = state;
-  await db.transaction(async (tx) => {
-    await tx
-      .update(sourcedOptions)
-      .set({ isChosen: false, updatedAt: new Date() })
-      .where(eq(sourcedOptions.quoteId, quote.id));
-    await tx
-      .update(sourcedOptions)
-      .set({ isChosen: true, status: "shortlisted", updatedAt: new Date() })
-      .where(eq(sourcedOptions.id, option.id));
-  });
+  await requestStore().chooseOption(quote.id, option.id, new Date());
 
   const a = auditFields(actor);
   await logAudit({
@@ -1166,7 +1010,7 @@ export async function removeOption(
   state: OptionState,
 ): Promise<Result<{ optionId: string }>> {
   const { quote, option } = state;
-  await db.delete(sourcedOptions).where(eq(sourcedOptions.id, option.id));
+  await requestStore().deleteOption(option.id);
 
   const a = auditFields(actor);
   await logAudit({

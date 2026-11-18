@@ -82,7 +82,7 @@ test("each insert path calls nextCode for its kind", () => {
     ["src/app/quote/actions.ts", "quote"],
     ["src/domain/requests/commands.ts", "trip"],
     ["src/domain/requests/commands.ts", "invoice"],
-    ["src/domain/clients/commands.ts", "member"],
+    ["src/domain/members/store-pg.ts", "member"],
     ["src/domain/empty-legs/store-pg.ts", "empty_leg"],
   ];
   for (const [file, kind] of sites) {

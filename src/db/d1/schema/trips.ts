@@ -1,5 +1,6 @@
 // D1 (SQLite) twin of src/db/schema/trips.ts (OPS-100). Same export names, same SQL table
 // and column names. Mapping: see DEPLOY.md "D1 tables (OPS-100)".
+import { sql } from "drizzle-orm";
 import { index, integer, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
 import { enumCheck, newId, nowDate } from "../helpers";
 import { tripMissionEnum, tripStatusEnum } from "../../schema/trips";
@@ -80,6 +81,8 @@ export const trips = sqliteTable(
     index("trips_member_idx").on(t.memberId),
     index("trips_dispatcher_idx").on(t.assignedDispatcherId),
     index("trips_quote_idx").on(t.quoteId),
+    // Migration 0032 (Postgres), carried over by OPS-149: one trip per quote.
+    uniqueIndex("trips_quote_id_uniq").on(t.quoteId).where(sql`${t.quoteId} is not null`),
     enumCheck("trips_mission_type_enum", t.missionType, tripMissionEnum.enumValues),
     enumCheck("trips_status_enum", t.status, tripStatusEnum.enumValues),
   ]);

@@ -1,6 +1,7 @@
 // D1 (SQLite) twin of src/db/schema/memberships.ts (OPS-100). Same export names, same SQL table
 // and column names. Mapping: see DEPLOY.md "D1 tables (OPS-100)".
-import { index, integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import { sql } from "drizzle-orm";
+import { index, integer, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
 import { enumCheck, newId, nowDate, todayText } from "../helpers";
 import { membershipProgramEnum, membershipStatusEnum, reserveTxKindEnum } from "../../schema/memberships";
 import { cateringTierEnum } from "../../schema/enums";
@@ -69,6 +70,8 @@ export const memberships = sqliteTable(
   (t) => [
     index("memberships_member_idx").on(t.memberId, t.status),
     index("memberships_program_idx").on(t.program),
+    // Migration 0032 (Postgres), carried over by OPS-149: at most one active membership per member.
+    uniqueIndex("memberships_active_per_member_uniq").on(t.memberId).where(sql`${t.status} = 'active'`),
     enumCheck("memberships_program_enum", t.program, membershipProgramEnum.enumValues),
     enumCheck("memberships_catering_included_tier_enum", t.cateringIncludedTier, cateringTierEnum.enumValues),
     enumCheck("memberships_status_enum", t.status, membershipStatusEnum.enumValues),
@@ -118,6 +121,13 @@ export const reserveTransactions = sqliteTable(
     index("reserve_transactions_membership_idx").on(t.membershipId),
     index("reserve_transactions_trip_idx").on(t.tripId),
     index("reserve_transactions_invoice_idx").on(t.invoiceId),
+    // Migration 0032 (Postgres), carried over by OPS-149: one top-up per Stripe payment intent, one refund per draw.
+    uniqueIndex("reserve_tx_top_up_per_intent_uniq")
+      .on(t.stripePaymentIntentId)
+      .where(sql`${t.kind} = 'top_up' and ${t.stripePaymentIntentId} is not null`),
+    uniqueIndex("reserve_tx_refund_per_draw_uniq")
+      .on(t.tripId, t.invoiceId)
+      .where(sql`${t.kind} = 'refund' and ${t.tripId} is not null and ${t.invoiceId} is not null`),
     enumCheck("reserve_transactions_kind_enum", t.kind, reserveTxKindEnum.enumValues),
   ]);
 

@@ -253,6 +253,23 @@ async function checkApiKeyLookup(): Promise<void> {
   });
 }
 
+// The account area reads the member store whichever database sits behind it (OPS-149). With no
+// session cookie, /account must send the visitor to the sign-in page (requireUser redirects to
+// /sign-in?next=...). The redirect is not followed, so this proves the app answered without
+// reading a member row and leaks nothing. Printed so staging and production can be compared.
+async function checkAccountSignInRedirect(): Promise<void> {
+  await check("GET /account (no cookie, redirect)", "required", async () => {
+    const r = await read(`${TARGET}/account`, { redirect: "manual" });
+    if (r.status < 300 || r.status >= 400) {
+      return { ok: false, detail: `unexpected ${r.status} (expected a redirect to /sign-in)` };
+    }
+    const loc = r.headers.get("location") ?? "";
+    if (!/\/sign-in(\?|$)/.test(loc)) return { ok: false, detail: `${r.status} → ${loc.slice(0, 60)} (expected /sign-in)` };
+    console.log("account sign-in redirect: ok");
+    return { ok: true, detail: `${r.status} → ${loc.slice(0, 60)}` };
+  });
+}
+
 // ─── Agent context sign-in ───────────────────────────────────────────────
 
 // The assistant's read endpoint signs in with the same key lookup as /me, so this shows the
@@ -509,6 +526,7 @@ async function main() {
   await checkEmptyLegsBoard();
   await checkWatchlistConfirmLookup();
   await checkApiKeyLookup();
+  await checkAccountSignInRedirect();
   await checkAgentContextLookup();
   await checkStripeWebhook();
   await checkEmailInbound();

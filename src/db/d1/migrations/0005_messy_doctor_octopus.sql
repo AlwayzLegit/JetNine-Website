@@ -1,0 +1,5 @@
+CREATE UNIQUE INDEX `trips_quote_id_uniq` ON `trips` (`quote_id`) WHERE "trips"."quote_id" is not null;--> statement-breakpoint
+CREATE UNIQUE INDEX `memberships_active_per_member_uniq` ON `memberships` (`member_id`) WHERE "memberships"."status" = 'active';--> statement-breakpoint
+CREATE UNIQUE INDEX `reserve_tx_top_up_per_intent_uniq` ON `reserve_transactions` (`stripe_payment_intent_id`) WHERE "reserve_transactions"."kind" = 'top_up' and "reserve_transactions"."stripe_payment_intent_id" is not null;--> statement-breakpoint
+CREATE UNIQUE INDEX `reserve_tx_refund_per_draw_uniq` ON `reserve_transactions` (`trip_id`,`invoice_id`) WHERE "reserve_transactions"."kind" = 'refund' and "reserve_transactions"."trip_id" is not null and "reserve_transactions"."invoice_id" is not null;--> statement-breakpoint
+CREATE UNIQUE INDEX `schedule_blocks_hold_per_quote_aircraft_uniq` ON `aircraft_schedule_blocks` (`aircraft_id`,`related_quote_id`) WHERE "aircraft_schedule_blocks"."kind" = 'hold' and "aircraft_schedule_blocks"."related_quote_id" is not null;

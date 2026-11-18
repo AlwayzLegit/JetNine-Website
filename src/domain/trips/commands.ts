@@ -1,13 +1,9 @@
-import { and, eq, inArray, sql } from "drizzle-orm";
-import { db } from "@/db";
+import { isUniqueViolation } from "@/db/unique";
 import { tripStore, type TripStatusPatch } from "./store";
 import type { NewMessage } from "@/db/schema/audit";
 import { messageStore } from "@/domain/messages/store";
-import { invoices, type Invoice } from "@/db/schema/invoices";
-import { members } from "@/db/schema/members";
-import { reserveTransactions, type NewReserveTransaction } from "@/db/schema/memberships";
-import { trips, tripStatusEnum } from "@/db/schema/trips";
-import { users } from "@/db/schema/users";
+import type { Invoice } from "@/db/schema/invoices";
+import { tripStatusEnum } from "@/db/schema/trips";
 import { logAudit } from "@/lib/audit";
 import {
   isNotifiableTripStatus,
@@ -19,6 +15,7 @@ import {
 } from "@/lib/email";
 import { auditFields, type Actor } from "@/domain/actor";
 import { isUuid } from "@/domain/common";
+import { invoiceStore, type DraftInvoicePatch, type RefundRow } from "@/domain/invoices/store";
 import { postThreadMessage } from "@/domain/requests/commands";
 import { err, ok, type Result } from "@/domain/result";
 import type { InvoiceUpdateInput, TripMessageInput, TripStatusInput } from "./schemas";
@@ -399,70 +396,45 @@ async function refundChartDrawsForTrip(args: {
   // both the cancel→confirm→cancel cycle (where a previous cancel already
   // posted refunds) and a partial racer. The partial unique index
   // `reserve_tx_refund_per_draw_uniq` (migration 0032) is the final
-  // backstop against the concurrent-cancel race; the NOT EXISTS guard here
-  // keeps it from throwing in the common single-writer case.
-  const draws = await db
-    .select({
-      id: reserveTransactions.id,
-      memberId: reserveTransactions.memberId,
-      membershipId: reserveTransactions.membershipId,
-      amountUsd: reserveTransactions.amountUsd,
-      invoiceId: reserveTransactions.invoiceId,
-    })
-    .from(reserveTransactions)
-    .where(
-      and(
-        eq(reserveTransactions.tripId, args.tripId),
-        eq(reserveTransactions.kind, "charter_draw"),
-        sql`not exists (
-          select 1 from ${reserveTransactions} r
-          where r.trip_id = ${reserveTransactions.tripId}
-            and r.invoice_id is not distinct from ${reserveTransactions.invoiceId}
-            and r.kind = 'refund'
-        )`,
-      ),
-    );
+  // backstop against the concurrent-cancel race; the NOT EXISTS guard in
+  // the store keeps it from throwing in the common single-writer case.
+  const store = invoiceStore();
+  const draws = await store.unrefundedDraws(args.tripId);
 
   if (draws.length === 0) return null;
 
   let totalUsd = 0;
   const refundedInvoiceIds = new Set<string>();
-  try {
-    await db.transaction(async (tx) => {
-      for (const d of draws) {
-        // charter_draws are stored as negative amounts; the refund is the
-        // signed opposite (positive) so the balance returns to pre-flight.
-        const refundAmount = -d.amountUsd;
-        const refundRow: NewReserveTransaction = {
-          memberId: d.memberId,
-          membershipId: d.membershipId,
-          kind: "refund",
-          amountUsd: refundAmount,
-          description: `Refund — trip ${args.tripCode ?? args.tripId.slice(0, 8)} (${args.reason})`,
-          tripId: args.tripId,
-          invoiceId: d.invoiceId,
-        };
-        await tx.insert(reserveTransactions).values(refundRow);
-        totalUsd += refundAmount;
-        if (d.invoiceId) refundedInvoiceIds.add(d.invoiceId);
-      }
+  const refunds: RefundRow[] = [];
+  for (const d of draws) {
+    // charter_draws are stored as negative amounts; the refund is the
+    // signed opposite (positive) so the balance returns to pre-flight.
+    const refundAmount = -d.amountUsd;
+    refunds.push({
+      memberId: d.memberId,
+      membershipId: d.membershipId,
+      amountUsd: refundAmount,
+      description: `Refund — trip ${args.tripCode ?? args.tripId.slice(0, 8)} (${args.reason})`,
+      invoiceId: d.invoiceId,
+    });
+    totalUsd += refundAmount;
+    if (d.invoiceId) refundedInvoiceIds.add(d.invoiceId);
+  }
 
-      if (refundedInvoiceIds.size > 0) {
-        await tx
-          .update(invoices)
-          .set({
-            status: "void",
-            notes: sql`coalesce(${invoices.notes} || E'\n', '') || ${`Voided on trip cancel (${args.reason})`}`,
-            updatedAt: new Date(),
-          })
-          .where(inArray(invoices.id, Array.from(refundedInvoiceIds)));
-      }
+  try {
+    // One write for the refunds and the voided invoices, all or nothing (a
+    // Postgres transaction, or one D1 batch).
+    await store.postDrawRefunds({
+      tripId: args.tripId,
+      refunds,
+      voidInvoiceIds: Array.from(refundedInvoiceIds),
+      note: `Voided on trip cancel (${args.reason})`,
     });
   } catch (e) {
     // The partial unique index can fire when two cancellations race even
     // after the NOT EXISTS guard. The other writer has already posted the
     // refunds — fall through with null.
-    if ((e as { code?: string }).code === "23505") {
+    if (isUniqueViolation(e)) {
       console.warn("[trip.cancel.refund] lost race to concurrent cancellation", { tripId: args.tripId, reason: args.reason });
       return null;
     }
@@ -502,16 +474,8 @@ async function refundCardPaymentsForTrip(args: {
   const { isStripeConfigured, refundPaymentIntent } = await import("@/lib/stripe");
   if (!isStripeConfigured()) return null;
 
-  const paidRows = await db
-    .select({
-      id: invoices.id,
-      invoiceCode: invoices.invoiceCode,
-      memberId: invoices.memberId,
-      totalUsd: invoices.totalUsd,
-      stripePaymentIntentId: invoices.stripePaymentIntentId,
-    })
-    .from(invoices)
-    .where(and(eq(invoices.tripId, args.tripId), eq(invoices.status, "paid")));
+  const store = invoiceStore();
+  const paidRows = await store.paidInvoicesOfTrip(args.tripId);
   const refundable = paidRows.filter((r) => r.stripePaymentIntentId);
   if (refundable.length === 0) return null;
 
@@ -525,10 +489,7 @@ async function refundCardPaymentsForTrip(args: {
     if (result.ok) {
       // Guard on status='paid' so a concurrent runner can't double-book the
       // ledger state; Stripe already refuses a duplicate full refund.
-      await db
-        .update(invoices)
-        .set({ status: "void", updatedAt: new Date() })
-        .where(and(eq(invoices.id, inv.id), eq(invoices.status, "paid")));
+      await store.voidPaidInvoice(inv.id);
       refunded += 1;
       totalUsd += result.amountUsd ?? inv.totalUsd ?? 0;
 
@@ -552,12 +513,8 @@ async function refundCardPaymentsForTrip(args: {
       // Customer refund notice — best-effort.
       try {
         if (inv.memberId) {
-          const [m] = await db
-            .select({ email: users.email, firstName: users.firstName })
-            .from(members)
-            .innerJoin(users, eq(users.id, members.userId))
-            .where(eq(members.id, inv.memberId));
-          if (m?.email) {
+          const m = await store.memberContact(inv.memberId);
+          if (m) {
             await sendRefundIssuedEmail({
               to: m.email,
               firstName: m.firstName || "Hello",
@@ -636,14 +593,15 @@ export function resolvedInvoiceFigures(input: InvoiceUpdateInput, state: Invoice
 
 export async function loadInvoiceForUpdate(input: InvoiceUpdateInput): Promise<Result<InvoiceUpdateState>> {
   if (!isUuid(input.id)) return err("not_found", INVOICE_NOT_FOUND);
-  const [inv] = await db.select().from(invoices).where(eq(invoices.id, input.id));
+  const store = invoiceStore();
+  const inv = await store.invoiceById(input.id);
   if (!inv) return err("not_found", INVOICE_NOT_FOUND);
   if (inv.status !== "draft") return err("conflict", `Invoice is ${inv.status} — only drafts are editable`);
 
   let trip: InvoiceUpdateState["trip"] = null;
   if (inv.tripId) {
-    const [t] = await db.select({ id: trips.id, code: trips.tripCode }).from(trips).where(eq(trips.id, inv.tripId));
-    trip = t ?? null;
+    const code = await store.tripCode(inv.tripId);
+    trip = code === null ? null : { id: inv.tripId, code };
   }
   const state = { invoice: inv, trip };
 
@@ -670,13 +628,12 @@ export async function updateInvoice(
   const dueOn = input.dueOn ?? null;
   const a = auditFields(actor);
 
-  const patch: Partial<typeof invoices.$inferInsert> = {
+  const patch: DraftInvoicePatch = {
     subtotalUsd,
     fetUsd,
     segmentFeeUsd,
     totalUsd,
     notes,
-    updatedAt: new Date(),
   };
   if (dueOn !== null) patch.dueOn = dueOn;
 
@@ -693,13 +650,10 @@ export async function updateInvoice(
 
   // Constrain to status='draft' so a concurrent finalize can't be
   // double-applied; empty result means someone else moved it first.
-  const updated = await db
-    .update(invoices)
-    .set(patch)
-    .where(and(eq(invoices.id, inv.id), eq(invoices.status, "draft")))
-    .returning({ id: invoices.id });
+  const store = invoiceStore();
+  const wrote = await store.updateDraftInvoice(inv.id, patch);
 
-  if (updated.length === 0) return err("conflict", "Invoice changed under you — reload the sheet");
+  if (!wrote) return err("conflict", "Invoice changed under you — reload the sheet");
 
   const diff: Record<string, unknown> = {
     subtotalUsd: { before: inv.subtotalUsd, after: subtotalUsd },
@@ -726,17 +680,9 @@ export async function updateInvoice(
   // them discover the invoice by browsing /account/invoices. Best-effort.
   if (intent === "finalize" && inv.memberId && totalUsd !== null) {
     try {
-      const [m] = await db
-        .select({ email: users.email, firstName: users.firstName })
-        .from(members)
-        .innerJoin(users, eq(users.id, members.userId))
-        .where(eq(members.id, inv.memberId));
-      if (m?.email) {
-        let tripCode: string | null = null;
-        if (inv.tripId) {
-          const [t] = await db.select({ tripCode: trips.tripCode }).from(trips).where(eq(trips.id, inv.tripId));
-          tripCode = t?.tripCode ?? null;
-        }
+      const m = await store.memberContact(inv.memberId);
+      if (m) {
+        const tripCode = inv.tripId ? await store.tripCode(inv.tripId) : null;
         await sendInvoiceIssuedEmail({
           to: m.email,
           firstName: m.firstName || "Hello",

@@ -1,9 +1,6 @@
 "use server";
 
-import { and, eq, inArray, isNull, or, sql } from "drizzle-orm";
-import { db } from "@/db";
-import { invoices } from "@/db/schema/invoices";
-import { members } from "@/db/schema/members";
+import { CHECKOUT_CLAIM_TTL_MS, invoiceStore } from "@/domain/invoices/store";
 import { logAudit } from "@/lib/audit";
 import { requireUser, type CurrentUser } from "@/lib/auth";
 import {
@@ -33,8 +30,7 @@ function isPlaceholderSession(id: string | null): boolean {
 // by default; 30 min covers the realistic abandon window. After this,
 // the user can re-claim the invoice (and the orphaned session will
 // either expire silently or land on Stripe's side without a webhook
-// follow-up).
-const CHECKOUT_CLAIM_TTL = sql`interval '30 minutes'`;
+// follow-up). The window is CHECKOUT_CLAIM_TTL_MS in the invoice store.
 
 /**
  * Member-triggered pay-now. Validates ownership + status, creates a
@@ -61,19 +57,7 @@ export async function startInvoiceCheckout(invoiceId: string): Promise<PayResult
   const user = await requireUser("/account/invoices");
 
   // Confirm the invoice exists, is payable, and belongs to this user.
-  const [row] = await db
-    .select({
-      id: invoices.id,
-      invoiceCode: invoices.invoiceCode,
-      status: invoices.status,
-      totalUsd: invoices.totalUsd,
-      memberId: invoices.memberId,
-      memberUserId: members.userId,
-    })
-    .from(invoices)
-    .leftJoin(members, eq(members.id, invoices.memberId))
-    .where(eq(invoices.id, invoiceId))
-    .limit(1);
+  const row = await invoiceStore().invoiceWithOwner(invoiceId);
 
   if (!row) return { ok: false, error: "NOT_FOUND" };
   if (row.memberUserId !== user.id) return { ok: false, error: "FORBIDDEN" };
@@ -119,23 +103,15 @@ async function mintCheckout(
   // sentinel — the real session id replaces it on the post-Stripe stamp
   // below, and the TTL clause lets a stale claim be reclaimed.
   const claimToken = `pending:${crypto.randomUUID()}`;
-  const claimed = await db
-    .update(invoices)
-    .set({ stripeCheckoutSessionId: claimToken, updatedAt: new Date() })
-    .where(
-      and(
-        eq(invoices.id, row.id),
-        eq(invoices.memberId, row.memberId),
-        inArray(invoices.status, ["due", "overdue"]),
-        or(
-          isNull(invoices.stripeCheckoutSessionId),
-          sql`${invoices.updatedAt} < now() - ${CHECKOUT_CLAIM_TTL}`,
-        ),
-      ),
-    )
-    .returning({ id: invoices.id });
+  const store = invoiceStore();
+  const claimed = await store.claimCheckout({
+    id: row.id,
+    memberId: row.memberId,
+    token: claimToken,
+    staleBeforeMs: Date.now() - CHECKOUT_CLAIM_TTL_MS,
+  });
 
-  if (claimed.length === 0) {
+  if (!claimed) {
     // Another writer holds a fresh claim. Rather than dead-ending the
     // member on PAYMENT_IN_PROGRESS, inspect what's actually there: a
     // resumable open session, an already-complete payment, or a stale
@@ -154,12 +130,7 @@ async function mintCheckout(
     });
   } catch (err) {
     // Release the claim so the user can retry without waiting out the TTL.
-    await db
-      .update(invoices)
-      .set({ stripeCheckoutSessionId: null, updatedAt: new Date() })
-      .where(
-        and(eq(invoices.id, row.id), eq(invoices.stripeCheckoutSessionId, claimToken)),
-      );
+    await store.releaseCheckout(row.id, claimToken);
     if (err instanceof StripeAmountTooLargeError) {
       // Ops surfaces this on the trip sheet and routes to wire + the
       // customer sees a hint instead of a generic "something broke".
@@ -176,12 +147,7 @@ async function mintCheckout(
   // Replace the placeholder with the real session id. Constrained to the
   // claim token so a webhook that arrived during the Stripe round-trip
   // (unlikely but possible if metadata routes oddly) doesn't get clobbered.
-  await db
-    .update(invoices)
-    .set({ stripeCheckoutSessionId: session.sessionId, updatedAt: new Date() })
-    .where(
-      and(eq(invoices.id, row.id), eq(invoices.stripeCheckoutSessionId, claimToken)),
-    );
+  await store.stampCheckout(row.id, claimToken, session.sessionId);
 
   await logAudit({
     actorUserId: user.id,
@@ -214,14 +180,8 @@ async function resumeCheckout(
   user: CurrentUser,
   attempt: number,
 ): Promise<PayResult> {
-  const [cur] = await db
-    .select({
-      sessionId: invoices.stripeCheckoutSessionId,
-      status: invoices.status,
-    })
-    .from(invoices)
-    .where(eq(invoices.id, row.id))
-    .limit(1);
+  const store = invoiceStore();
+  const cur = await store.checkoutState(row.id);
 
   if (!cur) return { ok: false, error: "NOT_FOUND" };
 
@@ -267,12 +227,7 @@ async function resumeCheckout(
   // Expired (or an unexpected null status). Clear the stale binding —
   // guarded to the exact id we just read so we don't clobber a racer —
   // then mint a fresh session. Bounded to a single re-mint.
-  await db
-    .update(invoices)
-    .set({ stripeCheckoutSessionId: null, updatedAt: new Date() })
-    .where(
-      and(eq(invoices.id, row.id), eq(invoices.stripeCheckoutSessionId, cur.sessionId!)),
-    );
+  await store.clearCheckout(row.id, cur.sessionId!);
 
   if (attempt >= 1) {
     return { ok: false, error: "PAYMENT_IN_PROGRESS" };

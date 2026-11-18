@@ -7,6 +7,10 @@
  */
 import { DETAIL_WORDS } from "./probes.mjs";
 
+// The fixed vocabulary of the alert log (OPS-169); anything else stored is cut to null or dropped.
+const LOG_TYPES = ["start", "reminder", "recovery", "test"];
+const LOG_RESULTS = ["sent", "skipped", "failed"];
+
 export const STATUS_MAX_AGE_MS = 45 * 60 * 1000;
 
 const clip = (s, n = 80) => String(s ?? "").slice(0, n);
@@ -43,6 +47,10 @@ export function publicStatus(raw, now, { alertsConfigured, quietUntilMs }) {
       }),
       canary: canary ? { ok: canary.ok === true, ms: num(canary.ms) } : null,
       alerts: alertsConfigured ? "configured" : "not configured",
+      // Each send of an alert mail and its outcome, never an address, a subject or a provider body.
+      alerts_log: list(s.alertLog, 20)
+        .filter((a) => a && typeof a === "object" && LOG_TYPES.includes(a.type) && LOG_RESULTS.includes(a.result))
+        .map((a) => ({ at: iso(a.at), type: a.type, result: a.result, code: typeof a.code === "number" && Number.isFinite(a.code) ? a.code : null })),
       quietUntil: iso(quietUntilMs),
       wouldHaveRaised: list(s.wouldHaveRaised, 20).map((w) => ({ at: iso(w?.at), checks: names(w?.checks) })),
       incidents: list(s.incidents, 20).map((i) => ({

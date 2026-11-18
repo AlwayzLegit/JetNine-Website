@@ -1,29 +1,21 @@
-import { and, asc, eq } from "drizzle-orm";
-import { db } from "@/db";
-import { syncTripScheduleBlock } from "@/domain/trips/schedule-block";
-import { nextCode } from "@/db/codes";
-import { aircraft } from "@/db/schema/aircraft";
 import type { NewMessage } from "@/db/schema/audit";
 import { messageStore } from "@/domain/messages/store";
-import { invoices, type NewInvoice } from "@/db/schema/invoices";
-import { members } from "@/db/schema/members";
-import { quoteLegs, quotes, quoteStatusEnum, type Quote } from "@/db/schema/quotes";
-import { aircraftScheduleBlocks, type NewAircraftScheduleBlock } from "@/db/schema/schedule-blocks";
-import { sourcedOptions, type NewSourcedOption, type SourcedOption } from "@/db/schema/sourced-option";
-import { tripLegs, trips, type NewTrip, type NewTripLeg } from "@/db/schema/trips";
-import { users } from "@/db/schema/users";
+import { quoteStatusEnum, type Quote, type QuoteLeg } from "@/db/schema/quotes";
+import type { NewAircraftScheduleBlock } from "@/db/schema/schedule-blocks";
+import type { NewSourcedOption, SourcedOption } from "@/db/schema/sourced-option";
+import type { NewTrip, NewTripLeg } from "@/db/schema/trips";
+import { isUniqueViolation as isUniqueOnEitherDb } from "@/db/unique";
 import { logAudit } from "@/lib/audit";
 import { DEFAULT_MARKUP_PCT } from "@/lib/constants";
 import { personName } from "@/lib/desk-status";
 import { sendBookingConfirmationEmail, sendQuoteLifecycleEmail, sendQuoteOptionsEmail, type QuoteOptionEmailItem } from "@/lib/email";
-import { attemptInvoiceDrawdown, type DrawdownOutcome } from "@/lib/membership-balance";
 import type { ThreadChannel } from "@/lib/message-delivery";
 import { isSourcingEligible, normalizeCategory } from "@/lib/operator-eligibility";
 import { isE164, toE164 } from "@/lib/phone";
 import { statusUrl } from "@/lib/request-status";
 import { auditFields, type Actor } from "@/domain/actor";
 import { isUuid } from "@/domain/common";
-import { HoldTaken, requestStore, type RequestOperatorRow } from "./store";
+import { HoldTaken, requestStore, type ConvertResult, type RequestOperatorRow } from "./store";
 import { err, ok, type Result } from "@/domain/result";
 import {
   OPTION_MONEY_FIELDS,
@@ -62,11 +54,10 @@ type ContactSnapshot = Quote["contactSnapshot"];
 export const REQUEST_NOT_FOUND = "No request with that id.";
 const NOT_FOUND = REQUEST_NOT_FOUND;
 
-// Postgres unique-violation SQLSTATE. Drizzle bubbles the underlying
-// postgres-js error which exposes `.code` as the SQLSTATE.
+// A unique-violation on either database: Postgres SQLSTATE 23505, or D1's "UNIQUE constraint
+// failed" (OPS-157: convert-to-trip can now fail this way on D1; see src/db/unique.ts).
 export function isUniqueViolation(e: unknown): boolean {
-  if (!e || typeof e !== "object") return false;
-  return (e as { code?: string }).code === "23505";
+  return isUniqueOnEitherDb(e);
 }
 
 /** First time a request reaches options_sent or held, stamp responded_at. */
@@ -1061,7 +1052,7 @@ export type RequestConvertState = {
   memberId: string;
   /** Who the trip is for, for the approval card. */
   clientName: string;
-  legs: (typeof quoteLegs.$inferSelect)[];
+  legs: QuoteLeg[];
   /** The chosen sourced option, when the desk picked one. */
   chosen: SourcedOption | null;
   pricing: {
@@ -1078,7 +1069,8 @@ export type RequestConvertState = {
 
 export async function loadRequestForConvert(input: RequestConvertInput): Promise<Result<RequestConvertState>> {
   if (!isUuid(input.id)) return err("not_found", NOT_FOUND);
-  const [quote] = await db.select().from(quotes).where(eq(quotes.id, input.id));
+  const store = requestStore();
+  const quote = await store.getQuote(input.id);
   if (!quote) return err("not_found", NOT_FOUND);
   if (quote.convertedTripId) return err("conflict", `Already converted to ${quote.convertedTripId}`);
   if (quote.status === "cancelled" || quote.status === "expired" || quote.status === "declined") {
@@ -1101,17 +1093,13 @@ export async function loadRequestForConvert(input: RequestConvertInput): Promise
     );
   }
 
-  const legs = await db.select().from(quoteLegs).where(eq(quoteLegs.quoteId, quote.id)).orderBy(asc(quoteLegs.legNumber));
+  const legs = await store.quoteLegsInOrder(quote.id);
   if (legs.length === 0) return err("invalid", "Quote has no legs");
 
   // Pricing — if a sourced option has been chosen, its client price +
   // operator cost drive the trip/invoice; otherwise fall back to the
   // indicative midpoint (backward compatible with pre-Avinode quotes).
-  const [chosen] = await db
-    .select()
-    .from(sourcedOptions)
-    .where(and(eq(sourcedOptions.quoteId, quote.id), eq(sourcedOptions.isChosen, true)))
-    .limit(1);
+  const chosen = await store.chosenOption(quote.id);
 
   const subtotal =
     chosen?.clientPriceUsd != null
@@ -1137,19 +1125,14 @@ export async function loadRequestForConvert(input: RequestConvertInput): Promise
   const tripOperatorId = chosen?.operatorId ?? null;
   let tripAircraftId: string | null = null;
   if (chosen?.tailNumber) {
-    const [ac] = await db.select({ id: aircraft.id }).from(aircraft).where(eq(aircraft.tailNumber, chosen.tailNumber)).limit(1);
-    tripAircraftId = ac?.id ?? null;
+    tripAircraftId = (await store.aircraftIdByTail(chosen.tailNumber)) ?? null;
   }
 
   // The client's name for the approval card: the contact as they wrote it,
   // else the account's name.
   let clientName = personName(quote.contactSnapshot?.firstName, quote.contactSnapshot?.lastName, "");
   if (!clientName) {
-    const [m] = await db
-      .select({ firstName: users.firstName, lastName: users.lastName, email: users.email })
-      .from(members)
-      .innerJoin(users, eq(users.id, members.userId))
-      .where(eq(members.id, memberId));
+    const m = await store.clientName(memberId);
     clientName = personName(m?.firstName, m?.lastName, m?.email ?? "the client");
   }
 
@@ -1181,132 +1164,68 @@ export async function convertRequestToTrip(
   const { subtotal, fet, seg, total, operatorCostUsd, marginPct } = pricing;
   const a = auditFields(actor);
 
-  let inserted: {
-    trip: { id: string; tripCode: string };
-    invoice: { id: string };
-    drawdown: DrawdownOutcome | null;
-  };
+  let inserted: ConvertResult;
   try {
-    inserted = await db.transaction(async (tx) => {
-      // Codes are made by the app (OPS-101); the triggers fill them only when empty.
-      const tripCode = await nextCode(tx, "trip");
-      const tripValues: NewTrip = {
-        tripCode,
+    // One all-or-nothing write in the store (Postgres: a transaction; D1: one batch). The trip
+    // insert is the serialization point against concurrent conversions of the same quote (the
+    // partial unique index `trips_quote_id_uniq`, migration 0032): the second caller bounces
+    // with a unique violation and we surface "already converted" below.
+    const tripValues: Omit<NewTrip, "tripCode"> = {
+      memberId,
+      quoteId,
+      assignedDispatcherId: quote.assignedDispatcherId ?? null,
+      missionType: quote.tripType === "round" ? "round" : quote.tripType === "one_way" ? "one_way" : "multi_leg",
+      paxCount: quote.paxCount,
+      crewCount: 2,
+      isInternational: legs.some((l) => isInternationalIcao(l.fromIcao) || isInternationalIcao(l.toIcao)),
+      status: "confirmed",
+      revenueUsd: subtotal,
+      operatorCostUsd,
+      marginPct,
+      aircraftId: tripAircraftId,
+      operatorId: tripOperatorId,
+    };
+    const tripLegRows: Omit<NewTripLeg, "tripId">[] = legs.map((l) => ({
+      legNumber: l.legNumber,
+      fromIcao: l.fromIcao,
+      fromIata: l.fromIata,
+      fromCity: l.fromCity,
+      fromName: l.fromName,
+      toIcao: l.toIcao,
+      toIata: l.toIata,
+      toCity: l.toCity,
+      toName: l.toName,
+      departDate: l.departDate,
+      departTime: l.departTime,
+      departTz: l.departTz,
+      distanceNm: l.distanceNm,
+    }));
+    // If the member has an active Card / Reserve with sufficient balance, the invoice opens as
+    // 'due' so the draw can immediately flip it to 'paid' from the reserve. Otherwise it stays
+    // 'draft' for the dispatcher to review + finalize manually (current default).
+    const memberHasCardBalance = total !== null && total > 0;
+    inserted = await requestStore().convertToTrip({
+      quoteId,
+      memberId,
+      trip: tripValues,
+      legs: tripLegRows,
+      invoice: {
         memberId,
-        quoteId,
-        assignedDispatcherId: quote.assignedDispatcherId ?? null,
-        missionType: quote.tripType === "round" ? "round" : quote.tripType === "one_way" ? "one_way" : "multi_leg",
-        paxCount: quote.paxCount,
-        crewCount: 2,
-        isInternational: legs.some((l) => isInternationalIcao(l.fromIcao) || isInternationalIcao(l.toIcao)),
-        status: "confirmed",
-        revenueUsd: subtotal,
-        operatorCostUsd,
-        marginPct,
-        aircraftId: tripAircraftId,
-        operatorId: tripOperatorId,
-      };
-      // Insert the trip first — the partial unique index
-      // `trips_quote_id_uniq` (migration 0032) makes this the
-      // serialization point against concurrent conversions of the same
-      // quote (dispatcher double-click, two-tab race). The second caller
-      // bounces here with SQLSTATE 23505 and we surface "already
-      // converted" to the caller below.
-      const [tripRow] = await tx.insert(trips).values(tripValues).returning({ id: trips.id, tripCode: trips.tripCode });
-
-      const tripLegRows: NewTripLeg[] = legs.map((l) => ({
-        tripId: tripRow.id,
-        legNumber: l.legNumber,
-        fromIcao: l.fromIcao,
-        fromIata: l.fromIata,
-        fromCity: l.fromCity,
-        fromName: l.fromName,
-        toIcao: l.toIcao,
-        toIata: l.toIata,
-        toCity: l.toCity,
-        toName: l.toName,
-        departDate: l.departDate,
-        departTime: l.departTime,
-        departTz: l.departTz,
-        distanceNm: l.distanceNm,
-      }));
-      await tx.insert(tripLegs).values(tripLegRows);
-      // Keep the aircraft calendar in step (OPS-102); the trips_sync_schedule_block
-      // trigger does the same on Postgres and arrives at the same row.
-      await syncTripScheduleBlock(tx, tripRow.id);
-
-      // If the member has an active Card / Reserve with sufficient balance,
-      // the invoice opens as 'due' so attemptInvoiceDrawdown can immediately
-      // flip it to 'paid' from the reserve. Otherwise it stays 'draft' for
-      // the dispatcher to review + finalize manually (current default).
-      const memberHasCardBalance = total !== null && total > 0;
-      const invoiceCode = await nextCode(tx, "invoice");
-      const invoiceValues: NewInvoice = {
-        invoiceCode,
-        memberId,
-        tripId: tripRow.id,
         kind: "charter",
-        // 'due' lets the drawdown helper short-circuit to 'paid' atomically.
-        // If the draw fails (no card or insufficient balance), we revert to
-        // 'draft' below so the existing review-then-finalize workflow holds.
-        status: memberHasCardBalance ? "due" : "draft",
         subtotalUsd: subtotal,
         fetUsd: fet,
         segmentFeeUsd: seg,
         totalUsd: total,
-      };
-      const [invRow] = await tx.insert(invoices).values(invoiceValues).returning({ id: invoices.id });
-
-      // Atomic drawdown: if the member has a Card/Reserve with balance
-      // covering the full total, draw it down and flip the invoice to
-      // 'paid' inside this same transaction.
-      let drawdown: DrawdownOutcome | null = null;
-      if (memberHasCardBalance) {
-        drawdown = await attemptInvoiceDrawdown(tx, {
-          invoiceId: invRow.id,
-          memberId,
-          tripId: tripRow.id,
-          totalUsd: total,
-        });
-        // Drawdown didn't fire — revert the optimistic 'due' status to
-        // 'draft' so it doesn't accidentally route the customer to Stripe
-        // for an invoice the dispatcher meant to review first.
-        if (!drawdown.drew) {
-          await tx.update(invoices).set({ status: "draft", updatedAt: new Date() }).where(eq(invoices.id, invRow.id));
-        }
-      }
-
-      // Release any soft holds this quote had on aircraft. Without this,
-      // the holds linger forever — /admin/ops shows phantom blocks on the
-      // tail, and the manual deleteScheduleBlock path refuses to remove
-      // rows with relatedQuoteId set ("cancel the trip or release the
-      // hold instead"). Doing the delete inside the convert tx keeps the
-      // ops calendar consistent with the trip's new confirmed state.
-      await tx
-        .delete(aircraftScheduleBlocks)
-        .where(and(eq(aircraftScheduleBlocks.relatedQuoteId, quoteId), eq(aircraftScheduleBlocks.kind, "hold")));
-
-      await tx
-        .update(quotes)
-        .set({
-          status: "converted",
-          acceptedAt: new Date(),
-          convertedTripId: tripRow.id,
-        })
-        .where(eq(quotes.id, quoteId));
-
-      return { trip: tripRow, invoice: invRow, drawdown };
+      },
+      totalUsd: total,
+      tryDraw: memberHasCardBalance,
     });
   } catch (e) {
-    // Race: a parallel conversion already won. The unique index on
-    // trips(quote_id) returns SQLSTATE 23505. Re-read the quote and
-    // surface the existing trip rather than dropping the user into a
-    // generic error.
+    // Race: a parallel conversion already won. The unique index on trips(quote_id) returns
+    // SQLSTATE 23505 (D1: "UNIQUE constraint failed"). Re-read the quote and surface the existing
+    // trip rather than dropping the user into a generic error.
     if (isUniqueViolation(e)) {
-      const [requoted] = await db
-        .select({ convertedTripId: quotes.convertedTripId, quoteCode: quotes.quoteCode })
-        .from(quotes)
-        .where(eq(quotes.id, quoteId));
+      const requoted = await requestStore().convertedTripOf(quoteId);
       return err(
         "conflict",
         requoted?.convertedTripId
@@ -1380,20 +1299,11 @@ export async function convertRequestToTrip(
   try {
     let confirmTo = quote.contactSnapshot?.email?.trim() || null;
     if (!confirmTo && memberId) {
-      const [m] = await db
-        .select({ email: users.email })
-        .from(members)
-        .innerJoin(users, eq(users.id, members.userId))
-        .where(eq(members.id, memberId));
-      confirmTo = m?.email ?? null;
+      confirmTo = (await requestStore().clientName(memberId))?.email ?? null;
     }
     if (confirmTo) {
-      const emailLegs = await db
-        .select({ fromIata: quoteLegs.fromIata, toIata: quoteLegs.toIata, departDate: quoteLegs.departDate })
-        .from(quoteLegs)
-        .where(eq(quoteLegs.quoteId, quoteId))
-        .orderBy(asc(quoteLegs.legNumber));
-      const itineraryLines = emailLegs.map((l) => `${l.fromIata ?? "—"} → ${l.toIata ?? "—"} · ${l.departDate ?? "date TBD"}`);
+      // The request's legs, in order, as the load read them (the convert does not change them).
+      const itineraryLines = legs.map((l) => `${l.fromIata ?? "—"} → ${l.toIata ?? "—"} · ${l.departDate ?? "date TBD"}`);
       const result = await sendBookingConfirmationEmail({
         to: confirmTo,
         firstName: quote.contactSnapshot?.firstName?.trim() || "Hello",

@@ -8,13 +8,17 @@ import { operators } from "@/db/schema/operators";
 import { quoteLegs, quotes } from "@/db/schema/quotes";
 import { sourcedOptions } from "@/db/schema/sourced-option";
 import { staff } from "@/db/schema/staff";
-import { trips } from "@/db/schema/trips";
+import { tripLegs, trips } from "@/db/schema/trips";
+import { invoices } from "@/db/schema/invoices";
+import { nextCode } from "@/db/codes";
+import { syncTripScheduleBlock } from "@/domain/trips/schedule-block";
+import { attemptInvoiceDrawdown, type DrawdownOutcome } from "@/lib/membership-balance";
 import { users } from "@/db/schema/users";
 import { auditLog } from "@/db/schema/audit";
 import { OPEN_REQUEST_STATUSES } from "@/lib/desk-status";
 import { isUniqueViolation } from "@/db/unique";
 import { IS_SMOKE, NOT_SMOKE, isoParam } from "@/domain/common";
-import { HoldTaken, type RequestStaffRow, type RequestStore } from "./store";
+import { HoldTaken, type ConvertResult, type RequestStaffRow, type RequestStore } from "./store";
 
 // The Postgres side of the request store (OPS-154): the queries of listRequests,
 // getRequest, the SLA watch cron, the smoke prune and the reports export, moved here as
@@ -691,6 +695,101 @@ export function pgRequestStore(): RequestStore {
         .where(eq(sourcedOptions.id, optionId))
         .limit(1);
       return row?.quoteId;
+    },
+
+    async quoteLegsInOrder(quoteId) {
+      return db.select().from(quoteLegs).where(eq(quoteLegs.quoteId, quoteId)).orderBy(asc(quoteLegs.legNumber));
+    },
+
+    async chosenOption(quoteId) {
+      const [chosen] = await db
+        .select()
+        .from(sourcedOptions)
+        .where(and(eq(sourcedOptions.quoteId, quoteId), eq(sourcedOptions.isChosen, true)))
+        .limit(1);
+      return chosen;
+    },
+
+    async aircraftIdByTail(tail) {
+      const [ac] = await db.select({ id: aircraft.id }).from(aircraft).where(eq(aircraft.tailNumber, tail)).limit(1);
+      return ac?.id;
+    },
+
+    async clientName(memberId) {
+      const [m] = await db
+        .select({ firstName: users.firstName, lastName: users.lastName, email: users.email })
+        .from(members)
+        .innerJoin(users, eq(users.id, members.userId))
+        .where(eq(members.id, memberId));
+      return m;
+    },
+
+    async convertedTripOf(quoteId) {
+      const [row] = await db
+        .select({ convertedTripId: quotes.convertedTripId, quoteCode: quotes.quoteCode })
+        .from(quotes)
+        .where(eq(quotes.id, quoteId));
+      return row;
+    },
+
+    // Today's transaction, moved as it was (OPS-157): the trip insert is the serialization point
+    // against a double convert (the unique index trips_quote_id_uniq), and the advisory lock inside
+    // attemptInvoiceDrawdown keeps two draws of one member apart.
+    async convertToTrip(plan) {
+      const { quoteId, memberId } = plan;
+      return db.transaction(async (tx): Promise<ConvertResult> => {
+        // Codes are made by the app (OPS-101); the triggers fill them only when empty.
+        const tripCode = await nextCode(tx, "trip");
+        const [tripRow] = await tx
+          .insert(trips)
+          .values({ ...plan.trip, tripCode })
+          .returning({ id: trips.id, tripCode: trips.tripCode });
+
+        await tx.insert(tripLegs).values(plan.legs.map((l) => ({ ...l, tripId: tripRow.id })));
+        // Keep the aircraft calendar in step (OPS-102); the trips_sync_schedule_block
+        // trigger does the same on Postgres and arrives at the same row.
+        await syncTripScheduleBlock(tx, tripRow.id);
+
+        // 'due' lets the drawdown helper short-circuit to 'paid' atomically. If the draw fails
+        // (no card or insufficient balance), the invoice goes back to 'draft' below so the existing
+        // review-then-finalize workflow holds.
+        const invoiceCode = await nextCode(tx, "invoice");
+        const [invRow] = await tx
+          .insert(invoices)
+          .values({
+            ...plan.invoice,
+            invoiceCode,
+            tripId: tripRow.id,
+            status: plan.tryDraw ? "due" : "draft",
+          })
+          .returning({ id: invoices.id });
+
+        let drawdown: DrawdownOutcome | null = null;
+        if (plan.tryDraw) {
+          drawdown = await attemptInvoiceDrawdown(tx, {
+            invoiceId: invRow.id,
+            memberId,
+            tripId: tripRow.id,
+            totalUsd: plan.totalUsd,
+          });
+          // Drawdown didn't fire: revert the optimistic 'due' status to 'draft'.
+          if (!drawdown.drew) {
+            await tx.update(invoices).set({ status: "draft", updatedAt: new Date() }).where(eq(invoices.id, invRow.id));
+          }
+        }
+
+        // Release any soft holds this quote had on aircraft, so /admin/ops shows no phantom blocks.
+        await tx
+          .delete(aircraftScheduleBlocks)
+          .where(and(eq(aircraftScheduleBlocks.relatedQuoteId, quoteId), eq(aircraftScheduleBlocks.kind, "hold")));
+
+        await tx
+          .update(quotes)
+          .set({ status: "converted", acceptedAt: new Date(), convertedTripId: tripRow.id })
+          .where(eq(quotes.id, quoteId));
+
+        return { trip: tripRow, invoice: invRow, drawdown };
+      });
     },
   };
 }

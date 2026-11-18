@@ -10,12 +10,17 @@ import { quoteLegs, quotes } from "@/db/d1/schema/quotes";
 import { aircraftScheduleBlocks } from "@/db/d1/schema/schedule-blocks";
 import { sourcedOptions } from "@/db/d1/schema/sourced-option";
 import { staff } from "@/db/d1/schema/staff";
-import { trips } from "@/db/d1/schema/trips";
+import { invoiceCodeSequence, invoices } from "@/db/d1/schema/invoices";
+import { memberships, reserveTransactions } from "@/db/d1/schema/memberships";
+import { tripCodeSequence, tripLegs, trips } from "@/db/d1/schema/trips";
+import { codeSql, codeYear } from "@/db/codes";
+import { planScheduleBlock } from "@/domain/trips/schedule-block";
+import type { DrawdownOutcome } from "@/lib/membership-balance";
 import { users } from "@/db/d1/schema/users";
 import { OPEN_REQUEST_STATUSES } from "@/lib/desk-status";
 import { IS_SMOKE_D1, NOT_SMOKE_D1 } from "@/domain/smoke-d1";
 import { isUniqueViolation } from "@/db/unique";
-import { HoldTaken, type RequestStaffRow, type RequestStore } from "./store";
+import { HoldTaken, type ConvertResult, type RequestStaffRow, type RequestStore } from "./store";
 
 // The D1 (SQLite) side of the request store (OPS-154). Same methods and the same results as
 // store-pg.ts, on the D1 twin tables (src/db/d1/schema, OPS-100). The client is passed in so
@@ -741,6 +746,179 @@ export function d1RequestStore(db: D1Client): RequestStore {
         .where(eq(sourcedOptions.id, optionId))
         .limit(1);
       return row?.quoteId;
+    },
+
+    async quoteLegsInOrder(quoteId) {
+      const rows = await db.select().from(quoteLegs).where(eq(quoteLegs.quoteId, quoteId)).orderBy(asc(quoteLegs.legNumber));
+      return rows as Awaited<ReturnType<RequestStore["quoteLegsInOrder"]>>;
+    },
+
+    async chosenOption(quoteId) {
+      const [chosen] = await db
+        .select()
+        .from(sourcedOptions)
+        .where(and(eq(sourcedOptions.quoteId, quoteId), eq(sourcedOptions.isChosen, true)))
+        .limit(1);
+      return chosen as Awaited<ReturnType<RequestStore["chosenOption"]>>;
+    },
+
+    async aircraftIdByTail(tail) {
+      const [ac] = await db.select({ id: aircraft.id }).from(aircraft).where(eq(aircraft.tailNumber, tail)).limit(1);
+      return ac?.id;
+    },
+
+    async clientName(memberId) {
+      const [m] = await db
+        .select({ firstName: users.firstName, lastName: users.lastName, email: users.email })
+        .from(members)
+        .innerJoin(users, eq(users.id, members.userId))
+        .where(eq(members.id, memberId));
+      return m;
+    },
+
+    async convertedTripOf(quoteId) {
+      const [row] = await db
+        .select({ convertedTripId: quotes.convertedTripId, quoteCode: quotes.quoteCode })
+        .from(quotes)
+        .where(eq(quotes.id, quoteId));
+      return row;
+    },
+
+    // Convert to trip as one batch, which D1 runs as one transaction (OPS-157). D1 has no
+    // interactive transaction and no advisory lock, and it runs one batch at a time per database,
+    // so a statement that reads the balance and writes the draw only when the balance still covers
+    // the total cannot be raced by another batch: that replaces the lock. The invoice turns paid
+    // only if the draw row exists. A unique violation (a second convert of the same request, the
+    // index trips_quote_id_uniq) anywhere rolls the whole batch back, the code counters included.
+    async convertToTrip(plan) {
+      const now = new Date();
+      const year = codeYear(now);
+      const tripId = crypto.randomUUID();
+      const invoiceId = crypto.randomUUID();
+      const drawId = crypto.randomUUID();
+      const { quoteId, memberId } = plan;
+      const total = plan.totalUsd ?? 0;
+
+      // The trip has no wheels or ETA times yet, so the block (if any) comes from the legs alone.
+      // Its notes carry the trip code, which the batch makes in SQL, so they are read in SQL too.
+      const block = planScheduleBlock(
+        {
+          tripCode: "",
+          aircraftId: plan.trip.aircraftId ?? null,
+          status: "confirmed",
+          wheelsUpAt: null,
+          wheelsDownAt: null,
+          etaAt: null,
+        },
+        plan.legs.map((l) => ({ scheduledDepAt: null, scheduledArrAt: null, departDate: l.departDate ?? null })),
+      );
+
+      const statements: unknown[] = [
+        // (a) The trip counter moves first: the insert's code reads the value this leaves.
+        db
+          .insert(tripCodeSequence)
+          .values({ year, lastValue: 1 })
+          .onConflictDoUpdate({ target: tripCodeSequence.year, set: { lastValue: sql`${tripCodeSequence.lastValue} + 1` } }),
+        // (b) The trip. The unique index trips_quote_id_uniq is the guard against a double convert.
+        db.insert(trips).values({ ...plan.trip, id: tripId, tripCode: codeSql("trip", year) } as never),
+        // (c) One insert per leg (each stays under D1's 100 bound values).
+        ...plan.legs.map((l) => db.insert(tripLegs).values({ ...l, tripId } as never)),
+      ];
+      // (d) The aircraft's calendar block for the trip.
+      if (block.action === "set") {
+        statements.push(
+          db.insert(aircraftScheduleBlocks).values({
+            aircraftId: block.aircraftId,
+            kind: "trip",
+            startAt: block.startAt,
+            endAt: block.endAt,
+            relatedTripId: tripId,
+            notes: sql`(select trip_code from trips where id = ${tripId})`,
+          } as never),
+        );
+      }
+      statements.push(
+        // (e) The invoice counter, then (f) the invoice: due when a draw is tried, else draft.
+        db
+          .insert(invoiceCodeSequence)
+          .values({ year, lastValue: 1 })
+          .onConflictDoUpdate({ target: invoiceCodeSequence.year, set: { lastValue: sql`${invoiceCodeSequence.lastValue} + 1` } }),
+        db
+          .insert(invoices)
+          .values({
+            ...plan.invoice,
+            id: invoiceId,
+            invoiceCode: codeSql("invoice", year),
+            tripId,
+            status: plan.tryDraw ? "due" : "draft",
+          } as never),
+      );
+
+      if (plan.tryDraw) {
+        const ms = now.getTime();
+        statements.push(
+          // (g) The draw: written only when the member has an active membership (the newest
+          // activated) and the ledger's balance still covers the total. insert ... select does not
+          // run drizzle's default functions, so the id and the times are bound here.
+          db.run(sql`insert into reserve_transactions
+            (id, member_id, membership_id, kind, amount_usd, description, trip_id, invoice_id, occurred_at, created_at)
+            select ${drawId}, ${memberId}, m.id, 'charter_draw', ${-total}, ${`Charter draw — invoice ${invoiceId}`}, ${tripId}, ${invoiceId}, ${ms}, ${ms}
+            from memberships m
+            where m.member_id = ${memberId} and m.status = 'active'
+              and (select coalesce(sum(amount_usd), 0) from reserve_transactions where member_id = ${memberId}) >= ${total}
+            order by m.activated_on desc
+            limit 1`),
+          // (h) The invoice turns paid only if the draw row exists; its note names the membership.
+          db.run(sql`update invoices set
+              status = 'paid', paid_on = ${now.toISOString().slice(0, 10)}, paid_at = ${ms},
+              notes = coalesce(notes || char(10), '') || 'Auto-drawn from reserve membership ' ||
+                (select membership_id from reserve_transactions where id = ${drawId}) || ${` — $${total.toLocaleString()}`},
+              updated_at = ${ms}
+            where id = ${invoiceId} and exists (select 1 from reserve_transactions where id = ${drawId})`),
+          // (i) No draw: the optimistic due goes back to draft.
+          db.run(sql`update invoices set status = 'draft', updated_at = ${ms} where id = ${invoiceId} and status = 'due'`),
+        );
+      }
+
+      statements.push(
+        // (j) Release the request's soft holds.
+        db
+          .delete(aircraftScheduleBlocks)
+          .where(and(eq(aircraftScheduleBlocks.relatedQuoteId, quoteId), eq(aircraftScheduleBlocks.kind, "hold"))),
+        // (k) Mark the request converted.
+        db.update(quotes).set({ status: "converted", acceptedAt: now, convertedTripId: tripId }).where(eq(quotes.id, quoteId)),
+      );
+
+      await db.batch(statements as unknown as Parameters<typeof db.batch>[0]);
+
+      const [tripRow] = await db.select({ tripCode: trips.tripCode }).from(trips).where(eq(trips.id, tripId));
+      let drawdown: DrawdownOutcome | null = null;
+      if (plan.tryDraw) {
+        const [draw] = await db
+          .select({ id: reserveTransactions.id })
+          .from(reserveTransactions)
+          .where(eq(reserveTransactions.id, drawId));
+        if (draw) {
+          const [bal] = await db
+            .select({ total: sql<number>`coalesce(sum(${reserveTransactions.amountUsd}), 0)` })
+            .from(reserveTransactions)
+            .where(eq(reserveTransactions.memberId, memberId));
+          drawdown = { drew: true, amountUsd: total, reserveTxId: draw.id, remainingBalanceUsd: Number(bal?.total ?? 0) };
+        } else {
+          const [active] = await db
+            .select({ id: memberships.id })
+            .from(memberships)
+            .where(and(eq(memberships.memberId, memberId), eq(memberships.status, "active")))
+            .limit(1);
+          drawdown = { drew: false, reason: active ? "INSUFFICIENT_BALANCE" : "NO_ACTIVE_MEMBERSHIP" };
+        }
+      }
+      const result: ConvertResult = {
+        trip: { id: tripId, tripCode: tripRow?.tripCode ?? "" },
+        invoice: { id: invoiceId },
+        drawdown,
+      };
+      return result;
     },
   };
 }

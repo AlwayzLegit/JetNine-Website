@@ -80,8 +80,8 @@ function sqlPlusOne(table: typeof schema.quoteCodeSequence) {
 test("each insert path calls nextCode for its kind", () => {
   const sites: [string, CodeKind][] = [
     ["src/domain/quotes/store-pg.ts", "quote"],
-    ["src/domain/requests/commands.ts", "trip"],
-    ["src/domain/requests/commands.ts", "invoice"],
+    ["src/domain/requests/store-pg.ts", "trip"],
+    ["src/domain/requests/store-pg.ts", "invoice"],
     ["src/domain/members/store-pg.ts", "member"],
     ["src/domain/empty-legs/store-pg.ts", "empty_leg"],
   ];

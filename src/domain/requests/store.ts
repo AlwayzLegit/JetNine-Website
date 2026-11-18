@@ -1,6 +1,9 @@
 import { d1Db, dbTarget } from "@/db";
 import type { Quote, QuoteLeg } from "@/db/schema/quotes";
 import type { NewAircraftScheduleBlock } from "@/db/schema/schedule-blocks";
+import type { NewInvoice } from "@/db/schema/invoices";
+import type { NewTrip, NewTripLeg } from "@/db/schema/trips";
+import type { DrawdownOutcome } from "@/lib/membership-balance";
 import type { NewSourcedOption, SourcedOption } from "@/db/schema/sourced-option";
 import type { HeldAircraft } from "@/components/admin/soft-hold-list";
 import type { SourcedOptionRow } from "@/components/admin/sourced-options";
@@ -171,6 +174,27 @@ export class HoldTaken extends Error {
   }
 }
 
+/** What convert-to-trip writes (OPS-157): the trip and legs, the invoice, and whether to try the reserve draw. */
+export type ConvertPlan = {
+  quoteId: string;
+  memberId: string;
+  /** The trip without its code (the store makes it). */
+  trip: Omit<NewTrip, "tripCode">;
+  legs: Omit<NewTripLeg, "tripId">[];
+  /** The invoice without its code, trip id and status (the store sets them). */
+  invoice: Omit<NewInvoice, "invoiceCode" | "tripId" | "status">;
+  /** The invoice total, the amount to draw. */
+  totalUsd: number | null;
+  /** True when the total is above 0: the invoice opens as due and the draw is tried. */
+  tryDraw: boolean;
+};
+
+export type ConvertResult = {
+  trip: { id: string; tripCode: string };
+  invoice: { id: string };
+  drawdown: DrawdownOutcome | null;
+};
+
 export interface RequestStore {
   /**
    * Requests the desk lists: open ones, bookings since `bookedSince`, closed ones since
@@ -288,6 +312,25 @@ export interface RequestStore {
   deleteOption(id: string): Promise<void>;
   /** The request an option belongs to, or undefined. */
   quoteIdForOption(optionId: string): Promise<string | undefined>;
+
+  /** The request's legs by leg number, whole rows (OPS-157). */
+  quoteLegsInOrder(quoteId: string): Promise<QuoteLeg[]>;
+  /** The option the desk chose for this request, if any. */
+  chosenOption(quoteId: string): Promise<SourcedOption | undefined>;
+  /** An aircraft's id by tail number. */
+  aircraftIdByTail(tail: string): Promise<string | undefined>;
+  /** A client's name and email. */
+  clientName(memberId: string): Promise<{ firstName: string | null; lastName: string | null; email: string | null } | undefined>;
+  /** The trip a request was converted to, with the request's code; undefined for no such request. */
+  convertedTripOf(quoteId: string): Promise<{ convertedTripId: string | null; quoteCode: string } | undefined>;
+  /**
+   * Book the request: the trip with its code, its legs, the aircraft's calendar block, the invoice
+   * with its code (due when a draw is tried, else draft), the draw from the client's reserve when
+   * the active membership's balance covers the total (then the invoice is paid), the request's soft
+   * holds released and the request marked converted, all or nothing. A second convert of the same
+   * request throws the unique violation of trips(quote_id) and writes nothing.
+   */
+  convertToTrip(plan: ConvertPlan): Promise<ConvertResult>;
 }
 
 /** The store for this request. One call per request; nothing is cached across requests. */

@@ -13,7 +13,6 @@
     "src/domain/agent/store-pg.ts": "adapter",
     "src/domain/approvals/store-pg.ts": "adapter",
     "src/domain/blog/store-pg.ts": "adapter",
-    "src/domain/clients/commands.ts": "left",
     "src/domain/contact/store-pg.ts": "adapter",
     "src/domain/empty-legs/store-pg.ts": "adapter",
     "src/domain/empty-legs/watchlist-store-pg.ts": "adapter",
@@ -39,11 +38,9 @@
     "src/lib/ai-providers.ts": "left",
     "src/lib/api-key-store/store-pg.ts": "adapter",
     "src/lib/audit-store.ts": "adapter",
-    "src/lib/auth-tokens/index.ts": "left",
-    "src/lib/auth-users.ts": "left",
     "src/lib/health.ts": "adapter",
+    "src/lib/identity-store/store-pg.ts": "adapter",
     "src/lib/rate-limit.ts": "adapter",
-    "src/lib/session/index.ts": "left",
     "voice/src/db/client.ts": "adapter"
   }
 }

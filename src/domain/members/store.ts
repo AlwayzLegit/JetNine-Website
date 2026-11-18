@@ -27,8 +27,9 @@ import { pgMemberStore } from "./store-pg";
 // quote_legs, airports and aircraft run in the same database as the store:
 // the copy tool carries every table, so on staging D1 they read the twins.
 // Not in this store, on purpose: the Stripe webhook's membership activation
-// and reserve credits, and attemptInvoiceDrawdown (they move with the invoices
-// and payments row), and auth-users (the users row is made on Postgres).
+// and reserve credits (they are in the payment store, src/domain/payments,
+// OPS-162), attemptInvoiceDrawdown (used by the request store's convert), and
+// auth-users (the users row is made on Postgres).
 
 // ─── The desk's client list ──────────────────────────────────────────────
 

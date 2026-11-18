@@ -472,5 +472,35 @@ export function d1TripStore(db: D1Client): TripStore {
         .where(eq(trips.aircraftId, aircraftId));
       return aggregate ?? { lifetimeTrips: 0, lifetimeRevenue: 0, totalPax: 0 };
     },
+
+    async operatorRecentTrips(operatorId, limit) {
+      return db
+        .select({
+          id: trips.id,
+          tripCode: trips.tripCode,
+          status: trips.status,
+          paxCount: trips.paxCount,
+          revenueUsd: trips.revenueUsd,
+          createdAt: trips.createdAt,
+        })
+        .from(trips)
+        .where(eq(trips.operatorId, operatorId))
+        .orderBy(desc(trips.createdAt))
+        .limit(limit);
+    },
+
+    async operatorTotals(operatorId) {
+      const [aggregate] = await db
+        .select({
+          lifetimeTrips: sql<number>`coalesce(count(*), 0)`,
+          lifetimeRevenue: sql<number>`coalesce(sum(${trips.revenueUsd}), 0)`,
+        })
+        .from(trips)
+        .where(eq(trips.operatorId, operatorId));
+      return {
+        lifetimeTrips: Number(aggregate?.lifetimeTrips ?? 0),
+        lifetimeRevenue: Number(aggregate?.lifetimeRevenue ?? 0),
+      };
+    },
   };
 }

@@ -1,13 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { timingSafeEqual } from "node:crypto";
-import { eq } from "drizzle-orm";
-import { db } from "@/db";
 import type { NewMessage } from "@/db/schema/audit";
 import { isDuplicateMessage, messageStore } from "@/domain/messages/store";
-import { quotes } from "@/db/schema/quotes";
-import { trips } from "@/db/schema/trips";
-import { members } from "@/db/schema/members";
-import { users } from "@/db/schema/users";
 import { logAudit } from "@/lib/audit";
 import { sendDispatchAlert } from "@/lib/email";
 import { recipientsFor } from "@/lib/desk-settings";
@@ -254,42 +248,9 @@ type RouteTarget = {
 };
 
 async function resolveRoute(code: string): Promise<RouteTarget | null> {
-  // Quote codes AND trip codes both use the JN- prefix (JN-YYYY-NNNNN for
-  // quotes, JN-YYYY-NNNN for trips — see migrations 0003/0008), so a JN-
-  // code must be tried against BOTH tables: quotes first (the options-sheet
-  // reply is the highest-volume inbound), then trips. QT- is kept for
-  // backward compatibility with any older outbound subjects.
-  if (code.startsWith("QT-") || code.startsWith("JN-")) {
-    const [row] = await db
-      .select({
-        id: quotes.id,
-        memberId: quotes.memberId,
-        memberUserId: members.userId,
-      })
-      .from(quotes)
-      .leftJoin(members, eq(members.id, quotes.memberId))
-      .where(eq(quotes.quoteCode, code));
-    if (row) {
-      return { subjectType: "quote", subjectId: row.id, toUserId: row.memberUserId ?? null };
-    }
-  }
-  if (code.startsWith("JN-")) {
-    const [row] = await db
-      .select({
-        id: trips.id,
-        memberId: trips.memberId,
-        memberUserId: members.userId,
-      })
-      .from(trips)
-      .innerJoin(members, eq(members.id, trips.memberId))
-      .where(eq(trips.tripCode, code));
-    if (!row) return null;
-    return { subjectType: "trip", subjectId: row.id, toUserId: row.memberUserId };
-  }
-  // INV-... could route to the invoice's trip, but that's not a thread
-  // surface we've built yet. Drop for now; revisit when invoice has a
-  // member-facing comments panel.
-  return null;
+  // The lookup (quote code first, then trip code, a JN- code can be either) lives in the
+  // message store (OPS-164), Postgres or D1 by dbTarget().
+  return messageStore().threadByCode(code);
 }
 
 /**
@@ -301,12 +262,7 @@ async function resolveRoute(code: string): Promise<RouteTarget | null> {
  */
 async function resolveKnownSender(fromEmail: string): Promise<{ id: string } | null> {
   if (!fromEmail) return null;
-  const [hit] = await db
-    .select({ id: users.id })
-    .from(users)
-    .where(eq(users.email, fromEmail))
-    .limit(1);
-  return hit ?? null;
+  return messageStore().userIdByEmail(fromEmail);
 }
 
 /**

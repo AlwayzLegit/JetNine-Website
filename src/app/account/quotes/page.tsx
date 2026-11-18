@@ -1,7 +1,5 @@
 import Link from "next/link";
-import { asc, desc, eq, inArray, or } from "drizzle-orm";
-import { db } from "@/db";
-import { quotes, quoteLegs } from "@/db/schema/quotes";
+import { accountStore } from "@/domain/account/store";
 import { getCurrentUser, requireUser } from "@/lib/auth";
 import { getMemberByUserId } from "@/lib/member";
 import { getReplyPromiseMinutes } from "@/lib/desk-settings";
@@ -26,44 +24,10 @@ export default async function AccountQuotesPage() {
   const member = await getMemberByUserId(user.id);
   // Reply-time promise from the desk setting (Settings › Notifications).
   const replyMinutes = await getReplyPromiseMinutes();
-  const ownership = member
-    ? or(eq(quotes.createdByUserId, user.id), eq(quotes.memberId, member.id))
-    : eq(quotes.createdByUserId, user.id);
+  const accounts = accountStore();
+  const rows = await accounts.clientQuotes({ owner: { userId: user.id, memberId: member?.id ?? null }, limit: 50 });
 
-  const rows = await db
-    .select({
-      id: quotes.id,
-      quoteCode: quotes.quoteCode,
-      status: quotes.status,
-      statusToken: quotes.statusToken,
-      paxCount: quotes.paxCount,
-      requestedCategory: quotes.requestedCategory,
-      receivedAt: quotes.receivedAt,
-      slaDeadlineAt: quotes.slaDeadlineAt,
-      indicativeLowUsd: quotes.indicativeLowUsd,
-      indicativeHighUsd: quotes.indicativeHighUsd,
-    })
-    .from(quotes)
-    .where(ownership)
-    .orderBy(desc(quotes.receivedAt))
-    .limit(50);
-
-  const ids = rows.map((r) => r.id);
-  const legs = ids.length
-    ? await db
-        .select({
-          quoteId: quoteLegs.quoteId,
-          legNumber: quoteLegs.legNumber,
-          fromIata: quoteLegs.fromIata,
-          toIata: quoteLegs.toIata,
-          fromCity: quoteLegs.fromCity,
-          toCity: quoteLegs.toCity,
-          departDate: quoteLegs.departDate,
-        })
-        .from(quoteLegs)
-        .where(inArray(quoteLegs.quoteId, ids))
-        .orderBy(asc(quoteLegs.legNumber))
-    : [];
+  const legs = await accounts.quoteLegsOf(rows.map((r) => r.id));
   const legsByQuote = new Map<string, typeof legs>();
   for (const l of legs) {
     const arr = legsByQuote.get(l.quoteId) ?? [];

@@ -334,3 +334,56 @@ test("laDayBounds: an ordinary day, a time near midnight UTC, and the two daylig
   assert.equal(iso(b.start), "2026-03-08T08:00:00.000Z");
   assert.equal(iso(b.end), "2026-03-09T07:00:00.000Z");
 });
+
+// OPS-164: the inbound email and SMS webhooks find the thread a reply belongs to.
+
+test("threadByCode finds a quote by a QT- and by a JN- code, with the member's user or null when no client is linked", async () => {
+  const { client, store } = fresh();
+  const [u] = await client.insert(users).values({ email: "ada@example.com" } as never).returning({ id: users.id });
+  const [m] = await client.insert(members).values({ userId: u.id, memberCode: "M-2026-0001" } as never).returning({ id: members.id });
+  const [linked] = await client
+    .insert(quotes)
+    .values({ quoteCode: "JN-2026-00001", tripType: "one_way", paxCount: 2, memberId: m.id, receivedAt: new Date(), slaDeadlineAt: new Date() } as never)
+    .returning({ id: quotes.id });
+  const [anon] = await client
+    .insert(quotes)
+    .values({ quoteCode: "QT-2026-0002", tripType: "one_way", paxCount: 2, receivedAt: new Date(), slaDeadlineAt: new Date() } as never)
+    .returning({ id: quotes.id });
+  assert.deepEqual(await store.threadByCode("JN-2026-00001"), { subjectType: "quote", subjectId: linked.id, toUserId: u.id });
+  assert.deepEqual(await store.threadByCode("QT-2026-0002"), { subjectType: "quote", subjectId: anon.id, toUserId: null });
+});
+
+test("threadByCode finds a trip by a JN- code when no quote has it; a trip needs its member", async () => {
+  const { client, store } = fresh();
+  const [u] = await client.insert(users).values({ email: "bo@example.com" } as never).returning({ id: users.id });
+  const [m] = await client.insert(members).values({ userId: u.id, memberCode: "M-2026-0002" } as never).returning({ id: members.id });
+  const [t] = await client
+    .insert(trips)
+    .values({ tripCode: "JN-2026-0042", memberId: m.id, missionType: "one_way", paxCount: 3, status: "confirmed" } as never)
+    .returning({ id: trips.id });
+  assert.deepEqual(await store.threadByCode("JN-2026-0042"), { subjectType: "trip", subjectId: t.id, toUserId: u.id });
+  // A QT- code is a quote code only: it never falls through to trips.
+  assert.equal(await store.threadByCode("QT-2026-0042"), null);
+});
+
+test("threadByCode answers a quote before a trip when a JN- code is on both, and null for an unknown or INV- code", async () => {
+  const { client, store } = fresh();
+  const [u] = await client.insert(users).values({ email: "cy@example.com" } as never).returning({ id: users.id });
+  const [m] = await client.insert(members).values({ userId: u.id, memberCode: "M-2026-0003" } as never).returning({ id: members.id });
+  const [q] = await client
+    .insert(quotes)
+    .values({ quoteCode: "JN-2026-0099", tripType: "one_way", paxCount: 2, receivedAt: new Date(), slaDeadlineAt: new Date() } as never)
+    .returning({ id: quotes.id });
+  await client.insert(trips).values({ tripCode: "JN-2026-0099", memberId: m.id, missionType: "one_way", paxCount: 3, status: "confirmed" } as never);
+  assert.deepEqual(await store.threadByCode("JN-2026-0099"), { subjectType: "quote", subjectId: q.id, toUserId: null });
+  assert.equal(await store.threadByCode("JN-2026-9999"), null);
+  assert.equal(await store.threadByCode("INV-2026-0001"), null);
+});
+
+test("userIdByEmail is an exact match and null for an unknown address", async () => {
+  const { client, store } = fresh();
+  const [u] = await client.insert(users).values({ email: "ada@example.com" } as never).returning({ id: users.id });
+  assert.deepEqual(await store.userIdByEmail("ada@example.com"), { id: u.id });
+  assert.equal(await store.userIdByEmail("ada@example.org"), null);
+  assert.equal(await store.userIdByEmail("ada@example.co"), null);
+});

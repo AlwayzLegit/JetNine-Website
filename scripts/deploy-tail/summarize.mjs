@@ -1,9 +1,11 @@
 #!/usr/bin/env node
 /**
  * Summarise `wrangler tail --format json` output for the post-deploy window
- * (OPS-104). Keeps only events whose outcome is not "ok" and prints, per
- * Worker, a count per outcome plus one line per event: time, method, path
- * without query string, outcome, response status, exception name.
+ * (OPS-104). Keeps the events whose outcome is not "ok" and, since OPS-168,
+ * every event whose response status is 500 or more whatever its outcome (a
+ * 500 page rendered by the app ends with outcome "ok"). Prints, per Worker, a
+ * count per outcome and a 5xx count plus one line per kept event: time,
+ * method, path without query string, outcome, response status, exception name.
  *
  * It never prints headers, query strings, bodies, log lines or exception
  * messages, and path segments that look like a token or id are masked. The
@@ -123,19 +125,23 @@ export function summarizeWorker(name, text) {
   const counts = {};
   for (const e of events) counts[String(e.outcome)] = (counts[String(e.outcome)] ?? 0) + 1;
   const notOk = events.filter((e) => e.outcome !== "ok");
+  const statusOf = (e) => (typeof e.event?.response?.status === "number" ? e.event.response.status : 0);
+  const fiveXx = events.filter((e) => statusOf(e) >= 500);
+  // Listed: not ok, or a 5xx whatever the outcome (an app 500 page ends with outcome "ok").
+  const listed = events.filter((e) => e.outcome !== "ok" || statusOf(e) >= 500);
   const times = events.map((e) => e.eventTimestamp).filter((t) => typeof t === "number").sort((a, b) => a - b);
   const lines = [];
   lines.push(`### ${name}`);
   if (events.length === 0) {
     lines.push(`Events read: 0. No events seen${skipped ? ` (${skipped} lines or objects were not events)` : ""}.`);
-    return { markdown: lines.join("\n"), total: 0, notOk: 0 };
+    return { markdown: lines.join("\n"), total: 0, notOk: 0, fiveXx: 0 };
   }
   lines.push(
-    `Events read: ${events.length}, from ${when(times[0])} to ${when(times[times.length - 1])}, ${notOk.length} not ok. ` +
+    `Events read: ${events.length}, from ${when(times[0])} to ${when(times[times.length - 1])}, ${notOk.length} not ok, 5xx: ${fiveXx.length}. ` +
       `Outcomes: ${Object.entries(counts).map(([k, v]) => `${k} ${v}`).join(", ")}.` +
       (skipped ? ` ${skipped} lines or objects were not events.` : ""),
   );
-  for (const e of notOk.slice(0, MAX_LINES_PER_WORKER)) {
+  for (const e of listed.slice(0, MAX_LINES_PER_WORKER)) {
     const req = e.event?.request;
     const where = req ? `${String(req.method ?? "?")} ${safePath(String(req.url ?? ""))}` : "(no request)";
     const status = e.event?.response?.status;
@@ -146,20 +152,22 @@ export function summarizeWorker(name, text) {
         (exceptions.length ? ` exception ${exceptions.join(", ")}` : ""),
     );
   }
-  if (notOk.length > MAX_LINES_PER_WORKER) lines.push(`- and ${notOk.length - MAX_LINES_PER_WORKER} more not shown`);
-  return { markdown: lines.join("\n"), total: events.length, notOk: notOk.length };
+  if (listed.length > MAX_LINES_PER_WORKER) lines.push(`- and ${listed.length - MAX_LINES_PER_WORKER} more not shown`);
+  return { markdown: lines.join("\n"), total: events.length, notOk: notOk.length, fiveXx: fiveXx.length };
 }
 
 export function summarize(pairs) {
   const parts = ["## Deploy tail summary", ""];
   let notOk = 0;
+  let fiveXx = 0;
   for (const [name, file] of pairs) {
     const text = existsSync(file) ? readFileSync(file, "utf8") : "";
     const r = summarizeWorker(name, text);
     notOk += r.notOk;
+    fiveXx += r.fiveXx;
     parts.push(r.markdown, "");
   }
-  parts.push(`Not ok outcomes in the window: ${notOk}. Read the times against the smoke and sitemap jobs of the same run.`);
+  parts.push(`Not ok outcomes in the window: ${notOk}. 5xx responses in the window: ${fiveXx}. Read the times against the smoke and sitemap jobs of the same run.`);
   return parts.join("\n");
 }
 

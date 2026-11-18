@@ -129,6 +129,11 @@ jobs:
       - name: Deploy tail summary tests
         run: node --test scripts/deploy-tail/summarize.test.mjs
 
+      # The Worker errors report (OPS-168): the redaction, the window limit, the 401 and 403 line,
+      # the grouping, and that no query string, header, address, token or account id is printed.
+      - name: Worker errors report tests
+        run: node --test scripts/worker-errors/query.test.mjs
+
       # The warm-up gate of Deploy (Cloudflare) (OPS-175): three answers in a row, health must
       # say ok, a thrown error or a cut body is a failed read, nothing but a status label printed.
       - name: Deploy warm-up tests

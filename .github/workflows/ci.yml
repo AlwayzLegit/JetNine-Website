@@ -139,23 +139,6 @@ jobs:
       - name: Deploy warm-up tests
         run: node --test scripts/deploy-warm/warm.test.mjs
 
-      # The reference store on D1 (operators, aircraft, airports, FBOs): contract cases on a
-      # real SQLite, and the loud failure when the target is d1 with no binding (OPS-112).
-      - name: Reference store tests
-        run: pnpm exec tsx --test src/domain/reference/store-d1.test.ts
-
-      # The empty-legs store on D1: contract cases on a real SQLite (the EL code and its
-      # insert as one batch, the rollback), the code SQL against formatCode, and the loud
-      # failure when the target is d1 with no binding (OPS-113).
-      - name: Empty legs store tests
-        run: pnpm exec tsx --test src/domain/empty-legs/store-d1.test.ts
-
-      # The empty-leg watchlist store on D1: contract cases on a real SQLite (confirm links,
-      # STOP and START, unsubscribe, the delivery ledger and its chunked read) and the
-      # loud failure when the target is d1 with no binding (OPS-116).
-      - name: Watchlist store tests
-        run: pnpm exec tsx --test src/domain/empty-legs/watchlist-store-d1.test.ts
-
       # The Postgres to staging D1 copy tool (OPS-105): value mapping, the staging-only
       # guard, the table plan and the held-back credential tables. Needs no database.
       - name: D1 copy tests
@@ -163,150 +146,16 @@ jobs:
           node --test scripts/d1-copy/map.test.mjs
           pnpm exec tsx --test scripts/d1-copy/tables.test.ts
 
-      # The blog store on D1: contract cases on a real SQLite, and the loud failure
-      # when the target is d1 with no binding (OPS-109).
-      - name: Blog store tests
-        run: pnpm exec tsx --test src/domain/blog/store-d1.test.ts src/domain/blog/store.test.ts
+      # Every store test of the D1 move in one step (OPS-170): scripts/ci/store-tests.mjs finds the
+      # files by name (store.test.ts, store-d1.test.ts, *-store.test.ts, *-store-d1.test.ts, the
+      # src/lib/*-d1.test.ts files and the reports period test), prints the list and the count, and fails
+      # if a file CI ran before is no longer found. A new store adds a test file and no line here.
+      - name: D1 store tests
+        run: node scripts/ci/store-tests.mjs
 
-      # The inquiry store on D1 (the contact form, the guide download leads, the desk count and
-      # the admin Website form tab): contract cases on a real SQLite, and the loud failure when
-      # the target is d1 with no binding (OPS-122).
-      - name: Contact store tests
-        run: pnpm exec tsx --test src/domain/contact/store-d1.test.ts src/domain/contact/store.test.ts
-
-      # The audit log and the rate limiter on D1 (OPS-123): the limiter's one upsert and its
-      # windows, the audit append (and logAudit never throwing), and Settings > History's read
-      # side (tabs, search, subject names), on a real SQLite, plus the loud failure when the
-      # target is d1 with no binding.
-      - name: Audit and rate limit store tests
-        run: pnpm exec tsx --test src/lib/rate-limit-d1.test.ts src/lib/audit-store.test.ts src/domain/history/store-d1.test.ts src/domain/history/store.test.ts
-
-      # The desk settings and the voice agent configs on D1 (OPS-126): the key/value settings,
-      # a person's notification choices and who gets paged, and the agents with their versions
-      # (create, save with the version check, make live, archive), on a real SQLite with
-      # atomic batches, plus the loud failure when the target is d1 with no binding.
-      - name: Settings store tests
-        run: pnpm exec tsx --test src/domain/settings/store-d1.test.ts src/domain/settings/store.test.ts src/domain/voice-agents/store-d1.test.ts src/domain/voice-agents/store.test.ts
-
-      # The desk's messages on D1 (OPS-127): the inbox threads (newest first, unread counts, the
-      # latest message of each thread), one thread, failed deliveries, mark read, the desk counts,
-      # emails sent in the Los Angeles day (with its daylight saving edges), a member's trip
-      # timeline, the webhooks' writes and the inbound duplicate guard, on a real SQLite, plus the
-      # loud failure when the target is d1 with no binding.
-      - name: Message store tests
-        run: pnpm exec tsx --test src/domain/messages/store-d1.test.ts src/domain/messages/store.test.ts
-
-      # Clients and memberships on D1 (OPS-149): the desk's client list (case-insensitive search,
-      # the per-client counts and the reserve balance) and detail, the reserve ledger add and its
-      # balance, the invite taking the next M code in one batch (a failed insert gives the number
-      # back), the membership writes with the tier following them, preferences, companions and
-      # lanes, and the five money-path guard indexes (one active membership per member, one
-      # top-up per payment intent, one refund per draw), on a real SQLite, plus the loud failure
-      # when the target is d1 with no binding.
-      - name: Member store tests
-        run: pnpm exec tsx --test src/domain/members/store-d1.test.ts src/domain/members/store.test.ts
-
-      # The API keys on D1 (OPS-138): create with the cap of working keys (one statement, two
-      # creates together at the cap give one key), revoke, the list with its 24 hour counts and the
-      # creator's name and role, the /api/v1 key sign-in read, the 60 second last-used stamp, one
-      # key's limits, the request log and its 30 day clean-up, the old blog key's usage, and the
-      # table's own refusals (unknown scope, unsupervised agent key, duplicate prefix), on a real
-      # SQLite, plus the loud failure when the target is d1 with no binding.
-      - name: API key store tests
-        run: pnpm exec tsx --test src/lib/api-key-store/store-d1.test.ts src/lib/api-key-store/store.test.ts
-
-      # The desk assistant on D1 (OPS-142): playbook versions (the next version in one statement),
-      # runs (one open run per key, stale and left-open sweeps, the list with item counts), run
-      # items (the cap of 100 and the one open flag per subject as one conditional insert, a
-      # dismiss), and memory (the 200 item cap and the per-run cap, the archive), on a real SQLite
-      # with the repo's D1 migrations, plus the loud failure when the target is d1 with no binding.
-      - name: Agent store tests
-        run: pnpm exec tsx --test src/domain/agent/store-d1.test.ts src/domain/agent/store.test.ts
-
-      # The assistant's approvals on D1 (OPS-150): one pending proposal per dedupe key (the second
-      # insert is refused by the partial unique index and the first handed back), the conditional
-      # claim (a second caller gets nothing), the final write, the expiry sweep (pending past
-      # expiry, an executing row stuck over an hour), the 24 hour per-key window, the joined lists
-      # and counts and what was decided since a date, on a real SQLite with the repo's D1
-      # migrations, plus the loud failure when the target is d1 with no binding.
-      - name: Approval store tests
-        run: pnpm exec tsx --test src/domain/approvals/store-d1.test.ts src/domain/approvals/store.test.ts
-
-      # The phone line's call notes on D1 (OPS-129): the Calls tab's read (newest calls first, the
-      # limit, the latest message of each call, the types the tab expects), the four voice tables'
-      # constraints and foreign keys, on a real SQLite, plus the loud failure when the target is d1
-      # with no binding. The D1 parity test (above) and the copy plan test (scripts/d1-copy) also
-      # cover the four tables.
-      - name: Voice call notes store tests
-        run: pnpm exec tsx --test src/domain/voice/call-notes-store-d1.test.ts src/domain/voice/call-notes-store.test.ts
-
-      # The public quote and the request page on D1 (OPS-153): the quote wizard's submit (the JN code
-      # from the counter in the same batch, the missing airports, the legs, a second submit with the
-      # same idempotency key refused by the new unique index and rolled back whole, number included),
-      # the request page's reads (legs, options, dispatcher, trip) and the client's pick (one claim,
-      # a second claim and a same-millisecond claim change nothing, a re-opened quote takes a fair new
-      # pick), on a real SQLite with the repo's D1 migrations and a batch that is one transaction, plus
-      # the loud failure when the target is d1 with no binding.
-      - name: Quote store tests
-        run: pnpm exec tsx --test src/domain/quotes/store-d1.test.ts src/domain/quotes/store.test.ts
-
-      # The desk's request reads on D1 (OPS-154): the request list (open, booked within 14 days,
-      # closed within 30, smoke quotes hidden, search by name, email, leg city with % and _ literal),
-      # legs and option counts across chunks of 50, the one-request page's parts and candidate
-      # aircraft, the SLA watch's claim (one claim per quote, the limit, the 24 hour window) and its
-      # due-soon list, the smoke prune (the guard repeated in every statement, in batches) and the
-      # reports export, on a real SQLite with the repo's D1 migrations and a batch that is one
-      # transaction, plus the loud failure when the target is d1 with no binding and the export's
-      # window start.
-      - name: Request store tests
-        run: pnpm exec tsx --test src/domain/requests/store-d1.test.ts src/domain/requests/store.test.ts src/app/admin/settings/reports/period.test.ts
-
-      # The trips and the aircraft calendar on D1 (OPS-156): the trip list (newest first, the limit,
-      # search by last name, email and leg city with % and _ literal), legs, invoices and options
-      # across chunks of 50, the one-trip page's parts, the status write with its schedule block
-      # (made for a trip with an aircraft and times, moved, removed on a cancellation), the manual
-      # blocks, the client's trip pages (no row for another client's trip), the aircraft page's
-      # window, recent trips and totals, and the status notice's reads, on a real SQLite with the
-      # repo's D1 migrations, plus the loud failure when the target is d1 with no binding.
-      - name: Trip store tests
-        run: pnpm exec tsx --test src/domain/trips/store-d1.test.ts src/domain/trips/store.test.ts
-
-      # OPS-161: the invoice store's D1 adapter: the cancel refunds (all or nothing, caught on the
-      # unique index), the invoice editor, the dunning cron's two claims, the client's invoice list
-      # and the Checkout claim, and the two Stripe unique indexes of D1 migration 0007, on a real
-      # SQLite with the repo's D1 migrations, plus the loud failure when the target is d1 with no binding.
-      - name: Invoice store tests
-        run: pnpm exec tsx --test src/domain/invoices/store-d1.test.ts src/domain/invoices/store.test.ts
-
-      # The client's account home and Quotes list on D1 (OPS-164): the quotes in progress and the
-      # whole Quotes list (made by the user with no member, owned by the member, a stranger's left
-      # out, newest first, the limit), the quote legs and trip legs over 60 ids (crossing a chunk,
-      # leg order kept, scheduled times as Dates), the member's trips, the aircraft cards and the
-      # invoice facts, on a real SQLite with the repo's D1 migrations, plus the loud failure when the
-      # target is d1 with no binding. The operator page's trips and the thread lookups of the inbound
-      # email and SMS webhooks run in the Trip store tests and the Message store tests.
-      - name: Account store tests
-        run: pnpm exec tsx --test src/domain/account/store-d1.test.ts src/domain/account/store.test.ts
-      # OPS-162: the payment store's D1 adapter, the Stripe webhook's queries: the event claim
-      # (once, then false; processed and error stamps), the reserve credit caught on its unique
-      # index, the invoice turned paid with the UTC day, the membership activation with the member's
-      # tier as one batch (a second active membership rolls both back), the two Stripe unique
-      # indexes of D1 migration 0008 on memberships, and the void on a full refund, on a real
-      # SQLite with the repo's D1 migrations, plus the loud failure when the target is d1 with no binding.
-      - name: Payment store tests
-        run: pnpm exec tsx --test src/domain/payments/store-d1.test.ts src/domain/payments/store.test.ts
-
-      # The desk's counts, the Reports summary and the 7 AM morning summary on D1 (OPS-163): the
-      # sidebar count and the snapshot's five quote counts (smoke quotes left out, booked inside and
-      # outside 14 days, an overdue reply), overdue invoices and live empty legs, the request counts
-      # of a 30 day and a year window with the previous window, the money summary (paid, due,
-      # overdue, void and draft invoices, true margin over the cost-known trips), the most overdue
-      # invoice with its days late, today's flights (time order, an untimed leg last, cancelled trips
-      # out) and the open requests (smoke and closed out, by deadline), on a real SQLite with the
-      # repo's D1 migrations, plus the previous window start of period.ts and the loud failure when
-      # the target is d1 with no binding.
-      - name: Report store tests
-        run: pnpm exec tsx --test src/domain/reports/store-d1.test.ts src/domain/reports/store.test.ts src/app/admin/settings/reports/period.test.ts
+      # The runner's own matching and guard.
+      - name: D1 store test runner tests
+        run: node --test scripts/ci/store-tests.test.mjs
 
   # The voice Worker (voice/, OPS-137): its own package, its own lockfile. Typecheck and
   # the Worker tests run inside workerd, among them the store tests on a real D1

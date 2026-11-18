@@ -1,6 +1,7 @@
-import { and, eq, inArray, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { NOTIFICATION_DEFAULTS, deskSettings, staffNotificationPrefs } from "@/db/schema/desk";
+import { staff } from "@/db/schema/staff";
 import { users } from "@/db/schema/users";
 import type { NotificationKind, SettingsStore } from "./store";
 
@@ -69,6 +70,37 @@ export function pgSettingsStore(): SettingsStore {
         .leftJoin(staffNotificationPrefs, eq(staffNotificationPrefs.userId, users.id))
         .where(and(inArray(users.role, [...STAFF_ROLES]), sql`coalesce(${col}, ${fallback}) = true`));
       return rows.map((r) => r.email);
+    },
+
+    async teamRows() {
+      return db
+        .select({
+          id: users.id,
+          email: users.email,
+          role: users.role,
+          firstName: users.firstName,
+          lastName: users.lastName,
+          displayName: staff.displayName,
+        })
+        .from(users)
+        .leftJoin(staff, eq(staff.userId, users.id))
+        .where(inArray(users.role, [...STAFF_ROLES]))
+        .orderBy(
+          // Owners first, then by name.
+          sql`case when ${users.role} in ('admin','superadmin') then 0 else 1 end`,
+          asc(staff.displayName),
+          asc(users.lastName),
+          asc(users.firstName),
+        );
+    },
+
+    async userNameEmail(userId) {
+      const [row] = await db
+        .select({ email: users.email, firstName: users.firstName, lastName: users.lastName })
+        .from(users)
+        .where(eq(users.id, userId))
+        .limit(1);
+      return row;
     },
   };
 }

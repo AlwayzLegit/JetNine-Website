@@ -1,9 +1,10 @@
 import { and, asc, count, desc, eq, gte, inArray, lt, sql } from "drizzle-orm";
 import type { DrizzleD1Database } from "drizzle-orm/d1";
+import { chunks } from "@/db/d1/helpers";
 import { messages } from "@/db/d1/schema/audit";
 import { members } from "@/db/d1/schema/members";
-import { quotes } from "@/db/d1/schema/quotes";
-import { trips } from "@/db/d1/schema/trips";
+import { quoteLegs, quotes } from "@/db/d1/schema/quotes";
+import { tripLegs, trips } from "@/db/d1/schema/trips";
 import { users } from "@/db/d1/schema/users";
 import type { MessageStore } from "./store";
 
@@ -191,6 +192,110 @@ export function d1MessageStore(db: D1Client): MessageStore {
         .from(messages)
         .where(eq(messages.id, id));
       return m;
+    },
+
+    async threadSubjects({ quoteIds, tripIds, memberIds }) {
+      // The same five reads as the Postgres store, each id list read in chunks of
+      // ID_CHUNK (D1 allows 100 bound values per statement) and put back together.
+      // All legs of one quote or trip are in one chunk, so each subject's leg_number
+      // order is kept (OPS-165).
+      const out: Awaited<ReturnType<MessageStore["threadSubjects"]>> = {
+        quotes: [],
+        quoteLegs: [],
+        trips: [],
+        tripLegs: [],
+        members: [],
+      };
+      for (const part of chunks(quoteIds)) {
+        out.quotes.push(
+          ...(await db
+            .select({
+              id: quotes.id,
+              status: quotes.status,
+              memberId: quotes.memberId,
+              contactSnapshot: quotes.contactSnapshot,
+            })
+            .from(quotes)
+            .where(inArray(quotes.id, part))),
+        );
+        out.quoteLegs.push(
+          ...(await db
+            .select({
+              quoteId: quoteLegs.quoteId,
+              fromCity: quoteLegs.fromCity,
+              fromName: quoteLegs.fromName,
+              fromIata: quoteLegs.fromIata,
+              toCity: quoteLegs.toCity,
+              toName: quoteLegs.toName,
+              toIata: quoteLegs.toIata,
+              departDate: quoteLegs.departDate,
+            })
+            .from(quoteLegs)
+            .where(inArray(quoteLegs.quoteId, part))
+            .orderBy(asc(quoteLegs.legNumber))),
+        );
+      }
+      for (const part of chunks(tripIds)) {
+        out.trips.push(
+          ...(await db
+            .select({
+              id: trips.id,
+              status: trips.status,
+              memberId: trips.memberId,
+              firstName: users.firstName,
+              lastName: users.lastName,
+              email: users.email,
+              phone: users.phoneE164,
+            })
+            .from(trips)
+            .innerJoin(members, eq(members.id, trips.memberId))
+            .innerJoin(users, eq(users.id, members.userId))
+            .where(inArray(trips.id, part))),
+        );
+        out.tripLegs.push(
+          ...(await db
+            .select({
+              tripId: tripLegs.tripId,
+              fromCity: tripLegs.fromCity,
+              fromName: tripLegs.fromName,
+              fromIata: tripLegs.fromIata,
+              toCity: tripLegs.toCity,
+              toName: tripLegs.toName,
+              toIata: tripLegs.toIata,
+              departDate: tripLegs.departDate,
+            })
+            .from(tripLegs)
+            .where(inArray(tripLegs.tripId, part))
+            .orderBy(asc(tripLegs.legNumber))),
+        );
+      }
+      for (const part of chunks(memberIds)) {
+        out.members.push(
+          ...(await db
+            .select({
+              id: members.id,
+              tier: members.tier,
+              firstName: users.firstName,
+              lastName: users.lastName,
+              email: users.email,
+              phone: users.phoneE164,
+              mobile: members.mobileE164,
+            })
+            .from(members)
+            .innerJoin(users, eq(users.id, members.userId))
+            .where(inArray(members.id, part))),
+        );
+      }
+      return out;
+    },
+
+    async subjectCode(subjectType, id) {
+      if (subjectType === "quote") {
+        const [q] = await db.select({ code: quotes.quoteCode }).from(quotes).where(eq(quotes.id, id));
+        return q?.code ?? null;
+      }
+      const [t] = await db.select({ code: trips.tripCode }).from(trips).where(eq(trips.id, id));
+      return t?.code ?? null;
     },
 
     async failedSince(since) {

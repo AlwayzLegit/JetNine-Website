@@ -1,6 +1,7 @@
-import { and, eq, inArray, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, sql } from "drizzle-orm";
 import type { DrizzleD1Database } from "drizzle-orm/d1";
 import { deskSettings, staffNotificationPrefs } from "@/db/d1/schema/desk";
+import { staff } from "@/db/d1/schema/staff";
 import { users } from "@/db/d1/schema/users";
 import { NOTIFICATION_DEFAULTS } from "@/db/schema/desk";
 import type { NotificationKind, SettingsStore } from "./store";
@@ -75,6 +76,41 @@ export function d1SettingsStore(db: D1Client): SettingsStore {
         .leftJoin(staffNotificationPrefs, eq(staffNotificationPrefs.userId, users.id))
         .where(and(inArray(users.role, [...STAFF_ROLES]), sql`coalesce(${col}, ${fallback}) = 1`));
       return rows.map((r) => r.email);
+    },
+
+    async teamRows() {
+      return db
+        .select({
+          id: users.id,
+          email: users.email,
+          role: users.role,
+          firstName: users.firstName,
+          lastName: users.lastName,
+          displayName: staff.displayName,
+        })
+        .from(users)
+        .leftJoin(staff, eq(staff.userId, users.id))
+        .where(inArray(users.role, [...STAFF_ROLES]))
+        .orderBy(
+          // Owners first, then by name. SQLite sorts NULL first in ascending order and Postgres
+          // last, so each name is ordered by "is null" first to put a missing name last.
+          sql`case when ${users.role} in ('admin','superadmin') then 0 else 1 end`,
+          sql`${staff.displayName} is null`,
+          asc(staff.displayName),
+          sql`${users.lastName} is null`,
+          asc(users.lastName),
+          sql`${users.firstName} is null`,
+          asc(users.firstName),
+        );
+    },
+
+    async userNameEmail(userId) {
+      const [row] = await db
+        .select({ email: users.email, firstName: users.firstName, lastName: users.lastName })
+        .from(users)
+        .where(eq(users.id, userId))
+        .limit(1);
+      return row;
     },
   };
 }

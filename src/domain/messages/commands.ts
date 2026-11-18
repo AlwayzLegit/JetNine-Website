@@ -1,9 +1,5 @@
-import { eq } from "drizzle-orm";
-import { db } from "@/db";
 import { messageStore } from "./store";
 import { inquiryStore } from "@/domain/contact/store";
-import { quotes } from "@/db/schema/quotes";
-import { trips } from "@/db/schema/trips";
 import { logAudit } from "@/lib/audit";
 import type { ThreadChannel } from "@/lib/message-delivery";
 import { auditFields, type Actor } from "@/domain/actor";
@@ -60,12 +56,8 @@ export async function loadMessageForRetry(input: MessageRetryInput): Promise<Res
 
   // Look up the subject's code for the email subject line.
   let subjectCode: string | null = null;
-  if (m.subjectType === "quote") {
-    const [q] = await db.select({ code: quotes.quoteCode }).from(quotes).where(eq(quotes.id, m.subjectId));
-    subjectCode = q?.code ?? null;
-  } else if (m.subjectType === "trip") {
-    const [t] = await db.select({ code: trips.tripCode }).from(trips).where(eq(trips.id, m.subjectId));
-    subjectCode = t?.code ?? null;
+  if (m.subjectType === "quote" || m.subjectType === "trip") {
+    subjectCode = await messageStore().subjectCode(m.subjectType, m.subjectId);
   }
   if (!subjectCode || (m.subjectType !== "quote" && m.subjectType !== "trip")) {
     return err("not_found", "SUBJECT_NOT_FOUND");

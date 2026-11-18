@@ -1,7 +1,10 @@
 import { d1Db, dbTarget } from "@/db";
 import { isUniqueViolation } from "@/db/unique";
 import type { NewMessage } from "@/db/schema/audit";
-import type { quotes } from "@/db/schema/quotes";
+import type { members as pgMembers } from "@/db/schema/members";
+import type { quoteLegs, quotes } from "@/db/schema/quotes";
+import type { trips } from "@/db/schema/trips";
+import type { users } from "@/db/schema/users";
 import { d1MessageStore } from "./store-d1";
 import { pgMessageStore } from "./store-pg";
 
@@ -15,8 +18,10 @@ import { pgMessageStore } from "./store-pg";
 // (staging first; the code refuses "d1" in production, see src/db/target.mjs).
 //
 // Lookups into quotes, trips, members and users that are not part of a messages
-// query stay where they are (their own rows move them). The voice service's
-// tables are OPS-129's.
+// query stay where they are (their own rows move them), except the two reads
+// the thread list and the failed-message retry need: the subjects' details for
+// the thread list (threadSubjects) and a subject's code (subjectCode), added by
+// OPS-165. The voice service's tables are OPS-129's.
 
 export type ThreadSubjectKind = "quote" | "trip" | "member";
 
@@ -72,6 +77,45 @@ export type RetryMessage = {
   body: string | null;
   preview: string | null;
   deliveryStatus: "queued" | "sent" | "failed" | "skipped";
+};
+
+/** The route fields of one leg, as the thread list reads them. */
+type ThreadLeg = Pick<
+  typeof quoteLegs.$inferSelect,
+  "fromCity" | "fromName" | "fromIata" | "toCity" | "toName" | "toIata" | "departDate"
+>;
+
+/** What the thread list reads about the subjects of the threads it shows (OPS-165). */
+export type ThreadSubjectRows = {
+  quotes: {
+    id: string;
+    status: (typeof quotes.$inferSelect)["status"];
+    memberId: string | null;
+    contactSnapshot: ContactSnapshot;
+  }[];
+  /** Legs of the quotes, each quote's legs in leg_number order. */
+  quoteLegs: (ThreadLeg & { quoteId: string })[];
+  /** Trips with their member's user (the client). */
+  trips: {
+    id: string;
+    status: (typeof trips.$inferSelect)["status"];
+    memberId: string;
+    firstName: (typeof users.$inferSelect)["firstName"];
+    lastName: (typeof users.$inferSelect)["lastName"];
+    email: string;
+    phone: (typeof users.$inferSelect)["phoneE164"];
+  }[];
+  /** Legs of the trips, each trip's legs in leg_number order. */
+  tripLegs: (ThreadLeg & { tripId: string })[];
+  members: {
+    id: string;
+    tier: (typeof pgMembers.$inferSelect)["tier"];
+    firstName: (typeof users.$inferSelect)["firstName"];
+    lastName: (typeof users.$inferSelect)["lastName"];
+    email: string;
+    phone: (typeof users.$inferSelect)["phoneE164"];
+    mobile: (typeof pgMembers.$inferSelect)["mobileE164"];
+  }[];
 };
 
 export type FailedDeliveryRaw = {
@@ -139,6 +183,13 @@ export interface MessageStore {
   messageForRetry(id: string): Promise<RetryMessage | undefined>;
   /** Outbound messages that failed since `since`, newest first, with their request or trip details (50 at most). */
   failedSince(since: Date): Promise<FailedDeliveryRaw[]>;
+  /**
+   * The quotes, trips and members behind a thread list, with their legs (OPS-165). An empty id
+   * list gives an empty result for that kind and runs no query.
+   */
+  threadSubjects(ids: { quoteIds: string[]; tripIds: string[]; memberIds: string[] }): Promise<ThreadSubjectRows>;
+  /** The JN-... code of a request or trip, for the email subject of a retry; null when there is none (OPS-165). */
+  subjectCode(subjectType: "quote" | "trip", id: string): Promise<string | null>;
   /** Unread inbound messages across the desk. */
   unreadInbound(): Promise<number>;
   /** Unread inbound messages and outbound failures since `since7`. */

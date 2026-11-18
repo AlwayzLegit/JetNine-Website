@@ -1,7 +1,9 @@
-import { and, count, desc, eq, gte, isNull, lt, sql } from "drizzle-orm";
+import { and, count, desc, eq, gte, inArray, isNull, lt, sql } from "drizzle-orm";
 import type { DrizzleD1Database } from "drizzle-orm/d1";
 import { agentMemory, agentPlaybooks, agentRunItems, agentRuns } from "@/db/d1/schema/agent";
-import { newId } from "@/db/d1/helpers";
+import { chunks, newId } from "@/db/d1/helpers";
+import { quotes } from "@/db/d1/schema/quotes";
+import { trips } from "@/db/d1/schema/trips";
 import type { AgentMemory, AgentRun, AgentRunItem } from "@/db/schema/agent";
 import type { AgentStore } from "./store";
 
@@ -231,6 +233,18 @@ export function d1AgentStore(db: D1Client): AgentStore {
         .where(and(eq(agentRunItems.kind, "flag"), eq(agentRunItems.status, "open")))
         .orderBy(desc(agentRunItems.createdAt))
         .limit(100);
+    },
+
+    async subjectStatuses(quoteIds, tripIds) {
+      // Id lists are read in chunks of ID_CHUNK: D1 allows 100 bound values per statement.
+      const out: Awaited<ReturnType<AgentStore["subjectStatuses"]>> = { quotes: [], trips: [] };
+      for (const part of chunks(quoteIds)) {
+        out.quotes.push(...(await db.select({ id: quotes.id, status: quotes.status }).from(quotes).where(inArray(quotes.id, part))));
+      }
+      for (const part of chunks(tripIds)) {
+        out.trips.push(...(await db.select({ id: trips.id, status: trips.status }).from(trips).where(inArray(trips.id, part))));
+      }
+      return out;
     },
 
     async itemsForSubject(subjectType, subjectId, includeDismissed) {

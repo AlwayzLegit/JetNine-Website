@@ -1,5 +1,3 @@
-import { inArray } from "drizzle-orm";
-import { db } from "@/db";
 import {
   type AgentMemory,
   type AgentPlaybook,
@@ -7,8 +5,6 @@ import {
   type AgentRunItem,
   type PlaybookJob,
 } from "@/db/schema/agent";
-import { quotes } from "@/db/schema/quotes";
-import { trips } from "@/db/schema/trips";
 import { requestStage, tripState } from "@/lib/desk-status";
 import { listPosts } from "@/domain/blog/commands";
 import { decidedSince, type Feedback } from "@/domain/approvals/queries";
@@ -22,9 +18,9 @@ import { agentStore } from "./store";
  * What the assistant reads. `agentContext` is the one call a run starts
  * with; everything else is for the Settings › Assistant pages and the
  * narrower endpoints. The assistant's own tables are read through the agent
- * store (store.ts, OPS-142), Postgres or D1 by dbTarget(); the quote and trip
- * statuses behind a flag, the blog, the desk and the health snapshot stay on
- * their own domains.
+ * store (store.ts, OPS-142), Postgres or D1 by dbTarget(), and so are the quote
+ * and trip statuses behind a flag (OPS-165); the blog, the desk and the health
+ * snapshot stay on their own domains.
  */
 
 const LA = "America/Los_Angeles";
@@ -79,10 +75,7 @@ export async function listOpenFlags(): Promise<OpenFlag[]> {
 
   const quoteIds = flags.filter((f) => f.subjectType === "quote" && f.subjectId).map((f) => f.subjectId!);
   const tripIds = flags.filter((f) => f.subjectType === "trip" && f.subjectId).map((f) => f.subjectId!);
-  const [quoteRows, tripRows] = await Promise.all([
-    quoteIds.length ? db.select({ id: quotes.id, status: quotes.status }).from(quotes).where(inArray(quotes.id, quoteIds)) : [],
-    tripIds.length ? db.select({ id: trips.id, status: trips.status }).from(trips).where(inArray(trips.id, tripIds)) : [],
-  ]);
+  const { quotes: quoteRows, trips: tripRows } = await agentStore().subjectStatuses(quoteIds, tripIds);
   const now = new Map<string, string>();
   for (const q of quoteRows) now.set(q.id, requestStage(q.status).label);
   for (const t of tripRows) now.set(t.id, tripState(t.status).label);

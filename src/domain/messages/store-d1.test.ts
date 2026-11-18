@@ -2,8 +2,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { freshD1 } from "@/db/d1/test-client";
 import { members } from "@/db/d1/schema/members";
-import { quotes } from "@/db/d1/schema/quotes";
-import { trips } from "@/db/d1/schema/trips";
+import { quoteLegs, quotes } from "@/db/d1/schema/quotes";
+import { tripLegs, trips } from "@/db/d1/schema/trips";
 import { users } from "@/db/d1/schema/users";
 import { d1MessageStore } from "./store-d1";
 import { isDuplicateMessage } from "./store";
@@ -333,4 +333,101 @@ test("laDayBounds: an ordinary day, a time near midnight UTC, and the two daylig
   b = laDayBounds(at("2026-03-08T20:00:00Z"));
   assert.equal(iso(b.start), "2026-03-08T08:00:00.000Z");
   assert.equal(iso(b.end), "2026-03-09T07:00:00.000Z");
+});
+
+test("threadSubjects: quotes with legs in leg order, trips with their client, members, and 60 quotes across a chunk", async () => {
+  const { client, store } = fresh();
+  assert.deepEqual(await store.threadSubjects({ quoteIds: [], tripIds: [], memberIds: [] }), {
+    quotes: [],
+    quoteLegs: [],
+    trips: [],
+    tripLegs: [],
+    members: [],
+  });
+
+  // A quote whose two legs are inserted out of order.
+  const [q] = await client
+    .insert(quotes)
+    .values({
+      quoteCode: "JN-2026-0500",
+      tripType: "round",
+      paxCount: 2,
+      status: "submitted",
+      contactSnapshot: { firstName: "Ada", lastName: "Lovelace", email: "ada@example.com" },
+    } as never)
+    .returning({ id: quotes.id });
+  await client.insert(quoteLegs).values({ quoteId: q.id, legNumber: 2, fromCity: "Teterboro", toCity: "Van Nuys", departDate: "2026-12-05" } as never);
+  await client.insert(quoteLegs).values({ quoteId: q.id, legNumber: 1, fromCity: "Van Nuys", fromIata: "VNY", toCity: "Teterboro", toIata: "TEB", departDate: "2026-12-01" } as never);
+
+  const memberUser = await user(client, "grace@example.com", "Grace");
+  const [mem] = await client
+    .insert(members)
+    .values({ userId: memberUser, memberCode: "M-7", mobileE164: "+13105550123" } as never)
+    .returning({ id: members.id });
+  const [t] = await client
+    .insert(trips)
+    .values({ tripCode: "JN-2026-0600", memberId: mem.id, missionType: "one_way", paxCount: 3, status: "confirmed" } as never)
+    .returning({ id: trips.id });
+  await client.insert(tripLegs).values({ tripId: t.id, legNumber: 2, fromCity: "B", toCity: "C", departDate: "2026-12-09" } as never);
+  await client.insert(tripLegs).values({ tripId: t.id, legNumber: 1, fromCity: "A", toCity: "B", departDate: "2026-12-08" } as never);
+
+  // Sixty more quotes, so the id list crosses the chunk size.
+  const manyIds: string[] = [];
+  for (let i = 0; i < 60; i++) {
+    const [r] = await client
+      .insert(quotes)
+      .values({
+        quoteCode: `JN-2026-${String(700 + i).padStart(4, "0")}`,
+        tripType: "one_way",
+        paxCount: 1,
+        contactSnapshot: { firstName: "N", lastName: String(i), email: `n${i}@example.com` },
+      } as never)
+      .returning({ id: quotes.id });
+    manyIds.push(r.id);
+  }
+
+  const got = await store.threadSubjects({ quoteIds: [q.id, ...manyIds, "no-such-quote"], tripIds: [t.id, "no-such-trip"], memberIds: [mem.id] });
+  assert.equal(got.quotes.length, 61);
+  const quote = got.quotes.find((r) => r.id === q.id);
+  assert.equal(quote?.status, "submitted");
+  assert.equal(quote?.contactSnapshot?.firstName, "Ada");
+  const legsOfQuote = got.quoteLegs.filter((l) => l.quoteId === q.id);
+  assert.deepEqual(legsOfQuote.map((l) => l.fromCity), ["Van Nuys", "Teterboro"], "leg_number order");
+  assert.equal(legsOfQuote[0].departDate, "2026-12-01");
+  assert.equal(legsOfQuote[0].fromIata, "VNY");
+
+  assert.equal(got.trips.length, 1);
+  assert.equal(got.trips[0].id, t.id);
+  assert.equal(got.trips[0].status, "confirmed");
+  assert.equal(got.trips[0].memberId, mem.id);
+  assert.equal(got.trips[0].email, "grace@example.com");
+  assert.equal(got.trips[0].firstName, "Grace");
+  assert.deepEqual(got.tripLegs.map((l) => l.fromCity), ["A", "B"]);
+  assert.ok(got.tripLegs.every((l) => l.tripId === t.id));
+
+  assert.equal(got.members.length, 1);
+  assert.equal(got.members[0].id, mem.id);
+  assert.equal(got.members[0].mobile, "+13105550123");
+  assert.equal(got.members[0].email, "grace@example.com");
+  assert.ok(typeof got.members[0].tier === "string");
+});
+
+test("subjectCode returns a quote's or a trip's code, and null for an unknown id", async () => {
+  const { client, store } = fresh();
+  const [q] = await client
+    .insert(quotes)
+    .values({ quoteCode: "JN-2026-0800", tripType: "one_way", paxCount: 1, contactSnapshot: { firstName: "A", lastName: "B", email: "a@example.com" } } as never)
+    .returning({ id: quotes.id });
+  const memberUser = await user(client, "m2@example.com", "Mo");
+  const [mem] = await client.insert(members).values({ userId: memberUser, memberCode: "M-8" } as never).returning({ id: members.id });
+  const [t] = await client
+    .insert(trips)
+    .values({ tripCode: "JN-2026-0801", memberId: mem.id, missionType: "one_way", paxCount: 1 } as never)
+    .returning({ id: trips.id });
+  assert.equal(await store.subjectCode("quote", q.id), "JN-2026-0800");
+  assert.equal(await store.subjectCode("trip", t.id), "JN-2026-0801");
+  assert.equal(await store.subjectCode("quote", "no-such-quote"), null);
+  assert.equal(await store.subjectCode("trip", t.id + "x"), null);
+  // A trip id asked as a quote is not found.
+  assert.equal(await store.subjectCode("quote", t.id), null);
 });

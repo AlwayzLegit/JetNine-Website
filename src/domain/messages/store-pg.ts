@@ -2,8 +2,8 @@ import { and, asc, count, desc, eq, gte, inArray, lt, or, sql as dsql } from "dr
 import { db } from "@/db";
 import { messages } from "@/db/schema/audit";
 import { members } from "@/db/schema/members";
-import { quotes } from "@/db/schema/quotes";
-import { trips } from "@/db/schema/trips";
+import { quoteLegs, quotes } from "@/db/schema/quotes";
+import { tripLegs, trips } from "@/db/schema/trips";
 import { users } from "@/db/schema/users";
 import type { MessageStore } from "./store";
 
@@ -151,6 +151,96 @@ export function pgMessageStore(): MessageStore {
         .from(messages)
         .where(eq(messages.id, id));
       return m;
+    },
+
+    async threadSubjects({ quoteIds, tripIds, memberIds }) {
+      // The five reads of the thread list, moved as they were from queries.ts (OPS-165).
+      const [quoteRows, quoteLegRows, tripRows, tripLegRows, memberRows] = await Promise.all([
+        quoteIds.length
+          ? db
+              .select({
+                id: quotes.id,
+                status: quotes.status,
+                memberId: quotes.memberId,
+                contactSnapshot: quotes.contactSnapshot,
+              })
+              .from(quotes)
+              .where(inArray(quotes.id, quoteIds))
+          : Promise.resolve([]),
+        quoteIds.length
+          ? db
+              .select({
+                quoteId: quoteLegs.quoteId,
+                fromCity: quoteLegs.fromCity,
+                fromName: quoteLegs.fromName,
+                fromIata: quoteLegs.fromIata,
+                toCity: quoteLegs.toCity,
+                toName: quoteLegs.toName,
+                toIata: quoteLegs.toIata,
+                departDate: quoteLegs.departDate,
+              })
+              .from(quoteLegs)
+              .where(inArray(quoteLegs.quoteId, quoteIds))
+              .orderBy(asc(quoteLegs.legNumber))
+          : Promise.resolve([]),
+        tripIds.length
+          ? db
+              .select({
+                id: trips.id,
+                status: trips.status,
+                memberId: trips.memberId,
+                firstName: users.firstName,
+                lastName: users.lastName,
+                email: users.email,
+                phone: users.phoneE164,
+              })
+              .from(trips)
+              .innerJoin(members, eq(members.id, trips.memberId))
+              .innerJoin(users, eq(users.id, members.userId))
+              .where(inArray(trips.id, tripIds))
+          : Promise.resolve([]),
+        tripIds.length
+          ? db
+              .select({
+                tripId: tripLegs.tripId,
+                fromCity: tripLegs.fromCity,
+                fromName: tripLegs.fromName,
+                fromIata: tripLegs.fromIata,
+                toCity: tripLegs.toCity,
+                toName: tripLegs.toName,
+                toIata: tripLegs.toIata,
+                departDate: tripLegs.departDate,
+              })
+              .from(tripLegs)
+              .where(inArray(tripLegs.tripId, tripIds))
+              .orderBy(asc(tripLegs.legNumber))
+          : Promise.resolve([]),
+        memberIds.length
+          ? db
+              .select({
+                id: members.id,
+                tier: members.tier,
+                firstName: users.firstName,
+                lastName: users.lastName,
+                email: users.email,
+                phone: users.phoneE164,
+                mobile: members.mobileE164,
+              })
+              .from(members)
+              .innerJoin(users, eq(users.id, members.userId))
+              .where(inArray(members.id, memberIds))
+          : Promise.resolve([]),
+      ]);
+      return { quotes: quoteRows, quoteLegs: quoteLegRows, trips: tripRows, tripLegs: tripLegRows, members: memberRows };
+    },
+
+    async subjectCode(subjectType, id) {
+      if (subjectType === "quote") {
+        const [q] = await db.select({ code: quotes.quoteCode }).from(quotes).where(eq(quotes.id, id));
+        return q?.code ?? null;
+      }
+      const [t] = await db.select({ code: trips.tripCode }).from(trips).where(eq(trips.id, id));
+      return t?.code ?? null;
     },
 
     async failedSince(since) {

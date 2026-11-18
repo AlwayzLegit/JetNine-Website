@@ -1,4 +1,6 @@
 import { d1Db, dbTarget } from "@/db";
+import type { quotes } from "@/db/schema/quotes";
+import type { trips } from "@/db/schema/trips";
 import type { AgentMemory, AgentPlaybook, AgentRun, AgentRunItem, MemoryKind, PlaybookJob, RunItemKind, RunReport } from "@/db/schema/agent";
 import { d1AgentStore } from "./store-d1";
 import { pgAgentStore } from "./store-pg";
@@ -15,7 +17,14 @@ import { pgAgentStore } from "./store-pg";
 // conditional statement each on D1, which runs one statement at a time, so the caps cannot be
 // raced. The rules (who may do what, the messages, the audit calls) stay in commands.ts and
 // queries.ts. Lookups into quotes, trips and approvals, the blog, the desk and the health snapshot
-// stay where they are; they move with their own rows.
+// stay where they are; they move with their own rows. One exception since OPS-165: the status of the
+// quotes and trips that open flags point at (subjectStatuses), read here so queries.ts holds no db.
+
+/** The status of each quote and trip an open flag points at. */
+export type SubjectStatuses = {
+  quotes: { id: string; status: (typeof quotes.$inferSelect)["status"] }[];
+  trips: { id: string; status: (typeof trips.$inferSelect)["status"] }[];
+};
 
 export type NewRun = { runDate: string; keyId: string | null; playbookVersion: number };
 
@@ -92,6 +101,11 @@ export interface AgentStore {
   dismissItem(id: string, userId: string, at: Date): Promise<AgentRunItem | undefined>;
   /** Open flags, newest first, at most 100. */
   openFlags(): Promise<FlagRaw[]>;
+  /**
+   * The current status of the quotes and trips that open flags point at (OPS-165), so a stale flag
+   * is obvious. An empty id list gives an empty result for that kind and runs no query.
+   */
+  subjectStatuses(quoteIds: string[], tripIds: string[]): Promise<SubjectStatuses>;
   /** Items about one subject, newest first, at most 20, with the date of the run that made them. */
   itemsForSubject(subjectType: string, subjectId: string, includeDismissed: boolean): Promise<SubjectItemRaw[]>;
 

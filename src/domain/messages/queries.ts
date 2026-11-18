@@ -1,13 +1,7 @@
-import { asc, eq, inArray } from "drizzle-orm";
-import { db } from "@/db";
 import { THREAD_LIMIT } from "@/domain/requests/queries";
 import { messageStore } from "./store";
 import { callNotesStore, type VoiceCallRow } from "@/domain/voice/call-notes-store";
 import { inquiryStore, type InquiryRow } from "@/domain/contact/store";
-import { members } from "@/db/schema/members";
-import { quotes, quoteLegs } from "@/db/schema/quotes";
-import { trips, tripLegs } from "@/db/schema/trips";
-import { users } from "@/db/schema/users";
 import { personName, requestStage, tierWords, tripState } from "@/lib/desk-status";
 import { dateRangeWords, routeWords } from "@/components/admin/messages/words";
 import type { ThreadMessage } from "@/components/admin/message-thread";
@@ -106,83 +100,11 @@ export async function listThreads(opts: { q?: string } = {}): Promise<ThreadList
   const tripIds = threadAgg.filter((t) => t.subjectType === "trip").map((t) => t.subjectId);
   const memberIds = threadAgg.filter((t) => t.subjectType === "member").map((t) => t.subjectId);
 
-  const [latest, quoteRows, quoteLegRows, tripRows, tripLegRows, memberRows] = await Promise.all([
-    store.latestPerThread(THREAD_SUBJECTS, threadIds),
-    quoteIds.length
-      ? db
-          .select({
-            id: quotes.id,
-            status: quotes.status,
-            memberId: quotes.memberId,
-            contactSnapshot: quotes.contactSnapshot,
-          })
-          .from(quotes)
-          .where(inArray(quotes.id, quoteIds))
-      : Promise.resolve([]),
-    quoteIds.length
-      ? db
-          .select({
-            quoteId: quoteLegs.quoteId,
-            fromCity: quoteLegs.fromCity,
-            fromName: quoteLegs.fromName,
-            fromIata: quoteLegs.fromIata,
-            toCity: quoteLegs.toCity,
-            toName: quoteLegs.toName,
-            toIata: quoteLegs.toIata,
-            departDate: quoteLegs.departDate,
-          })
-          .from(quoteLegs)
-          .where(inArray(quoteLegs.quoteId, quoteIds))
-          .orderBy(asc(quoteLegs.legNumber))
-      : Promise.resolve([]),
-    tripIds.length
-      ? db
-          .select({
-            id: trips.id,
-            status: trips.status,
-            memberId: trips.memberId,
-            firstName: users.firstName,
-            lastName: users.lastName,
-            email: users.email,
-            phone: users.phoneE164,
-          })
-          .from(trips)
-          .innerJoin(members, eq(members.id, trips.memberId))
-          .innerJoin(users, eq(users.id, members.userId))
-          .where(inArray(trips.id, tripIds))
-      : Promise.resolve([]),
-    tripIds.length
-      ? db
-          .select({
-            tripId: tripLegs.tripId,
-            fromCity: tripLegs.fromCity,
-            fromName: tripLegs.fromName,
-            fromIata: tripLegs.fromIata,
-            toCity: tripLegs.toCity,
-            toName: tripLegs.toName,
-            toIata: tripLegs.toIata,
-            departDate: tripLegs.departDate,
-          })
-          .from(tripLegs)
-          .where(inArray(tripLegs.tripId, tripIds))
-          .orderBy(asc(tripLegs.legNumber))
-      : Promise.resolve([]),
-    memberIds.length
-      ? db
-          .select({
-            id: members.id,
-            tier: members.tier,
-            firstName: users.firstName,
-            lastName: users.lastName,
-            email: users.email,
-            phone: users.phoneE164,
-            mobile: members.mobileE164,
-          })
-          .from(members)
-          .innerJoin(users, eq(users.id, members.userId))
-          .where(inArray(members.id, memberIds))
-      : Promise.resolve([]),
-  ]);
+  const [latest, { quotes: quoteRows, quoteLegs: quoteLegRows, trips: tripRows, tripLegs: tripLegRows, members: memberRows }] =
+    await Promise.all([
+      store.latestPerThread(THREAD_SUBJECTS, threadIds),
+      store.threadSubjects({ quoteIds, tripIds, memberIds }),
+    ]);
 
   const latestByKey = new Map(latest.map((m) => [`${m.subjectType}:${m.subjectId}`, m]));
   const quoteById = new Map(quoteRows.map((r) => [r.id, r]));

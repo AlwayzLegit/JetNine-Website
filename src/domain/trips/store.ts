@@ -208,6 +208,18 @@ export type WindowBlockRow = {
   tripCode: string | null;
 };
 
+/** One of an operator's newest trips, for the operator page (OPS-164). */
+export type OperatorTripRow = {
+  id: string;
+  tripCode: string;
+  status: string;
+  paxCount: number;
+  revenueUsd: number | null;
+  createdAt: Date;
+};
+
+export type OperatorTotals = { lifetimeTrips: number; lifetimeRevenue: number };
+
 export interface TripStore {
   /**
    * Blocks that overlap the window (start_at before `to`, end_at after `from`), ordered by
@@ -263,6 +275,10 @@ export interface TripStore {
   tailRecentTrips(aircraftId: string, limit: number): Promise<TailTripRow[]>;
   /** Lifetime trips, revenue and passengers of a tail. */
   tailTotals(aircraftId: string): Promise<TailTotals>;
+  /** The newest trips (at most `limit`) flown by an operator, for the operator page (OPS-164). */
+  operatorRecentTrips(operatorId: string, limit: number): Promise<OperatorTripRow[]>;
+  /** Lifetime trips and revenue of an operator: 0 and 0 when it has none (OPS-164). */
+  operatorTotals(operatorId: string): Promise<OperatorTotals>;
 }
 
 /** The store for this request. One call per request; nothing is cached across requests. */

@@ -1,12 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { eq } from "drizzle-orm";
-import { db } from "@/db";
 import type { NewMessage } from "@/db/schema/audit";
 import { isDuplicateMessage, messageStore } from "@/domain/messages/store";
 import { watchlistStore } from "@/domain/empty-legs/watchlist-store";
-import { members } from "@/db/schema/members";
-import { quotes } from "@/db/schema/quotes";
-import { trips } from "@/db/schema/trips";
 import { logAudit } from "@/lib/audit";
 import { sendDispatchAlert } from "@/lib/email";
 import { recipientsFor } from "@/lib/desk-settings";
@@ -296,44 +291,12 @@ async function resolveInboundRoute(body: string): Promise<InboundRoute | null> {
   if (!match) return null;
   const code = match[1].toUpperCase();
 
-  // Quote codes AND trip codes both use the JN- prefix (5- vs 4-digit
-  // ordinals), so JN- must be tried against quotes first, then trips.
-  if (code.startsWith("QT-") || code.startsWith("JN-")) {
-    const [q] = await db
-      .select({
-        id: quotes.id,
-        memberUserId: members.userId,
-      })
-      .from(quotes)
-      .leftJoin(members, eq(members.id, quotes.memberId))
-      .where(eq(quotes.quoteCode, code));
-    if (q) {
-      return {
-        subjectType: "quote",
-        subjectId: q.id,
-        subjectCode: code,
-        toUserId: q.memberUserId ?? null,
-      };
-    }
-  }
-  if (code.startsWith("JN-")) {
-    const [t] = await db
-      .select({
-        id: trips.id,
-        memberUserId: members.userId,
-      })
-      .from(trips)
-      .innerJoin(members, eq(members.id, trips.memberId))
-      .where(eq(trips.tripCode, code));
-    if (!t) return null;
-    return {
-      subjectType: "trip",
-      subjectId: t.id,
-      subjectCode: code,
-      toUserId: t.memberUserId,
-    };
-  }
-  return null;
+  // Quote codes AND trip codes both use the JN- prefix (5- vs 4-digit ordinals), so JN- is
+  // tried against quotes first, then trips. The lookup lives in the message store (OPS-164),
+  // Postgres or D1 by dbTarget().
+  const thread = await messageStore().threadByCode(code);
+  if (!thread) return null;
+  return { ...thread, subjectCode: code };
 }
 
 /** Host of the canonical site URL (jetnine.com in production), or null. */

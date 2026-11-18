@@ -520,3 +520,40 @@ test("blocksInWindow of an empty window returns an empty list", async () => {
   const { store } = fresh();
   assert.deepEqual(await store.blocksInWindow(at(0), at(14 * DAY)), []);
 });
+
+// OPS-164: the operator page's recent trips and lifetime totals.
+
+test("operatorRecentTrips is newest first, honours the limit and leaves another operator's trips out", async () => {
+  const { client, store } = fresh();
+  const m = await member(client);
+  const mine = await operator(client, "Acme Air");
+  const other = await operator(client, "Other Air");
+  const old = await trip(client, m.id, { operatorId: mine, createdAt: at(-3 * HOUR), revenueUsd: 100 });
+  const mid = await trip(client, m.id, { operatorId: mine, createdAt: at(-2 * HOUR) });
+  const newest = await trip(client, m.id, { operatorId: mine, createdAt: at(-1 * HOUR), revenueUsd: 300 });
+  await trip(client, m.id, { operatorId: other, createdAt: at(-30 * 60_000) });
+  await trip(client, m.id, { createdAt: at(-20 * 60_000) });
+
+  const all = await store.operatorRecentTrips(mine, 10);
+  assert.deepEqual(all.map((r) => r.id), [newest, mid, old]);
+  assert.equal(all[0].revenueUsd, 300);
+  assert.equal(all[1].revenueUsd, null);
+  assert.equal(all[0].paxCount, 2);
+  assert.equal(all[0].status, "confirmed");
+  assert.ok(all[0].tripCode.startsWith("JN-2026-"));
+  assert.ok(all[0].createdAt instanceof Date);
+  assert.deepEqual((await store.operatorRecentTrips(mine, 2)).map((r) => r.id), [newest, mid]);
+  assert.deepEqual(await store.operatorRecentTrips("nope", 10), []);
+});
+
+test("operatorTotals sums trips and revenue as numbers, and is 0 and 0 for an operator with no trips", async () => {
+  const { client, store } = fresh();
+  const m = await member(client);
+  const mine = await operator(client, "Acme Air");
+  const empty = await operator(client, "Empty Air");
+  await trip(client, m.id, { operatorId: mine, revenueUsd: 1000 });
+  await trip(client, m.id, { operatorId: mine, revenueUsd: 2500 });
+  await trip(client, m.id, { operatorId: mine });
+  assert.deepEqual(await store.operatorTotals(mine), { lifetimeTrips: 3, lifetimeRevenue: 3500 });
+  assert.deepEqual(await store.operatorTotals(empty), { lifetimeTrips: 0, lifetimeRevenue: 0 });
+});

@@ -380,5 +380,33 @@ export function d1MessageStore(db: D1Client): MessageStore {
         .where(and(eq(messages.subjectType, "trip"), eq(messages.subjectId, tripId), eq(messages.direction, "out")))
         .orderBy(asc(messages.occurredAt));
     },
+
+    async threadByCode(code) {
+      // The same order as the Postgres adapter: a QT- or JN- code as a quote code first (a
+      // quote needs no client), then a JN- code as a trip code (a trip needs its member).
+      if (code.startsWith("QT-") || code.startsWith("JN-")) {
+        const [row] = await db
+          .select({ id: quotes.id, memberUserId: members.userId })
+          .from(quotes)
+          .leftJoin(members, eq(members.id, quotes.memberId))
+          .where(eq(quotes.quoteCode, code));
+        if (row) return { subjectType: "quote", subjectId: row.id, toUserId: row.memberUserId ?? null };
+      }
+      if (code.startsWith("JN-")) {
+        const [row] = await db
+          .select({ id: trips.id, memberUserId: members.userId })
+          .from(trips)
+          .innerJoin(members, eq(members.id, trips.memberId))
+          .where(eq(trips.tripCode, code));
+        if (!row) return null;
+        return { subjectType: "trip", subjectId: row.id, toUserId: row.memberUserId };
+      }
+      return null;
+    },
+
+    async userIdByEmail(email) {
+      const [hit] = await db.select({ id: users.id }).from(users).where(eq(users.email, email)).limit(1);
+      return hit ?? null;
+    },
   };
 }

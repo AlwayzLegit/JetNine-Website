@@ -253,6 +253,25 @@ async function checkApiKeyLookup(): Promise<void> {
   });
 }
 
+// ─── Agent context sign-in ───────────────────────────────────────────────
+
+// The assistant's read endpoint signs in with the same key lookup as /me, so this shows the
+// lookup answers on the agent route too (401 for a made-up key, never a 5xx). It does not reach
+// the agent store itself: staging's health `d1 ok` and the store tests are the evidence for that.
+async function checkAgentContextLookup(): Promise<void> {
+  await check("GET /api/v1/agent/context (made-up key)", "required", async () => {
+    const r = await read(`${TARGET}/api/v1/agent/context`, {
+      headers: { authorization: `Bearer jn_live_crewsmok_${"A".repeat(43)}` },
+    });
+    if (r.status === 503 || /temporarily unavailable/i.test(r.text)) {
+      return { ok: false, detail: `the key lookup failed (${r.status})` };
+    }
+    if (r.status !== 401) return { ok: false, detail: `unexpected ${r.status} (expected 401)` };
+    console.log("agent context lookup: 401 for a made-up key");
+    return { ok: true, detail: "401 · made-up key rejected" };
+  });
+}
+
 // ─── API ships-dark surface ──────────────────────────────────────────────
 
 async function checkStripeWebhook(): Promise<void> {
@@ -490,6 +509,7 @@ async function main() {
   await checkEmptyLegsBoard();
   await checkWatchlistConfirmLookup();
   await checkApiKeyLookup();
+  await checkAgentContextLookup();
   await checkStripeWebhook();
   await checkEmailInbound();
   await checkTwilioInbound();

@@ -1,8 +1,5 @@
 import Link from "next/link";
-import { asc, desc, eq, inArray } from "drizzle-orm";
-import { db } from "@/db";
-import { invoices } from "@/db/schema/invoices";
-import { trips, tripLegs } from "@/db/schema/trips";
+import { invoiceStore } from "@/domain/invoices/store";
 import { getCurrentUser, requireUser } from "@/lib/auth";
 import { getMemberByUserId } from "@/lib/member";
 import { USD } from "@/lib/request-page";
@@ -123,27 +120,8 @@ export default async function AccountInvoicesPage({
     );
   }
 
-  const rows = await db
-    .select({
-      id: invoices.id,
-      invoiceCode: invoices.invoiceCode,
-      kind: invoices.kind,
-      status: invoices.status,
-      issuedOn: invoices.issuedOn,
-      dueOn: invoices.dueOn,
-      paidOn: invoices.paidOn,
-      subtotalUsd: invoices.subtotalUsd,
-      fetUsd: invoices.fetUsd,
-      segmentFeeUsd: invoices.segmentFeeUsd,
-      totalUsd: invoices.totalUsd,
-      tripId: invoices.tripId,
-      tripCode: trips.tripCode,
-    })
-    .from(invoices)
-    .leftJoin(trips, eq(trips.id, invoices.tripId))
-    .where(eq(invoices.memberId, member.id))
-    .orderBy(desc(invoices.issuedOn))
-    .limit(50);
+  const store = invoiceStore();
+  const rows = await store.memberInvoices(member.id, 50);
 
   // Route words for the invoices tied to a trip ("Los Angeles → Aspen"),
   // so the row never has to fall back to the trip code. Read-only, scoped
@@ -151,18 +129,7 @@ export default async function AccountInvoicesPage({
   const tripIds = Array.from(new Set(rows.map((r) => r.tripId).filter((id): id is string => !!id)));
   const routeByTrip = new Map<string, string>();
   if (tripIds.length > 0) {
-    const legs = await db
-      .select({
-        tripId: tripLegs.tripId,
-        legNumber: tripLegs.legNumber,
-        fromCity: tripLegs.fromCity,
-        fromIata: tripLegs.fromIata,
-        toCity: tripLegs.toCity,
-        toIata: tripLegs.toIata,
-      })
-      .from(tripLegs)
-      .where(inArray(tripLegs.tripId, tripIds))
-      .orderBy(asc(tripLegs.tripId), asc(tripLegs.legNumber));
+    const legs = await store.tripRouteLegs(tripIds);
     for (const leg of legs) {
       if (routeByTrip.has(leg.tripId)) continue;
       const from = leg.fromCity ?? leg.fromIata;

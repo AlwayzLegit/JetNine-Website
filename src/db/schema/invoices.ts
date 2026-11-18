@@ -93,6 +93,14 @@ export const invoices = pgTable(
     index("invoices_status_idx").on(t.status),
     index("invoices_member_idx").on(t.memberId, t.issuedOn),
     index("invoices_trip_idx").on(t.tripId),
+    // Migration 0027: one Stripe payment and one Checkout session per invoice. The indexes are
+    // already in the database; declaring them here only keeps the schema a twin of D1 (OPS-161).
+    uniqueIndex("invoices_stripe_payment_intent_uq")
+      .on(t.stripePaymentIntentId)
+      .where(sql`${t.stripePaymentIntentId} is not null`),
+    uniqueIndex("invoices_stripe_checkout_session_uq")
+      .on(t.stripeCheckoutSessionId)
+      .where(sql`${t.stripeCheckoutSessionId} is not null`),
   ],
 );
 

@@ -1,0 +1,2 @@
+CREATE UNIQUE INDEX `invoices_stripe_payment_intent_uq` ON `invoices` (`stripe_payment_intent_id`) WHERE "invoices"."stripe_payment_intent_id" is not null;--> statement-breakpoint
+CREATE UNIQUE INDEX `invoices_stripe_checkout_session_uq` ON `invoices` (`stripe_checkout_session_id`) WHERE "invoices"."stripe_checkout_session_id" is not null;

@@ -1,12 +1,7 @@
 import Link from "next/link";
-import { and, asc, desc, eq, inArray, or, sql } from "drizzle-orm";
-import { db } from "@/db";
-import { aircraft } from "@/db/schema/aircraft";
-import { invoices } from "@/db/schema/invoices";
-import { memberships, reserveTransactions } from "@/db/schema/memberships";
-import { quotes, quoteLegs } from "@/db/schema/quotes";
-import { staff } from "@/db/schema/staff";
-import { trips, tripLegs } from "@/db/schema/trips";
+import { accountStore } from "@/domain/account/store";
+import { memberStore } from "@/domain/members/store";
+import { tripStore } from "@/domain/trips/store";
 import { getCurrentUser } from "@/lib/auth";
 import { getReplyPromiseMinutes } from "@/lib/desk-settings";
 import { replyPromiseWords } from "@/lib/desk-status";
@@ -57,46 +52,19 @@ export default async function AccountPage({ searchParams }: Props) {
   const replyMinutes = await getReplyPromiseMinutes();
   const member = await safe("member", () => getMemberByUserId(user.id), null);
 
+  // The reads go through the account, member and trip stores (OPS-164): Postgres until the
+  // move, D1 where DB_TARGET is "d1".
+  const accounts = accountStore();
+
   // ── Quotes in progress ──────────────────────────────────────────────
-  const ownership = member
-    ? or(eq(quotes.createdByUserId, user.id), eq(quotes.memberId, member.id))
-    : eq(quotes.createdByUserId, user.id);
+  const owner = { userId: user.id, memberId: member?.id ?? null };
   const openQuotes = await safe(
     "quotes",
-    () =>
-      db
-        .select({
-          id: quotes.id,
-          status: quotes.status,
-          paxCount: quotes.paxCount,
-          statusToken: quotes.statusToken,
-          slaDeadlineAt: quotes.slaDeadlineAt,
-          assignedDispatcherId: quotes.assignedDispatcherId,
-        })
-        .from(quotes)
-        .where(and(ownership, inArray(quotes.status, [...QUOTE_IN_PROGRESS])))
-        .orderBy(desc(quotes.receivedAt))
-        .limit(50),
+    () => accounts.openQuotes({ owner, statuses: [...QUOTE_IN_PROGRESS], limit: 50 }),
     [],
   );
   const quoteLegRows = openQuotes.length
-    ? await safe(
-        "quote legs",
-        () =>
-          db
-            .select({
-              quoteId: quoteLegs.quoteId,
-              fromIata: quoteLegs.fromIata,
-              toIata: quoteLegs.toIata,
-              fromCity: quoteLegs.fromCity,
-              toCity: quoteLegs.toCity,
-              departDate: quoteLegs.departDate,
-            })
-            .from(quoteLegs)
-            .where(inArray(quoteLegs.quoteId, openQuotes.slice(0, 3).map((q) => q.id)))
-            .orderBy(asc(quoteLegs.legNumber)),
-        [],
-      )
+    ? await safe("quote legs", () => accounts.quoteLegsOf(openQuotes.slice(0, 3).map((q) => q.id)), [])
     : [];
   const quoteLegsById = new Map<string, typeof quoteLegRows>();
   for (const l of quoteLegRows) {
@@ -104,49 +72,9 @@ export default async function AccountPage({ searchParams }: Props) {
   }
 
   // ── Trips ───────────────────────────────────────────────────────────
-  const tripRows = member
-    ? await safe(
-        "trips",
-        () =>
-          db
-            .select({
-              id: trips.id,
-              code: trips.tripCode,
-              status: trips.status,
-              paxCount: trips.paxCount,
-              aircraftId: trips.aircraftId,
-              revenueUsd: trips.revenueUsd,
-              assignedDispatcherId: trips.assignedDispatcherId,
-            })
-            .from(trips)
-            .where(eq(trips.memberId, member.id))
-            .orderBy(desc(trips.createdAt))
-            .limit(100),
-        [],
-      )
-    : [];
+  const tripRows = member ? await safe("trips", () => accounts.homeTrips(member.id, 100), []) : [];
   const tripLegRows = tripRows.length
-    ? await safe(
-        "trip legs",
-        () =>
-          db
-            .select({
-              tripId: tripLegs.tripId,
-              fromIata: tripLegs.fromIata,
-              toIata: tripLegs.toIata,
-              fromCity: tripLegs.fromCity,
-              toCity: tripLegs.toCity,
-              fromName: tripLegs.fromName,
-              departDate: tripLegs.departDate,
-              departTime: tripLegs.departTime,
-              scheduledDepAt: tripLegs.scheduledDepAt,
-              scheduledArrAt: tripLegs.scheduledArrAt,
-            })
-            .from(tripLegs)
-            .where(inArray(tripLegs.tripId, tripRows.map((t) => t.id)))
-            .orderBy(asc(tripLegs.legNumber)),
-        [],
-      )
+    ? await safe("trip legs", () => accounts.homeTripLegs(tripRows.map((t) => t.id)), [])
     : [];
   const tripLegsById = new Map<string, typeof tripLegRows>();
   for (const l of tripLegRows) {
@@ -168,17 +96,7 @@ export default async function AccountPage({ searchParams }: Props) {
     .slice(0, 3);
 
   const aircraftIds = [next, ...past].flatMap((t) => (t?.aircraftId ? [t.aircraftId] : []));
-  const aircraftRows = aircraftIds.length
-    ? await safe(
-        "aircraft",
-        () =>
-          db
-            .select({ id: aircraft.id, makeModel: aircraft.makeModel, category: aircraft.category, seats: aircraft.seats })
-            .from(aircraft)
-            .where(inArray(aircraft.id, aircraftIds)),
-        [],
-      )
-    : [];
+  const aircraftRows = aircraftIds.length ? await safe("aircraft", () => accounts.aircraftCards(aircraftIds), []) : [];
   const aircraftById = new Map(aircraftRows.map((a) => [a.id, a]));
 
   const nextTrip: UpcomingTrip | null = next
@@ -198,10 +116,7 @@ export default async function AccountPage({ searchParams }: Props) {
     ? await safe(
         "invoices",
         async () => {
-          const rows = await db
-            .select({ status: invoices.status, totalUsd: invoices.totalUsd, paidOn: invoices.paidOn })
-            .from(invoices)
-            .where(eq(invoices.memberId, member.id));
+          const rows = await accounts.invoiceFacts(member.id);
           const due = rows.filter((r) => r.status === "due" || r.status === "overdue");
           const paid = rows
             .filter((r) => r.status === "paid" && r.paidOn)
@@ -221,24 +136,18 @@ export default async function AccountPage({ searchParams }: Props) {
     ? await safe(
         "membership",
         async () => {
-          const [active] = await db
-            .select({
-              program: memberships.program,
-              depositUsd: memberships.depositUsd,
-              nextRenewalDate: memberships.nextRenewalDate,
-              expiresOn: memberships.expiresOn,
-              autoRenew: memberships.autoRenew,
-            })
-            .from(memberships)
-            .where(and(eq(memberships.memberId, member.id), eq(memberships.status, "active")))
-            .orderBy(desc(memberships.activatedOn))
-            .limit(1);
+          const members = memberStore();
+          const active = await members.activeMembership(member.id);
           if (!active) return null;
-          const [balanceRow] = await db
-            .select({ balance: sql<number>`coalesce(sum(${reserveTransactions.amountUsd}), 0)::int` })
-            .from(reserveTransactions)
-            .where(eq(reserveTransactions.memberId, member.id));
-          return { ...active, balanceUsd: balanceRow?.balance ?? 0 };
+          const balanceUsd = await members.balance(member.id);
+          return {
+            program: active.program,
+            depositUsd: active.depositUsd,
+            nextRenewalDate: active.nextRenewalDate,
+            expiresOn: active.expiresOn,
+            autoRenew: active.autoRenew,
+            balanceUsd,
+          };
         },
         null,
       )
@@ -254,14 +163,7 @@ export default async function AccountPage({ searchParams }: Props) {
   const dispatcher: Dispatcher = dispatcherId
     ? await safe(
         "dispatcher",
-        async () => {
-          const [row] = await db
-            .select({ displayName: staff.displayName, directLineE164: staff.directLineE164 })
-            .from(staff)
-            .where(eq(staff.id, dispatcherId))
-            .limit(1);
-          return row ?? null;
-        },
+        async () => (await tripStore().staffContact(dispatcherId)) ?? null,
         null,
       )
     : null;

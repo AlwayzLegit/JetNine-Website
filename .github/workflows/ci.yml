@@ -122,6 +122,11 @@ jobs:
       - name: Deploy tail summary tests
         run: node --test scripts/deploy-tail/summarize.test.mjs
 
+      # The Worker errors report (OPS-168): the redaction, the window limit, the 401 and 403 line,
+      # the grouping, and that no query string, header, address, token or account id is printed.
+      - name: Worker errors report tests
+        run: node --test scripts/worker-errors/query.test.mjs
+
       # The reference store on D1 (operators, aircraft, airports, FBOs): contract cases on a
       # real SQLite, and the loud failure when the target is d1 with no binding (OPS-112).
       - name: Reference store tests

@@ -1,0 +1,57 @@
+name: Worker errors
+
+# Read the Workers' errors for any past window (OPS-168), by hand only. Reads Workers Logs
+# through Cloudflare's Workers Observability query with the repo's own deploy token and prints a
+# redacted summary (counts by level, outcome and status, up to 50 error lines, the most common
+# messages). No deploy, no publish, no migration, nothing is written anywhere but this run's log
+# and job summary. The token needs "Workers Observability" read; without it the run prints one
+# line saying so and ends green.
+#
+# Run it from the Actions tab, or: gh workflow run worker-errors.yml --ref main \
+#   -f from=2026-11-18T07:10:00Z -f to=2026-11-18T07:40:00Z -f env=production
+
+on:
+  workflow_dispatch:
+    inputs:
+      from:
+        description: Start of the window, ISO time with a zone (UTC), for example 2026-11-18T07:10:00Z
+        required: true
+        type: string
+      to:
+        description: End of the window, at most 2 hours after the start, for example 2026-11-18T07:40:00Z
+        required: true
+        type: string
+      env:
+        description: Which Workers to read
+        type: choice
+        options: [production, staging]
+        default: production
+
+permissions:
+  contents: read
+
+concurrency:
+  group: worker-errors
+  cancel-in-progress: false
+
+jobs:
+  read:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Read the Workers' errors
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          WINDOW_FROM: ${{ inputs.from }}
+          WINDOW_TO: ${{ inputs.to }}
+          TARGET_ENV: ${{ inputs.env }}
+        run: |
+          set -o pipefail
+          node scripts/worker-errors/query.mjs "$WINDOW_FROM" "$WINDOW_TO" "$TARGET_ENV" | tee -a "$GITHUB_STEP_SUMMARY"

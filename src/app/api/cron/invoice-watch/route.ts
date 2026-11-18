@@ -1,10 +1,6 @@
 import { timingSafeEqual } from "crypto";
 import { NextResponse } from "next/server";
-import { eq, sql } from "drizzle-orm";
-import { db } from "@/db";
-import { invoices } from "@/db/schema/invoices";
-import { members } from "@/db/schema/members";
-import { users } from "@/db/schema/users";
+import { invoiceStore } from "@/domain/invoices/store";
 import { logAudit } from "@/lib/audit";
 import { sendDispatchAlert, sendInvoiceReminderEmail } from "@/lib/email";
 import { formatDay } from "@/lib/request-format";
@@ -43,12 +39,8 @@ async function memberContact(
 ): Promise<{ email: string; firstName: string } | null> {
   if (!memberId) return null;
   try {
-    const [m] = await db
-      .select({ email: users.email, firstName: users.firstName })
-      .from(members)
-      .innerJoin(users, eq(users.id, members.userId))
-      .where(eq(members.id, memberId));
-    return m?.email ? { email: m.email, firstName: m.firstName || "Hello" } : null;
+    const m = await invoiceStore().memberContact(memberId);
+    return m ? { email: m.email, firstName: m.firstName || "Hello" } : null;
   } catch {
     return null;
   }
@@ -59,30 +51,14 @@ export async function GET(request: Request): Promise<NextResponse> {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
   const now = new Date();
+  // The store reads the day itself on Postgres (current_date); the D1 adapter takes the UTC day
+  // from here, which is what current_date is on the Postgres database.
+  const today = now.toISOString().slice(0, 10);
+  const until = new Date(now.getTime() + 2 * 86_400_000).toISOString().slice(0, 10);
+  const store = invoiceStore();
 
   // ── Pass 1: due → overdue ──
-  const overdueRows = await db
-    .update(invoices)
-    .set({ status: "overdue", overdueNotifiedAt: now, updatedAt: now })
-    .where(
-      sql`${invoices.id} in (
-        select id from ${invoices}
-        where ${invoices.status} = 'due'
-          and ${invoices.dueOn} is not null
-          and ${invoices.dueOn} < current_date
-          and ${invoices.overdueNotifiedAt} is null
-        order by ${invoices.dueOn} asc
-        limit ${MAX_PER_RUN}
-      )`,
-    )
-    .returning({
-      id: invoices.id,
-      invoiceCode: invoices.invoiceCode,
-      memberId: invoices.memberId,
-      totalUsd: invoices.totalUsd,
-      dueOn: invoices.dueOn,
-      tripId: invoices.tripId,
-    });
+  const overdueRows = await store.claimOverdue({ today, limit: MAX_PER_RUN, now });
 
   let overdueEmailed = 0;
   for (const inv of overdueRows) {
@@ -126,28 +102,7 @@ export async function GET(request: Request): Promise<NextResponse> {
   }
 
   // ── Pass 2: due-soon reminders (due within 2 days) ──
-  const dueSoonRows = await db
-    .update(invoices)
-    .set({ dueReminderSentAt: now, updatedAt: now })
-    .where(
-      sql`${invoices.id} in (
-        select id from ${invoices}
-        where ${invoices.status} = 'due'
-          and ${invoices.dueOn} is not null
-          and ${invoices.dueOn} >= current_date
-          and ${invoices.dueOn} <= current_date + 2
-          and ${invoices.dueReminderSentAt} is null
-        order by ${invoices.dueOn} asc
-        limit ${MAX_PER_RUN}
-      )`,
-    )
-    .returning({
-      id: invoices.id,
-      invoiceCode: invoices.invoiceCode,
-      memberId: invoices.memberId,
-      totalUsd: invoices.totalUsd,
-      dueOn: invoices.dueOn,
-    });
+  const dueSoonRows = await store.claimDueSoon({ today, until, limit: MAX_PER_RUN, now });
 
   let remindersSent = 0;
   for (const inv of dueSoonRows) {

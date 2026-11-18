@@ -1,9 +1,6 @@
 import { timingSafeEqual } from "crypto";
 import { NextResponse } from "next/server";
-import { asc, sql } from "drizzle-orm";
-import { db } from "@/db";
-import { auditLog } from "@/db/schema/audit";
-import { quotes } from "@/db/schema/quotes";
+import { requestStore } from "@/domain/requests/store";
 import { logAudit } from "@/lib/audit";
 import { getReplyPromiseMinutes, recipientsFor } from "@/lib/desk-settings";
 import { minutesWords, replyPromiseWords, requestStage } from "@/lib/desk-status";
@@ -22,6 +19,9 @@ import { sendDispatchAlert } from "@/lib/email";
 //    the breach pass, so this pass claims through the audit log instead: a
 //    `quote.reply_due_soon.notify` row per quote, written before the send,
 //    and the query skips quotes that already have one.
+//
+// The two queries live in the request store (OPS-154), Postgres or D1 by
+// dbTarget(). The audit row and the mails keep going through their own stores.
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -70,28 +70,8 @@ export async function GET(request: Request): Promise<NextResponse> {
   // for the next tick. A crash between claim and send loses that one page
   // (the quote still shows as overdue on /admin/requests) — the same trade
   // the watchlist cron documents and accepts.
-  const claimed = await db
-    .update(quotes)
-    .set({ slaAlertedAt: now })
-    .where(
-      sql`${quotes.id} in (
-        select id from ${quotes}
-        where ${quotes.status} in ('submitted', 'triaged', 'sourcing')
-          and ${quotes.slaDeadlineAt} < ${now.toISOString()}::timestamptz
-          and ${quotes.slaAlertedAt} is null
-          and ${quotes.slaDeadlineAt} > now() - interval '24 hours'
-        order by ${quotes.slaDeadlineAt} asc
-        limit ${MAX_ALERTS_PER_RUN}
-      )`,
-    )
-    .returning({
-      id: quotes.id,
-      quoteCode: quotes.quoteCode,
-      status: quotes.status,
-      slaDeadlineAt: quotes.slaDeadlineAt,
-      receivedAt: quotes.receivedAt,
-      assignedDispatcherId: quotes.assignedDispatcherId,
-    });
+  const store = requestStore();
+  const claimed = await store.claimSlaOverdue(now, MAX_ALERTS_PER_RUN);
 
   let sent = 0;
   let failed = 0;
@@ -129,29 +109,7 @@ export async function GET(request: Request): Promise<NextResponse> {
 
   if (dueSoonRecipients.length > 0) {
     const soon = new Date(now.getTime() + DUE_SOON_MINUTES * 60_000);
-    const candidates = await db
-      .select({
-        id: quotes.id,
-        quoteCode: quotes.quoteCode,
-        status: quotes.status,
-        slaDeadlineAt: quotes.slaDeadlineAt,
-        contactSnapshot: quotes.contactSnapshot,
-        assignedDispatcherId: quotes.assignedDispatcherId,
-      })
-      .from(quotes)
-      .where(
-        sql`${quotes.status} in ('submitted', 'triaged', 'sourcing')
-          and ${quotes.slaDeadlineAt} > ${now.toISOString()}::timestamptz
-          and ${quotes.slaDeadlineAt} <= ${soon.toISOString()}::timestamptz
-          and not exists (
-            select 1 from ${auditLog}
-            where ${auditLog.subjectType} = 'quote'
-              and ${auditLog.subjectId} = ${quotes.id}
-              and ${auditLog.action} = ${DUE_SOON_ACTION}
-          )`,
-      )
-      .orderBy(asc(quotes.slaDeadlineAt))
-      .limit(MAX_ALERTS_PER_RUN);
+    const candidates = await store.dueSoon(now, soon, DUE_SOON_ACTION, MAX_ALERTS_PER_RUN);
 
     dueSoon = candidates.length;
 

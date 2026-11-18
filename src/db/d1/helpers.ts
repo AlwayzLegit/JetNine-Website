@@ -33,3 +33,13 @@ export function enumCheck(name: string, column: SQLiteColumn, values: readonly s
   const list = values.map((v) => `'${v.replace(/'/g, "''")}'`).join(", ");
   return check(name, sql`${column} in (${sql.raw(list)})`);
 }
+
+/** D1 allows 100 bound values per statement, so every id list is read or written in chunks of this size. */
+export const ID_CHUNK = 50;
+
+/** Split a list into chunks of ID_CHUNK (OPS-154: moved here from the member store, now shared). */
+export function chunks<T>(items: readonly T[]): T[][] {
+  const out: T[][] = [];
+  for (let i = 0; i < items.length; i += ID_CHUNK) out.push(items.slice(i, i + ID_CHUNK));
+  return out;
+}

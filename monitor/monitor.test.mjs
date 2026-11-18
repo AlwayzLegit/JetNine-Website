@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { composeAlert, sendAlert, alertsConfigured } from "./alert.mjs";
-import { FAR_FUTURE_MS, checkQuietMs, handleFetch, quietUntilMs, runRound } from "./handler.mjs";
+import { composeAlert, formatWhen, sendAlert, alertsConfigured } from "./alert.mjs";
+import { ALERT_LOG_KEPT, FAR_FUTURE_MS, SELF_TEST_EVERY_MS, checkQuietMs, handleFetch, quietUntilMs, runRound } from "./handler.mjs";
 import { CANARY_PATH, CHECKS, RETRY_WAIT_MS, probeOnce, runProbes } from "./probes.mjs";
 import { nextRound, REMINDER_MS } from "./round.mjs";
 import { STATUS_MAX_AGE_MS, publicStatus } from "./status.mjs";
@@ -118,7 +118,7 @@ test("no mail call when the secrets are missing", async () => {
   const calls = [];
   const logs = [];
   const out = await sendAlert(env(), { type: "start", checks: ["Home page"] }, async (...a) => calls.push(a), (m) => logs.push(m));
-  assert.equal(out, "skipped");
+  assert.deepEqual(out, { result: "skipped", code: null });
   assert.equal(calls.length, 0);
   assert.equal(alertsConfigured(env({ ALERT_EMAIL: "a@b.test" })), false);
   assert.ok(!logs.join().includes("@"));
@@ -131,7 +131,7 @@ test("with Resend set one email goes out with the check names only", async () =>
     { type: "start", checks: ["Home page"] },
     async (url, init) => { calls.push({ url, init }); return new Response("{}", { status: 200 }); },
   );
-  assert.equal(out, "sent");
+  assert.deepEqual(out, { result: "sent", code: 200 });
   assert.equal(calls.length, 1);
   assert.equal(calls[0].url, "https://api.resend.com/emails");
   assert.match(JSON.parse(calls[0].init.body).subject, /DOWN/);
@@ -141,7 +141,7 @@ test("with Resend set one email goes out with the check names only", async () =>
 test("a provider failure is reported as failed without the key or address in the log", async () => {
   const logs = [];
   const out = await sendAlert(env({ ALERT_EMAIL: "ops@x.test", POSTMARK_SERVER_TOKEN: "tok" }), { type: "start", checks: [] }, async () => new Response("no", { status: 500 }), (m) => logs.push(m));
-  assert.equal(out, "failed");
+  assert.deepEqual(out, { result: "failed", code: 500 });
   assert.ok(!logs.join().includes("tok") && !logs.join().includes("ops@x.test"));
 });
 
@@ -178,7 +178,7 @@ test("/status holds only the fixed fields, never a body, and a missing or stale 
   assert.equal(res.headers.get("cache-control"), "no-store");
   assert.equal(res.headers.get("x-robots-tag"), "noindex");
   const body = await res.json();
-  assert.deepEqual(Object.keys(body).sort(), ["alerts", "canary", "checkedAt", "checks", "failingSince", "incidents", "ok", "quietUntil", "streak", "v", "wouldHaveRaised"]);
+  assert.deepEqual(Object.keys(body).sort(), ["alerts", "alerts_log", "canary", "checkedAt", "checks", "failingSince", "incidents", "ok", "quietUntil", "streak", "v", "wouldHaveRaised"]);
   assert.equal(body.v, 1);
   assert.equal(body.ok, true);
   assert.equal(body.alerts, "not configured");
@@ -332,10 +332,149 @@ test("a full round with signin failing sends no email before SIGNIN_QUIET_UNTIL 
   const state = await runRound(e, {
     now: T0,
     probe: { fetchImpl: fakeSite(routes).fetchImpl, ...noSleep },
-    fetchImpl: async (u) => { mail.push(u); return new Response("{}"); },
+    fetchImpl: async (u, init) => { mail.push(JSON.parse(init.body).subject); return new Response("{}"); },
     log: () => {},
   });
-  assert.deepEqual(mail, []);
+  // No failure mail (DOWN, reminder, recovery) goes out. Since OPS-169 the first passing round
+  // after the quiet date sends the weekly test mail of the alert path, and only that.
+  assert.deepEqual(mail, ["[JetNine monitor] test: alerts reach you"]);
+  assert.deepEqual(state.alertLog.map((a) => a.type), ["test"]);
   assert.equal(state.ok, true);
   assert.deepEqual(state.wouldHaveRaised.map((w) => w.checks), [["Sign-in service"]]);
+});
+
+// ---- OPS-169: the alert log, the weekly test mail, the times in every mail ----
+
+const mailEnv = (extra = {}) => fakeEnv({ ALERT_EMAIL: "ops@x.test", RESEND_API_KEY: "k", ...extra });
+const okMail = (sent) => async (u, init) => { sent.push({ u, body: JSON.parse(init.body) }); return new Response("{}", { status: 200 }); };
+const probeOf = (routes) => ({ fetchImpl: fakeSite(routes).fetchImpl, ...noSleep });
+const downRoutes = () => ({ ...goodRoutes(), "/api/health": [503, "{}"] });
+
+test("every send is recorded in the alert log with its type, result and the provider's code, and nothing else", async () => {
+  const e = mailEnv();
+  const sent = [];
+  // A failing round sends one DOWN mail (the weekly test is not sent on top of a real alert).
+  await runRound(e, { now: T0, probe: probeOf(downRoutes()), fetchImpl: okMail(sent), log: () => {} });
+  assert.equal(sent.length, 1);
+  assert.deepEqual(e.peek().alertLog, [{ at: T0, type: "start", result: "sent", code: 200 }]);
+  // The next passing round sends the recovery mail; the log keeps the earlier entry.
+  await runRound(e, { now: T0 + 15 * 60_000, probe: probeOf(goodRoutes()), fetchImpl: okMail(sent), log: () => {} });
+  assert.deepEqual(e.peek().alertLog.map((a) => [a.type, a.result, a.code]), [["start", "sent", 200], ["recovery", "sent", 200]]);
+  const stored = JSON.stringify(e.peek().alertLog);
+  for (const forbidden of ["ops@x.test", "subject", "DOWN", "k"]) assert.ok(!stored.includes(`"${forbidden}"`) && !stored.includes(forbidden === "k" ? "Bearer" : forbidden));
+});
+
+test("a provider that refuses is recorded as failed with its code, and a missing key as skipped", async () => {
+  const e = mailEnv();
+  await runRound(e, { now: T0, probe: probeOf(downRoutes()), fetchImpl: async () => new Response("no", { status: 422 }), log: () => {} });
+  assert.deepEqual(e.peek().alertLog, [{ at: T0, type: "start", result: "failed", code: 422 }]);
+  const e2 = fakeEnv();
+  await runRound(e2, { now: T0, probe: probeOf(downRoutes()), fetchImpl: async () => { throw new Error("no call"); }, log: () => {} });
+  assert.deepEqual(e2.peek().alertLog, [{ at: T0, type: "start", result: "skipped", code: null }]);
+});
+
+test("the alert log keeps the last 20 sends", async () => {
+  const e = mailEnv();
+  const fetchImpl = okMail([]);
+  // Alternate down and up: every round sends one mail.
+  for (let i = 0; i < 25; i++) {
+    await runRound(e, { now: T0 + i * 15 * 60_000, probe: probeOf(i % 2 === 0 ? downRoutes() : goodRoutes()), fetchImpl, log: () => {} });
+  }
+  assert.equal(e.peek().alertLog.length, ALERT_LOG_KEPT);
+  assert.equal(e.peek().alertLog.at(-1).type, "start");
+});
+
+test("the weekly test mail: one on the first passing round after quiet, then one a week later, never before quiet", async () => {
+  const e = mailEnv();
+  const sent = [];
+  const run = (now) => runRound(e, { now, probe: probeOf(goodRoutes()), fetchImpl: okMail(sent), log: () => {} });
+  // Before the quiet date nothing is sent, not even the test.
+  await run(QUIET - 60_000);
+  assert.equal(sent.length, 0);
+  assert.equal(e.peek().selfTest, null);
+  // The first round after it sends one test mail and records it.
+  await run(T0);
+  assert.equal(sent.length, 1);
+  assert.match(sent[0].body.subject, /test: alerts reach you/);
+  assert.equal(e.peek().selfTest, T0);
+  assert.deepEqual(e.peek().alertLog, [{ at: T0, type: "test", result: "sent", code: 200 }]);
+  // Not again within the week, then once more after it.
+  await run(T0 + SELF_TEST_EVERY_MS - 60_000);
+  assert.equal(sent.length, 1);
+  await run(T0 + SELF_TEST_EVERY_MS);
+  assert.equal(sent.length, 2);
+  assert.equal(e.peek().selfTest, T0 + SELF_TEST_EVERY_MS);
+});
+
+test("no test mail without mail secrets, and none on a failing round", async () => {
+  const none = fakeEnv();
+  await runRound(none, { now: T0, probe: probeOf(goodRoutes()), fetchImpl: async () => { throw new Error("no call"); }, log: () => {} });
+  assert.deepEqual(none.peek().alertLog, []);
+  assert.equal(none.peek().selfTest, null);
+  const e = mailEnv();
+  const sent = [];
+  await runRound(e, { now: T0, probe: probeOf(downRoutes()), fetchImpl: okMail(sent), log: () => {} });
+  assert.deepEqual(sent.map((m) => m.body.subject.includes("DOWN")), [true]);
+  assert.equal(e.peek().selfTest, null);
+});
+
+test("a test mail whose send failed is still recorded and not retried for a week", async () => {
+  const e = mailEnv();
+  let calls = 0;
+  const fetchImpl = async () => { calls += 1; return new Response("no", { status: 401 }); };
+  await runRound(e, { now: T0, probe: probeOf(goodRoutes()), fetchImpl, log: () => {} });
+  await runRound(e, { now: T0 + 15 * 60_000, probe: probeOf(goodRoutes()), fetchImpl, log: () => {} });
+  assert.equal(calls, 1);
+  assert.deepEqual(e.peek().alertLog, [{ at: T0, type: "test", result: "failed", code: 401 }]);
+});
+
+test("a round keeps the log and the test time the previous rounds wrote", async () => {
+  const e = mailEnv();
+  await runRound(e, { now: T0, probe: probeOf(goodRoutes()), fetchImpl: okMail([]), log: () => {} });
+  await runRound(e, { now: T0 + 15 * 60_000, probe: probeOf(goodRoutes()), fetchImpl: okMail([]), log: () => {} });
+  assert.equal(e.peek().selfTest, T0);
+  assert.equal(e.peek().alertLog.length, 1);
+});
+
+test("every mail names the time, in UTC and in Pacific time", () => {
+  const from = Date.UTC(2026, 10, 18, 7, 22, 45); // 11:22 PM PST on 17 Nov
+  const to = Date.UTC(2026, 10, 18, 7, 37, 46);
+  assert.equal(formatWhen(from), "2026-11-18 07:22 UTC (Nov 17, 2026, 11:22 PM PST)");
+  assert.equal(formatWhen(Date.UTC(2026, 6, 1, 19, 0, 0)), "2026-07-01 19:00 UTC (Jul 1, 2026, 12:00 PM PDT)");
+  assert.equal(formatWhen(undefined), "an unknown time");
+  const down = composeAlert({ type: "start", checks: ["Home page", "Contact page"], from }, SITE);
+  assert.match(down.text, /Home page, Contact page/);
+  assert.match(down.text, /Failing since 2026-11-18 07:22 UTC \(Nov 17, 2026, 11:22 PM PST\)/);
+  assert.match(composeAlert({ type: "reminder", checks: ["Home page"], from }, SITE).text, /Still failing since 2026-11-18 07:22 UTC/);
+  const back = composeAlert({ type: "recovery", checks: ["Home page"], from, to }, SITE);
+  assert.match(back.text, /Down from 2026-11-18 07:22 UTC .* to 2026-11-18 07:37 UTC \(Nov 17, 2026, 11:37 PM PST\)/);
+  const test = composeAlert({ type: "test", at: from }, SITE);
+  assert.match(test.subject, /test: alerts reach you/);
+  assert.match(test.text, /Nothing is wrong/);
+});
+
+test("/status shows the alert log from a fixed list of fields and never an address or a subject", () => {
+  const a = publicStatus(
+    {
+      checkedAt: T0,
+      ok: true,
+      alertLog: [
+        { at: T0, type: "test", result: "sent", code: 200, to: "ops@x.test", subject: "secret subject" },
+        { at: T0, type: "start", result: "failed", code: 422 },
+        { at: T0, type: "weird", result: "sent", code: 200 },
+        { at: T0, type: "start", result: "maybe", code: 200 },
+        { at: T0, type: "recovery", result: "skipped", code: "200" },
+        null,
+      ],
+    },
+    T0,
+    { alertsConfigured: true, quietUntilMs: QUIET },
+  );
+  assert.deepEqual(a.body.alerts_log, [
+    { at: new Date(T0).toISOString(), type: "test", result: "sent", code: 200 },
+    { at: new Date(T0).toISOString(), type: "start", result: "failed", code: 422 },
+    { at: new Date(T0).toISOString(), type: "recovery", result: "skipped", code: null },
+  ]);
+  assert.ok(!JSON.stringify(a.body).includes("ops@x.test") && !JSON.stringify(a.body).includes("secret subject"));
+  assert.deepEqual(publicStatus(null, T0, { alertsConfigured: false, quietUntilMs: QUIET }).body.alerts_log, []);
 });

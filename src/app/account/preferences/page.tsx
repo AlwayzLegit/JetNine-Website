@@ -1,11 +1,5 @@
 import Link from "next/link";
-import { asc, eq } from "drizzle-orm";
-import { db } from "@/db";
-import {
-  companions,
-  memberLanes,
-  memberPreferences,
-} from "@/db/schema/member-prefs";
+import { memberStore } from "@/domain/members/store";
 import { watchlistStore } from "@/domain/empty-legs/watchlist-store";
 import { getCurrentUser, requireUser } from "@/lib/auth";
 import { getMemberByUserId } from "@/lib/member";
@@ -38,22 +32,11 @@ export default async function AccountPreferencesPage() {
     );
   }
 
+  const store = memberStore();
   const [existing, companionRows, laneRows, watchlistRows] = await Promise.all([
-    db
-      .select()
-      .from(memberPreferences)
-      .where(eq(memberPreferences.memberId, member.id))
-      .then((rows) => rows[0]),
-    db
-      .select()
-      .from(companions)
-      .where(eq(companions.memberId, member.id))
-      .orderBy(asc(companions.createdAt)),
-    db
-      .select()
-      .from(memberLanes)
-      .where(eq(memberLanes.memberId, member.id))
-      .orderBy(asc(memberLanes.createdAt)),
+    store.preferencesOf(member.id),
+    store.companionsOf(member.id),
+    store.lanesOf(member.id),
     watchlistStore().memberWatchlists(member.id),
   ]);
 

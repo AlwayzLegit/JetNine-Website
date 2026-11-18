@@ -1,8 +1,7 @@
-import { and, desc, eq, sql } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { db } from "@/db";
-import { nextCode } from "@/db/codes";
-import { members, type NewMember } from "@/db/schema/members";
-import { memberships, reserveTransactions, type NewReserveTransaction } from "@/db/schema/memberships";
+import type { NewMember } from "@/db/schema/members";
+import type { NewReserveTransaction } from "@/db/schema/memberships";
 import { users } from "@/db/schema/users";
 import { logAudit } from "@/lib/audit";
 import { findOrCreateUser, findUserIdByEmail, userHasPassword } from "@/lib/auth-users";
@@ -11,6 +10,7 @@ import { sendAuthLinkEmail } from "@/lib/auth-mail";
 import { personName } from "@/lib/desk-status";
 import { auditFields, type Actor } from "@/domain/actor";
 import { isUuid } from "@/domain/common";
+import { memberStore } from "@/domain/members/store";
 import { err, ok, type Result } from "@/domain/result";
 import type { ClientInviteInput, ClientLedgerAddInput, ReserveTxKind } from "./schemas";
 
@@ -58,31 +58,19 @@ export type ClientLedgerAddState = {
 export async function loadClientForLedgerAdd(input: ClientLedgerAddInput): Promise<Result<ClientLedgerAddState>> {
   if (!isUuid(input.id)) return err("not_found", MEMBER_NOT_FOUND);
 
-  // Resolve the ACTIVE membership so the ledger row attributes to the
-  // right bucket. Without the status filter + activatedOn ordering, a
-  // member with a historical cancelled/paused row alongside their
-  // current active row could see manual ledger entries attached to the
-  // dead bucket — balance sums (which use memberId) stay correct, but
-  // per-membership reports and the membership ledger view break.
-  const [activeMembership] = await db
-    .select({ id: memberships.id })
-    .from(memberships)
-    .where(and(eq(memberships.memberId, input.id), eq(memberships.status, "active")))
-    .orderBy(desc(memberships.activatedOn))
-    .limit(1);
-
+  // The store resolves the ACTIVE membership (status filter, newest activation
+  // first) so the ledger row attributes to the right bucket: balance sums use
+  // memberId and stay correct either way, but per-membership reports and the
+  // membership ledger view break when an entry lands on a dead bucket.
+  const target = await memberStore().ledgerTarget(input.id);
   // Verify member exists; surface a clean error otherwise.
-  const [memberRow] = await db
-    .select({ id: members.id, memberCode: members.memberCode, firstName: users.firstName, lastName: users.lastName, email: users.email })
-    .from(members)
-    .innerJoin(users, eq(users.id, members.userId))
-    .where(eq(members.id, input.id));
-  if (!memberRow) return err("not_found", MEMBER_NOT_FOUND);
+  if (!target) return err("not_found", MEMBER_NOT_FOUND);
+  const { member: memberRow, activeMembershipId } = target;
 
   return ok({
     member: { id: memberRow.id, memberCode: memberRow.memberCode },
     clientName: personName(memberRow.firstName, memberRow.lastName, memberRow.email),
-    activeMembershipId: activeMembership?.id ?? null,
+    activeMembershipId,
   });
 }
 
@@ -113,7 +101,8 @@ export async function appendLedgerEntry(
   // Capture the inserted tx id so the audit row's subjectId points at
   // the ledger entry, not at the member, so "find who entered tx X"
   // works through the (subjectType, subjectId) index.
-  const [inserted] = await db.insert(reserveTransactions).values(values).returning({ id: reserveTransactions.id });
+  const store = memberStore();
+  const inserted = await store.appendLedger(values);
 
   await logAudit({
     actorUserId: a.actorUserId,
@@ -134,12 +123,9 @@ export async function appendLedgerEntry(
 
   // Quick sum so the form can update the displayed balance without a full
   // page reload. The page re-renders through revalidation anyway.
-  const [balanceRow] = await db
-    .select({ total: sql<number>`coalesce(sum(${reserveTransactions.amountUsd}), 0)::int` })
-    .from(reserveTransactions)
-    .where(eq(reserveTransactions.memberId, memberId));
+  const balanceUsd = await store.balance(memberId);
 
-  return ok({ id: inserted.id, amountUsd, balanceUsd: balanceRow?.total ?? 0 });
+  return ok({ id: inserted.id, amountUsd, balanceUsd });
 }
 
 // ─── Invite ──────────────────────────────────────────────────────────────
@@ -163,8 +149,7 @@ export async function loadForClientInvite(input: ClientInviteInput): Promise<Res
 }
 
 async function memberForUser(userId: string): Promise<{ id: string; memberCode: string } | null> {
-  const [row] = await db.select({ id: members.id, memberCode: members.memberCode }).from(members).where(eq(members.userId, userId));
-  return row ?? null;
+  return memberStore().memberRefByUserId(userId);
 }
 
 /**
@@ -173,8 +158,8 @@ async function memberForUser(userId: string): Promise<{ id: string; memberCode: 
  * Flow (OPS-94, no Supabase call):
  * 1. Find the oldest public.users row for the email, or make one here.
  * 2. Update it with the firstName / lastName / phone the admin typed in.
- * 3. Insert public.members. The members_default_member_code trigger fills
- *    the M-YYYY-NNNN code.
+ * 3. Insert the member through the member store, which makes the M-YYYY-NNNN
+ *    code with the insert.
  * 4. Audit-log under subject_type='member', action='member.invite'.
  * 5. Send the invite mail (a one-time link to set a password, 7 days) when
  *    the person is new or has no password yet.
@@ -238,7 +223,7 @@ export async function inviteClient(
   const today = new Date().toISOString().slice(0, 10);
   const values: NewMember = {
     userId: authUserId,
-    memberCode: "", // set from nextCode below, in the same transaction as the insert
+    memberCode: "", // the store makes the code, in the same transaction or batch as the insert
     legalName,
     preferredName: firstName,
     mobileE164: phoneE164,
@@ -249,10 +234,7 @@ export async function inviteClient(
     status: "active",
   };
 
-  const [memberRow] = await db.transaction(async (tx) => {
-    values.memberCode = await nextCode(tx, "member");
-    return tx.insert(members).values(values).returning({ id: members.id, memberCode: members.memberCode });
-  });
+  const memberRow = await memberStore().insertMember(values);
 
   await logAudit({
     actorUserId: a.actorUserId,

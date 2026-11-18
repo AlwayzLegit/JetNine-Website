@@ -113,6 +113,8 @@ export const trips = pgTable(
     index("trips_member_idx").on(t.memberId),
     index("trips_dispatcher_idx").on(t.assignedDispatcherId),
     index("trips_quote_idx").on(t.quoteId),
+    // Migration 0032: one trip per quote.
+    uniqueIndex("trips_quote_id_uniq").on(t.quoteId).where(sql`${t.quoteId} is not null`),
   ],
 );
 

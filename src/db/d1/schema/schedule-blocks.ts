@@ -1,6 +1,7 @@
 // D1 (SQLite) twin of src/db/schema/schedule-blocks.ts (OPS-100). Same export names, same SQL table
 // and column names. Mapping: see DEPLOY.md "D1 tables (OPS-100)".
-import { index, integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import { sql } from "drizzle-orm";
+import { index, integer, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
 import { enumCheck, newId, nowDate } from "../helpers";
 import { scheduleBlockKindEnum } from "../../schema/schedule-blocks";
 import { aircraft } from "./aircraft";
@@ -85,6 +86,10 @@ export const aircraftScheduleBlocks = sqliteTable(
     index("asb_related_quote_idx").on(t.relatedQuoteId),
     index("asb_from_icao_idx").on(t.fromIcao),
     index("asb_to_icao_idx").on(t.toIcao),
+    // Migration 0032 (Postgres), carried over by OPS-149: one soft hold per (aircraft, quote).
+    uniqueIndex("schedule_blocks_hold_per_quote_aircraft_uniq")
+      .on(t.aircraftId, t.relatedQuoteId)
+      .where(sql`${t.kind} = 'hold' and ${t.relatedQuoteId} is not null`),
     enumCheck("aircraft_schedule_blocks_kind_enum", t.kind, scheduleBlockKindEnum.enumValues),
   ]);
 

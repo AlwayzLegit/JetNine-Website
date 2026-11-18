@@ -1,10 +1,5 @@
 import Link from "next/link";
-import { and, desc, eq, sum } from "drizzle-orm";
-import { db } from "@/db";
-import {
-  memberships,
-  reserveTransactions,
-} from "@/db/schema/memberships";
+import { memberStore } from "@/domain/members/store";
 import { getCurrentUser, requireUser } from "@/lib/auth";
 import { getMemberByUserId } from "@/lib/member";
 import { formatDay, USD } from "@/lib/request-page";
@@ -67,12 +62,8 @@ export default async function AccountMembershipsPage({ searchParams }: Props) {
     );
   }
 
-  const [active] = await db
-    .select()
-    .from(memberships)
-    .where(and(eq(memberships.memberId, member.id), eq(memberships.status, "active")))
-    .orderBy(desc(memberships.activatedOn))
-    .limit(1);
+  const store = memberStore();
+  const active = await store.activeMembership(member.id);
 
   // Balance = signed sum of the ledger. Positive = available; negative
   // would indicate over-draft (shouldn't happen, but we surface it).
@@ -88,25 +79,11 @@ export default async function AccountMembershipsPage({ searchParams }: Props) {
     // Balance + ledger touch the same table but with independent
     // aggregations — fire both queries concurrently to save one
     // round-trip on every page render (~20-40 ms p50).
-    const [balanceRow, ledgerRows] = await Promise.all([
-      db
-        .select({ total: sum(reserveTransactions.amountUsd) })
-        .from(reserveTransactions)
-        .where(eq(reserveTransactions.memberId, member.id)),
-      db
-        .select({
-          id: reserveTransactions.id,
-          kind: reserveTransactions.kind,
-          amountUsd: reserveTransactions.amountUsd,
-          description: reserveTransactions.description,
-          occurredAt: reserveTransactions.occurredAt,
-        })
-        .from(reserveTransactions)
-        .where(eq(reserveTransactions.memberId, member.id))
-        .orderBy(desc(reserveTransactions.occurredAt))
-        .limit(12),
+    const [balance, ledgerRows] = await Promise.all([
+      store.balance(member.id),
+      store.recentLedger(member.id, 12),
     ]);
-    balanceUsd = Number(balanceRow[0]?.total ?? 0);
+    balanceUsd = balance;
     ledger = ledgerRows;
   }
 

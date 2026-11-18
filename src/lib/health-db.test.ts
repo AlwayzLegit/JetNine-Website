@@ -54,3 +54,13 @@ test("the failure is logged with the error name only", async () => {
   await judgeD1({ d1Present: true, d1Ping: boom("D1_ERROR"), pgPing: ok, log: (l, d) => lines.push([l, d]) });
   assert.deepEqual(lines, [["[health] d1 db probe failed", { name: "D1_ERROR" }]]);
 });
+
+test("a Postgres probe that throws synchronously (no DATABASE_URL, no Hyperdrive) is only postgres: error", async () => {
+  const syncThrow = () => {
+    throw new Error("DATABASE_URL is not set");
+  };
+  const r = await judgeD1({ d1Present: true, d1Ping: ok, pgPing: syncThrow, log: quiet });
+  assert.equal(r.ok, true);
+  assert.equal(r.target, "d1");
+  assert.equal(r.postgres, "error");
+});

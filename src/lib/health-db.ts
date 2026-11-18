@@ -56,8 +56,9 @@ export async function judgeD1(deps: JudgeD1Deps): Promise<DbCheck> {
   const ms = deps.timeoutMs ?? DB_PING_TIMEOUT_MS;
   const log = deps.log ?? ((line, data) => console.error(line, data));
 
-  // Postgres is looked at for information only; it never changes ok.
-  const postgres: "ok" | "error" = await withTimeout(deps.pgPing(), ms).then(
+  // Postgres is looked at for information only; it never changes ok. The call runs inside a promise
+  // chain so a synchronous throw (no DATABASE_URL, no Hyperdrive) is also just postgres: "error".
+  const postgres: "ok" | "error" = await withTimeout(Promise.resolve().then(() => deps.pgPing()), ms).then(
     () => "ok" as const,
     () => "error" as const,
   );

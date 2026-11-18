@@ -1,20 +1,17 @@
-import { and, count, eq, sql } from "drizzle-orm";
-import { db } from "@/db";
-import { quotes } from "@/db/schema/quotes";
 import { messageStore } from "@/domain/messages/store";
 import { inquiryStore } from "@/domain/contact/store";
 import { settingsStore } from "@/domain/settings/store";
-import { invoices } from "@/db/schema/invoices";
-import { emptyLegs } from "@/db/schema/empty-legs";
 import { REPLY_PROMISE_DEFAULT, REPLY_PROMISE_KEY } from "@/db/schema/desk";
-import { NOT_SMOKE, isoParam } from "@/domain/common";
+import { reportStore } from "@/domain/reports/store";
 import { countPending } from "@/domain/approvals/queries";
 import { listTrips } from "@/domain/trips/queries";
 
 /**
  * Desk-wide counts. `deskCounts` feeds the sidebar pills; `deskSnapshot`
  * is the one object the assistant reads to know how the desk is doing.
- * Every quote count leaves out the post-deploy smoke rows.
+ * Every quote count leaves out the post-deploy smoke rows. The quote, invoice and empty-leg
+ * counts go through the report store (OPS-163): Postgres until the move, D1 where DB_TARGET
+ * is "d1".
  */
 
 export type DeskCounts = {
@@ -27,15 +24,12 @@ export type DeskCounts = {
 };
 
 export async function deskCounts(): Promise<DeskCounts> {
-  const [[reply], unread, approvals] = await Promise.all([
-    db
-      .select({ n: count() })
-      .from(quotes)
-      .where(and(eq(quotes.status, "submitted"), NOT_SMOKE)),
+  const [needsReply, unread, approvals] = await Promise.all([
+    reportStore().submittedCount(),
     messageStore().unreadInbound(),
     countPending(),
   ]);
-  return { needsReply: reply?.n ?? 0, unread, approvals };
+  return { needsReply, unread, approvals };
 }
 
 export type DeskSnapshot = {
@@ -84,47 +78,33 @@ export async function replyPromiseMinutes(): Promise<number> {
 export async function deskSnapshot(now: Date = new Date()): Promise<DeskSnapshot> {
   const since14 = new Date(now.getTime() - 14 * DAY_MS);
   const since7 = new Date(now.getTime() - 7 * DAY_MS);
-  const nowIso = isoParam(now);
 
-  const [[q], m, newInquiries, [inv], [el], tripList, promise, pendingApprovals] = await Promise.all([
-    db
-      .select({
-        needsReply: sql<number>`count(*) filter (where ${quotes.status} = 'submitted')::int`,
-        working: sql<number>`count(*) filter (where ${quotes.status} in ('triaged', 'sourcing'))::int`,
-        optionsOut: sql<number>`count(*) filter (where ${quotes.status} in ('options_sent', 'held'))::int`,
-        bookedLast14Days: sql<number>`count(*) filter (
-          where ${quotes.status} in ('accepted', 'converted')
-            and coalesce(${quotes.acceptedAt}, ${quotes.updatedAt}) >= ${isoParam(since14)}::timestamptz
-        )::int`,
-        overdueReplies: sql<number>`count(*) filter (
-          where ${quotes.status} = 'submitted' and ${quotes.slaDeadlineAt} < ${nowIso}::timestamptz
-        )::int`,
-      })
-      .from(quotes)
-      .where(NOT_SMOKE),
+  const reports = reportStore();
+  const [q, m, newInquiries, overdueInvoices, liveEmptyLegs, tripList, promise, pendingApprovals] = await Promise.all([
+    reports.quoteStageCounts(since14, now),
     messageStore().snapshotCounts(since7),
     inquiryStore().newCount(),
-    db.select({ n: count() }).from(invoices).where(eq(invoices.status, "overdue")),
-    db.select({ n: count() }).from(emptyLegs).where(eq(emptyLegs.status, "live")),
+    reports.overdueInvoiceCount(),
+    reports.liveEmptyLegCount(),
     listTrips({ tab: "upcoming", now }),
     replyPromiseMinutes(),
     countPending(),
   ]);
 
   return {
-    needsReply: q?.needsReply ?? 0,
-    working: q?.working ?? 0,
-    optionsOut: q?.optionsOut ?? 0,
-    bookedLast14Days: q?.bookedLast14Days ?? 0,
-    overdueReplies: q?.overdueReplies ?? 0,
+    needsReply: q.needsReply,
+    working: q.working,
+    optionsOut: q.optionsOut,
+    bookedLast14Days: q.bookedLast14Days,
+    overdueReplies: q.overdueReplies,
     unreadMessages: m?.unread ?? 0,
     newInquiries,
     failedDeliveries7Days: m?.failed ?? 0,
     pendingApprovals,
     upcomingTrips30Days: tripList.groups.find((g) => g.key === "soon")?.items.length ?? 0,
     flyingToday: tripList.flyingToday.length,
-    overdueInvoices: inv?.n ?? 0,
-    liveEmptyLegs: el?.n ?? 0,
+    overdueInvoices,
+    liveEmptyLegs,
     replyPromiseMinutes: promise,
     generatedAt: now,
   };

@@ -1,16 +1,16 @@
 import { timingSafeEqual } from "crypto";
 import { NextResponse } from "next/server";
-import { sql } from "drizzle-orm";
-import { db } from "@/db";
 import { recipientsFor } from "@/lib/desk-settings";
-import { OPEN_REQUEST_STATUSES, passengersWords, replyDueLine, requestStage, tripState } from "@/lib/desk-status";
+import { passengersWords, replyDueLine, requestStage, tripState } from "@/lib/desk-status";
 import { sendDispatchAlert } from "@/lib/email";
 import { formatClock, relativeTime } from "@/lib/request-page";
+import { reportStore } from "@/domain/reports/store";
 
 // Morning summary — one email at 7 AM Los Angeles (wrangler.jsonc cron "0 14,15 * * *"
 // UTC, the route keeps the 7 AM one) to the staff who turned on "Morning summary" in Settings ›
 // Notifications. Lists today's flights and the open requests in plain
-// sentences. With nobody subscribed it sends nothing.
+// sentences. With nobody subscribed it sends nothing. Both reads go through the report store
+// (OPS-163): Postgres until the move, D1 where DB_TARGET is "d1".
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -31,36 +31,6 @@ function authorized(req: Request): boolean {
     return false;
   }
 }
-
-type FlightRow = {
-  trip_id: string;
-  status: string;
-  from_city: string | null;
-  from_name: string | null;
-  from_iata: string | null;
-  to_city: string | null;
-  to_name: string | null;
-  to_iata: string | null;
-  depart_time: string | null;
-  pax_count: number;
-  client_name: string | null;
-  aircraft: string | null;
-};
-
-type RequestRow = {
-  id: string;
-  status: string;
-  received_at: Date;
-  sla_deadline_at: Date;
-  pax_count: number;
-  from_city: string | null;
-  from_name: string | null;
-  from_iata: string | null;
-  to_city: string | null;
-  to_name: string | null;
-  to_iata: string | null;
-  client_name: string | null;
-};
 
 function place(city: string | null, name: string | null, iata: string | null): string {
   return city ?? name ?? iata ?? "—";
@@ -88,37 +58,8 @@ export async function GET(request: Request): Promise<NextResponse> {
   const todayWords = new Intl.DateTimeFormat("en-US", { timeZone: LA, weekday: "long", month: "long", day: "numeric" }).format(now);
   const shortDay = new Intl.DateTimeFormat("en-US", { timeZone: LA, weekday: "short", month: "short", day: "numeric" }).format(now);
 
-  const [flights, requests] = await Promise.all([
-    db.execute<FlightRow>(sql`
-      select t.id as trip_id, t.status, t.pax_count,
-             l.from_city, l.from_name, l.from_iata, l.to_city, l.to_name, l.to_iata, l.depart_time,
-             nullif(trim(coalesce(u.first_name, '') || ' ' || coalesce(u.last_name, '')), '') as client_name,
-             a.make_model as aircraft
-      from public.trip_legs l
-      join public.trips t on t.id = l.trip_id
-      join public.members m on m.id = t.member_id
-      join public.users u on u.id = m.user_id
-      left join public.aircraft a on a.id = t.aircraft_id
-      where l.depart_date = ${today}::date
-        and t.status not in ('cancelled_wx', 'cancelled_other')
-      order by l.depart_time asc nulls last, l.leg_number asc
-      limit 40
-    `),
-    db.execute<RequestRow>(sql`
-      select q.id, q.status, q.received_at, q.sla_deadline_at, q.pax_count,
-             l.from_city, l.from_name, l.from_iata, l.to_city, l.to_name, l.to_iata,
-             nullif(trim(coalesce(q.contact_snapshot->>'firstName', '') || ' ' || coalesce(q.contact_snapshot->>'lastName', '')), '') as client_name
-      from public.quotes q
-      left join public.quote_legs l on l.quote_id = q.id and l.leg_number = 1
-      where q.status in (${sql.join(OPEN_REQUEST_STATUSES.map((s) => sql`${s}`), sql`, `)})
-        and not (
-          q.contact_snapshot->>'firstName' ilike '[SMOKE]%'
-          or q.contact_snapshot->>'email' ilike 'smoke+%'
-        )
-      order by q.sla_deadline_at asc
-      limit 40
-    `),
-  ]);
+  const reports = reportStore();
+  const [flights, requests] = await Promise.all([reports.flightsOn(today), reports.openRequestsForSummary()]);
 
   const lines: string[] = [];
 

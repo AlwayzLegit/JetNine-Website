@@ -98,3 +98,23 @@ test("a long list is capped", () => {
   const out = summarizeWorker("jetnine-web", lines(...many)).markdown;
   assert.match(out, /and 10 more not shown/);
 });
+
+// OPS-168: a 500 the app renders itself ends with outcome "ok", so it used to be invisible.
+test("a 5xx with outcome ok is listed and counted, a 200 and a 404 are not", () => {
+  const withStatus = (status, over = {}) => ev({ event: { request: { url: "https://jetnine.com/contact?x=1", method: "GET" }, response: { status } }, ...over });
+  const r = summarizeWorker("jetnine-web", lines(withStatus(200), withStatus(404), withStatus(500), withStatus(503), withStatus(200, { outcome: "exceededCpu" })));
+  assert.equal(r.total, 5);
+  assert.equal(r.notOk, 1);
+  assert.equal(r.fiveXx, 2);
+  assert.match(r.markdown, /1 not ok, 5xx: 2\./);
+  assert.match(r.markdown, /GET \/contact outcome ok status 500/);
+  assert.match(r.markdown, /GET \/contact outcome ok status 503/);
+  assert.equal((r.markdown.match(/^- /gm) ?? []).length, 3);
+  assert.ok(!r.markdown.includes("x=1"));
+});
+
+test("an all clear window prints 5xx: 0, and the overall summary adds the 5xx count of every Worker", () => {
+  const r = summarizeWorker("jetnine-web", lines(ev(), ev()));
+  assert.match(r.markdown, /0 not ok, 5xx: 0\./);
+  assert.equal(r.fiveXx, 0);
+});

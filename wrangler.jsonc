@@ -48,7 +48,17 @@
     { "binding": "MEDIA", "bucket_name": "jetnine-media" }
   ],
   "d1_databases": [
-    { "binding": "NEXT_TAG_CACHE_D1", "database_name": "jetnine-tag-cache", "database_id": "af5350ae-1014-421c-86a0-c60a4f8d3a39" }
+    { "binding": "NEXT_TAG_CACHE_D1", "database_name": "jetnine-tag-cache", "database_id": "af5350ae-1014-421c-86a0-c60a4f8d3a39" },
+    // Production's own copy of the site database (OPS-177, OPS-183). The deploy applies
+    // the D1 migrations to it on every production deploy. Unused until the cutover sets
+    // DB_TARGET "d1" and DB_CUTOVER "production-d1"; neither is set here, so production
+    // stays on Postgres.
+    {
+      "binding": "DB",
+      "database_name": "jetnine-production",
+      "database_id": "1e1b0249-62b3-41c2-a971-4642a295b896",
+      "migrations_dir": "src/db/d1/migrations"
+    }
   ],
   "durable_objects": {
     "bindings": [{ "name": "NEXT_CACHE_DO_QUEUE", "class_name": "DOQueueHandler" }]
@@ -84,8 +94,8 @@
           "database_name": "jetnine-tag-cache-staging",
           "database_id": "deaba576-77b3-429f-b9ee-1c5a0b1eb60a"
         },
-        // Staging's own copy of the site database (OPS-99). Empty until the D1
-        // table rows land; production has no such binding and stays on Postgres.
+        // Staging's own copy of the site database (OPS-99). Production has its own
+        // (jetnine-production, OPS-183) and stays on Postgres until the cutover.
         {
           "binding": "DB",
           "database_name": "jetnine-staging",

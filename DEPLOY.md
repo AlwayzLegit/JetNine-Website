@@ -392,7 +392,7 @@ No schema or env changes. The runbook, in order:
 
 JetNine's database is moving from Supabase Postgres to Cloudflare D1, one domain at a time.
 
-- **Binding.** The staging Worker has a D1 binding `DB` (database `jetnine-staging`, migrations in `src/db/d1/migrations`). Production has no such binding and stays on Postgres.
+- **Binding.** The staging Worker has a D1 binding `DB` (database `jetnine-staging`, migrations in `src/db/d1/migrations`). Production has its own binding `DB` (database `jetnine-production`, OPS-183) and stays on Postgres until the cutover.
 - **Switch.** `DB_TARGET` (`postgres` or `d1`) names the database per environment. Staging sets `postgres` until the first converted domain row changes it. `src/db/target.mjs` reads it: anything but exactly `d1` means Postgres, and production refuses `d1` by code until the cutover row lifts that on purpose.
 - **Code.** `dbTarget()` and `d1Db()` in `src/db/d1.ts` (re-exported from `src/db`). `db` and `sql` still point at Postgres; a converted domain calls `d1Db()` when `dbTarget()` is `d1`.
 - **Health.** `checks.db` in `/api/health` (full view and `/admin/health`) shows `target`, `d1` (`absent`, `ok` or `error`) and `d1Tables`. D1 never changes `ok` or the status.
@@ -565,3 +565,14 @@ The first load failed with `SQLITE_CONSTRAINT` and the log did not say where. Wh
 - **Clean preflight** prints `preflight ok: [n] tables, [rows] rows; ...` and the remote load follows as before.
 - **If the remote load still fails** the log prints the error code with the constraint kind and names, then counts the rows of every table in staging D1: `staging D1 after the failed load: empty` or `partial, [x] of [n] tables have rows (a new load wipes it first)`. Running the load again is always safe.
 - Nothing else changed: the staging-only guard, the held-back tables (never read from Postgres), no row value in any log line.
+
+## Production D1 database (OPS-183)
+
+Step 8b of the move to Cloudflare (OPS-93): production's Worker binds its own D1 database, `jetnine-production` (created empty by the owner, OPS-177), with the same migrations folder as staging.
+
+- **Binding.** `wrangler.jsonc`, top level: `DB` on `jetnine-production`, `migrations_dir` `src/db/d1/migrations`. Production sets neither `DB_TARGET` nor `DB_CUTOVER`, so `parseDbTarget` (OPS-176) still returns Postgres and no query reads it. The health probe shows `d1` and `d1Tables` as information only; a D1 error cannot change the status.
+- **Job.** `Deploy (Cloudflare)` has a job `d1-production` (production only, after `deploy`): it applies the D1 migrations to `jetnine-production` and prints `D1 jetnine-production tables: N`. N equals the `D1 jetnine-staging tables: N` of a staging run on the same commit. It is its own job, so a D1 failure turns the run red but never stops the live app deploy. The cutover row moves it before the app deploy once production reads D1.
+- **Key.** The repo's own `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` (the staging step already uses them). No new secret.
+- **Test.** `src/db/wrangler-d1.test.mjs` (CI step "Database target tests"): the production and staging bindings, and that no block sets `DB_CUTOVER`.
+- **No data is copied** here. The copy into production (with password hashes and bans) and the reverse copy are the next part (8b2), on the owner's yes.
+- **Way back.** Revert the merge commit. The Worker has no DB binding again; the tables in `jetnine-production` stay, unused (dropping the database is the owner's).

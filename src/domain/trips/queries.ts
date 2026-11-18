@@ -1,13 +1,5 @@
-import { asc, desc, eq, ilike, inArray, or, sql } from "drizzle-orm";
-import { db } from "@/db";
-import { trips, tripLegs, type Trip, type TripLeg } from "@/db/schema/trips";
-import { members } from "@/db/schema/members";
-import { users } from "@/db/schema/users";
-import { aircraft } from "@/db/schema/aircraft";
-import { operators } from "@/db/schema/operators";
-import { quotes } from "@/db/schema/quotes";
-import { invoices, type Invoice } from "@/db/schema/invoices";
-import { sourcedOptions } from "@/db/schema/sourced-option";
+import type { Trip, TripLeg } from "@/db/schema/trips";
+import type { Invoice } from "@/db/schema/invoices";
 import { formatDay } from "@/lib/request-format";
 import { formatUSD } from "@/lib/quote-pricing";
 import { invoiceWords, personName, tripState, type TripStateInfo } from "@/lib/desk-status";
@@ -25,6 +17,7 @@ import {
 import type { ThreadMessage } from "@/components/admin/message-thread";
 import { isUuid, likePattern, searchTerm } from "@/domain/common";
 import { loadThread, omitKeys } from "@/domain/requests/queries";
+import { tripStore } from "./store";
 
 /**
  * Trips as the desk reads them. Shared by /admin/trips and /api/v1/trips.
@@ -109,102 +102,16 @@ export async function listTrips(args: { tab?: string; q?: string; now?: Date }):
   const ago90 = shiftDayKey(today, -90);
 
   const pat = q ? likePattern(q) : null;
-  const where = pat
-    ? or(
-        ilike(users.firstName, pat),
-        ilike(users.lastName, pat),
-        ilike(users.email, pat),
-        ilike(members.preferredName, pat),
-        ilike(members.legalName, pat),
-        sql`exists (select 1 from ${tripLegs} tl where tl.trip_id = ${trips.id} and (tl.from_city ilike ${pat} or tl.to_city ilike ${pat}))`,
-      )
-    : undefined;
-
-  const rows = await db
-    .select({
-      id: trips.id,
-      tripCode: trips.tripCode,
-      status: trips.status,
-      paxCount: trips.paxCount,
-      missionType: trips.missionType,
-      wheelsUpAt: trips.wheelsUpAt,
-      createdAt: trips.createdAt,
-      memberId: trips.memberId,
-      quoteId: trips.quoteId,
-      memberCode: members.memberCode,
-      preferredName: members.preferredName,
-      legalName: members.legalName,
-      memberEmail: users.email,
-      memberPhone: users.phoneE164,
-      memberFirstName: users.firstName,
-      memberLastName: users.lastName,
-      makeModel: aircraft.makeModel,
-      tailNumber: aircraft.tailNumber,
-      operatorName: operators.name,
-      groundOption: quotes.groundOption,
-    })
-    .from(trips)
-    .innerJoin(members, eq(members.id, trips.memberId))
-    .innerJoin(users, eq(users.id, members.userId))
-    .leftJoin(aircraft, eq(aircraft.id, trips.aircraftId))
-    .leftJoin(operators, eq(operators.id, trips.operatorId))
-    .leftJoin(quotes, eq(quotes.id, trips.quoteId))
-    .where(where)
-    .orderBy(desc(trips.createdAt))
-    .limit(TRIP_LIST_LIMIT);
+  const store = tripStore();
+  const rows = await store.listRows({ pattern: pat, limit: TRIP_LIST_LIMIT });
 
   const ids = rows.map((r) => r.id);
   const quoteIds = rows.map((r) => r.quoteId).filter((x): x is string => Boolean(x));
 
   const [legs, invoiceRows, chosenOptions] = await Promise.all([
-    ids.length
-      ? db
-          .select({
-            tripId: tripLegs.tripId,
-            legNumber: tripLegs.legNumber,
-            fromIata: tripLegs.fromIata,
-            fromCity: tripLegs.fromCity,
-            fromName: tripLegs.fromName,
-            toIata: tripLegs.toIata,
-            toCity: tripLegs.toCity,
-            toName: tripLegs.toName,
-            departDate: tripLegs.departDate,
-            departTime: tripLegs.departTime,
-            departTz: tripLegs.departTz,
-            scheduledDepAt: tripLegs.scheduledDepAt,
-            scheduledArrAt: tripLegs.scheduledArrAt,
-          })
-          .from(tripLegs)
-          .where(inArray(tripLegs.tripId, ids))
-          .orderBy(asc(tripLegs.legNumber))
-      : Promise.resolve([]),
-    ids.length
-      ? db
-          .select({
-            tripId: invoices.tripId,
-            status: invoices.status,
-            issuedOn: invoices.issuedOn,
-            dueOn: invoices.dueOn,
-            paidOn: invoices.paidOn,
-            totalUsd: invoices.totalUsd,
-            kind: invoices.kind,
-          })
-          .from(invoices)
-          .where(inArray(invoices.tripId, ids))
-          .orderBy(asc(invoices.createdAt))
-      : Promise.resolve([]),
-    quoteIds.length
-      ? db
-          .select({
-            quoteId: sourcedOptions.quoteId,
-            aircraftType: sourcedOptions.aircraftType,
-            tailNumber: sourcedOptions.tailNumber,
-            operatorNameRaw: sourcedOptions.operatorNameRaw,
-          })
-          .from(sourcedOptions)
-          .where(inArray(sourcedOptions.quoteId, quoteIds))
-          .orderBy(desc(sourcedOptions.isChosen), asc(sourcedOptions.optionNumber))
-      : Promise.resolve([]),
+    store.legsForTrips(ids),
+    store.invoicesForTrips(ids),
+    store.optionsForQuotes(quoteIds),
   ]);
 
   const legsByTrip = new Map<string, LegLike[]>();
@@ -374,87 +281,21 @@ export type TripBundle = {
 /** Everything the one-trip page shows. Null for a bad id or no such trip. */
 export async function getTrip(id: string, now: Date = new Date()): Promise<TripBundle | null> {
   if (!isUuid(id)) return null;
-  const [trip] = await db.select().from(trips).where(eq(trips.id, id)).limit(1);
-  if (!trip) return null;
+  const parts = await tripStore().tripParts(id);
+  if (!parts) return null;
+  const { trip } = parts;
 
-  const [legs, memberRows, invoiceRows, quoteRows, acRows, opRows, thread] = await Promise.all([
-    db.select().from(tripLegs).where(eq(tripLegs.tripId, id)).orderBy(asc(tripLegs.legNumber)),
-    db
-      .select({
-        id: members.id,
-        memberCode: members.memberCode,
-        tier: members.tier,
-        preferredName: members.preferredName,
-        legalName: members.legalName,
-        email: users.email,
-        firstName: users.firstName,
-        lastName: users.lastName,
-        phoneE164: users.phoneE164,
-      })
-      .from(members)
-      .innerJoin(users, eq(users.id, members.userId))
-      .where(eq(members.id, trip.memberId))
-      .limit(1),
-    db.select().from(invoices).where(eq(invoices.tripId, id)).limit(1),
-    trip.quoteId
-      ? db
-          .select({
-            id: quotes.id,
-            quoteCode: quotes.quoteCode,
-            status: quotes.status,
-            groundOption: quotes.groundOption,
-          })
-          .from(quotes)
-          .where(eq(quotes.id, trip.quoteId))
-          .limit(1)
-      : Promise.resolve([]),
-    trip.aircraftId
-      ? db
-          .select({
-            tailNumber: aircraft.tailNumber,
-            makeModel: aircraft.makeModel,
-            yearManufactured: aircraft.yearManufactured,
-            operatorId: aircraft.operatorId,
-          })
-          .from(aircraft)
-          .where(eq(aircraft.id, trip.aircraftId))
-          .limit(1)
-      : Promise.resolve([]),
-    trip.operatorId
-      ? db
-          .select({ id: operators.id, name: operators.name, certNumber: operators.certNumber })
-          .from(operators)
-          .where(eq(operators.id, trip.operatorId))
-          .limit(1)
-      : Promise.resolve([]),
-    loadThread("trip", id),
-  ]);
-
-  const acRow = acRows[0] ?? null;
-  const [chosenOption] =
-    trip.quoteId && !acRow
-      ? await db
-          .select({
-            aircraftType: sourcedOptions.aircraftType,
-            tailNumber: sourcedOptions.tailNumber,
-            operatorNameRaw: sourcedOptions.operatorNameRaw,
-            totalFlightTimeMin: sourcedOptions.totalFlightTimeMin,
-          })
-          .from(sourcedOptions)
-          .where(eq(sourcedOptions.quoteId, trip.quoteId))
-          .orderBy(desc(sourcedOptions.isChosen), asc(sourcedOptions.optionNumber))
-          .limit(1)
-      : [];
+  const thread = await loadThread("trip", id);
 
   return {
     trip,
-    legs,
-    member: memberRows[0] ?? null,
-    invoice: invoiceRows[0] ?? null,
-    quote: quoteRows[0] ?? null,
-    aircraft: acRow,
-    operator: opRows[0] ?? null,
-    chosenOption: chosenOption ?? null,
+    legs: parts.legs,
+    member: parts.member,
+    invoice: parts.invoice,
+    quote: parts.quote,
+    aircraft: parts.aircraft,
+    operator: parts.operator,
+    chosenOption: parts.chosenOption,
     messages: thread,
     state: tripState(trip.status),
     today: dayKey(now),

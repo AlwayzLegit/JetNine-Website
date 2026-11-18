@@ -1,7 +1,10 @@
 import { eq } from "drizzle-orm";
+import type { DrizzleD1Database } from "drizzle-orm/d1";
 import type { db } from "@/db";
 import { aircraftScheduleBlocks } from "@/db/schema/schedule-blocks";
 import { tripLegs, trips } from "@/db/schema/trips";
+import { aircraftScheduleBlocks as d1Blocks } from "@/db/d1/schema/schedule-blocks";
+import { tripLegs as d1TripLegs, trips as d1Trips } from "@/db/d1/schema/trips";
 
 // A trip with an aircraft and times keeps one aircraft_schedule_blocks row in
 // step with it (OPS-102). Until now the Postgres trigger trips_sync_schedule_block
@@ -127,4 +130,69 @@ export async function syncTripScheduleBlock(executor: ScheduleExecutor, tripId: 
       updatedAt: new Date(),
     })
     .where(eq(aircraftScheduleBlocks.relatedTripId, tripId));
+}
+
+/**
+ * The D1 twin of syncTripScheduleBlock (OPS-156): the same reads, the same planScheduleBlock
+ * decision, on the D1 tables. D1 has no trigger and no interactive transaction, so like the
+ * Postgres function it recomputes from the current rows (idempotent) after the trip write.
+ * The Postgres function stays as it is; convert-to-trip (src/domain/requests/commands.ts)
+ * still calls it inside its transaction until its own row (OPS-157).
+ */
+export async function syncTripScheduleBlockD1(client: DrizzleD1Database, tripId: string): Promise<void> {
+  const [trip] = await client
+    .select({
+      tripCode: d1Trips.tripCode,
+      aircraftId: d1Trips.aircraftId,
+      status: d1Trips.status,
+      wheelsUpAt: d1Trips.wheelsUpAt,
+      wheelsDownAt: d1Trips.wheelsDownAt,
+      etaAt: d1Trips.etaAt,
+    })
+    .from(d1Trips)
+    .where(eq(d1Trips.id, tripId))
+    .limit(1);
+  if (!trip) return;
+
+  const legs = await client
+    .select({
+      scheduledDepAt: d1TripLegs.scheduledDepAt,
+      scheduledArrAt: d1TripLegs.scheduledArrAt,
+      departDate: d1TripLegs.departDate,
+    })
+    .from(d1TripLegs)
+    .where(eq(d1TripLegs.tripId, tripId));
+
+  const plan = planScheduleBlock(trip, legs);
+  if (plan.action === "clear") {
+    await client.delete(d1Blocks).where(eq(d1Blocks.relatedTripId, tripId));
+    return;
+  }
+
+  const existing = await client
+    .select({ id: d1Blocks.id })
+    .from(d1Blocks)
+    .where(eq(d1Blocks.relatedTripId, tripId))
+    .limit(1);
+  if (existing.length === 0) {
+    await client.insert(d1Blocks).values({
+      aircraftId: plan.aircraftId,
+      kind: "trip",
+      startAt: plan.startAt,
+      endAt: plan.endAt,
+      relatedTripId: tripId,
+      notes: plan.notes,
+    });
+    return;
+  }
+  await client
+    .update(d1Blocks)
+    .set({
+      aircraftId: plan.aircraftId,
+      startAt: plan.startAt,
+      endAt: plan.endAt,
+      notes: plan.notes,
+      updatedAt: new Date(),
+    })
+    .where(eq(d1Blocks.relatedTripId, tripId));
 }

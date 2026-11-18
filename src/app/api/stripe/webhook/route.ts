@@ -1,20 +1,11 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { eq, sql } from "drizzle-orm";
 import type Stripe from "stripe";
-import { db } from "@/db";
-import { syncMemberTier } from "@/domain/memberships/tier";
-import { invoices } from "@/db/schema/invoices";
-import { stripeWebhookEvents } from "@/db/schema/invoices";
-import {
-  memberships,
-  reserveTransactions,
-  type NewReserveTransaction,
-} from "@/db/schema/memberships";
+import type { NewReserveTransaction } from "@/db/schema/memberships";
+import { isUniqueViolation } from "@/db/unique";
+import { invoiceStore } from "@/domain/invoices/store";
+import { paymentStore } from "@/domain/payments/store";
 import { logAudit } from "@/lib/audit";
 import { tierWords } from "@/lib/desk-status";
-import { members } from "@/db/schema/members";
-import { users } from "@/db/schema/users";
-import { trips } from "@/db/schema/trips";
 import {
   sendDispatchAlert,
   sendMembershipActivatedEmail,
@@ -73,31 +64,19 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   // reserve credit, invoice paid) never happen even though Stripe
   // collected. The two-tier check below: try-insert + if-conflict-then
   // look up, dedup only on processed_at being set.
-  const claimed = await db
-    .insert(stripeWebhookEvents)
-    .values({
-      id: event.id,
-      type: event.type,
-      payload: event as unknown as Record<string, unknown>,
-    })
-    .onConflictDoNothing()
-    .returning({ id: stripeWebhookEvents.id });
+  // The queries go through the payment store (OPS-162): Postgres, or D1 where DB_TARGET is d1.
+  const payments = paymentStore();
+  const claimed = await payments.claimEvent({
+    id: event.id,
+    type: event.type,
+    payload: event as unknown as Record<string, unknown>,
+  });
 
-  if (claimed.length === 0) {
-    const [existing] = await db
-      .select({
-        id: stripeWebhookEvents.id,
-        processedAt: stripeWebhookEvents.processedAt,
-      })
-      .from(stripeWebhookEvents)
-      .where(eq(stripeWebhookEvents.id, event.id));
-    if (existing?.processedAt) {
+  if (!claimed) {
+    if (await payments.eventProcessedAt(event.id)) {
       return NextResponse.json({ received: true, deduped: true });
     }
-    await db
-      .update(stripeWebhookEvents)
-      .set({ error: null })
-      .where(eq(stripeWebhookEvents.id, event.id));
+    await payments.clearEventError(event.id);
     console.warn("[stripe-webhook] retry of unfinished event", {
       id: event.id,
       type: event.type,
@@ -106,18 +85,12 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
   try {
     await dispatch(event);
-    await db
-      .update(stripeWebhookEvents)
-      .set({ processedAt: new Date() })
-      .where(eq(stripeWebhookEvents.id, event.id));
+    await payments.markEventProcessed(event.id, new Date());
     return NextResponse.json({ received: true });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     console.error("[stripe-webhook] dispatch failed", { id: event.id, type: event.type, msg });
-    await db
-      .update(stripeWebhookEvents)
-      .set({ error: msg.slice(0, 500) })
-      .where(eq(stripeWebhookEvents.id, event.id));
+    await payments.markEventError(event.id, msg.slice(0, 500));
     // 5xx so Stripe retries with backoff. The retry lands on the
     // claimed==0 + processedAt IS NULL branch and re-attempts dispatch.
     return NextResponse.json({ error: "dispatch failed" }, { status: 500 });
@@ -219,10 +192,7 @@ async function onMembershipToppedUp(session: Stripe.Checkout.Session): Promise<v
     });
   }
 
-  const [row] = await db
-    .select({ id: memberships.id, memberId: memberships.memberId, status: memberships.status })
-    .from(memberships)
-    .where(eq(memberships.id, membershipId));
+  const row = await paymentStore().membershipForTopUp(membershipId);
   if (!row) throw new Error(`membership not found: ${membershipId}`);
   if (row.status !== "active") {
     // Race window: the activation webhook for this membership hasn't
@@ -254,12 +224,12 @@ async function onMembershipToppedUp(session: Stripe.Checkout.Session): Promise<v
     stripePaymentIntentId: paymentIntentId,
   };
   try {
-    await db.insert(reserveTransactions).values(tx);
+    await paymentStore().creditLedger(tx);
   } catch (err) {
     // Partial unique index fires when the same payment_intent surfaces
     // under a different event id (Dashboard resend). Swallow and treat
     // as a no-op — the original credit is already on the ledger.
-    if ((err as { code?: string }).code === "23505") {
+    if (isUniqueViolation(err)) {
       console.warn("[stripe-webhook] topup dedup hit on payment_intent", {
         paymentIntentId,
         sessionId: session.id,
@@ -312,11 +282,7 @@ async function memberContact(
 ): Promise<{ email: string; firstName: string } | null> {
   if (!memberId) return null;
   try {
-    const [m] = await db
-      .select({ email: users.email, firstName: users.firstName })
-      .from(members)
-      .innerJoin(users, eq(users.id, members.userId))
-      .where(eq(members.id, memberId));
+    const m = await invoiceStore().memberContact(memberId);
     return m?.email ? { email: m.email, firstName: m.firstName || "Hello" } : null;
   } catch {
     return null;
@@ -335,28 +301,17 @@ async function onInvoicePaid(session: Stripe.Checkout.Session): Promise<void> {
 
   const paymentIntentId = paymentIntentIdOf(session.payment_intent);
 
-  const updated = await db
-    .update(invoices)
-    .set({
-      status: "paid",
-      paidOn: sql`current_date`,
-      paidAt: new Date(),
-      stripePaymentIntentId: paymentIntentId,
-      stripeCheckoutSessionId: session.id,
-      updatedAt: new Date(),
-    })
-    .where(eq(invoices.id, invoiceId))
-    .returning({
-      id: invoices.id,
-      invoiceCode: invoices.invoiceCode,
-      memberId: invoices.memberId,
-      totalUsd: invoices.totalUsd,
-      tripId: invoices.tripId,
-    });
+  const paid = await paymentStore().markInvoicePaid({
+    invoiceId,
+    paymentIntentId,
+    sessionId: session.id,
+    paidAt: new Date(),
+  });
 
-  if (updated.length === 0) {
+  if (!paid) {
     throw new Error(`invoice not found: ${invoiceId}`);
   }
+  const updated = [paid];
 
   await logAudit({
     actorUserId: null,
@@ -380,11 +335,7 @@ async function onInvoicePaid(session: Stripe.Checkout.Session): Promise<void> {
   try {
     let tripCode: string | null = null;
     if (updated[0].tripId) {
-      const [t] = await db
-        .select({ tripCode: trips.tripCode })
-        .from(trips)
-        .where(eq(trips.id, updated[0].tripId));
-      tripCode = t?.tripCode ?? null;
+      tripCode = await invoiceStore().tripCode(updated[0].tripId);
     }
     const contact = await memberContact(updated[0].memberId);
     if (contact) {
@@ -435,14 +386,7 @@ async function onPaymentFailed(intent: Stripe.PaymentIntent): Promise<void> {
   // customer (so they can retry or wire) and the desk (so a big booking
   // doesn't quietly stall). Best-effort.
   try {
-    const [inv] = await db
-      .select({
-        invoiceCode: invoices.invoiceCode,
-        memberId: invoices.memberId,
-        tripId: invoices.tripId,
-      })
-      .from(invoices)
-      .where(eq(invoices.id, invoiceId));
+    const inv = await paymentStore().invoiceForFailedPayment(invoiceId);
     if (inv) {
       const contact = await memberContact(inv.memberId);
       if (contact) {
@@ -483,16 +427,7 @@ async function onMembershipPurchased(session: Stripe.Checkout.Session): Promise<
   // Read the row to determine the deposit (= top-up amount) and member.
   // We trust the depositUsd from DB rather than session.amount_total to
   // avoid currency conversion / rounding surprises.
-  const [row] = await db
-    .select({
-      id: memberships.id,
-      memberId: memberships.memberId,
-      depositUsd: memberships.depositUsd,
-      program: memberships.program,
-      status: memberships.status,
-    })
-    .from(memberships)
-    .where(eq(memberships.id, membershipId));
+  const row = await paymentStore().membershipForActivation(membershipId);
 
   if (!row) {
     throw new Error(`membership not found: ${membershipId}`);
@@ -515,24 +450,20 @@ async function onMembershipPurchased(session: Stripe.Checkout.Session): Promise<
   // Stripe) and exit clean. The first activation has already happened
   // and the member has a valid card on file.
   try {
-    // One transaction: the tier follows the membership (OPS-102). If the tier
-    // write failed after the status write, Stripe's retry would find the row
-    // already active and never fix the tier.
-    await db.transaction(async (tx) => {
-      await tx
-        .update(memberships)
-        .set({
-          status: "active",
-          activatedAt: now,
-          stripePaymentIntentId: paymentIntentId,
-          stripeCheckoutSessionId: session.id,
-          updatedAt: now,
-        })
-        .where(eq(memberships.id, membershipId));
-      await syncMemberTier(tx, membershipId, row.status);
+    // One step: the tier follows the membership (OPS-102). If the tier write
+    // failed after the status write, Stripe's retry would find the row already
+    // active and never fix the tier. The store does both in one transaction on
+    // Postgres and one batch on D1.
+    await paymentStore().activateMembership({
+      id: membershipId,
+      memberId: row.memberId,
+      previousStatus: row.status,
+      paymentIntentId,
+      sessionId: session.id,
+      now,
     });
   } catch (err) {
-    if ((err as { code?: string }).code === "23505") {
+    if (isUniqueViolation(err)) {
       console.error(
         "[stripe-webhook] duplicate membership activation — refund required",
         {
@@ -587,9 +518,9 @@ async function onMembershipPurchased(session: Stripe.Checkout.Session): Promise<
     stripePaymentIntentId: paymentIntentId,
   };
   try {
-    await db.insert(reserveTransactions).values(tx);
+    await paymentStore().creditLedger(tx);
   } catch (err) {
-    if ((err as { code?: string }).code === "23505") {
+    if (isUniqueViolation(err)) {
       console.warn("[stripe-webhook] activation dedup hit on payment_intent", {
         paymentIntentId,
         membershipId,
@@ -667,13 +598,10 @@ async function onChargeRefunded(charge: Stripe.Charge): Promise<void> {
     return;
   }
 
-  const updated = await db
-    .update(invoices)
-    .set({ status: "void", updatedAt: new Date() })
-    .where(eq(invoices.stripePaymentIntentId, paymentIntentId))
-    .returning({ id: invoices.id, invoiceCode: invoices.invoiceCode });
+  const voided = await paymentStore().voidInvoiceByPaymentIntent(paymentIntentId, new Date());
 
-  if (updated.length === 0) return; // no matching invoice — ignore
+  if (!voided) return; // no matching invoice — ignore
+  const updated = [voided];
 
   await logAudit({
     actorUserId: null,

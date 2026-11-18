@@ -169,7 +169,7 @@ jobs:
       # (create, save with the version check, make live, archive), on a real SQLite with
       # atomic batches, plus the loud failure when the target is d1 with no binding.
       - name: Settings store tests
-        run: pnpm exec tsx --test src/domain/settings/store-d1.test.ts src/domain/settings/store.test.ts src/domain/voice-agents/store-d1.test.ts src/domain/voice-agents/store.test.ts
+        run: pnpm exec tsx --test src/domain/settings/store-d1.test.ts src/domain/settings/store.test.ts src/domain/settings/ai-store-d1.test.ts src/domain/settings/ai-store.test.ts src/domain/voice-agents/store-d1.test.ts src/domain/voice-agents/store.test.ts
 
       # The desk's messages on D1 (OPS-127): the inbox threads (newest first, unread counts, the
       # latest message of each thread), one thread, failed deliveries, mark read, the desk counts,

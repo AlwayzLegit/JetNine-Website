@@ -122,6 +122,11 @@ jobs:
       - name: Deploy tail summary tests
         run: node --test scripts/deploy-tail/summarize.test.mjs
 
+      # The warm-up gate of Deploy (Cloudflare) (OPS-175): three answers in a row, health must
+      # say ok, a thrown error or a cut body is a failed read, nothing but a status label printed.
+      - name: Deploy warm-up tests
+        run: node --test scripts/deploy-warm/warm.test.mjs
+
       # The Postgres to staging D1 copy tool (OPS-105): value mapping, the staging-only
       # guard, the table plan and the held-back credential tables. Needs no database.
       - name: D1 copy tests

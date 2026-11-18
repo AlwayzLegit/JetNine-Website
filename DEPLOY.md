@@ -485,7 +485,9 @@ Requests were cut off a few minutes after some production deploys, and the same 
 - **Reading the summary.** Compare its times with the smoke and sitemap jobs of the same run. Non-ok outcomes on visitor paths (exceededCpu, exceededMemory, responseStreamDisconnected, exceptions on pages) are a real fault to file with that evidence. Retries in the checks and nothing in the tail point at the checks racing the rollout. The tail attaches after the deploy job ends, so the first seconds of the new version can fall before it; its summary prints when it attached.
 - **Staging robots.** The smoke check holds staging to the same rule as previews (`Disallow: /` and no `Sitemap:` line), matching `src/app/robots.ts`. Production is still held to the production rule.
 
-Tests: `pnpm exec tsx --test scripts/smoke-fetch.test.mts`, `node --test scripts/deploy-tail/summarize.test.mjs`, `python3 scripts/test-live-sitemap.py`.
+- **The `warm` job (OPS-175).** After the app deploy and before `smoke` and `sitemap`, `warm` in `deploy-cloudflare.yml` runs `node scripts/deploy-warm/warm.mjs <url>`: it requests `/`, `/contact`, `/cost-calculator` and `/api/health` of the target (a read every 5 s, `cache-control: no-cache`, redirects not followed) until each answers 200 three times in a row, and `/api/health` must also say `ok: true`. One line per page: `warm: /contact 200 x3 after 2 tries (1.4 s)`, or `WARM FAIL: /contact last status 500 after 35 tries` with exit 1 after 180 s. `smoke` and `sitemap` need `warm`, so a deploy that serves 500s near the runner is red and its smoke never starts. It reads only the data centre nearest the runner, so a pass does not prove every data centre. `tail`, `monitor` and `voice-staging` still start right after `deploy`. No secret, and nothing but a status label is printed. Way back: revert the change; `smoke` and `sitemap` go back to `needs: deploy`.
+
+Tests: `pnpm exec tsx --test scripts/smoke-fetch.test.mts`, `node --test scripts/deploy-tail/summarize.test.mjs`, `node --test scripts/deploy-warm/warm.test.mjs`, `python3 scripts/test-live-sitemap.py`.
 
 ## Codes and timestamps made by the app (OPS-101)
 

@@ -3,13 +3,11 @@
 import { randomBytes } from "node:crypto";
 import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
-import { eq } from "drizzle-orm";
-import { db } from "@/db";
-import { nextCode } from "@/db/codes";
-import { quotes, quoteLegs, type NewQuote, type NewQuoteLeg } from "@/db/schema/quotes";
+import { codeYear } from "@/db/codes";
+import type { NewQuote, NewQuoteLeg } from "@/db/schema/quotes";
+import { DuplicateIdempotencyKey, quoteStore } from "@/domain/quotes/store";
 import { findAirport, type Airport } from "@/lib/airports";
 import { airportRowFromCatalog, type AirportRow } from "@/lib/airport-rows";
-import { airports } from "@/db/schema/airports";
 import { toE164 } from "@/lib/phone";
 import type { QuoteDraft } from "@/lib/quote-store";
 import { categoryFits } from "@/lib/quote-fit";
@@ -110,17 +108,13 @@ export async function submitQuote(draft: QuoteDraft, turnstileToken?: string | n
   const idempotencyKey = draft.clientIdempotencyKey?.trim() || null;
   if (idempotencyKey) {
     try {
-      const existing = await db
-        .select({ id: quotes.id, quoteCode: quotes.quoteCode, statusToken: quotes.statusToken })
-        .from(quotes)
-        .where(eq(quotes.clientIdempotencyKey, idempotencyKey))
-        .limit(1);
-      if (existing.length > 0) {
+      const existing = await quoteStore().findByIdempotencyKey(idempotencyKey);
+      if (existing) {
         return {
           ok: true,
-          ref: existing[0].quoteCode,
-          id: existing[0].id,
-          statusUrl: statusPath(existing[0].statusToken),
+          ref: existing.quoteCode,
+          id: existing.id,
+          statusUrl: statusPath(existing.statusToken),
           deduped: true,
         };
       }
@@ -175,111 +169,100 @@ export async function submitQuote(draft: QuoteDraft, turnstileToken?: string | n
   const receivedAt = new Date();
 
   try {
-    const inserted = await db.transaction(async (tx) => {
-      // The app makes the code (OPS-101). The quotes_default_quote_code trigger
-      // fills it only when empty, so it does nothing now and the counter moves once.
-      const quoteCode = await nextCode(tx, "quote");
-      const values: NewQuote = {
-          quoteCode,
-          memberId,
-          createdByUserId: user?.id ?? null,
-          source: "quote_wizard",
-          tripType:
-            draft.tripType === "roundtrip"
-              ? "round"
-              : draft.tripType === "oneway"
-                ? "one_way"
-                : "multi_leg",
-          paxCount: draft.pax,
-          childrenCount: draft.kids,
-          petsCount: draft.pets,
-          extraBagsCount: draft.bags,
+    // The store makes the code, the quote, any airport the picker has and the
+    // seeds lack, and the legs, all or nothing (OPS-153).
+    const values: Omit<NewQuote, "quoteCode" | "id"> = {
+      memberId,
+      createdByUserId: user?.id ?? null,
+      source: "quote_wizard",
+      tripType:
+        draft.tripType === "roundtrip"
+          ? "round"
+          : draft.tripType === "oneway"
+            ? "one_way"
+            : "multi_leg",
+      paxCount: draft.pax,
+      childrenCount: draft.kids,
+      petsCount: draft.pets,
+      extraBagsCount: draft.bags,
 
-          // Wizard uses "ultra" (matches the URL slug); DB enum uses "ulr".
-          requestedCategory: draft.category === "ultra" ? "ulr" : draft.category,
-          cabinPrefs: draft.cabin,
-          cateringTier: draft.catering === "custom" ? "custom" : draft.catering,
-          // Wizard uses "suv"; DB enum uses "suv_sprinter".
-          groundOption: draft.ground === "suv" ? "suv_sprinter" : draft.ground,
-          notes: draft.notes || null,
+      // Wizard uses "ultra" (matches the URL slug); DB enum uses "ulr".
+      requestedCategory: draft.category === "ultra" ? "ulr" : draft.category,
+      cabinPrefs: draft.cabin,
+      cateringTier: draft.catering === "custom" ? "custom" : draft.catering,
+      // Wizard uses "suv"; DB enum uses "suv_sprinter".
+      groundOption: draft.ground === "suv" ? "suv_sprinter" : draft.ground,
+      notes: draft.notes || null,
 
-          contactMethods: draft.methods,
-          bestTime: draft.bestTime,
-          referralSource: draft.source,
+      contactMethods: draft.methods,
+      bestTime: draft.bestTime,
+      referralSource: draft.source,
 
-          contactSnapshot: {
-            firstName: draft.firstName,
-            lastName: draft.lastName,
-            email: draft.email,
-            // Normalize at intake — the wizard collects the phone in
-            // national format and the country dial code separately,
-            // so storing them verbatim under the misleading
-            // `phoneE164` name produces "+1(818) 800-5678" downstream
-            // (Twilio rejects 21211). Store the canonical E.164.
-            phoneE164: toE164(draft.phone, draft.phoneCountry) ?? draft.phone,
-            phoneCountry: draft.phoneCountry,
-            company: draft.company,
-            account: draft.account,
-          },
+      contactSnapshot: {
+        firstName: draft.firstName,
+        lastName: draft.lastName,
+        email: draft.email,
+        // Normalize at intake — the wizard collects the phone in
+        // national format and the country dial code separately,
+        // so storing them verbatim under the misleading
+        // `phoneE164` name produces "+1(818) 800-5678" downstream
+        // (Twilio rejects 21211). Store the canonical E.164.
+        phoneE164: toE164(draft.phone, draft.phoneCountry) ?? draft.phone,
+        phoneCountry: draft.phoneCountry,
+        company: draft.company,
+        account: draft.account,
+      },
 
-          consentBroker: draft.consent.broker,
-          consentContact: draft.consent.contact,
-          consentMarketing: draft.consent.marketing,
+      consentBroker: draft.consent.broker,
+      consentContact: draft.consent.contact,
+      consentMarketing: draft.consent.marketing,
 
-          clientIdempotencyKey: idempotencyKey,
-          statusToken,
+      clientIdempotencyKey: idempotencyKey,
+      statusToken,
 
-          receivedAt,
-          slaDeadlineAt: new Date(receivedAt.getTime() + replyPromiseMinutes * 60_000),
+      receivedAt,
+      slaDeadlineAt: new Date(receivedAt.getTime() + replyPromiseMinutes * 60_000),
 
-          status: isSmoke ? "cancelled" : "submitted",
+      status: isSmoke ? "cancelled" : "submitted",
+    };
+
+    const legRows: Omit<NewQuoteLeg, "quoteId" | "id">[] = draft.legs.map((l, i) => {
+      const from = l.fromIata ? findAirport(l.fromIata) : null;
+      const to = l.toIata ? findAirport(l.toIata) : null;
+      return {
+        legNumber: i + 1,
+        fromIcao: from?.icao ?? null,
+        fromIata: l.fromIata ?? null,
+        fromCity: l.fromCity ?? null,
+        fromName: l.fromName ?? null,
+        toIcao: to?.icao ?? null,
+        toIata: l.toIata ?? null,
+        toCity: l.toCity ?? null,
+        toName: l.toName ?? null,
+        departDate: l.date ?? null,
+        departTime: l.time ?? null,
+        distanceNm: l.distanceNm ?? null,
       };
-      const [row] = await tx
-        .insert(quotes)
-        .values(values)
-        .returning({ id: quotes.id, quoteCode: quotes.quoteCode });
+    });
 
-      const legRows: NewQuoteLeg[] = draft.legs.map((l, i) => {
-        const from = l.fromIata ? findAirport(l.fromIata) : null;
-        const to = l.toIata ? findAirport(l.toIata) : null;
-        return {
-          quoteId: row.id,
-          legNumber: i + 1,
-          fromIcao: from?.icao ?? null,
-          fromIata: l.fromIata ?? null,
-          fromCity: l.fromCity ?? null,
-          fromName: l.fromName ?? null,
-          toIcao: to?.icao ?? null,
-          toIata: l.toIata ?? null,
-          toCity: l.toCity ?? null,
-          toName: l.toName ?? null,
-          departDate: l.date ?? null,
-          departTime: l.time ?? null,
-          distanceNm: l.distanceNm ?? null,
-        };
-      });
-
-      // quote_legs FKs its ICAOs to airports.icao, and the picker has
-      // outgrown the seeds before (migration 0055): a destination missing
-      // from the table failed the whole submit and lost the lead. Add what
-      // this quote needs first; existing rows are untouched.
-      const needed = new Map<string, Airport>();
-      for (const l of draft.legs) {
-        for (const code of [l.fromIata, l.toIata]) {
-          const a = code ? findAirport(code) : undefined;
-          if (a) needed.set(a.icao, a);
-        }
+    // quote_legs FKs its ICAOs to airports.icao, and the picker has
+    // outgrown the seeds before (migration 0055): a destination missing
+    // from the table failed the whole submit and lost the lead. The store adds
+    // what this quote needs first; existing rows are untouched.
+    const needed = new Map<string, Airport>();
+    for (const l of draft.legs) {
+      for (const code of [l.fromIata, l.toIata]) {
+        const a = code ? findAirport(code) : undefined;
+        if (a) needed.set(a.icao, a);
       }
-      const airportRows = [...needed.values()].map(airportRowFromCatalog).filter((r): r is AirportRow => r !== null);
-      if (airportRows.length > 0) {
-        await tx.insert(airports).values(airportRows).onConflictDoNothing({ target: airports.icao });
-      }
+    }
+    const airportRows = [...needed.values()].map(airportRowFromCatalog).filter((r): r is AirportRow => r !== null);
 
-      if (legRows.length > 0) {
-        await tx.insert(quoteLegs).values(legRows);
-      }
-
-      return row;
+    const inserted = await quoteStore().createQuote({
+      values,
+      legs: legRows,
+      airports: airportRows,
+      year: codeYear(),
     });
 
     await logAudit({
@@ -393,23 +376,15 @@ export async function submitQuote(draft: QuoteDraft, turnstileToken?: string | n
   } catch (err) {
     // Unique-violation on client_idempotency_key — a parallel submit
     // already created the row. Look it up and return it as a dedupe hit.
-    if (
-      idempotencyKey &&
-      err instanceof Error &&
-      /quotes_client_idempotency_key_uq|duplicate key/i.test(err.message)
-    ) {
+    if (idempotencyKey && err instanceof DuplicateIdempotencyKey) {
       try {
-        const existing = await db
-          .select({ id: quotes.id, quoteCode: quotes.quoteCode, statusToken: quotes.statusToken })
-          .from(quotes)
-          .where(eq(quotes.clientIdempotencyKey, idempotencyKey))
-          .limit(1);
-        if (existing.length > 0) {
+        const existing = await quoteStore().findByIdempotencyKey(idempotencyKey);
+        if (existing) {
           return {
             ok: true,
-            ref: existing[0].quoteCode,
-            id: existing[0].id,
-            statusUrl: statusPath(existing[0].statusToken),
+            ref: existing.quoteCode,
+            id: existing.id,
+            statusUrl: statusPath(existing.statusToken),
             deduped: true,
           };
         }

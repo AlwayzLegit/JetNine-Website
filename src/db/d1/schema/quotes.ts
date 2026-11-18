@@ -140,6 +140,11 @@ export const quotes = sqliteTable(
   (t) => [
     uniqueIndex("quotes_quote_code_uq").on(t.quoteCode),
     uniqueIndex("quotes_status_token_uq").on(t.statusToken),
+    // Postgres has this one (migration 0021); the twin lacked it (OPS-153). Without it a
+    // double click on D1 could make two quotes. A partial index: most quotes carry no key.
+    uniqueIndex("quotes_client_idempotency_key_uq")
+      .on(t.clientIdempotencyKey)
+      .where(sql`${t.clientIdempotencyKey} is not null`),
     index("quotes_status_idx").on(t.status),
     index("quotes_member_idx").on(t.memberId),
     index("quotes_dispatcher_idx").on(t.assignedDispatcherId),

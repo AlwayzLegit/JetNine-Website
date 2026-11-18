@@ -79,7 +79,7 @@ function sqlPlusOne(table: typeof schema.quoteCodeSequence) {
 // these paths run inside server actions and transactions that node:test cannot mock.
 test("each insert path calls nextCode for its kind", () => {
   const sites: [string, CodeKind][] = [
-    ["src/app/quote/actions.ts", "quote"],
+    ["src/domain/quotes/store-pg.ts", "quote"],
     ["src/domain/requests/commands.ts", "trip"],
     ["src/domain/requests/commands.ts", "invoice"],
     ["src/domain/members/store-pg.ts", "member"],

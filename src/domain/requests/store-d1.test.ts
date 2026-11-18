@@ -12,10 +12,15 @@ import { sourcedOptions } from "@/db/d1/schema/sourced-option";
 import { staff } from "@/db/d1/schema/staff";
 import { trips } from "@/db/d1/schema/trips";
 import { users } from "@/db/d1/schema/users";
+import { invoices } from "@/db/d1/schema/invoices";
+import { memberships, reserveTransactions } from "@/db/d1/schema/memberships";
+import { invoiceCodeSequence } from "@/db/d1/schema/invoices";
+import { tripCodeSequence, tripLegs } from "@/db/d1/schema/trips";
 import { isUniqueViolation } from "@/db/unique";
 import { likePattern } from "@/domain/common";
 import { HoldTaken } from "./store";
 import { d1RequestStore } from "./store-d1";
+import type { ConvertPlan } from "./store";
 
 // OPS-154: contract tests for the D1 request store (the desk's request list and request page,
 // the SLA watch, the smoke prune and the reports export), on a real SQLite with the repo's own
@@ -700,4 +705,275 @@ test("chooseOption leaves exactly one chosen, shortlisted option on the request 
   assert.equal(rows.find((r) => r.id === b.id)?.status, "shortlisted");
   const [untouched] = await client.select().from(sourcedOptions).where(eq(sourcedOptions.id, o.id));
   assert.equal(untouched.isChosen, true, "another request's chosen option stays chosen");
+});
+
+
+// ─── OPS-157: convert a request to a trip as one batch ───────────────────
+
+async function clientMember(c: Fresh["client"]) {
+  const userId = await user(c);
+  const [m] = await c
+    .insert(members)
+    .values({ userId, memberCode: `M-2026-${String(n()).padStart(4, "0")}` })
+    .returning({ id: members.id });
+  return m.id;
+}
+
+async function membership(c: Fresh["client"], memberId: string, status: "active" | "paused" = "active", activatedOn = "2026-01-01") {
+  const [row] = await c
+    .insert(memberships)
+    .values({ memberId, program: "card_250", depositUsd: 250_000, calloutHours: 24, status, activatedOn } as never)
+    .returning({ id: memberships.id });
+  return row.id;
+}
+
+async function topUp(c: Fresh["client"], memberId: string, membershipId: string | null, amountUsd: number) {
+  await c.insert(reserveTransactions).values({ memberId, membershipId, kind: "top_up", amountUsd } as never);
+}
+
+function convertPlan(quoteId: string, memberId: string, over: { total?: number | null; aircraftId?: string | null; legs?: ConvertPlan["legs"] } = {}): ConvertPlan {
+  const total = over.total === undefined ? 8_000 : over.total;
+  return {
+    quoteId,
+    memberId,
+    trip: {
+      memberId,
+      quoteId,
+      assignedDispatcherId: null,
+      missionType: "one_way",
+      paxCount: 2,
+      crewCount: 2,
+      isInternational: false,
+      status: "confirmed",
+      revenueUsd: 7_000,
+      operatorCostUsd: null,
+      marginPct: null,
+      aircraftId: over.aircraftId ?? null,
+      operatorId: null,
+    },
+    legs: over.legs ?? [
+      { legNumber: 1, fromCity: "Van Nuys", toCity: "Aspen", fromIata: "VNY", toIata: "ASE", departDate: "2026-12-01" },
+      { legNumber: 2, fromCity: "Aspen", toCity: "Van Nuys", fromIata: "ASE", toIata: "VNY", departDate: "2026-12-05" },
+    ],
+    invoice: { memberId, kind: "charter", subtotalUsd: 7_000, fetUsd: 525, segmentFeeUsd: 100, totalUsd: total },
+    totalUsd: total,
+    tryDraw: total !== null && total > 0,
+  };
+}
+
+const balanceOf = async (c: Fresh["client"], memberId: string) => {
+  const rows = await c.select({ a: reserveTransactions.amountUsd }).from(reserveTransactions).where(eq(reserveTransactions.memberId, memberId));
+  return rows.reduce((sum, r) => sum + r.a, 0);
+};
+
+test("convert with no membership writes one trip with its code and legs, one draft invoice with its code, releases the holds and marks the request converted", async () => {
+  const { client, store } = fresh();
+  const m = await clientMember(client);
+  const op = await operator(client, "Acme Air");
+  const ac = await plane(client, op, "N123AB");
+  const q = await quote(client, "accepted", { memberId: m });
+  await client.insert(aircraftScheduleBlocks).values({ aircraftId: ac, kind: "hold", startAt: ago(-DAY), endAt: ago(-2 * DAY), relatedQuoteId: q } as never);
+  const otherQuote = await quote(client, "accepted", { memberId: m });
+  await client.insert(aircraftScheduleBlocks).values({ aircraftId: ac, kind: "hold", startAt: ago(-3 * DAY), endAt: ago(-4 * DAY), relatedQuoteId: otherQuote } as never);
+
+  const res = await store.convertToTrip(convertPlan(q, m));
+  const year = new Date().getUTCFullYear();
+  assert.equal(res.trip.tripCode, `JN-${year}-0001`);
+  assert.equal(res.drawdown?.drew, false);
+  assert.deepEqual(res.drawdown, { drew: false, reason: "NO_ACTIVE_MEMBERSHIP" });
+
+  const [trip] = await client.select().from(trips).where(eq(trips.id, res.trip.id));
+  assert.equal(trip.quoteId, q);
+  assert.equal(trip.memberId, m);
+  assert.equal(trip.status, "confirmed");
+  const legs = await client.select().from(tripLegs).where(eq(tripLegs.tripId, res.trip.id)).orderBy(tripLegs.legNumber);
+  assert.deepEqual(legs.map((l) => l.fromCity), ["Van Nuys", "Aspen"]);
+
+  const [inv] = await client.select().from(invoices).where(eq(invoices.id, res.invoice.id));
+  assert.equal(inv.invoiceCode, `INV-${year}-0001`);
+  assert.equal(inv.status, "draft");
+  assert.equal(inv.tripId, res.trip.id);
+  assert.equal(inv.totalUsd, 8_000);
+
+  const [quoteRow] = await client.select().from(quotes).where(eq(quotes.id, q));
+  assert.equal(quoteRow.status, "converted");
+  assert.equal(quoteRow.convertedTripId, res.trip.id);
+  assert.ok(quoteRow.acceptedAt instanceof Date);
+  const holds = await client.select().from(aircraftScheduleBlocks);
+  assert.deepEqual(holds.map((h) => h.relatedQuoteId), [otherQuote]);
+
+  assert.deepEqual(await store.convertedTripOf(q), { convertedTripId: res.trip.id, quoteCode: quoteRow.quoteCode });
+});
+
+test("a second convert of the same request is a unique violation and leaves no second trip or invoice and the counters where they were", async () => {
+  const { client, store } = fresh();
+  const m = await clientMember(client);
+  const q = await quote(client, "accepted", { memberId: m });
+  const first = await store.convertToTrip(convertPlan(q, m));
+
+  await assert.rejects(store.convertToTrip(convertPlan(q, m)), (e) => isUniqueViolation(e));
+  assert.equal((await client.select().from(trips)).length, 1);
+  assert.equal((await client.select().from(invoices)).length, 1);
+  assert.equal((await client.select().from(tripLegs)).length, 2);
+  const [tc] = await client.select().from(tripCodeSequence);
+  const [ic] = await client.select().from(invoiceCodeSequence);
+  assert.equal(tc.lastValue, 1);
+  assert.equal(ic.lastValue, 1);
+  assert.equal((await client.select().from(quotes).where(eq(quotes.id, q)))[0].convertedTripId, first.trip.id);
+});
+
+test("an active membership with a balance that covers the total draws once, turns the invoice paid with the date and a note, and returns the balance left", async () => {
+  const { client, store } = fresh();
+  const m = await clientMember(client);
+  const ms = await membership(client, m);
+  await topUp(client, m, ms, 10_000);
+  const q = await quote(client, "accepted", { memberId: m });
+
+  const res = await store.convertToTrip(convertPlan(q, m, { total: 8_000 }));
+  assert.equal(res.drawdown?.drew, true);
+  if (res.drawdown?.drew) {
+    assert.equal(res.drawdown.amountUsd, 8_000);
+    assert.equal(res.drawdown.remainingBalanceUsd, 2_000);
+  }
+  const draws = await client.select().from(reserveTransactions).where(eq(reserveTransactions.kind, "charter_draw"));
+  assert.equal(draws.length, 1);
+  assert.equal(draws[0].amountUsd, -8_000);
+  assert.equal(draws[0].membershipId, ms);
+  assert.equal(draws[0].tripId, res.trip.id);
+  assert.equal(draws[0].invoiceId, res.invoice.id);
+  assert.equal(draws[0].description, `Charter draw — invoice ${res.invoice.id}`);
+  assert.equal(res.drawdown && "reserveTxId" in res.drawdown ? res.drawdown.reserveTxId : null, draws[0].id);
+
+  const [inv] = await client.select().from(invoices).where(eq(invoices.id, res.invoice.id));
+  assert.equal(inv.status, "paid");
+  assert.equal(inv.paidOn, new Date().toISOString().slice(0, 10));
+  assert.ok(inv.paidAt instanceof Date);
+  assert.equal(inv.notes, `Auto-drawn from reserve membership ${ms} — $8,000`);
+  assert.equal(await balanceOf(client, m), 2_000);
+});
+
+test("a balance below the total makes no draw and the invoice stays a draft", async () => {
+  const { client, store } = fresh();
+  const m = await clientMember(client);
+  const ms = await membership(client, m);
+  await topUp(client, m, ms, 5_000);
+  const q = await quote(client, "accepted", { memberId: m });
+
+  const res = await store.convertToTrip(convertPlan(q, m, { total: 8_000 }));
+  assert.deepEqual(res.drawdown, { drew: false, reason: "INSUFFICIENT_BALANCE" });
+  assert.equal((await client.select().from(reserveTransactions).where(eq(reserveTransactions.kind, "charter_draw"))).length, 0);
+  const [inv] = await client.select().from(invoices).where(eq(invoices.id, res.invoice.id));
+  assert.equal(inv.status, "draft");
+  assert.equal(inv.paidOn, null);
+  assert.equal(await balanceOf(client, m), 5_000);
+});
+
+test("a paused membership gives NO_ACTIVE_MEMBERSHIP even with a balance", async () => {
+  const { client, store } = fresh();
+  const m = await clientMember(client);
+  const ms = await membership(client, m, "paused");
+  await topUp(client, m, ms, 50_000);
+  const q = await quote(client, "accepted", { memberId: m });
+  const res = await store.convertToTrip(convertPlan(q, m));
+  assert.deepEqual(res.drawdown, { drew: false, reason: "NO_ACTIVE_MEMBERSHIP" });
+  assert.equal(await balanceOf(client, m), 50_000);
+});
+
+test("two converts of two requests of one member with a balance for one give exactly one draw and a balance of 2,000", async () => {
+  const { client, store } = fresh();
+  const m = await clientMember(client);
+  const ms = await membership(client, m);
+  await topUp(client, m, ms, 10_000);
+  const q1 = await quote(client, "accepted", { memberId: m });
+  const q2 = await quote(client, "accepted", { memberId: m });
+
+  const [r1, r2] = await Promise.all([store.convertToTrip(convertPlan(q1, m)), store.convertToTrip(convertPlan(q2, m))]);
+  const drew = [r1, r2].filter((r) => r.drawdown?.drew);
+  const short = [r1, r2].filter((r) => r.drawdown && !r.drawdown.drew);
+  assert.equal(drew.length, 1);
+  assert.equal(short.length, 1);
+  assert.deepEqual(short[0].drawdown, { drew: false, reason: "INSUFFICIENT_BALANCE" });
+  assert.equal((await client.select().from(reserveTransactions).where(eq(reserveTransactions.kind, "charter_draw"))).length, 1);
+  assert.equal(await balanceOf(client, m), 2_000);
+  const statuses = (await client.select().from(invoices)).map((i) => i.status).sort();
+  assert.deepEqual(statuses, ["draft", "paid"]);
+});
+
+test("the draw names the active membership, not a newer paused one", async () => {
+  const { client, store } = fresh();
+  const m = await clientMember(client);
+  // The schema allows one active row per member (a partial unique index), so the newer one is paused.
+  const old = await membership(client, m, "active", "2025-01-01");
+  const q = await quote(client, "accepted", { memberId: m });
+  await membership(client, m, "paused", "2026-06-01");
+  await topUp(client, m, old, 9_000);
+  const res = await store.convertToTrip(convertPlan(q, m, { total: 8_000 }));
+  assert.equal(res.drawdown?.drew, true);
+  const [draw] = await client.select().from(reserveTransactions).where(eq(reserveTransactions.kind, "charter_draw"));
+  assert.equal(draw.membershipId, old);
+});
+
+test("a total of zero or none opens a draft invoice and tries no draw", async () => {
+  const { client, store } = fresh();
+  const m = await clientMember(client);
+  const ms = await membership(client, m);
+  await topUp(client, m, ms, 10_000);
+  const q = await quote(client, "accepted", { memberId: m });
+  const res = await store.convertToTrip(convertPlan(q, m, { total: null }));
+  assert.equal(res.drawdown, null);
+  const [inv] = await client.select().from(invoices).where(eq(invoices.id, res.invoice.id));
+  assert.equal(inv.status, "draft");
+  assert.equal(await balanceOf(client, m), 10_000);
+});
+
+test("a convert with a chosen tail and legs a day apart writes the trip's calendar block, with the trip code in its notes", async () => {
+  const { client, store } = fresh();
+  const m = await clientMember(client);
+  const op = await operator(client, "Acme Air");
+  const ac = await plane(client, op, "N123AB");
+  const q = await quote(client, "accepted", { memberId: m });
+  const res = await store.convertToTrip(convertPlan(q, m, { aircraftId: ac }));
+  const blocks = await client.select().from(aircraftScheduleBlocks).where(eq(aircraftScheduleBlocks.relatedTripId, res.trip.id));
+  assert.equal(blocks.length, 1);
+  assert.equal(blocks[0].kind, "trip");
+  assert.equal(blocks[0].aircraftId, ac);
+  assert.equal(blocks[0].notes, res.trip.tripCode);
+  assert.equal(blocks[0].startAt.toISOString(), "2026-12-01T00:00:00.000Z");
+  assert.equal(blocks[0].endAt.toISOString(), "2026-12-05T00:00:00.000Z");
+
+  // No tail, or legs all on one day: no block.
+  const q2 = await quote(client, "accepted", { memberId: m });
+  const noTail = await store.convertToTrip(convertPlan(q2, m));
+  assert.equal((await client.select().from(aircraftScheduleBlocks).where(eq(aircraftScheduleBlocks.relatedTripId, noTail.trip.id))).length, 0);
+  const q3 = await quote(client, "accepted", { memberId: m });
+  const sameDay = await store.convertToTrip(
+    convertPlan(q3, m, { aircraftId: ac, legs: [{ legNumber: 1, fromCity: "A", toCity: "B", departDate: "2026-12-01" }] }),
+  );
+  assert.equal((await client.select().from(aircraftScheduleBlocks).where(eq(aircraftScheduleBlocks.relatedTripId, sameDay.trip.id))).length, 0);
+
+  // Codes count up across converts.
+  assert.deepEqual([res.trip.tripCode.slice(-4), noTail.trip.tripCode.slice(-4), sameDay.trip.tripCode.slice(-4)], ["0001", "0002", "0003"]);
+});
+
+test("the convert's reads: whole legs in order, the chosen option, the aircraft by tail, the client's name", async () => {
+  const { client, store } = fresh();
+  const u = await user(client, { firstName: "Ada", lastName: "Lovelace" } as never);
+  const [m] = await client.insert(members).values({ userId: u, memberCode: "M-2026-9999" }).returning({ id: members.id });
+  const op = await operator(client, "Acme Air");
+  await plane(client, op, "N123AB");
+  const q = await quote(client, "accepted", { memberId: m.id });
+  await leg(client, q, 2, { fromCity: "B", toCity: "A" });
+  await leg(client, q, 1, { fromCity: "A", toCity: "B" });
+  await option(client, q, 1, { aircraftType: "first" });
+  await option(client, q, 2, { aircraftType: "chosen", isChosen: true });
+
+  assert.deepEqual((await store.quoteLegsInOrder(q)).map((l) => l.legNumber), [1, 2]);
+  assert.equal((await store.chosenOption(q))?.aircraftType, "chosen");
+  assert.equal(await store.chosenOption(await quote(client, "accepted")), undefined);
+  assert.ok(await store.aircraftIdByTail("N123AB"));
+  assert.equal(await store.aircraftIdByTail("N000XX"), undefined);
+  const who = await store.clientName(m.id);
+  assert.equal(who?.firstName, "Ada");
+  assert.equal(who?.lastName, "Lovelace");
+  assert.equal(await store.convertedTripOf("nope"), undefined);
 });

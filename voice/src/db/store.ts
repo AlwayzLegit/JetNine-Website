@@ -17,8 +17,8 @@ import type {
 // Every query the voice Worker makes goes through this one interface, so the
 // Worker can run on Postgres (today's SQL, Hyperdrive) or on D1 (OPS-137, the
 // D1 move OPS-93) from a single setting. The side is chosen per call from
-// DB_TARGET and DEPLOY_ENV, by the site's rule (see target.ts): production
-// stays on Postgres.
+// DB_TARGET, DEPLOY_ENV and DB_CUTOVER, by the site's rule (see target.ts):
+// production stays on Postgres unless DB_CUTOVER is "production-d1" too.
 
 export interface VoiceStore {
   createCall(input: { callSid: string; from: string; to: string }): Promise<string>;
@@ -50,7 +50,7 @@ type Bindings = { DB?: D1Database };
 const bindings = (): Bindings => env as unknown as Bindings;
 
 /** The side this Worker uses right now. Read on every call so tests can switch it. */
-export const dbTarget = (): DbTarget => parseDbTarget(vars.DB_TARGET, vars.DEPLOY_ENV);
+export const dbTarget = (): DbTarget => parseDbTarget(vars.DB_TARGET, vars.DEPLOY_ENV, vars.DB_CUTOVER);
 
 /** True when the chosen side's binding exists (DB for D1, HYPERDRIVE for Postgres). */
 export const dbConfigured = (): boolean => (dbTarget() === "d1" ? bindings().DB !== undefined : pgConfigured());

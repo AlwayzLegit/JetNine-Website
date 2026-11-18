@@ -110,6 +110,13 @@ jobs:
       - name: Desk alert recipient tests
         run: node --test src/lib/desk-alert-recipients.test.mjs
 
+      - name: Database target tests
+        # The production cutover switch (OPS-176) and the list of Postgres call sites left.
+        run: |
+          node --test src/db/target.test.mjs
+          pnpm exec tsx --test src/db/postgres-left.test.ts
+          pnpm exec tsx --test src/lib/health-db.test.ts
+
       # The D1 tables stay a faithful twin of the Postgres ones (OPS-100).
       - name: D1 schema parity test
         run: pnpm exec tsx --test src/db/d1/parity.test.ts

@@ -399,7 +399,6 @@ JetNine's database is moving from Supabase Postgres to Cloudflare D1, one domain
 - **Converted to D1, one file per step.** Each converted domain has its own note in `docs/d1-steps/` (`OPS-nnn.md`, one file per step, named by its row; see `docs/d1-steps/README.md`). A step adds its own file and never edits another step's, so two steps do not conflict here.
 - **Migrations.** The staging run of "Deploy (Cloudflare)" applies D1 migrations (`wrangler d1 migrations apply jetnine-staging --env staging --remote`) with the repo's own `CLOUDFLARE_API_TOKEN`, then prints `D1 jetnine-staging tables: N`.
 
-
 ## 9. Custom domain
 
 `jetnine.com` and `www` are custom domains of the edge cache Worker (see §2 → Cutover and Edge cache Worker), and Cloudflare issues their certificates.

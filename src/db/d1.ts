@@ -5,15 +5,16 @@ import { parseDbTarget } from "./target.mjs";
 
 // The D1 side of the database move (OPS-99). Nothing reads it yet: `db` in
 // ./index.ts stays on Postgres until a domain's queries exist for D1 (later
-// rows). Production has no DB binding and parseDbTarget refuses "d1" there.
+// rows). Production has no DB binding, and parseDbTarget refuses "d1" there
+// unless DB_CUTOVER is exactly "production-d1" as well (OPS-176).
 
 export type DbTarget = "postgres" | "d1";
 
 type D1Binding = Parameters<typeof drizzle>[0];
 
-function cfEnv(): { DB?: D1Binding; DB_TARGET?: string } | null {
+function cfEnv(): { DB?: D1Binding; DB_TARGET?: string; DB_CUTOVER?: string } | null {
   try {
-    return getCloudflareContext().env as { DB?: D1Binding; DB_TARGET?: string };
+    return getCloudflareContext().env as { DB?: D1Binding; DB_TARGET?: string; DB_CUTOVER?: string };
   } catch {
     return null; // not inside a Cloudflare request
   }
@@ -22,7 +23,9 @@ function cfEnv(): { DB?: D1Binding; DB_TARGET?: string } | null {
 /** The database this deployment uses: a fixed word, "postgres" or "d1". */
 export function dbTarget(): DbTarget {
   const raw = cfEnv()?.DB_TARGET ?? process.env.DB_TARGET;
-  return parseDbTarget(raw, deployEnv());
+  // Production needs the second key too (OPS-176); nothing sets DB_CUTOVER yet.
+  const cutover = cfEnv()?.DB_CUTOVER ?? process.env.DB_CUTOVER;
+  return parseDbTarget(raw, deployEnv(), cutover);
 }
 
 // One client per request, keyed on the request's ExecutionContext, the same

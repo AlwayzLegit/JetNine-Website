@@ -12,6 +12,7 @@ import { db } from "@/db";
 import { d1Binding, dbTarget } from "@/db/d1";
 import { identityStore } from "@/lib/identity-store/store";
 import { commitSha, deployEnv, deployRegion, platformBaseUrl } from "@/lib/deploy-env";
+import { judgeD1 } from "@/lib/health-db";
 
 export type CheckResult = { ok: boolean } & Record<string, unknown>;
 
@@ -41,7 +42,8 @@ const D1_TABLE_COUNT_SQL =
 /**
  * The D1 binding (OPS-99): "absent" when the deployment has none (production),
  * else "ok" with the number of tables, or "error" with the error name only.
- * Informational: it never changes the db check's ok or the overall status.
+ * Informational on Postgres deployments: it never changes the db check's ok or the overall
+ * status there. When the target is d1 the db check is judged by D1 itself (OPS-176).
  */
 async function probeD1(): Promise<Record<string, unknown>> {
   const binding = d1Binding();
@@ -58,6 +60,17 @@ async function probeD1(): Promise<Record<string, unknown>> {
 export async function checkDb(): Promise<CheckResult> {
   const target = dbTarget();
   const d1 = await probeD1();
+  // The deployment uses D1 (staging today, production after the cutover): judge D1, not Postgres.
+  // Postgres is reported as information only and can no longer make this check pass or fail (OPS-176).
+  if (target === "d1") {
+    const binding = d1Binding();
+    return judgeD1({
+      d1Present: binding !== null,
+      d1Ping: () => (binding ? binding.prepare("select 1 as ok").first() : Promise.reject(new Error("absent"))),
+      pgPing: () => db.execute(drizzleSql`select 1 as ok`),
+      info: d1,
+    });
+  }
   const t0 = performance.now(); // latency is Postgres only
   try {
     await db.execute(drizzleSql`select 1 as ok`);

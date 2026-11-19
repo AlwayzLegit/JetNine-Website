@@ -22,6 +22,7 @@
   // Worker (edge/wrangler.jsonc), which reaches this one through a service
   // binding. Putting them back would bypass that cache.
 
+  // WRITES_PAUSED: set to "cutover" only by the cutover row (OPS-206); the flip removes it.
   "vars": {
     "DEPLOY_ENV": "production",
     "DEPLOY_REGION": "cloudflare",

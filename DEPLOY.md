@@ -555,3 +555,13 @@ Step 8b of the move to Cloudflare (OPS-93): production's Worker binds its own D1
 - **Test.** `src/db/wrangler-d1.test.mjs` (CI step "Database target tests"): the production and staging bindings, and that no block sets `DB_CUTOVER`.
 - **No data is copied** here. The copy into production (with password hashes and bans) and the reverse copy are the next part (8b2), on the owner's yes.
 - **Way back.** Revert the merge commit. The Worker has no DB binding again; the tables in `jetnine-production` stay, unused (dropping the database is the owner's).
+
+## Production voice Worker binds the production D1 database (OPS-196)
+
+Step 8c of the move to Cloudflare (OPS-93): the top level of `voice/wrangler.jsonc` binds `DB` to `jetnine-production`, the same database the site binds (OPS-183), so on cutover day the phone line already knows its D1 database.
+
+- **Binding.** `d1_databases` at the top level of `voice/wrangler.jsonc`: `DB`, `jetnine-production`, id `1e1b0249-62b3-41c2-a971-4642a295b896`. `DB_TARGET` and `DB_CUTOVER` are set nowhere in the production block, so production voice still reads Postgres (`voice/src/db/target.ts`). The Worker never applies D1 migrations; the site's deploy does.
+- **What the cutover sets.** `DB_TARGET` `d1` and `DB_CUTOVER` `production-d1` (OPS-176), `DEPLOY_ENV` stays `production`. `voice/README.md` says the same.
+- **Not deployed by this change.** Deploy (Cloudflare) ignores `voice/**`. Production voice is deployed by hand by the owner; the binding takes effect at his next deploy and changes nothing while those two settings are unset. Then `https://voice.jetnine.com/health` shows `db: { target: "postgres", ok: true }`.
+- **Tests.** CI step "Database target tests" (`src/db/wrangler-d1.test.mjs`): the voice and site production bindings name the same database, voice staging keeps `jetnine-staging`, no voice block sets `DB_CUTOVER`. CI job `voice` has a step "Bundle dry run" (`wrangler deploy --dry-run`, no credentials).
+- **Way back.** Revert the merge commit. If the owner deployed voice in between, deploy it again from the reverted main; while the two settings are unset the binding is never read.

@@ -172,10 +172,11 @@ curl https://voice.jetnine.com/health               # 200 once call-ready
 ### Which database (`DB_TARGET`)
 
 The Worker reads and writes Postgres through Hyperdrive, as always, unless
-`DB_TARGET` is `d1` and `DEPLOY_ENV` is not `production` (`src/db/target.ts`,
-the site's rule). Production sets `DEPLOY_ENV` to `production` and no
-`DB_TARGET`, so **production voice stays on Postgres** and this change does
-not redeploy it. The D1 side (`src/db/store-d1.ts`) is used by the staging
+`DB_TARGET` is `d1` and either `DEPLOY_ENV` is not `production` or, in
+production, `DB_CUTOVER` is exactly `production-d1` (`src/db/target.ts`, the
+site's rule, OPS-176). Production sets `DEPLOY_ENV` to `production` and neither
+`DB_TARGET` nor `DB_CUTOVER`, so **production voice stays on Postgres** and this
+change does not redeploy it. The D1 side (`src/db/store-d1.ts`) is used by the staging
 Worker, `jetnine-voice-staging` (`env.staging` in `wrangler.jsonc`): it binds
 the staging D1 database `jetnine-staging` as `DB`, has no custom domain and no
 Twilio, LLM or encryption secret, so it takes no calls and `/health` answers
@@ -183,8 +184,12 @@ Twilio, LLM or encryption secret, so it takes no calls and `/health` answers
 workflow deploys it on a staging run and prints
 `voice staging db: target=d1 ok=true`. To deploy it by hand:
 `npx wrangler deploy --env staging`. At the cutover, production needs
-`DB_TARGET` `d1`, a `DEPLOY_ENV` other than `production`, and the `DB` binding,
-deployed by hand (the cutover row).
+`DB_TARGET` `d1` and `DB_CUTOVER` `production-d1` (`DEPLOY_ENV` stays
+`production`). Its `DB` binding to the production database `jetnine-production`
+is already in the top level of `wrangler.jsonc` (OPS-196, the same database the
+site binds); the owner's hand deploy carries it and changes nothing while those
+two settings are unset. The Worker never applies D1 migrations: the site's
+deploy does.
 
 If the Worker does not exist yet, the first `wrangler secret put` creates it
 with only the secret, and `wrangler deploy` then uploads the code. To change

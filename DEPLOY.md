@@ -605,7 +605,7 @@ Step 9b of the move to Cloudflare (OPS-93): one switch that stops every write wh
 - **What a sender sees.** An API path gets JSON `{"error":"paused","retryAfterSeconds":600}`; any other path gets a short page saying JetNine is moving to a new system. Both are `503` with `Retry-After: 600` and `Cache-Control: no-store`, so a browser or a webhook sender tries again later.
 - **Turn it on.** Add `"WRITES_PAUSED": "cutover"` to the top level `vars` of `wrangler.jsonc` in a merge; Deploy (Cloudflare) makes it live (about 10 minutes). Only the cutover row (OPS-206) does this.
 - **Turn it off.** Remove the variable in a merge. The flip to D1 (`DB_TARGET` `d1`, `DB_CUTOVER` `production-d1`, OPS-176) removes it in the same change. With the variable unset the code does nothing.
-- **Not covered.** The voice Worker (`voice/`, deployed by hand); the cutover row handles it.
+- **Not covered.** The voice Worker (`voice/`, deployed by hand or by the "Deploy voice (production)" workflow, OPS-216; see `voice/README.md`, "Deploy from GitHub"); the cutover row handles it.
 - **Test.** CI step "Write pause tests" (`node --test src/lib/writes-pause.test.mjs`).
 - **Way back.** Revert the merge commit. While `WRITES_PAUSED` is unset the revert changes nothing live.
 

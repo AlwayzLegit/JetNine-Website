@@ -197,6 +197,28 @@ a non-secret setting (`TTS_VOICE`, `SMS_ALERTS_ENABLED`, ...), edit `vars` in
 `wrangler.jsonc` and deploy again. For logs, run `npx wrangler tail` or open
 Workers Logs in the dashboard.
 
+### Deploy from GitHub (OPS-216)
+
+The workflow **Deploy voice (production)** (`.github/workflows/deploy-voice.yml`) deploys the voice Worker without a terminal. It is started by hand only (GitHub, Actions, Deploy voice (production), Run workflow) and uses the repo secrets `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`. It needs no voice secret: `wrangler deploy` keeps the secrets already set on the Worker. The "Deploy (Cloudflare)" workflow is unchanged and still deploys only the staging voice Worker.
+
+Inputs:
+
+- `target`: `staging` (`jetnine-voice-staging`, the default) or `production` (`jetnine-voice` at `voice.jetnine.com`). Production runs only from `main`; from any other branch the first step stops with "refused: production runs only from main".
+- `mode`: `check` (the default) reads only and writes nothing; `deploy` runs `wrangler deploy` (staging with `--env staging`) and then reads `/health`. Production gets no `--var`: every setting comes from `voice/wrangler.jsonc` on `main`.
+- `expect_target`: production deploy only, `postgres` (the default) or `d1`: the database target `/health` must report.
+- `confirm`: production deploy only, must be exactly `deploy-voice-production`, otherwise the first step stops with "refused: type deploy-voice-production to deploy production".
+
+What the log prints, and nothing else (no raw wrangler table, which carries the author's email address, and no secret):
+
+- `voice [target] deployed version: created [time] id [id]` (mode check): the newest deployment of the Worker.
+- `voice/ on main last changed [sha] at [time]` and `deployed after the last voice change: yes`, `no` or `unknown` (mode check): `no` means a deploy of this commit would also bring the voice code that changed since.
+- `voice [target] health: http=[code] ok=[ok] db target=[target] ok=[db ok]`, one line per try, up to 6 tries 5 seconds apart. Mode check passes when the Worker answers at all. A production deploy passes only with http 200, ok true, db ok true and the database target equal to `expect_target`. A staging deploy passes with db target `d1` and db ok true (its status is 503 for the settings it does not have, as in the "Deploy (Cloudflare)" staging job).
+- On a failed read: `voice [target] did not answer as expected. Way back: see voice/README.md, Deploy from GitHub.`
+
+Who starts it: at the cutover (OPS-206 step 5), Claude in chat in the owner's Chrome, on the owner's word for that step, with target `production`, mode `deploy`, `expect_target` `d1` and the typed confirm. The scheduled roles start only mode `check`, never a production deploy.
+
+Way back: a production deploy that fails its health read leaves the cutover's own way back (remove `DB_CUTOVER`, a merge), then run the workflow on `main` with mode `deploy` and `expect_target` `postgres`; or deploy by hand as above, or run `npx wrangler rollback` for `jetnine-voice` from a terminal. To remove the workflow itself, revert its pull request: it changes no running Worker until it is run in mode `deploy`. The terminal steps above stay as the fallback.
+
 ## Cutover from Render (zero downtime)
 
 Render keeps answering until the last step. Both services read and write

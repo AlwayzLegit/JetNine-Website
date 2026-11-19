@@ -1,0 +1,193 @@
+name: Deploy voice (production)
+
+# Deploys the voice Worker (voice/, OPS-216) from GitHub, so the cutover (OPS-206) needs no
+# terminal. Run by hand only (workflow_dispatch). It does not change the "Deploy (Cloudflare)"
+# workflow, which keeps deploying only the staging voice Worker.
+#
+# Inputs:
+#   target         staging (jetnine-voice-staging) or production (jetnine-voice, voice.jetnine.com)
+#   mode           check = reads only, writes nothing; deploy = wrangler deploy, then the health read
+#   expect_target  production deploy only: the database target /health must report (postgres or d1)
+#   confirm        production deploy only: type deploy-voice-production
+#
+# Production runs only from main. A production deploy needs the typed confirm. The Worker's
+# secrets stay as they are (wrangler deploy keeps existing secrets), so no voice secret is read
+# here; the job uses the repo secrets CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID, the same
+# two the staging voice job and the edge Worker deploy use. Production gets no --var: every
+# setting comes from voice/wrangler.jsonc on main.
+#
+# The log prints no secret and no raw wrangler table (it carries the author's email address and
+# this repo's logs are public): only the newest deployment's time and id, and one health line
+# per try with the status, ok, and the database target. Details: voice/README.md "Deploy from
+# GitHub (OPS-216)".
+
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: "Which voice Worker: staging, or production (only from main)"
+        type: choice
+        options: [staging, production]
+        default: staging
+      mode:
+        description: "check = read only, writes nothing; deploy = deploy, then read /health"
+        type: choice
+        options: [check, deploy]
+        default: check
+      expect_target:
+        description: "Production deploy only: the database target /health must report"
+        type: choice
+        options: [postgres, d1]
+        default: postgres
+      confirm:
+        description: "Production deploy only: type deploy-voice-production"
+        type: string
+        default: ""
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-voice-${{ github.event.inputs.target }}
+  cancel-in-progress: false
+
+jobs:
+  voice:
+    name: ${{ github.event.inputs.mode }} voice ${{ github.event.inputs.target }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Guard
+        env:
+          TARGET: ${{ github.event.inputs.target }}
+          MODE: ${{ github.event.inputs.mode }}
+          CONFIRM: ${{ github.event.inputs.confirm }}
+          REF: ${{ github.ref }}
+        run: |
+          if [ "$TARGET" = "production" ] && [ "$REF" != "refs/heads/main" ]; then
+            echo "refused: production runs only from main"
+            exit 1
+          fi
+          if [ "$TARGET" = "production" ] && [ "$MODE" = "deploy" ] && [ "$CONFIRM" != "deploy-voice-production" ]; then
+            echo "refused: type deploy-voice-production to deploy production"
+            exit 1
+          fi
+          echo "guard ok: target=$TARGET mode=$MODE"
+
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+          run_install: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: pnpm
+          cache-dependency-path: voice/pnpm-lock.yaml
+
+      - name: Install voice dependencies
+        working-directory: voice
+        run: pnpm install --frozen-lockfile
+
+      - name: Check (reads only)
+        if: github.event.inputs.mode == 'check'
+        working-directory: voice
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          TARGET: ${{ github.event.inputs.target }}
+        run: |
+          if [ "$TARGET" = "production" ]; then NAME=jetnine-voice; else NAME=jetnine-voice-staging; fi
+
+          # Newest deployment of the Worker: time and id only. The raw output is never printed.
+          if pnpm exec wrangler deployments list --name "$NAME" --json > deployments.json 2> deployments.err; then
+            DEPLOYED=$(jq -r '(if type=="array" then . else (.deployments // []) end) | sort_by(.created_on // "") | last | .created_on // "unknown"' deployments.json 2>/dev/null || echo unknown)
+            DEPLOY_ID=$(jq -r '(if type=="array" then . else (.deployments // []) end) | sort_by(.created_on // "") | last | .id // "unknown"' deployments.json 2>/dev/null || echo unknown)
+            echo "voice $TARGET deployed version: created $DEPLOYED id $DEPLOY_ID"
+          else
+            echo "voice $TARGET deployments list: not readable (the token cannot read the deployments of $NAME, or the Worker does not exist)"
+            rm -f deployments.json deployments.err
+            exit 1
+          fi
+          rm -f deployments.json deployments.err
+
+          # When voice/ last changed on this commit, and whether the deployed version is newer.
+          CHANGED_SHA=$(git log -1 --format=%h -- voice/ || echo unknown)
+          CHANGED_AT=$(git log -1 --format=%cI -- voice/ || echo unknown)
+          echo "voice/ on main last changed $CHANGED_SHA at $CHANGED_AT"
+          if D=$(date -u -d "$DEPLOYED" +%s 2>/dev/null) && C=$(date -u -d "$CHANGED_AT" +%s 2>/dev/null); then
+            if [ "$D" -ge "$C" ]; then
+              echo "deployed after the last voice change: yes"
+            else
+              echo "deployed after the last voice change: no"
+            fi
+          else
+            echo "deployed after the last voice change: unknown"
+          fi
+
+      - name: Deploy
+        if: github.event.inputs.mode == 'deploy'
+        working-directory: voice
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          TARGET: ${{ github.event.inputs.target }}
+        run: |
+          set -o pipefail
+          if [ "$TARGET" = "production" ]; then
+            pnpm exec wrangler deploy 2>&1 | tee deploy.log
+          else
+            pnpm exec wrangler deploy --env staging 2>&1 | tee deploy.log
+          fi
+
+      - name: Read /health
+        working-directory: voice
+        env:
+          TARGET: ${{ github.event.inputs.target }}
+          MODE: ${{ github.event.inputs.mode }}
+          EXPECT: ${{ github.event.inputs.expect_target }}
+        run: |
+          if [ "$TARGET" = "production" ]; then
+            URL=https://voice.jetnine.com
+          else
+            URL=""
+            if [ -f deploy.log ]; then
+              URL=$(grep -oE 'https://jetnine-voice-staging[A-Za-z0-9.-]*workers\.dev' deploy.log | head -n 1 || true)
+            fi
+            URL=${URL:-https://jetnine-voice-staging.jetnine-inc.workers.dev}
+          fi
+
+          ANSWERED=no
+          PASSED=no
+          for i in 1 2 3 4 5 6; do
+            rm -f health.json
+            CODE=$(curl -sS -m 20 -o health.json -w '%{http_code}' "$URL/health" 2>/dev/null || true)
+            CODE=${CODE:-000}
+            OK=$(jq -r '.ok // false' health.json 2>/dev/null || echo false)
+            T=$(jq -r '.db.target // "none"' health.json 2>/dev/null || echo none)
+            DBOK=$(jq -r '.db.ok // false' health.json 2>/dev/null || echo false)
+            echo "voice $TARGET health: http=$CODE ok=$OK db target=$T ok=$DBOK"
+            if [ "$CODE" != "000" ]; then ANSWERED=yes; fi
+            if [ "$MODE" = "deploy" ]; then
+              if [ "$TARGET" = "production" ]; then
+                if [ "$CODE" = "200" ] && [ "$OK" = "true" ] && [ "$DBOK" = "true" ] && [ "$T" = "$EXPECT" ]; then PASSED=yes; break; fi
+              else
+                # The staging Worker answers 503 for its missing settings (no Twilio, LLM or
+                # encryption secret); only its db field is read, as in the voice-staging job.
+                if [ "$T" = "d1" ] && [ "$DBOK" = "true" ]; then PASSED=yes; break; fi
+              fi
+            else
+              if [ "$ANSWERED" = "yes" ]; then PASSED=yes; break; fi
+            fi
+            sleep 5
+          done
+          rm -f health.json
+
+          if [ "$PASSED" != "yes" ]; then
+            echo "voice $TARGET did not answer as expected. Way back: see voice/README.md, Deploy from GitHub."
+            exit 1
+          fi

@@ -1,7 +1,6 @@
 import { after, type NextResponse } from "next/server";
 import { randomUUID } from "node:crypto";
 import type { z } from "zod";
-import { db } from "@/db";
 import { apiKeyRuntimeStore, type ApiKeyRuntimeStore } from "@/lib/api-key-store/store";
 import { authenticateApiKey, clientIp } from "@/lib/api-auth";
 import type { Scope } from "@/lib/api-keys";

@@ -184,3 +184,59 @@ test("userNameEmail finds a user or says undefined", async () => {
   assert.deepEqual(await store.userNameEmail(u.id), { email: "ada@example.com", firstName: "Ada", lastName: null });
   assert.equal(await store.userNameEmail("no-such-user"), undefined);
 });
+
+// OPS-204: the two reads of a team op (the person acted on, and the "at least one owner" guard).
+
+test("teammate returns the user with the staff display name, or null display name without a staff row", async () => {
+  const { store, client } = fresh();
+  const [a] = await client
+    .insert(users)
+    .values({ email: "olive@example.com", role: "admin", firstName: "Olive", lastName: "Owner" } as never)
+    .returning({ id: users.id });
+  await client.insert(staff).values({ userId: a.id, displayName: "Olive O." } as never);
+  const [b] = await client
+    .insert(users)
+    .values({ email: "bea@example.com", role: "dispatcher", firstName: "Bea", lastName: null } as never)
+    .returning({ id: users.id });
+  assert.deepEqual(await store.teammate(a.id), {
+    id: a.id,
+    email: "olive@example.com",
+    role: "admin",
+    firstName: "Olive",
+    lastName: "Owner",
+    displayName: "Olive O.",
+  });
+  assert.deepEqual(await store.teammate(b.id), {
+    id: b.id,
+    email: "bea@example.com",
+    role: "dispatcher",
+    firstName: "Bea",
+    lastName: null,
+    displayName: null,
+  });
+});
+
+test("teammate finds a user of any role and says undefined for an unknown id", async () => {
+  const { store, client } = fresh();
+  const id = await user(client, "client@example.com", "member");
+  assert.equal((await store.teammate(id))?.role, "member");
+  assert.equal(await store.teammate("no-such-user"), undefined);
+});
+
+test("ownersOtherThan counts admin and superadmin, leaves out the target, dispatchers and members", async () => {
+  const { store, client } = fresh();
+  const owner = await user(client, "owner@example.com", "superadmin");
+  const admin = await user(client, "admin@example.com", "admin");
+  await user(client, "desk@example.com", "dispatcher");
+  await user(client, "client@example.com", "member");
+  assert.equal(await store.ownersOtherThan(owner), 1);
+  assert.equal(await store.ownersOtherThan(admin), 1);
+  assert.equal(await store.ownersOtherThan("someone-else"), 2);
+});
+
+test("ownersOtherThan is 0 when the target is the only owner", async () => {
+  const { store, client } = fresh();
+  const only = await user(client, "only@example.com", "admin");
+  await user(client, "desk@example.com", "dispatcher");
+  assert.equal(await store.ownersOtherThan(only), 0);
+});

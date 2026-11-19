@@ -1,9 +1,6 @@
 {
   "_about": "Every non-test file under src/ and voice/src/ that reaches Postgres (imports db or sql from @/db, the postgres package, or voice withDb). adapter = the Postgres half of a repository that also has a D1 half, or code that picks by dbTarget(). left = still calls Postgres directly and must move before the cutover. Moving a file to D1 means deleting its entry; adding a call site without an entry fails src/db/postgres-left.test.ts.",
   "files": {
-    "src/app/api/admin/blog/_legacy.ts": "left",
-    "src/app/api/v1/_lib/handler.ts": "left",
-    "src/app/api/v1/_lib/routes.ts": "left",
     "src/domain/account/store-pg.ts": "adapter",
     "src/domain/agent/store-pg.ts": "adapter",
     "src/domain/approvals/store-pg.ts": "adapter",
@@ -22,7 +19,6 @@
     "src/domain/requests/store-pg.ts": "adapter",
     "src/domain/settings/ai-store-pg.ts": "adapter",
     "src/domain/settings/store-pg.ts": "adapter",
-    "src/domain/team/commands.ts": "left",
     "src/domain/trips/store-pg.ts": "adapter",
     "src/domain/voice-agents/store-pg.ts": "adapter",
     "src/domain/voice/call-notes-store-pg.ts": "adapter",

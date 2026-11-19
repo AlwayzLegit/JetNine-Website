@@ -1,5 +1,4 @@
 import { eq } from "drizzle-orm";
-import { db } from "@/db";
 import { apiKeyRuntimeStore } from "@/lib/api-key-store/store";
 import { SCOPE_WORDS } from "@/lib/api-keys";
 import {

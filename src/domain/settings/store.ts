@@ -13,7 +13,8 @@ import { pgSettingsStore } from "./store-pg";
 // dbTarget(): Postgres until the move, D1 where DB_TARGET is "d1" (staging
 // first; the code refuses "d1" in production, see src/db/target.mjs).
 // Since OPS-165 the team list (teamRows) and the two one-person name reads
-// (userNameEmail) are here too. Left where they are on purpose: the emails-sent
+// (userNameEmail) are here too. Since OPS-204 the two team op reads
+// (teammate, ownersOtherThan) are here too. Left where they are on purpose: the emails-sent
 // count (messages move with their own rows) and the audit log (OPS-123).
 
 export type NotificationKind = keyof typeof NOTIFICATION_DEFAULTS;
@@ -29,6 +30,9 @@ export type TeamRow = {
   /** Null when the person has no staff row (the join is a left join). */
   displayName: (typeof staff.$inferSelect)["displayName"] | null;
 };
+
+/** The person a team op acts on: the user row and the staff display name, whatever the role. */
+export type TeammateRow = TeamRow;
 
 /** One person's name and email, for the notification card and the test email. */
 export type UserNameEmail = {
@@ -69,6 +73,12 @@ export interface SettingsStore {
   teamRows(): Promise<TeamRow[]>;
   /** One user's email and names, or undefined when there is no such user. */
   userNameEmail(userId: string): Promise<UserNameEmail | undefined>;
+
+  // ── the two reads of a team op (OPS-204) ──
+  /** One user with the staff display name (left join), any role, or undefined when there is no such user. */
+  teammate(id: string): Promise<TeammateRow | undefined>;
+  /** How many owners (admin or superadmin) there are other than `userId`: the "at least one owner" guard. */
+  ownersOtherThan(userId: string): Promise<number>;
 }
 
 /** The store for this request. One call per request; nothing is cached across requests. */

@@ -1,7 +1,4 @@
-import { and, eq, inArray, ne } from "drizzle-orm";
-import { db } from "@/db";
-import { staff } from "@/db/schema/staff";
-import { users } from "@/db/schema/users";
+import { settingsStore } from "@/domain/settings/store";
 import { logAudit } from "@/lib/audit";
 import { findOrCreateUser, setUserRole, userHasPassword } from "@/lib/auth-users";
 import { issueToken } from "@/lib/auth-tokens";
@@ -29,7 +26,6 @@ import type { TeamInviteInput, TeamRefInput, TeamRoleInput } from "./schemas";
 
 export const NOT_ON_DESK = "That person is not on the desk.";
 
-const OWNER_ROLES = ["admin", "superadmin"] as const;
 const STAFF_ROLES = ["dispatcher", "admin", "superadmin"] as const;
 
 export type DbDeskRole = "admin" | "dispatcher";
@@ -39,11 +35,7 @@ export function dbRoleFor(role: DeskRole): DbDeskRole {
 }
 
 async function ownersOtherThan(userId: string): Promise<number> {
-  const rows = await db
-    .select({ id: users.id })
-    .from(users)
-    .where(and(inArray(users.role, [...OWNER_ROLES]), ne(users.id, userId)));
-  return rows.length;
+  return settingsStore().ownersOtherThan(userId);
 }
 
 export type Teammate = {
@@ -66,19 +58,7 @@ export type TeammateState = {
 /** The person an op acts on; not_found when they are not on the desk. */
 export async function loadTeammate(input: TeamRefInput): Promise<Result<TeammateState>> {
   if (!isUuid(input.id)) return err("not_found", NOT_ON_DESK);
-  const [row] = await db
-    .select({
-      id: users.id,
-      email: users.email,
-      role: users.role,
-      firstName: users.firstName,
-      lastName: users.lastName,
-      displayName: staff.displayName,
-    })
-    .from(users)
-    .leftJoin(staff, eq(staff.userId, users.id))
-    .where(eq(users.id, input.id))
-    .limit(1);
+  const row = await settingsStore().teammate(input.id);
   if (!row || !deskRole(row.role)) return err("not_found", NOT_ON_DESK);
   return ok({
     target: row,

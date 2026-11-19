@@ -1,4 +1,4 @@
-import { and, asc, eq, inArray, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, ne, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { NOTIFICATION_DEFAULTS, deskSettings, staffNotificationPrefs } from "@/db/schema/desk";
 import { staff } from "@/db/schema/staff";
@@ -11,6 +11,9 @@ import type { NotificationKind, SettingsStore } from "./store";
 
 /** DB roles that may open the desk. */
 const STAFF_ROLES = ["dispatcher", "admin", "superadmin"] as const;
+
+/** DB roles that count as owners. */
+const OWNER_ROLES = ["admin", "superadmin"] as const;
 
 const PREF_COLUMN = {
   newRequest: staffNotificationPrefs.newRequest,
@@ -101,6 +104,32 @@ export function pgSettingsStore(): SettingsStore {
         .where(eq(users.id, userId))
         .limit(1);
       return row;
+    },
+
+    // OPS-204: the two reads of src/domain/team/commands.ts, moved as they were.
+    async teammate(id) {
+      const [row] = await db
+        .select({
+          id: users.id,
+          email: users.email,
+          role: users.role,
+          firstName: users.firstName,
+          lastName: users.lastName,
+          displayName: staff.displayName,
+        })
+        .from(users)
+        .leftJoin(staff, eq(staff.userId, users.id))
+        .where(eq(users.id, id))
+        .limit(1);
+      return row;
+    },
+
+    async ownersOtherThan(userId) {
+      const rows = await db
+        .select({ id: users.id })
+        .from(users)
+        .where(and(inArray(users.role, [...OWNER_ROLES]), ne(users.id, userId)));
+      return rows.length;
     },
   };
 }

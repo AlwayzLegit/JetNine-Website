@@ -580,7 +580,7 @@ The first load failed with `SQLITE_CONSTRAINT` and the log did not say where. Wh
 Step 8b of the move to Cloudflare (OPS-93): production's Worker binds its own D1 database, `jetnine-production` (created empty by the owner, OPS-177), with the same migrations folder as staging.
 
 - **Binding.** `wrangler.jsonc`, top level: `DB` on `jetnine-production`, `migrations_dir` `src/db/d1/migrations`. Production sets neither `DB_TARGET` nor `DB_CUTOVER`, so `parseDbTarget` (OPS-176) still returns Postgres and no query reads it. The health probe shows `d1` and `d1Tables` as information only; a D1 error cannot change the status.
-- **Job.** `Deploy (Cloudflare)` has a job `d1-production` (production only, after `deploy`): it applies the D1 migrations to `jetnine-production` and prints `D1 jetnine-production tables: N`. N equals the `D1 jetnine-staging tables: N` of a staging run on the same commit. It is its own job, so a D1 failure turns the run red but never stops the live app deploy. The cutover row moves it before the app deploy once production reads D1.
+- **Step.** `Deploy (Cloudflare)`, job `deploy`, has a step `D1 migrations (production)` (production only, before the build and the app deploy): it applies the D1 migrations to `jetnine-production` and prints `D1 jetnine-production tables: N`. N equals the `D1 jetnine-staging tables: N` of a staging run on the same commit. Since OPS-211 it runs before the app deploy and a failure stops the production deploy (it was a separate job after the deploy until then; see "Cutover preparation").
 - **Key.** The repo's own `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` (the staging step already uses them). No new secret.
 - **Test.** `src/db/wrangler-d1.test.mjs` (CI step "Database target tests"): the production and staging bindings, and that no block sets `DB_CUTOVER`.
 - **No data is copied** here. The copy into production (with password hashes and bans) and the reverse copy are the next part (8b2), on the owner's yes.
@@ -608,3 +608,12 @@ Step 9b of the move to Cloudflare (OPS-93): one switch that stops every write wh
 - **Not covered.** The voice Worker (`voice/`, deployed by hand); the cutover row handles it.
 - **Test.** CI step "Write pause tests" (`node --test src/lib/writes-pause.test.mjs`).
 - **Way back.** Revert the merge commit. While `WRITES_PAUSED` is unset the revert changes nothing live.
+
+## Cutover preparation (OPS-211)
+
+Part 1 of the cutover (OPS-206, part of OPS-93): three changes that sit on main before the cutover window starts. While production still reads Postgres none of them changes what a visitor sees.
+
+- **`/api/health` names the database.** The public view gains `db`: `"postgres"` or `"d1"` (the `target` of the db check, nothing else from it), `null` if the check reported no target. After the flip, `curl -s https://jetnine.com/api/health` shows `"db":"d1"`, so the flip is read from outside in seconds.
+- **The smoke accepts the write pause.** When the home page carries `x-jetnine-writes: paused` (OPS-205), the post-deploy smoke prints `writes paused: quote walk skipped` and skips the Playwright quote walk (workflow step `Writes paused?`), and `scripts/smoke-prod.mts` prints `writes paused: POST checks expect 503` and expects the pause's `503` with the header on every check the pause blocks (the four POST checks, the cron checks and the two `/api/v1` key lookups) instead of their usual 4xx. A paused site that answers any of them another way, or a `503` without the header, still fails. Unpaused, nothing changes. Rule and test: `scripts/smoke-paused.mts`, CI step "Smoke write pause tests".
+- **D1 migrations run before the app deploy.** See "Production D1 database (OPS-183)": the step moved into job `deploy`, ahead of the build; the job `d1-production` is gone.
+- **Way back.** Revert the merge commit. Nothing stored changes.

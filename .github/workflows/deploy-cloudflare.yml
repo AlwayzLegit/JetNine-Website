@@ -87,6 +87,23 @@ jobs:
           N=$(pnpm exec wrangler d1 execute jetnine-staging --env staging --remote --json --command "select count(*) as n from sqlite_master where type='table' and name not like 'sqlite_%' and name not like '_cf_%' and name != 'd1_migrations'" | jq -r '.[0].results[0].n')
           echo "D1 jetnine-staging tables: $N"
 
+      # Production (OPS-211, part of the cutover OPS-206): apply the D1 migrations to
+      # production's own database BEFORE the app deploy, so the code that reads D1 never
+      # ships ahead of its tables (expand and contract: migrate first, then deploy).
+      # Prints the table count, so the run log is the proof. A failure here stops the
+      # production deploy, which is the point once production reads D1. While production
+      # still reads Postgres the migrations only touch the unused D1 database. Same two
+      # secrets as the staging step; no new key.
+      - name: D1 migrations (production)
+        if: steps.target.outputs.environment == 'production'
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          pnpm exec wrangler d1 migrations apply jetnine-production --remote
+          N=$(pnpm exec wrangler d1 execute jetnine-production --remote --json --command "select count(*) as n from sqlite_master where type='table' and name not like 'sqlite_%' and name not like '_cf_%' and name != 'd1_migrations'" | jq -r '.[0].results[0].n')
+          echo "D1 jetnine-production tables: $N"
+
       - name: Build (OpenNext)
         env:
           # Prerendered pages read the database at build time (social links,
@@ -162,42 +179,6 @@ jobs:
           else
             pnpm exec wrangler deploy -c monitor/wrangler.jsonc --env staging
           fi
-
-  # Production's own D1 database (OPS-177, OPS-183): apply the D1 migrations to
-  # jetnine-production on every production deploy and print the table count, so the
-  # run log proves the tables exist before the cutover. Its own job after deploy, so a
-  # D1 failure turns the run red but never stops the live app deploy (production does
-  # not read D1 yet: DB_TARGET and DB_CUTOVER are unset). Not in the needs of warm,
-  # smoke, sitemap or tail. The cutover row moves it before the app deploy once
-  # production reads D1. Same two secrets as the staging step; no new key.
-  d1-production:
-    needs: deploy
-    if: needs.deploy.outputs.environment == 'production'
-    runs-on: ubuntu-24.04
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 9
-          run_install: false
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "22"
-          cache: pnpm
-
-      - run: pnpm install --frozen-lockfile
-
-      - name: D1 migrations (production)
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-        run: |
-          pnpm exec wrangler d1 migrations apply jetnine-production --remote
-          N=$(pnpm exec wrangler d1 execute jetnine-production --remote --json --command "select count(*) as n from sqlite_master where type='table' and name not like 'sqlite_%' and name not like '_cf_%' and name != 'd1_migrations'" | jq -r '.[0].results[0].n')
-          echo "D1 jetnine-production tables: $N"
 
   # The staging voice Worker (voice/, OPS-137): jetnine-voice-staging, bound to the staging
   # D1 database that the deploy job above just migrated. It takes no calls (no custom

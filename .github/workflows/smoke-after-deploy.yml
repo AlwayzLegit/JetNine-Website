@@ -140,10 +140,27 @@ jobs:
           VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
         run: pnpm smoke
 
+      # The write pause of the cutover window (OPS-205, OPS-211): while the home
+      # page carries x-jetnine-writes: paused, the site refuses every write with 503
+      # on purpose, so the quote walk below could only fail. It is skipped with one
+      # line, and the HTTP smoke above already expects 503 on the writing checks.
+      # Unpaused (header absent), nothing changes and the walk runs.
+      - name: Writes paused?
+        id: pause
+        run: |
+          URL="${{ steps.resolve.outputs.url }}"
+          if curl -sI --max-time 15 "$URL/" | grep -qi '^x-jetnine-writes: *paused'; then
+            echo "paused=true" >> "$GITHUB_OUTPUT"
+            echo "writes paused: quote walk skipped"
+          else
+            echo "paused=false" >> "$GITHUB_OUTPUT"
+          fi
+
       # Tier 4: real browser walk of the quote wizard against the
       # deployed URL. Submits a [SMOKE]-flagged quote that submitQuote
       # auto-cancels server-side, so dispatch doesn't get paged.
       - name: Install Playwright browsers
+        if: steps.pause.outputs.paused != 'true'
         # The runner already has Chromium's libraries, so install only the
         # browser. "--with-deps" also pulled fonts from an apt mirror that ran
         # at 65 kB/s and cancelled 3 smoke jobs on 2026-11-18 (OPS-199).
@@ -156,6 +173,7 @@ jobs:
           fi
 
       - name: Run production smoke (Playwright)
+        if: steps.pause.outputs.paused != 'true'
         env:
           BASE_URL: ${{ steps.resolve.outputs.url }}
           VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}

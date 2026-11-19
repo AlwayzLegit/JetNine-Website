@@ -20,6 +20,7 @@
  */
 import { setTimeout as sleep } from "node:timers/promises";
 import { createReader } from "./smoke-fetch.mjs";
+import { isPausedReply, pausedVerdict } from "./smoke-paused.mjs";
 
 const TARGET = (process.env.BASE_URL ?? "https://jet-nine-website.vercel.app").replace(/\/$/, "");
 const FETCH_TIMEOUT_MS = 15_000;
@@ -45,6 +46,11 @@ type CheckResult = {
 };
 
 const results: CheckResult[] = [];
+
+// True while the home page carries x-jetnine-writes: paused (the write pause of the cutover window,
+// OPS-205). Set once at the start of main(). While it is true, a check that writes, or reads a
+// route the pause blocks, expects the pause's 503 instead of its usual answer (scripts/smoke-paused.mts).
+let writesPaused = false;
 
 // Reads, with one retry for transport errors only (scripts/smoke-fetch.mts).
 // Every first failure is printed here, so a real cut-off for visitors is not
@@ -244,6 +250,8 @@ async function checkApiKeyLookup(): Promise<void> {
     const r = await read(`${TARGET}/api/v1/me`, {
       headers: { authorization: `Bearer jn_live_crewsmok_${"A".repeat(43)}` },
     });
+    const paused = pausedVerdict(writesPaused, "GET", "/api/v1/me", r);
+    if (paused) return paused;
     if (r.status === 503 || /temporarily unavailable/i.test(r.text)) {
       return { ok: false, detail: `the key lookup failed (${r.status})` };
     }
@@ -280,6 +288,8 @@ async function checkAgentContextLookup(): Promise<void> {
     const r = await read(`${TARGET}/api/v1/agent/context`, {
       headers: { authorization: `Bearer jn_live_crewsmok_${"A".repeat(43)}` },
     });
+    const paused = pausedVerdict(writesPaused, "GET", "/api/v1/agent/context", r);
+    if (paused) return paused;
     if (r.status === 503 || /temporarily unavailable/i.test(r.text)) {
       return { ok: false, detail: `the key lookup failed (${r.status})` };
     }
@@ -298,6 +308,8 @@ async function checkStripeWebhook(): Promise<void> {
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ test: true }),
     });
+    const paused = pausedVerdict(writesPaused, "POST", "/api/stripe/webhook", r);
+    if (paused) return paused;
     // 400 (sig verify failed) means Stripe IS configured.
     // 503 (not configured) means env vars missing.
     // Either is a healthy ships-dark response; 5xx with no body would be a crash.
@@ -314,6 +326,8 @@ async function checkEmailInbound(): Promise<void> {
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ Subject: "test", TextBody: "x", MessageID: "smoke" }),
     });
+    const paused = pausedVerdict(writesPaused, "POST", "/api/email/inbound/wrongsecret", r);
+    if (paused) return paused;
     // 404 either means INBOUND_EMAIL_SECRET unset OR the wrong secret
     // missed — both are correct ships-dark behavior.
     if (r.status === 404) return { ok: true, detail: "404 · endpoint hidden behind secret" };
@@ -328,6 +342,8 @@ async function checkTwilioInbound(): Promise<void> {
       headers: { "content-type": "application/x-www-form-urlencoded" },
       body: "From=%2B15551234567&Body=test&MessageSid=smoke",
     });
+    const paused = pausedVerdict(writesPaused, "POST", "/api/twilio/inbound", r);
+    if (paused) return paused;
     if (r.status === 403) return { ok: true, detail: "403 · twilio configured + signature rejected" };
     if (r.status === 503) return { ok: true, detail: "503 · twilio NOT configured (ships dark)" };
     return { ok: false, detail: `unexpected ${r.status}` };
@@ -343,6 +359,8 @@ async function checkWatchlistCron(): Promise<void> {
   // guard had been removed or CRON_SECRET had been unset in Vercel.
   await check("GET /api/cron/empty-leg-watchlists (no auth)", "required", async () => {
     const r = await read(`${TARGET}/api/cron/empty-leg-watchlists`);
+    const paused = pausedVerdict(writesPaused, "GET", "/api/cron/empty-leg-watchlists", r);
+    if (paused) return paused;
     if (r.status !== 401) return { ok: false, detail: `unexpected ${r.status} (expected 401)` };
     return { ok: true, detail: "401 · fails closed without a credential" };
   });
@@ -350,6 +368,8 @@ async function checkWatchlistCron(): Promise<void> {
     const r = await read(`${TARGET}/api/cron/empty-leg-watchlists`, {
       headers: { authorization: "Bearer smoke-not-the-secret" },
     });
+    const paused = pausedVerdict(writesPaused, "GET", "/api/cron/empty-leg-watchlists", r);
+    if (paused) return paused;
     if (r.status !== 401) return { ok: false, detail: `unexpected ${r.status} (expected 401)` };
     return { ok: true, detail: "401 · wrong credential rejected" };
   });
@@ -365,6 +385,8 @@ async function checkUnsubscribeEndpoint(): Promise<void> {
     const r = await read(`${TARGET}/api/email/unsubscribe/smoke-not-a-real-token`, {
       method: "POST",
     });
+    const paused = pausedVerdict(writesPaused, "POST", "/api/email/unsubscribe/smoke-not-a-real-token", r);
+    if (paused) return paused;
     if (r.status !== 200) return { ok: false, detail: `unexpected ${r.status} (expected 200)` };
     return { ok: true, detail: "200 · idempotent, leaks nothing" };
   });
@@ -512,6 +534,16 @@ async function main() {
   }
   console.log(`=== JetNine production smoke ===`);
   console.log(`target: ${TARGET}`);
+  console.log("");
+
+  // One read of the home page tells whether the site is in its write pause (OPS-211). A failed read
+  // leaves the pause off: the page checks below fail on their own and say why.
+  try {
+    writesPaused = isPausedReply(await read(TARGET, { method: "HEAD" }));
+  } catch {
+    writesPaused = false;
+  }
+  if (writesPaused) console.log("writes paused: POST checks expect 503");
   console.log("");
 
   for (const p of MARKETING_PAGES) {

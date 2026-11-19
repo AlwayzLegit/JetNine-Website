@@ -135,6 +135,11 @@ jobs:
       - name: Smoke read retry tests
         run: pnpm exec tsx --test scripts/smoke-fetch.test.mts
 
+      # The smoke's rule for the write pause of the cutover window (OPS-211): 503 with the
+      # pause header passes on a writing check, anything else fails.
+      - name: Smoke write pause tests
+        run: pnpm exec tsx --test scripts/smoke-paused.test.mts
+
       - name: Deploy tail summary tests
         run: node --test scripts/deploy-tail/summarize.test.mjs
 

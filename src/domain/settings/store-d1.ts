@@ -1,4 +1,4 @@
-import { and, asc, eq, inArray, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, ne, sql } from "drizzle-orm";
 import type { DrizzleD1Database } from "drizzle-orm/d1";
 import { deskSettings, staffNotificationPrefs } from "@/db/d1/schema/desk";
 import { staff } from "@/db/d1/schema/staff";
@@ -15,6 +15,9 @@ type D1Client = DrizzleD1Database;
 
 /** DB roles that may open the desk. */
 const STAFF_ROLES = ["dispatcher", "admin", "superadmin"] as const;
+
+/** DB roles that count as owners. */
+const OWNER_ROLES = ["admin", "superadmin"] as const;
 
 const PREF_COLUMN = {
   newRequest: staffNotificationPrefs.newRequest,
@@ -111,6 +114,32 @@ export function d1SettingsStore(db: D1Client): SettingsStore {
         .where(eq(users.id, userId))
         .limit(1);
       return row;
+    },
+
+    // OPS-204: the same two reads as store-pg.ts, on the D1 tables.
+    async teammate(id) {
+      const [row] = await db
+        .select({
+          id: users.id,
+          email: users.email,
+          role: users.role,
+          firstName: users.firstName,
+          lastName: users.lastName,
+          displayName: staff.displayName,
+        })
+        .from(users)
+        .leftJoin(staff, eq(staff.userId, users.id))
+        .where(eq(users.id, id))
+        .limit(1);
+      return row;
+    },
+
+    async ownersOtherThan(userId) {
+      const rows = await db
+        .select({ id: users.id })
+        .from(users)
+        .where(and(inArray(users.role, [...OWNER_ROLES]), ne(users.id, userId)));
+      return rows.length;
     },
   };
 }

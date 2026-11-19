@@ -77,3 +77,12 @@ test("count of Postgres call sites left outside adapters", () => {
   console.log(`Postgres call sites left outside adapters: ${left}`);
   assert.ok(left >= 0);
 });
+
+// OPS-204: the cutover (OPS-93) may flip production to D1 only when no code still calls Postgres
+// directly. Every entry is an adapter now; a new direct call site fails here.
+test("no Postgres call site is left outside adapters", () => {
+  const left = Object.entries(listed)
+    .filter(([, v]) => v === "left")
+    .map(([f]) => f);
+  assert.deepEqual(left, [], `Postgres call sites left before the cutover (OPS-93): ${left.join(", ")}`);
+});

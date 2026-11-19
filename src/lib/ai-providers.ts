@@ -1,19 +1,16 @@
 import "server-only";
-import { eq } from "drizzle-orm";
-import { db } from "@/db";
-import {
-  AI_PROVIDERS,
-  aiProviders,
-  aiRoutes,
-  type AiProviderKind,
-  type AiPurpose,
-} from "@/db/schema/ai";
+import { AI_PROVIDERS, type AiProviderKind, type AiPurpose } from "@/db/schema/ai";
+import { aiProviderStore } from "@/domain/settings/ai-store";
 import { isSecretboxConfigured, open, seal } from "@/lib/secretbox";
 
 /**
  * Data layer for /admin/settings/ai. Keys go in sealed and never come back
  * out of this module except to the provider's own API in `testProvider`.
  * Everything the UI sees is masked (last4 + metadata).
+ *
+ * Every query goes through the AI provider store (OPS-166, Postgres or D1 by
+ * dbTarget()). Sealing, masking and the vendor call stay here: the store only
+ * moves sealed text and never sees a usable key.
  */
 
 export type ProviderView = {
@@ -60,7 +57,7 @@ export function isProviderKind(v: string): v is AiProviderKind {
 export { isSecretboxConfigured };
 
 export async function listProviders(): Promise<ProviderView[]> {
-  const rows = await db.select().from(aiProviders);
+  const rows = await aiProviderStore().listProviders();
   return rows
     .map((r) => ({
       id: r.id,
@@ -78,7 +75,7 @@ export async function listProviders(): Promise<ProviderView[]> {
 }
 
 export async function getRoute(purpose: AiPurpose): Promise<RouteView> {
-  const [row] = await db.select().from(aiRoutes).where(eq(aiRoutes.purpose, purpose));
+  const row = await aiProviderStore().getRoute(purpose);
   return {
     purpose,
     primaryProviderId: row?.primaryProviderId ?? null,
@@ -95,37 +92,29 @@ export async function upsertProviderKey(input: {
 }): Promise<{ id: string; replaced: boolean }> {
   const sealed = seal(input.apiKey);
   const last4 = input.apiKey.slice(-4);
-  const [existing] = await db
-    .select({ id: aiProviders.id })
-    .from(aiProviders)
-    .where(eq(aiProviders.provider, input.provider));
+  const store = aiProviderStore();
+  const existing = await store.providerByKind(input.provider);
   if (existing) {
-    await db
-      .update(aiProviders)
-      .set({
-        apiKeyEnc: sealed,
-        apiKeyLast4: last4,
-        label: input.label,
-        defaultModel: input.defaultModel,
-        lastTestedAt: null,
-        lastTestOk: null,
-        lastTestNote: null,
-        updatedAt: new Date(),
-      })
-      .where(eq(aiProviders.id, existing.id));
-    return { id: existing.id, replaced: true };
-  }
-  const [row] = await db
-    .insert(aiProviders)
-    .values({
-      provider: input.provider,
-      label: input.label,
+    await store.updateProvider(existing.id, {
       apiKeyEnc: sealed,
       apiKeyLast4: last4,
+      label: input.label,
       defaultModel: input.defaultModel,
-      createdBy: input.createdBy,
-    })
-    .returning({ id: aiProviders.id });
+      lastTestedAt: null,
+      lastTestOk: null,
+      lastTestNote: null,
+      updatedAt: new Date(),
+    });
+    return { id: existing.id, replaced: true };
+  }
+  const row = await store.insertProvider({
+    provider: input.provider,
+    label: input.label,
+    apiKeyEnc: sealed,
+    apiKeyLast4: last4,
+    defaultModel: input.defaultModel,
+    createdBy: input.createdBy,
+  });
   return { id: row.id, replaced: false };
 }
 
@@ -135,25 +124,17 @@ export async function updateProviderSettings(input: {
   defaultModel: string;
   enabled: boolean;
 }): Promise<{ id: string } | null> {
-  const [row] = await db
-    .update(aiProviders)
-    .set({
-      label: input.label,
-      defaultModel: input.defaultModel,
-      enabled: input.enabled,
-      updatedAt: new Date(),
-    })
-    .where(eq(aiProviders.provider, input.provider))
-    .returning({ id: aiProviders.id });
-  return row ?? null;
+  const row = await aiProviderStore().updateProviderByKind(input.provider, {
+    label: input.label,
+    defaultModel: input.defaultModel,
+    enabled: input.enabled,
+    updatedAt: new Date(),
+  });
+  return row ? { id: row.id } : null;
 }
 
 export async function removeProvider(provider: AiProviderKind): Promise<{ id: string } | null> {
-  const [row] = await db
-    .delete(aiProviders)
-    .where(eq(aiProviders.provider, provider))
-    .returning({ id: aiProviders.id });
-  return row ?? null;
+  return aiProviderStore().deleteByKind(provider);
 }
 
 export async function setRoute(input: {
@@ -161,22 +142,12 @@ export async function setRoute(input: {
   primaryProviderId: string | null;
   fallbackProviderId: string | null;
 }): Promise<void> {
-  await db
-    .insert(aiRoutes)
-    .values({
-      purpose: input.purpose,
-      primaryProviderId: input.primaryProviderId,
-      fallbackProviderId: input.fallbackProviderId,
-      updatedAt: new Date(),
-    })
-    .onConflictDoUpdate({
-      target: aiRoutes.purpose,
-      set: {
-        primaryProviderId: input.primaryProviderId,
-        fallbackProviderId: input.fallbackProviderId,
-        updatedAt: new Date(),
-      },
-    });
+  await aiProviderStore().upsertRoute(
+    input.purpose,
+    input.primaryProviderId,
+    input.fallbackProviderId,
+    new Date(),
+  );
 }
 
 export type TestResult =
@@ -190,7 +161,8 @@ export type TestResult =
  * site runs. Records the outcome on the row.
  */
 export async function testProvider(provider: AiProviderKind): Promise<TestResult> {
-  const [row] = await db.select().from(aiProviders).where(eq(aiProviders.provider, provider));
+  const store = aiProviderStore();
+  const row = await store.providerByKind(provider);
   if (!row) return { ok: false, note: "No key stored for this provider." };
 
   let apiKey: string;
@@ -204,14 +176,11 @@ export async function testProvider(provider: AiProviderKind): Promise<TestResult
   }
 
   const result = await listModels(provider, apiKey);
-  await db
-    .update(aiProviders)
-    .set({
-      lastTestedAt: new Date(),
-      lastTestOk: result.ok,
-      lastTestNote: result.note.slice(0, 300),
-    })
-    .where(eq(aiProviders.id, row.id));
+  await store.updateProvider(row.id, {
+    lastTestedAt: new Date(),
+    lastTestOk: result.ok,
+    lastTestNote: result.note.slice(0, 300),
+  });
 
   if (!result.ok) return result;
   const modelKnown = result.models.includes(row.defaultModel);

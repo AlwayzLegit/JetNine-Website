@@ -78,6 +78,11 @@ jobs:
       - name: Edge Worker bundle dry run
         run: pnpm exec wrangler deploy -c edge/wrangler.jsonc --env "" --dry-run
 
+      # The edge Worker's failure log (OPS-195): one short line when the app throws or answers 5xx,
+      # the visitor's answer unchanged, and no query string, cookie, header or quote in the line.
+      - name: Edge Worker tests
+        run: pnpm exec tsx --test edge/worker.test.ts
+
       # The monitor Worker (monitor/, OPS-60): its tests and a bundle dry run.
       - name: Monitor tests
         run: node --test monitor/monitor.test.mjs
@@ -113,7 +118,7 @@ jobs:
       - name: Database target tests
         # The production cutover switch (OPS-176) and the list of Postgres call sites left.
         run: |
-          node --test src/db/target.test.mjs
+          node --test src/db/target.test.mjs src/db/wrangler-d1.test.mjs
           pnpm exec tsx --test src/db/postgres-left.test.ts
           pnpm exec tsx --test src/lib/health-db.test.ts
 

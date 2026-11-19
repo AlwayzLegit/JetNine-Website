@@ -36,6 +36,9 @@ const D1_AHEAD = new Set([
 // Foreign keys that point into that schema are not carried over. None left: since OPS-94 the
 // Postgres users table has no foreign key to auth.users either.
 const FK_LEFT_OUT: Record<string, number> = {};
+// Columns D1 has and Postgres does not, by table (OPS-174). A ban on Postgres is auth.users.banned_until
+// (no Drizzle table); D1 has no auth schema, so users.banned_until holds it.
+const D1_ONLY_COLUMNS: Record<string, string[]> = { users: ["banned_until"] };
 
 const pgTables = Object.entries(pgSchema).filter(
   (e) => is(e[1], PgTable) && !NO_D1_TABLE.has(e[0]),
@@ -73,7 +76,13 @@ for (const [exportName, pgTable] of pgTables) {
 
     const cols = (c: { columns: { name: string; notNull: boolean; primary: boolean }[] }) =>
       c.columns.map((x) => `${x.name}|${x.notNull ? "nn" : "null"}|${x.primary ? "pk" : ""}`).sort();
-    assert.deepEqual(cols(b), cols(a), "columns, not-null flags, primary key");
+    const extra = D1_ONLY_COLUMNS[exportName] ?? [];
+    const withoutExtra = { columns: b.columns.filter((c) => !extra.includes(c.name)) };
+    assert.deepEqual(cols(withoutExtra), cols(a), "columns, not-null flags, primary key");
+    for (const name of extra) {
+      const col = b.columns.find((c) => c.name === name);
+      assert.ok(col && !col.notNull, `${name} must exist in D1 and be nullable`);
+    }
 
     assert.equal(b.foreignKeys.length, a.foreignKeys.length - (FK_LEFT_OUT[exportName] ?? 0), "foreign keys");
     assert.equal(b.indexes.length, a.indexes.length, "indexes");

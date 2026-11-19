@@ -1,6 +1,5 @@
-import { sql } from "drizzle-orm";
-import { db } from "@/db";
 import { emptyLegStore } from "@/domain/empty-legs/store";
+import { aiProviderStore } from "@/domain/settings/ai-store";
 import { tripStore, type WindowBlockRow } from "@/domain/trips/store";
 import { referenceStore, type AircraftListRow, type FleetBoardRow, type OperatorRow } from "./store";
 
@@ -109,18 +108,16 @@ export async function referenceCounts(): Promise<Partial<ReferenceCounts>> {
   // must fail loudly, not come back as an empty page (OPS-112, OPS-113).
   const store = referenceStore();
   const legs = emptyLegStore();
+  const providers = aiProviderStore();
   try {
-    // The four reference counts and the empty-legs count go through their
-    // stores (Postgres or D1); ai_providers stays on Postgres until its own row.
-    const [reference, [rest], emptyLegCount] = await Promise.all([
+    // The four reference counts, the empty-legs count and the enabled AI
+    // providers go through their stores (Postgres or D1; OPS-166 for providers).
+    const [reference, aiProviders, emptyLegCount] = await Promise.all([
       store.counts(),
-      db.execute<Pick<ReferenceCounts, "ai_providers">>(sql`
-        select
-          (select count(*)::int from public.ai_providers where enabled) as ai_providers
-      `),
+      providers.countEnabled(),
       legs.countActive(),
     ]);
-    return { ...reference, ...(rest ?? {}), empty_legs: emptyLegCount };
+    return { ...reference, ai_providers: aiProviders, empty_legs: emptyLegCount };
   } catch {
     // A missing table (e.g. ai_providers before migration 0047) must not
     // take the whole page down — the links still work.

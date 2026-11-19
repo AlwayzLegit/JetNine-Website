@@ -11,9 +11,7 @@
 // Never log a token, a hash or a link. On a database error only the error
 // name and code are logged.
 
-import { and, eq, isNull, lt, sql } from "drizzle-orm";
-import { db } from "@/db";
-import { authTokens } from "@/db/schema/sessions";
+import { identityStore } from "@/lib/identity-store/store";
 import { expiryFor, hashToken, isPurpose, looksLikeToken, newToken } from "./core.mjs";
 
 export type TokenPurpose = "signin" | "reset" | "invite";
@@ -27,22 +25,13 @@ function logDbError(where: string, err: unknown) {
  * The user a mail goes to, or null. Reads public.users by lower(email),
  * oldest row first (there is no unique index on lower(email), so the choice
  * is deterministic). A banned user (auth.users.banned_until in the future)
- * is refused, the same rule as verifyPassword. Throws on a database error:
+ * is refused, the same rule as verifyPassword (on D1 the ban is users.banned_until). Throws on a database error:
  * the caller says "couldn't send" instead of pretending.
  */
 export async function findUserForMail(email: string): Promise<{ id: string } | null> {
   const clean = email.trim().toLowerCase();
   try {
-    const rows = await db.execute<{ id: string }>(sql`
-      select u.id as id
-      from public.users u
-      left join auth.users a on a.id = u.id
-      where lower(u.email) = ${clean}
-        and (a.banned_until is null or a.banned_until <= now())
-      order by u.created_at asc
-      limit 1
-    `);
-    return rows[0] ?? null;
+    return await identityStore().userForMail(clean);
   } catch (err) {
     logDbError("findUserForMail", err);
     throw new Error("auth link unavailable");
@@ -59,8 +48,7 @@ export async function issueToken(userId: string, purpose: TokenPurpose): Promise
   const token = newToken();
   const now = new Date();
   try {
-    await db.delete(authTokens).where(and(eq(authTokens.userId, userId), eq(authTokens.purpose, purpose), isNull(authTokens.usedAt)));
-    await db.insert(authTokens).values({
+    await identityStore().replaceToken({
       userId,
       purpose,
       tokenHash: hashToken(token),
@@ -73,7 +61,7 @@ export async function issueToken(userId: string, purpose: TokenPurpose): Promise
   }
   // Housekeeping: this user's rows that already ran out. Not worth failing for.
   try {
-    await db.delete(authTokens).where(and(eq(authTokens.userId, userId), lt(authTokens.expiresAt, now)));
+    await identityStore().sweepTokens(userId, now);
   } catch (err) {
     logDbError("sweep", err);
   }
@@ -87,17 +75,7 @@ export async function issueToken(userId: string, purpose: TokenPurpose): Promise
 export async function peekToken(raw: string | null | undefined, purpose: string | null | undefined): Promise<boolean> {
   if (!looksLikeToken(raw) || !isPurpose(purpose)) return false;
   try {
-    const rows = await db.execute<{ ok: number }>(sql`
-      select 1 as ok
-      from public.auth_tokens t
-      where t.token_hash = ${hashToken(raw as string)}
-        and t.purpose = ${purpose as string}
-        and t.used_at is null
-        and t.expires_at > now()
-        and not exists (select 1 from auth.users a where a.id = t.user_id and a.banned_until > now())
-      limit 1
-    `);
-    return rows.length > 0;
+    return await identityStore().peekToken(hashToken(raw as string), purpose as string, new Date());
   } catch (err) {
     logDbError("peekToken", err);
     return false;
@@ -112,17 +90,7 @@ export async function peekToken(raw: string | null | undefined, purpose: string 
 export async function consumeToken(raw: string | null | undefined, purpose: string | null | undefined): Promise<string | null> {
   if (!looksLikeToken(raw) || !isPurpose(purpose)) return null;
   try {
-    const rows = await db.execute<{ user_id: string }>(sql`
-      update public.auth_tokens t
-      set used_at = now()
-      where t.token_hash = ${hashToken(raw as string)}
-        and t.purpose = ${purpose as string}
-        and t.used_at is null
-        and t.expires_at > now()
-        and not exists (select 1 from auth.users a where a.id = t.user_id and a.banned_until > now())
-      returning t.user_id
-    `);
-    return rows[0]?.user_id ?? null;
+    return await identityStore().consumeToken(hashToken(raw as string), purpose as string, new Date());
   } catch (err) {
     logDbError("consumeToken", err);
     return null;

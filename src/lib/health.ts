@@ -10,6 +10,7 @@
 import { sql as drizzleSql } from "drizzle-orm";
 import { db } from "@/db";
 import { d1Binding, dbTarget } from "@/db/d1";
+import { identityStore } from "@/lib/identity-store/store";
 import { commitSha, deployEnv, deployRegion, platformBaseUrl } from "@/lib/deploy-env";
 import { judgeD1 } from "@/lib/health-db";
 
@@ -110,30 +111,14 @@ export async function checkDb(): Promise<CheckResult> {
  */
 export async function checkSignin(): Promise<CheckResult> {
   try {
-    await db.execute(drizzleSql`select 1 as ok from public.user_sessions limit 1`);
+    const wrong = await identityStore().signinProbe();
+    return wrong ? { ok: false, reason: wrong } : { ok: true };
   } catch (err) {
+    // The store could not even be built (for example DB_TARGET is d1 with no binding).
     const e = err as { name?: string; code?: string };
     console.error("[health] signin probe failed", { name: e?.name, code: e?.code });
     return { ok: false, reason: "sessions" };
   }
-  try {
-    await db.execute(drizzleSql`select 1 as ok from public.auth_tokens limit 1`);
-  } catch (err) {
-    const e = err as { name?: string; code?: string };
-    console.error("[health] signin probe failed", { name: e?.name, code: e?.code });
-    return { ok: false, reason: "links" };
-  }
-  try {
-    const rows = await db.execute<{ present: boolean }>(
-      drizzleSql`select exists(select 1 from auth.users where encrypted_password is not null) as present`,
-    );
-    if (rows[0]?.present !== true) return { ok: false, reason: "passwords" };
-  } catch (err) {
-    const e = err as { name?: string; code?: string };
-    console.error("[health] signin probe failed", { name: e?.name, code: e?.code });
-    return { ok: false, reason: "passwords" };
-  }
-  return { ok: true };
 }
 
 /**

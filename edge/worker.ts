@@ -98,6 +98,101 @@ export function sharedMaxAge(res: Response): number {
   return m ? Number(m[1]) : 0;
 }
 
+// ─── Why the app failed (OPS-195) ───────────────────────────────────────
+//
+// Every call to the app goes through appFetch. It changes nothing for the
+// visitor: a thrown error is rethrown and a 5xx is returned as it came. It
+// only writes ONE short log line, so the next break names its own cause
+// (OPS-158 had none: the edge logged only the request line).
+//
+// The line is plain `key=value` words with no quote character and no run of
+// six digits, so scripts/worker-errors/query.mjs redact() leaves it as it is.
+// Never logged: a header, a cookie, a query string, the ray id, an HTML body.
+// The one thing read from a body is Cloudflare's own platform error code
+// ("error code: 1102") from a text/plain answer, at most 200 characters.
+
+type Where = "pass" | "miss" | "refresh" | "standin";
+
+/** Take out what must not reach a log line, then cut. */
+function logSafe(value: string, max: number): string {
+  return value
+    .replace(/https?:\/\/\S+/gi, "")
+    .replace(/[\w.+-]+@[\w-]+(?:\.[\w-]+)+/g, "")
+    .replace(/["'`]/g, "")
+    .replace(/\d{6,}/g, "")
+    .replace(/\b[A-Za-z0-9_-]{24,}\b/g, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, max);
+}
+
+function requestFacts(request: Request): string {
+  let path = "";
+  try {
+    path = logSafe(new URL(request.url).pathname, 60);
+  } catch {
+    path = "";
+  }
+  const colo = (request as { cf?: { colo?: unknown } }).cf?.colo;
+  const where = typeof colo === "string" && /^[A-Za-z]{2,5}$/.test(colo) ? colo : "none";
+  const method = /^[A-Za-z]{3,10}$/.test(request.method) ? request.method : "none";
+  return `colo=${where} method=${method} path=${path || "none"}`;
+}
+
+/** The first 200 characters of a body, read and then dropped. Never throws. */
+async function bodyHead(res: Response): Promise<string> {
+  try {
+    const reader = res.body?.getReader();
+    if (!reader) return "";
+    const decoder = new TextDecoder();
+    let text = "";
+    while (text.length < 200) {
+      const { done, value } = await reader.read();
+      if (done || !value) break;
+      text += decoder.decode(value, { stream: true });
+    }
+    reader.cancel().catch(() => undefined);
+    return text.slice(0, 200);
+  } catch {
+    return "";
+  }
+}
+
+async function logAppFailure(probe: Response | null, status: number, where: Where, facts: string): Promise<void> {
+  let code = "none";
+  if (probe && (probe.headers.get("content-type") ?? "").toLowerCase().startsWith("text/plain")) {
+    const m = /error code:\s*(\d{3,5})/i.exec(await bodyHead(probe));
+    if (m) code = m[1];
+  } else {
+    probe?.body?.cancel().catch(() => undefined);
+  }
+  console.error(`[edge] app 5xx where=${where} status=${status} code=${code} ${facts}`);
+}
+
+/** env.APP.fetch with one log line when the app throws or answers 5xx. */
+async function appFetch(request: Request, env: Env, ctx: ExecutionContext, where: Where): Promise<Response> {
+  let res: Response;
+  try {
+    res = await env.APP.fetch(request);
+  } catch (err) {
+    const name = logSafe(err instanceof Error ? err.name : typeof err, 40) || "none";
+    const msg = logSafe(err instanceof Error ? err.message : "", 60) || "none";
+    console.error(`[edge] app fetch threw where=${where} name=${name} ${requestFacts(request)} msg=${msg}`);
+    throw err;
+  }
+  if (res.status >= 500) {
+    // The clone is taken now, before anyone reads the body; the visitor gets the original.
+    let probe: Response | null = null;
+    try {
+      probe = res.clone();
+    } catch {
+      probe = null;
+    }
+    ctx.waitUntil(logAppFailure(probe, res.status, where, requestFacts(request)).catch(() => undefined));
+  }
+  return res;
+}
+
 /** Asks the app and, when the page is shareable, stores a copy. */
 async function fetchAndStore(
   request: Request,
@@ -105,8 +200,9 @@ async function fetchAndStore(
   ctx: ExecutionContext,
   key: string,
   store: EdgeCache,
+  where: "miss" | "refresh",
 ): Promise<{ res: Response; stored: boolean }> {
-  const res = await env.APP.fetch(request);
+  const res = await appFetch(request, env, ctx, where);
   const maxAge = sharedMaxAge(res);
   if (maxAge === 0 || !res.body) return { res, stored: false };
   const [forClient, forCache] = res.body.tee();
@@ -163,14 +259,14 @@ const MEDIA_STAND_INS = [
   "winter-ramp",
 ];
 
-async function mediaStandIn(request: Request, env: Env, key: string): Promise<Response> {
+async function mediaStandIn(request: Request, env: Env, ctx: ExecutionContext, key: string): Promise<Response> {
   let hash = 0;
   for (let i = 0; i < key.length; i++) hash = (hash * 31 + key.charCodeAt(i)) >>> 0;
   const file = MEDIA_STAND_INS[hash % MEDIA_STAND_INS.length];
   const url = new URL(request.url);
   url.pathname = `/images/blog/library/${file}.webp`;
   url.search = "";
-  const res = await env.APP.fetch(new Request(url.href, { method: "GET" })).catch(() => null);
+  const res = await appFetch(new Request(url.href, { method: "GET" }), env, ctx, "standin").catch(() => null);
   if (!res?.ok || !res.body) return mediaNotFound();
   return new Response(res.body, {
     headers: {
@@ -215,7 +311,7 @@ async function serveMedia(request: Request, env: Env, ctx: ExecutionContext, key
       }
     }
   }
-  if (!res) return mediaStandIn(request, env, key);
+  if (!res) return mediaStandIn(request, env, ctx, key);
   if (store && request.method === "GET") {
     ctx.waitUntil(store.put(cacheUrl.href, res.clone()).catch(() => undefined));
   }
@@ -250,13 +346,13 @@ async function serve(request: Request, env: Env, ctx: ExecutionContext): Promise
 
   const store = edgeCache();
   const key = store ? cacheKey(request, env.APP_VERSION) : null;
-  if (!store || !key) return env.APP.fetch(request);
+  if (!store || !key) return appFetch(request, env, ctx, "pass");
 
   // A cache fault must never take a page down: fall through to the app.
   const hit = await store.match(key).catch(() => undefined);
   if (!hit) {
     // The original request is passed on untouched; a clone goes to the cache path.
-    const { res, stored } = await fetchAndStore(request, env, ctx, key, store);
+    const { res, stored } = await fetchAndStore(request, env, ctx, key, store, "miss");
     if (stored) res.headers.set("x-edge-cache", "MISS");
     return res;
   }
@@ -265,7 +361,7 @@ async function serve(request: Request, env: Env, ctx: ExecutionContext): Promise
   const stale = ageS > Number(hit.headers.get(FRESH_FOR) ?? 0);
   if (stale) {
     ctx.waitUntil(
-      fetchAndStore(request, env, ctx, key, store)
+      fetchAndStore(request, env, ctx, key, store, "refresh")
         .then(({ res }) => res.body?.cancel())
         .catch((err) => console.error("[edge] refresh failed", err)),
     );

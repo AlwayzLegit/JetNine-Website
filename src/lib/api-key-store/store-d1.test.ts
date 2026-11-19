@@ -224,6 +224,19 @@ test("keyForAuth: a key whose creator row is gone comes back with null creator f
   assert.ok(row?.revokedAt instanceof Date);
 });
 
+test("keyForAuth with no canonical role source (the cutover wiring, OPS-213): a demotion or removal in D1 takes effect at once", async () => {
+  const { client, sqlite, store } = fresh();
+  const who = await user(client, { role: "admin" });
+  const k = newKey(who, { scopes: ["admin"] });
+  await store.createIfUnderCap(k, 25);
+  assert.equal((await store.keyForAuth(k.prefix))?.creatorRole, "admin");
+  sqlite.exec(`update users set role = 'dispatcher' where id = '${who}'`);
+  assert.equal((await store.keyForAuth(k.prefix))?.creatorRole, "dispatcher", "demoted in D1");
+  sqlite.exec(`delete from users where id = '${who}'`);
+  const gone = await store.keyForAuth(k.prefix);
+  assert.equal(gone?.creatorRole, null, "removed in D1: no role left");
+});
+
 test("keyForAuth with a canonical role source: the sign-in takes the role from it, not from the copied users row", async () => {
   const { client } = fresh();
   const who = await user(client, { role: "admin" });

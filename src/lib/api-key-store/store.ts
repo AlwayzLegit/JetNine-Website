@@ -1,6 +1,6 @@
 import { d1Db, dbTarget } from "@/db";
 import { d1ApiKeyStore } from "./store-d1";
-import { pgApiKeyStore, pgUserRole } from "./store-pg";
+import { pgApiKeyStore } from "./store-pg";
 
 // The one door to the api_keys and api_requests tables (OPS-138): the
 // Settings > API keys list with its 24 hour counts, create with the cap of working keys,
@@ -135,7 +135,10 @@ function apiKeyStore(): ApiKeyStore {
   if (dbTarget() === "d1") {
     const client = d1Db();
     if (!client) throw new Error("DB_TARGET is d1 but the DB binding is missing");
-    return d1ApiKeyStore(client, undefined, pgUserRole);
+    // The key's authority comes from the D1 users row: with the target on d1 the users domain is in D1
+    // too (identityStore), so that row is where a person is demoted or removed. Reading a role from
+    // Postgres here would leave a removed person's key with their old role after the cutover (OPS-213).
+    return d1ApiKeyStore(client);
   }
   return pgApiKeyStore();
 }

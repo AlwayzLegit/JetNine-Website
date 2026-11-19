@@ -22,13 +22,15 @@
   // Worker (edge/wrangler.jsonc), which reaches this one through a service
   // binding. Putting them back would bypass that cache.
 
-  // WRITES_PAUSED "cutover" (OPS-212): the write pause is on. This line and the one in
-  // env.staging are removed together by the flip (OPS-213, OPS-206 step 9c3).
+  // Production reads D1 since the cutover (OPS-206 step 9c3, OPS-213): DB_TARGET "d1" AND
+  // DB_CUTOVER "production-d1" together (src/db/target.mjs); the write pause is off.
+  // Way back: revert this merge (see DEPLOY.md, "Cutover flip").
   "vars": {
     "DEPLOY_ENV": "production",
     "DEPLOY_REGION": "cloudflare",
     "NEXT_PUBLIC_SITE_URL": "https://jetnine.com",
-    "WRITES_PAUSED": "cutover"
+    "DB_TARGET": "d1",
+    "DB_CUTOVER": "production-d1"
   },
 
   "triggers": {
@@ -53,9 +55,8 @@
   "d1_databases": [
     { "binding": "NEXT_TAG_CACHE_D1", "database_name": "jetnine-tag-cache", "database_id": "af5350ae-1014-421c-86a0-c60a4f8d3a39" },
     // Production's own copy of the site database (OPS-177, OPS-183). The deploy applies
-    // the D1 migrations to it on every production deploy. Unused until the cutover sets
-    // DB_TARGET "d1" and DB_CUTOVER "production-d1"; neither is set here, so production
-    // stays on Postgres.
+    // the D1 migrations to it on every production deploy. Since the cutover (OPS-213)
+    // production reads and writes it: DB_TARGET "d1" and DB_CUTOVER "production-d1" are set above.
     {
       "binding": "DB",
       "database_name": "jetnine-production",
@@ -82,10 +83,7 @@
         // Which database the data layer uses here: "postgres" or "d1". Staging
         // is "d1" since the blog store was converted (OPS-109); set it back to
         // "postgres" and redeploy staging to undo. Production never reads it as d1.
-        "DB_TARGET": "d1",
-        // Write pause (OPS-212): staging proves the pause before production sees it.
-        // Removed by the flip (OPS-213).
-        "WRITES_PAUSED": "cutover"
+        "DB_TARGET": "d1"
       },
       "triggers": { "crons": [] },
       "hyperdrive": [{ "binding": "HYPERDRIVE", "id": "05bdaa66695d43c08fc02b22e39bca77" }],

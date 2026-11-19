@@ -28,6 +28,11 @@ export default defineConfig({
         d1Databases: ["DB"],
         bindings: {
           PUBLIC_HOST: "voice.example.com",
+          // wrangler.jsonc turns D1 on for production since the cutover (OPS-213). The tests
+          // start from the default (Postgres) and set vars.DB_TARGET / vars.DB_CUTOVER
+          // themselves, so they do not depend on the deploy config.
+          DB_TARGET: "postgres",
+          DB_CUTOVER: "",
           TWILIO_AUTH_TOKEN: "test-auth-token",
           D1_MIGRATIONS: d1Migrations,
         },

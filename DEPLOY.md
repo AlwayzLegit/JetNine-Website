@@ -523,16 +523,28 @@ How types map, decided once:
 
 ## Copy Postgres to staging D1 (OPS-105)
 
-Step 5 of the move to Cloudflare (OPS-93): fill staging's own D1 database from Postgres and prove the copy is whole. Production's database is never written.
+Step 5 of the move to Cloudflare (OPS-93): fill staging's own D1 database from Postgres and prove the copy is whole. Production's database is written only by the production target of OPS-197 (below), at the cutover.
 
 - Run the GitHub workflow **D1 copy** by hand (Actions, Run workflow). `mode = load` applies the D1 migrations, wipes the staging D1 tables, copies all 57 tables (51 at OPS-105, then the 6 added since, four of them the voice tables of OPS-129; the held-back ones are loaded empty) and then checks; `mode = check` only compares. It uses the repo secrets `DATABASE_URL`, `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`.
 - Postgres is read in one read-only snapshot, so every table comes from the same moment. Values are mapped by the rules in "D1 tables (OPS-100)" above (`scripts/d1-copy/map.mjs`).
 - The log has one line per table: Postgres rows, D1 rows, and "checksum equal yes or no". The checksum is an order-independent hash of each row's key and its `updated_at` (or `created_at`). No row value is printed, and wrangler's own text is not echoed. A failure prints an error code only.
-- The tool refuses any target other than the database `jetnine-staging` with `--env staging`; the guard runs before any call. `pnpm exec tsx scripts/d1-copy/copy.mjs --list` prints the table plan with no network.
+- The tool refuses any target other than the database `jetnine-staging` with `--env staging`, or (OPS-197) `jetnine-production` with no env; the guard runs before any call. `pnpm exec tsx scripts/d1-copy/copy.mjs --list` prints the table plan with no network.
 - **Held back on purpose:** `user_credentials` (password hashes), `user_sessions` (session token hashes), `api_keys` (key hashes) and `ai_providers` (encrypted provider keys). These are not copied to staging. Moving credentials is the owner's decision and belongs to the cutover row.
 - Staging D1 is a test copy, not a source of truth. Run the copy again whenever a fresh copy is needed; it starts by wiping.
 - The reverse copy (D1 back to Postgres, for a rollback) is not part of this row.
 - Tests (`scripts/d1-copy/*.test.*`) run in CI and need no secrets or network.
+
+### Production target (OPS-197)
+
+Step 8b2 of the move to Cloudflare (OPS-93): the same tool can fill `jetnine-production` on cutover day, carrying what staging never gets. Nothing in this row writes to production D1.
+
+- **Targets and modes.** The workflow **D1 copy** now offers `target` staging or production and `mode` load, check or preflight. Staging behaves as before. Production runs only from `main` (the first step refuses any other ref).
+- **What production carries that staging never gets.** Password hashes as `coalesce(user_credentials.password_hash, auth.users.encrypted_password)` (what sign-in reads today; users with no hash at all are left out), bans from `auth.users.banned_until`, and `user_sessions`, `api_keys` and `ai_providers` as stored (hashed or sealed, never opened; the voice Worker and the site share the sealing secret, so sealed text works as is). Only `request_rate_limits` is held back.
+- **Two typed keys for a load.** The input `confirm` must be exactly `copy-to-production`. If production D1 already holds rows (after the cutover it holds the only new writes) the input `replace` must be exactly `replace-production-d1` as well. They reach the script as `CONFIRM` and `REPLACE` in the environment, never on the command line. A wrong or missing confirm is refused before any call to Cloudflare.
+- **Preflight.** `mode = preflight` reads Postgres in one snapshot, builds the whole load, runs it against an in-memory D1 built from the migrations and prints `preflight ok: N tables, R rows`, then (production) `user_credentials: N (N1 set on the site, N2 from auth.users)` and `users banned now: N`. It writes nothing and applies no migration; it needs only `DATABASE_URL`. Run it any time on either target.
+- **Check.** `mode = check` on production compares counts and key checksums per table, and the number of users banned at one instant on both sides. Numbers only; no row value is printed.
+- **A load is the cutover's.** Never run target production with mode load except on the owner's yes, at the cutover.
+- **Way back.** Revert the merge commit; the workflow returns to staging only. Nothing was written to production D1 by this row. `docs/d1-steps/OPS-197.md` has the row's summary.
 
 ### Load order, nulled references and the preflight (OPS-115)
 

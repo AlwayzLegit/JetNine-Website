@@ -1,13 +1,24 @@
-// Copy JetNine's Postgres into STAGING's own D1 database and check the copy (OPS-105).
+// Copy JetNine's Postgres into a D1 database and check the copy (OPS-105, OPS-197).
 //
-//   pnpm exec tsx scripts/d1-copy/copy.mjs --target staging            wipe, load, check
-//   pnpm exec tsx scripts/d1-copy/copy.mjs --target staging --check    check only
-//   pnpm exec tsx scripts/d1-copy/copy.mjs --list                      print the tables in load order, no network
+//   pnpm exec tsx scripts/d1-copy/copy.mjs --target staging                     wipe, load, check
+//   pnpm exec tsx scripts/d1-copy/copy.mjs --target staging --check             check only
+//   pnpm exec tsx scripts/d1-copy/copy.mjs --target production --mode preflight read, check, write nothing
+//   pnpm exec tsx scripts/d1-copy/copy.mjs --target production --mode check     compare only
+//   CONFIRM=copy-to-production pnpm exec tsx scripts/d1-copy/copy.mjs --target production
+//                                                                               the cutover's load (owner's yes)
+//   pnpm exec tsx scripts/d1-copy/copy.mjs --list [--target production]        the tables in load order, no network
 //
 // Reads Postgres with DATABASE_URL in one read-only snapshot transaction. Writes only
-// to the D1 database jetnine-staging through `wrangler d1 execute --env staging
-// --remote`; every other target is refused before any call (map.mjs assertStaging).
-// Needs DATABASE_URL, CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID in the environment.
+// to the D1 database of the target through `wrangler d1 execute --remote`: jetnine-staging
+// with --env staging, or jetnine-production (top-level config, no --env). Every other
+// database is refused before any call (map.mjs assertTarget). Staging is copied exactly as
+// before: the credential tables are held back and no hash or ban ever reaches it. A
+// production load also carries password hashes, bans, sessions, API keys and AI provider keys
+// (as stored: hashed or sealed), and it refuses to write unless CONFIRM is exactly
+// copy-to-production and production D1 is empty (or REPLACE is exactly replace-production-d1).
+// CONFIRM and REPLACE are read from the environment, never from the command line.
+// Mode preflight reads everything and checks it against an in-memory D1, writes nothing and
+// needs only DATABASE_URL. Load and check need CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID too.
 //
 // Personal data: rows exist only in memory and in one SQL file in the runner's temp
 // folder, which is deleted at the end. Nothing from a row is printed: the output is
@@ -20,9 +31,9 @@ import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import postgres from "postgres";
 import {
-  STAGING_DB,
-  STAGING_ENV,
-  assertStaging,
+  TARGETS,
+  assertProductionLoad,
+  assertTarget,
   canonicalLine,
   checksumLines,
   constraintDetail,
@@ -37,21 +48,26 @@ import {
   STATEMENT_LIMIT,
 } from "./map.mjs";
 import { applyMigrations, failLine, fkLine, foreignKeyReport, loadTable, openMemoryDb, readMigrations } from "./preflight.mjs";
-import { HELD_BACK, copyPlan } from "./tables.ts";
+import { PRODUCTION_SELECT, copyPlan, heldBackFor } from "./tables.ts";
 
 const MIGRATIONS = join(dirname(fileURLToPath(import.meta.url)), "../../src/db/d1/migrations");
 
 const PAGE = 20000;
 
 function parseArgs(argv) {
-  const a = { target: undefined, check: false, list: false };
+  const a = { target: undefined, mode: "load", list: false };
   for (let i = 0; i < argv.length; i++) {
     if (argv[i] === "--target") a.target = argv[++i];
     else if (argv[i].startsWith("--target=")) a.target = argv[i].slice("--target=".length);
-    else if (argv[i] === "--check") a.check = true;
+    else if (argv[i] === "--check") a.mode = "check";
+    else if (argv[i] === "--mode") a.mode = argv[++i];
+    else if (argv[i].startsWith("--mode=")) a.mode = argv[i].slice("--mode=".length);
     else if (argv[i] === "--list") a.list = true;
     else throw new Error(`unknown argument ${argv[i]}`);
   }
+  if (!["load", "check", "preflight"].includes(a.mode)) throw new Error(`unknown mode ${JSON.stringify(a.mode)}`);
+  a.check = a.mode === "check";
+  a.preflightOnly = a.mode === "preflight";
   return a;
 }
 
@@ -80,8 +96,14 @@ function wrangler(args) {
   return r.stdout;
 }
 
-function d1Query(command) {
-  const out = wrangler(["d1", "execute", STAGING_DB, "--env", STAGING_ENV, "--remote", "--json", "--command", command]);
+/** `d1 execute` arguments that name the target's database, and its env only when it has one (production has none). */
+function d1Target(target) {
+  const { database, env } = TARGETS[target];
+  return ["d1", "execute", database, ...(env ? ["--env", env] : []), "--remote"];
+}
+
+function d1Query(target, command) {
+  const out = wrangler([...d1Target(target), "--json", "--command", command]);
   return resultRows(parseWranglerJson(out));
 }
 
@@ -107,34 +129,56 @@ async function preflight(results, tableFile, tooLong) {
   return out;
 }
 
-/** What staging D1 holds after a failed remote load, as one line (counts only). */
-function stagingState(plan) {
+/** What the target's D1 holds after a failed remote load, as one line (counts only). */
+function d1State(target, plan) {
   try {
     let withRows = 0;
-    for (const t of plan) if (Number(d1Query(`select count(*) as c from ${q(t.name)}`)[0]?.c ?? 0) > 0) withRows++;
+    for (const t of plan) if (Number(d1Query(target, `select count(*) as c from ${q(t.name)}`)[0]?.c ?? 0) > 0) withRows++;
     return withRows === 0
-      ? "staging D1 after the failed load: empty"
-      : `staging D1 after the failed load: partial, ${withRows} of ${plan.length} tables have rows (a new load wipes it first)`;
+      ? `${target} D1 after the failed load: empty`
+      : `${target} D1 after the failed load: partial, ${withRows} of ${plan.length} tables have rows (a new load wipes it first)`;
   } catch (err) {
-    return `staging D1 after the failed load: state unknown (${err?.message ?? "count failed"})`;
+    return `${target} D1 after the failed load: state unknown (${err?.message ?? "count failed"})`;
   }
 }
 
 async function main() {
   const args = parseArgs(process.argv.slice(2));
-  const plan = copyPlan();
 
   if (args.list) {
-    for (const t of plan) {
-      console.log(`${t.name.padEnd(30)} key: ${t.keyColumns.join(", ")}  columns: ${t.columns.length}${HELD_BACK[t.name] ? `  HELD BACK (${HELD_BACK[t.name]})` : ""}${t.nullRefs.length ? `  NULL: ${t.nullRefs.join(", ")}` : ""}`);
+    // No network. --list alone is the staging plan, as before; --list --target production the production one.
+    const listTarget = args.target ?? "staging";
+    if (!TARGETS[listTarget]) throw new Error(`unknown target ${JSON.stringify(listTarget)}`);
+    const listHeld = heldBackFor(listTarget);
+    const listPlan = copyPlan(listTarget);
+    for (const t of listPlan) {
+      console.log(`${t.name.padEnd(30)} key: ${t.keyColumns.join(", ")}  columns: ${t.columns.length}${listHeld[t.name] ? `  HELD BACK (${listHeld[t.name]})` : ""}${t.nullRefs.length ? `  NULL: ${t.nullRefs.join(", ")}` : ""}`);
     }
-    console.log(`${plan.length} tables`);
+    console.log(`${listPlan.length} tables`);
     return;
   }
 
-  assertStaging({ target: args.target, database: STAGING_DB, env: STAGING_ENV });
-  for (const v of ["DATABASE_URL", "CLOUDFLARE_API_TOKEN", "CLOUDFLARE_ACCOUNT_ID"]) {
+  const target = args.target;
+  // The guard runs before any call: the database and env wrangler gets come from the target's own pair.
+  if (!TARGETS[target]) assertTarget({ target, database: undefined, env: undefined });
+  assertTarget({ target, database: TARGETS[target].database, env: TARGETS[target].env });
+  const plan = copyPlan(target);
+  const HELD = heldBackFor(target);
+  const production = target === "production";
+  // A preflight reads Postgres and an in-memory D1 only; every other mode talks to Cloudflare too.
+  const needed = args.preflightOnly ? ["DATABASE_URL"] : ["DATABASE_URL", "CLOUDFLARE_API_TOKEN", "CLOUDFLARE_ACCOUNT_ID"];
+  for (const v of needed) {
     if (!process.env[v]) throw new Error(`${v} is not set`);
+  }
+
+  // A production load is the cutover's: the typed confirm is checked, and production D1 is counted,
+  // before Postgres is read. CONFIRM and REPLACE come from the environment, never from argv.
+  if (production && args.mode === "load") {
+    // A missing or wrong confirm is refused before any call to Cloudflare; the row count decides the replace key.
+    assertProductionLoad({ confirm: process.env.CONFIRM, replace: process.env.REPLACE, d1RowsBefore: 0 });
+    let d1RowsBefore = 0;
+    for (const t of plan) d1RowsBefore += Number(d1Query(target, `select count(*) as c from ${q(t.name)}`)[0]?.c ?? 0);
+    assertProductionLoad({ confirm: process.env.CONFIRM, replace: process.env.REPLACE, d1RowsBefore });
   }
 
   // Keep dates exact: date stays "YYYY-MM-DD" text, timestamp without time zone is UTC.
@@ -156,17 +200,26 @@ async function main() {
   const tooLong = [];
   const nulled = [];
   let totalRows = 0;
+  // Production report (numbers only, never a row value): the same instant for both sides of a check.
+  const nowMs = Date.now();
+  let credFromSite = 0;
+  let credFromAuth = 0;
+  let bannedPg = 0;
+  const productionLines = () => [
+    `user_credentials: ${credFromSite + credFromAuth} (${credFromSite} set on the site, ${credFromAuth} from auth.users)`,
+    `users banned now: ${bannedPg}`,
+  ];
 
   try {
     // One snapshot, read only: the counts and the keys all describe the same instant.
     // The plan is in referential order (parents first); each table's INSERTs go to their own file.
     await sql.begin("isolation level repeatable read read only", async (tx) => {
       for (const [i, t] of plan.entries()) {
-        if (HELD_BACK[t.name]) {
-          results.push({ table: t, held: HELD_BACK[t.name] });
+        if (HELD[t.name]) {
+          results.push({ table: t, held: HELD[t.name] });
           continue;
         }
-        const res = await tx.unsafe(`select * from public.${q(t.name)}`);
+        const res = await tx.unsafe((production && PRODUCTION_SELECT[t.name]) || `select * from public.${q(t.name)}`);
         const have = new Set((res.columns ?? []).map((c) => c.name));
         for (const c of t.columns) {
           if (!have.has(c.name)) throw new Error(`${t.name}: Postgres has no column ${c.name}`);
@@ -176,6 +229,12 @@ async function main() {
         let chunk = [];
         let nulledRows = 0;
         for (const row of res) {
+          // Counts for the production report: which password hashes the site holds, and the bans now.
+          if (production && t.name === "user_credentials") {
+            if (row.from_site) credFromSite++;
+            else credFromAuth++;
+          }
+          if (production && t.name === "users" && row.banned_until && new Date(row.banned_until).getTime() > nowMs) bannedPg++;
           lines.push(canonicalLine(t.keyColumns.map((k, ki) => mapValue(keyTypes[ki], row[k]))));
           if (!args.check) {
             if (t.nullRefs.some((c) => row[c] !== null && row[c] !== undefined)) nulledRows++;
@@ -203,7 +262,7 @@ async function main() {
       const failures = await preflight(results, tableFile, tooLong);
       if (failures.length > 0) {
         for (const line of failures) console.log(line);
-        console.log("staging D1 not touched");
+        console.log(`${target} D1 not touched`);
         process.exitCode = 1;
         return;
       }
@@ -211,18 +270,23 @@ async function main() {
         ? `${nulled.reduce((n, x) => n + x.rows, 0)} rows with a reference to a held-back table set to null (${nulled.map((x) => `${x.table} ${x.rows}`).join(", ")})`
         : "no row has a reference to a held-back table";
       console.log(`preflight ok: ${results.filter((r) => !r.held).length} tables, ${totalRows} rows; ${nulledText}`);
+      if (production) for (const line of productionLines()) console.log(line);
+      if (args.preflightOnly) {
+        console.log(`preflight only: nothing written to ${TARGETS[target].database}`);
+        return;
+      }
 
       // The file: foreign keys deferred, children deleted first, then parents loaded first.
       writeFileSync(file, "PRAGMA defer_foreign_keys = on;\n");
       for (const t of [...plan].reverse()) appendFileSync(file, `${deleteStatement(t.name)}\n`);
       for (const r of results) if (!r.held) appendFileSync(file, readFileSync(tableFile(r.fileIndex)));
 
-      console.log(`Loading ${results.length} tables into ${STAGING_DB} (wipes it first)`);
+      console.log(`Loading ${results.length} tables into ${TARGETS[target].database} (wipes it first)`);
       try {
-        wrangler(["d1", "execute", STAGING_DB, "--env", STAGING_ENV, "--remote", "--file", file, "--yes"]);
+        wrangler([...d1Target(target), "--file", file, "--yes"]);
       } catch (err) {
         console.log(`remote load failed: ${err?.message ?? "unknown error"}`);
-        console.log(stagingState(plan));
+        console.log(d1State(target, plan));
         throw err;
       }
     }
@@ -231,7 +295,7 @@ async function main() {
     let failures = 0;
     for (const r of results) {
       const t = r.table;
-      const d1Count = Number(d1Query(`select count(*) as c from ${q(t.name)}`)[0]?.c ?? -1);
+      const d1Count = Number(d1Query(target, `select count(*) as c from ${q(t.name)}`)[0]?.c ?? -1);
       if (r.held) {
         if (d1Count !== 0) failures++;
         console.log(heldLine({ table: t.name, reason: r.held, d1Count }));
@@ -240,13 +304,20 @@ async function main() {
       const keys = t.keyColumns.map(q).join(", ");
       const lines = [];
       for (let offset = 0; offset < Math.max(d1Count, 1); offset += PAGE) {
-        const rows = d1Query(`select ${keys} from ${q(t.name)} order by ${q(t.pk)} limit ${PAGE} offset ${offset}`);
+        const rows = d1Query(target, `select ${keys} from ${q(t.name)} order by ${q(t.pk)} limit ${PAGE} offset ${offset}`);
         for (const row of rows) lines.push(canonicalLine(t.keyColumns.map((k) => row[k])));
       }
       const d1Checksum = await checksumLines(lines);
       const checksumEqual = d1Checksum === r.pgChecksum;
       if (r.pgCount !== d1Count || !checksumEqual) failures++;
       console.log(reportLine({ table: t.name, pgCount: r.pgCount, d1Count, checksumEqual }));
+    }
+    if (production) {
+      // Bans on both sides at the same instant: numbers only.
+      const bannedD1 = Number(d1Query(target, `select count(*) as c from "users" where "banned_until" > ${nowMs}`)[0]?.c ?? -1);
+      if (bannedD1 !== bannedPg) failures++;
+      for (const line of productionLines().slice(0, 1)) console.log(line);
+      console.log(`${bannedD1 === bannedPg ? "ok  " : "FAIL"} users banned now: postgres=${bannedPg} d1=${bannedD1}`);
     }
     const held = results.filter((r) => r.held).length;
     console.log(`${results.length} tables (${results.length - held} copied, ${held} held back), ${failures} with a difference`);

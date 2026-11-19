@@ -215,7 +215,7 @@ What the log prints, and nothing else (no raw wrangler table, which carries the 
 - `voice [target] health: http=[code] ok=[ok] db target=[target] ok=[db ok]`, one line per try, up to 6 tries 5 seconds apart. Mode check passes when the Worker answers at all. A production deploy passes only with http 200, ok true, db ok true and the database target equal to `expect_target`. A staging deploy passes with db target `d1` and db ok true (its status is 503 for the settings it does not have, as in the "Deploy (Cloudflare)" staging job).
 - On a failed read: `voice [target] did not answer as expected. Way back: see voice/README.md, Deploy from GitHub.`
 
-Who starts it: at the cutover (OPS-206 step 5), Claude in chat in the owner's Chrome, on the owner's word for that step, with target `production`, mode `deploy`, `expect_target` `d1` and the typed confirm. The scheduled roles start only mode `check`, never a production deploy.
+Who starts it: at the cutover (OPS-206 step 5), Claude in chat in the owner's Chrome, on the owner's word for that step, with target `production`, mode `deploy`, `expect_target` `d1` and the typed confirm. The scheduled roles start only target `staging`. A production run, check or deploy, is started by Claude in chat in the owner's Chrome or by the owner.
 
 Way back: a production deploy that fails its health read leaves the cutover's own way back (remove `DB_CUTOVER`, a merge), then run the workflow on `main` with mode `deploy` and `expect_target` `postgres`; or deploy by hand as above, or run `npx wrangler rollback` for `jetnine-voice` from a terminal. To remove the workflow itself, revert its pull request: it changes no running Worker until it is run in mode `deploy`. The terminal steps above stay as the fallback.
 

@@ -392,7 +392,7 @@ No schema or env changes. The runbook, in order:
 
 JetNine's database is moving from Supabase Postgres to Cloudflare D1, one domain at a time.
 
-- **Binding.** The staging Worker has a D1 binding `DB` (database `jetnine-staging`, migrations in `src/db/d1/migrations`). Production has no such binding and stays on Postgres.
+- **Binding.** The staging Worker has a D1 binding `DB` (database `jetnine-staging`, migrations in `src/db/d1/migrations`). Production has its own binding `DB` (database `jetnine-production`, OPS-183) and stays on Postgres until the cutover.
 - **Switch.** `DB_TARGET` (`postgres` or `d1`) names the database per environment. Staging sets `postgres` until the first converted domain row changes it. `src/db/target.mjs` reads it: anything but exactly `d1` means Postgres, and production refuses `d1` by code until the cutover row lifts that on purpose.
 - **Code.** `dbTarget()` and `d1Db()` in `src/db/d1.ts` (re-exported from `src/db`). `db` and `sql` still point at Postgres; a converted domain calls `d1Db()` when `dbTarget()` is `d1`.
 - **Health.** `checks.db` in `/api/health` (full view and `/admin/health`) shows `target`, `d1` (`absent`, `ok` or `error`) and `d1Tables`. D1 never changes `ok` or the status.
@@ -484,11 +484,12 @@ Requests were cut off a few minutes after some production deploys, and the same 
 - **Reading the summary.** Compare its times with the smoke and sitemap jobs of the same run. Non-ok outcomes on visitor paths (exceededCpu, exceededMemory, responseStreamDisconnected, exceptions on pages) are a real fault to file with that evidence. Retries in the checks and nothing in the tail point at the checks racing the rollout. The tail attaches after the deploy job ends, so the first seconds of the new version can fall before it; its summary prints when it attached.
 - **5xx in the tail (OPS-168).** The tail summary now also lists every event whose response status is 500 or more, whatever its outcome (a 500 page the app renders itself ends with outcome `ok`, so it used to be invisible), and each Worker block says `5xx: N`; the summary ends with the total. `5xx: 0` is a good line.
 - **The `Worker errors` workflow (OPS-168).** Started by hand (Actions, Worker errors, or `gh workflow run worker-errors.yml -f from=2026-11-18T07:10:00Z -f to=2026-11-18T07:40:00Z -f env=production`), it reads Workers Logs for any window of at most 2 hours through Cloudflare's Workers Observability query with the repo's own `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` (no new secret) and prints, per Worker, counts by level, outcome and status, up to 50 error lines (time, Worker, path without query string, level, outcome, status, the message redacted: emails, URLs, quoted values, everything after `params:`, long digit runs and tokens are replaced, then cut to 160 characters), the 10 most common redacted messages, and the field NAMES of the first event. It never prints a header, query string, body, cookie, the token or the account id. If the token lacks the Workers Observability read permission it prints `the deploy token cannot read Workers Logs (needs Workers Observability read)` and ends green: then the owner adds that one permission to the existing token. Logs are kept only for a limited time, so read a window soon after a break. It has no deploy, publish or migration step. Way back: delete the workflow file.
+- **Worker errors reads in slices, and the edge says why (OPS-195).** The report now reads a window in slices of 5 minutes, one query each, and prints one line per slice (`slice 07:10 to 07:15: 12 events`), with `CAPPED` on a slice that reached the limit or whose total is larger than its list, and a header count of capped and failed slices. A failed slice prints its HTTP status and the rest still run. The edge Worker (`edge/worker.ts`) writes one line when its call to the app throws or answers 5xx, in two shapes: `[edge] app 5xx where=pass status=500 code=1102 colo=LAX method=GET path=/contact` and `[edge] app fetch threw where=miss name=TypeError colo=LAX method=GET path=/contact msg=...`. `where` is pass, miss, refresh or standin; `code` is Cloudflare's own platform error code for the app Worker (for example 1102 or 1101), read from the first 200 characters of a text/plain answer only, else `none`. No header, cookie, query string, ray id or HTML body is ever logged, and what the visitor gets is unchanged. Tests: `pnpm exec tsx --test edge/worker.test.ts`. Way back: revert the merge commit; the next production deploy puts the edge back as it was.
 - **Staging robots.** The smoke check holds staging to the same rule as previews (`Disallow: /` and no `Sitemap:` line), matching `src/app/robots.ts`. Production is still held to the production rule.
 
 - **The `warm` job (OPS-175).** After the app deploy and before `smoke` and `sitemap`, `warm` in `deploy-cloudflare.yml` runs `node scripts/deploy-warm/warm.mjs <url>`: it requests `/`, `/contact`, `/cost-calculator` and `/api/health` of the target (a read every 5 s, `cache-control: no-cache`, redirects not followed) until each answers 200 three times in a row, and `/api/health` must also say `ok: true`. One line per page: `warm: /contact 200 x3 after 2 tries (1.4 s)`, or `WARM FAIL: /contact last status 500 after 35 tries` with exit 1 after 180 s. `smoke` and `sitemap` need `warm`, so a deploy that serves 500s near the runner is red and its smoke never starts. It reads only the data centre nearest the runner, so a pass does not prove every data centre. `tail`, `monitor` and `voice-staging` still start right after `deploy`. No secret, and nothing but a status label is printed. Way back: revert the change; `smoke` and `sitemap` go back to `needs: deploy`.
 
-Tests: `pnpm exec tsx --test scripts/smoke-fetch.test.mts`, `node --test scripts/deploy-tail/summarize.test.mjs`, `node --test scripts/deploy-warm/warm.test.mjs`, `node --test scripts/worker-errors/query.test.mjs`, `python3 scripts/test-live-sitemap.py`.
+Tests: `pnpm exec tsx --test edge/worker.test.ts`, `pnpm exec tsx --test scripts/smoke-fetch.test.mts`, `node --test scripts/deploy-tail/summarize.test.mjs`, `node --test scripts/deploy-warm/warm.test.mjs`, `node --test scripts/worker-errors/query.test.mjs`, `python3 scripts/test-live-sitemap.py`.
 
 ## Codes and timestamps made by the app (OPS-101)
 
@@ -523,17 +524,29 @@ How types map, decided once:
 
 ## Copy Postgres to staging D1 (OPS-105)
 
-Step 5 of the move to Cloudflare (OPS-93): fill staging's own D1 database from Postgres and prove the copy is whole. Production's database is never written.
+Step 5 of the move to Cloudflare (OPS-93): fill staging's own D1 database from Postgres and prove the copy is whole. Production's database is written only by the production target of OPS-197 (below), at the cutover.
 
 - Run the GitHub workflow **D1 copy** by hand (Actions, Run workflow). `mode = load` applies the D1 migrations, wipes the staging D1 tables, copies all 57 tables (51 at OPS-105, then the 6 added since, four of them the voice tables of OPS-129; the held-back ones are loaded empty) and then checks; `mode = check` only compares. It uses the repo secrets `DATABASE_URL`, `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`.
 - Postgres is read in one read-only snapshot, so every table comes from the same moment. Values are mapped by the rules in "D1 tables (OPS-100)" above (`scripts/d1-copy/map.mjs`).
 - The log has one line per table: Postgres rows, D1 rows, and "checksum equal yes or no". The checksum is an order-independent hash of each row's key and its `updated_at` (or `created_at`). No row value is printed, and wrangler's own text is not echoed. A failure prints an error code only.
-- The tool refuses any target other than the database `jetnine-staging` with `--env staging`; the guard runs before any call. `pnpm exec tsx scripts/d1-copy/copy.mjs --list` prints the table plan with no network.
+- The tool refuses any target other than the database `jetnine-staging` with `--env staging`, or (OPS-197) `jetnine-production` with no env; the guard runs before any call. `pnpm exec tsx scripts/d1-copy/copy.mjs --list` prints the table plan with no network.
 - **Held back on purpose:** `user_credentials` (password hashes), `user_sessions` (session token hashes), `api_keys` (key hashes) and `ai_providers` (encrypted provider keys). These are not copied to staging. Moving credentials is the owner's decision and belongs to the cutover row.
 - Staging D1 is a test copy, not a source of truth. Run the copy again whenever a fresh copy is needed; it starts by wiping.
 - The reverse copy (D1 back to Postgres, for a rollback) is not part of this row.
 - Tests (`scripts/d1-copy/*.test.*`) run in CI and need no secrets or network.
 - **Copy rehearsal (OPS-198).** The CI job `Copy rehearsal` replays all 58 Postgres migrations on a throwaway `postgres:15` (with small Supabase stand-ins), loads a made-up fixture and runs `copy.mjs --target staging --mode rehearse` from it into an in-memory D1, ending `0 with a difference`. It uses no secret and refuses any host but localhost, so it touches nothing live. The Postgres major is an assumption (15; JetNine's Supabase version is not readable from a run). The reverse copy (8b3b) is rehearsed on this bed before it ever runs on production. Details: `docs/d1-steps/OPS-198.md`.
+
+### Production target (OPS-197)
+
+Step 8b2 of the move to Cloudflare (OPS-93): the same tool can fill `jetnine-production` on cutover day, carrying what staging never gets. Nothing in this row writes to production D1.
+
+- **Targets and modes.** The workflow **D1 copy** now offers `target` staging or production and `mode` load, check or preflight. Staging behaves as before. Production runs only from `main` (the first step refuses any other ref).
+- **What production carries that staging never gets.** Password hashes as `coalesce(user_credentials.password_hash, auth.users.encrypted_password)` (what sign-in reads today; users with no hash at all are left out), bans from `auth.users.banned_until`, and `user_sessions`, `api_keys` and `ai_providers` as stored (hashed or sealed, never opened; the voice Worker and the site share the sealing secret, so sealed text works as is). Only `request_rate_limits` is held back.
+- **Two typed keys for a load.** The input `confirm` must be exactly `copy-to-production`. If production D1 already holds rows (after the cutover it holds the only new writes) the input `replace` must be exactly `replace-production-d1` as well. They reach the script as `CONFIRM` and `REPLACE` in the environment, never on the command line. A wrong or missing confirm is refused before any call to Cloudflare.
+- **Preflight.** `mode = preflight` reads Postgres in one snapshot, builds the whole load, runs it against an in-memory D1 built from the migrations and prints `preflight ok: N tables, R rows`, then (production) `user_credentials: N (N1 set on the site, N2 from auth.users)` and `users banned now: N`. It writes nothing and applies no migration; it needs only `DATABASE_URL`. Run it any time on either target.
+- **Check.** `mode = check` on production compares counts and key checksums per table, and the number of users banned at one instant on both sides. Numbers only; no row value is printed.
+- **A load is the cutover's.** Never run target production with mode load except on the owner's yes, at the cutover.
+- **Way back.** Revert the merge commit; the workflow returns to staging only. Nothing was written to production D1 by this row. `docs/d1-steps/OPS-197.md` has the row's summary.
 
 ### Load order, nulled references and the preflight (OPS-115)
 
@@ -545,3 +558,24 @@ The first load failed with `SQLITE_CONSTRAINT` and the log did not say where. Wh
 - **Clean preflight** prints `preflight ok: [n] tables, [rows] rows; ...` and the remote load follows as before.
 - **If the remote load still fails** the log prints the error code with the constraint kind and names, then counts the rows of every table in staging D1: `staging D1 after the failed load: empty` or `partial, [x] of [n] tables have rows (a new load wipes it first)`. Running the load again is always safe.
 - Nothing else changed: the staging-only guard, the held-back tables (never read from Postgres), no row value in any log line.
+
+## Production D1 database (OPS-183)
+
+Step 8b of the move to Cloudflare (OPS-93): production's Worker binds its own D1 database, `jetnine-production` (created empty by the owner, OPS-177), with the same migrations folder as staging.
+
+- **Binding.** `wrangler.jsonc`, top level: `DB` on `jetnine-production`, `migrations_dir` `src/db/d1/migrations`. Production sets neither `DB_TARGET` nor `DB_CUTOVER`, so `parseDbTarget` (OPS-176) still returns Postgres and no query reads it. The health probe shows `d1` and `d1Tables` as information only; a D1 error cannot change the status.
+- **Job.** `Deploy (Cloudflare)` has a job `d1-production` (production only, after `deploy`): it applies the D1 migrations to `jetnine-production` and prints `D1 jetnine-production tables: N`. N equals the `D1 jetnine-staging tables: N` of a staging run on the same commit. It is its own job, so a D1 failure turns the run red but never stops the live app deploy. The cutover row moves it before the app deploy once production reads D1.
+- **Key.** The repo's own `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` (the staging step already uses them). No new secret.
+- **Test.** `src/db/wrangler-d1.test.mjs` (CI step "Database target tests"): the production and staging bindings, and that no block sets `DB_CUTOVER`.
+- **No data is copied** here. The copy into production (with password hashes and bans) and the reverse copy are the next part (8b2), on the owner's yes.
+- **Way back.** Revert the merge commit. The Worker has no DB binding again; the tables in `jetnine-production` stay, unused (dropping the database is the owner's).
+
+## Production voice Worker binds the production D1 database (OPS-196)
+
+Step 8c of the move to Cloudflare (OPS-93): the top level of `voice/wrangler.jsonc` binds `DB` to `jetnine-production`, the same database the site binds (OPS-183), so on cutover day the phone line already knows its D1 database.
+
+- **Binding.** `d1_databases` at the top level of `voice/wrangler.jsonc`: `DB`, `jetnine-production`, id `1e1b0249-62b3-41c2-a971-4642a295b896`. `DB_TARGET` and `DB_CUTOVER` are set nowhere in the production block, so production voice still reads Postgres (`voice/src/db/target.ts`). The Worker never applies D1 migrations; the site's deploy does.
+- **What the cutover sets.** `DB_TARGET` `d1` and `DB_CUTOVER` `production-d1` (OPS-176), `DEPLOY_ENV` stays `production`. `voice/README.md` says the same.
+- **Not deployed by this change.** Deploy (Cloudflare) ignores `voice/**`. Production voice is deployed by hand by the owner; the binding takes effect at his next deploy and changes nothing while those two settings are unset. Then `https://voice.jetnine.com/health` shows `db: { target: "postgres", ok: true }`.
+- **Tests.** CI step "Database target tests" (`src/db/wrangler-d1.test.mjs`): the voice and site production bindings name the same database, voice staging keeps `jetnine-staging`, no voice block sets `DB_CUTOVER`. CI job `voice` has a step "Bundle dry run" (`wrangler deploy --dry-run`, no credentials).
+- **Way back.** Revert the merge commit. If the owner deployed voice in between, deploy it again from the reverted main; while the two settings are unset the binding is never read.

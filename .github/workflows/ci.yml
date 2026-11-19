@@ -78,6 +78,11 @@ jobs:
       - name: Edge Worker bundle dry run
         run: pnpm exec wrangler deploy -c edge/wrangler.jsonc --env "" --dry-run
 
+      # The edge Worker's failure log (OPS-195): one short line when the app throws or answers 5xx,
+      # the visitor's answer unchanged, and no query string, cookie, header or quote in the line.
+      - name: Edge Worker tests
+        run: pnpm exec tsx --test edge/worker.test.ts
+
       # The monitor Worker (monitor/, OPS-60): its tests and a bundle dry run.
       - name: Monitor tests
         run: node --test monitor/monitor.test.mjs
@@ -113,7 +118,7 @@ jobs:
       - name: Database target tests
         # The production cutover switch (OPS-176) and the list of Postgres call sites left.
         run: |
-          node --test src/db/target.test.mjs
+          node --test src/db/target.test.mjs src/db/wrangler-d1.test.mjs
           pnpm exec tsx --test src/db/postgres-left.test.ts
           pnpm exec tsx --test src/lib/health-db.test.ts
 
@@ -255,6 +260,12 @@ jobs:
         working-directory: voice
         run: pnpm test --reporter=verbose
 
+      - name: Bundle dry run
+        # Builds the Worker with the config as it is, no credentials, nothing uploaded
+        # (OPS-196). The log lists the bindings, among them DB on jetnine-production.
+        working-directory: voice
+        run: pnpm exec wrangler deploy --dry-run --outdir .wrangler/dry-run
+
   e2e:
     name: playwright smoke
     runs-on: ubuntu-24.04
@@ -281,7 +292,16 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Install Playwright browsers
-        run: pnpm exec playwright install --with-deps chromium
+        # The runner already has Chromium's libraries, so install only the
+        # browser. "--with-deps" also pulled fonts from an apt mirror that ran
+        # at 65 kB/s and cancelled 3 smoke jobs on 2026-11-18 (OPS-199).
+        # Fall back to the system packages only if Chromium cannot start.
+        run: |
+          pnpm exec playwright install chromium
+          if ! node -e "require('@playwright/test').chromium.launch().then(b => b.close())"; then
+            echo "::warning::Chromium did not start without system packages; installing them"
+            pnpm exec playwright install-deps chromium
+          fi
 
       - name: Build app for smoke run
         run: pnpm build

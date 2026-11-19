@@ -1,7 +1,7 @@
 // Run with: node --test scripts/worker-errors/
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { MAX_LINES, buildBody, parseArgs, redact, report, run } from "./query.mjs";
+import { EVENT_LIMIT, MAX_LINES, SLICE_MS, buildBody, parseArgs, redact, report, run, slicesOf } from "./query.mjs";
 
 const T = Date.UTC(2026, 10, 18, 7, 22, 45);
 const NOW = Date.UTC(2026, 10, 18, 20, 0, 0);
@@ -121,4 +121,87 @@ test("the names of the first event's fields are printed, never their values, and
   assert.match(r.text, /- \$workers: event, outcome, scriptName/);
   assert.match(r.text, /more exist: the query is capped/);
   assert.ok(!r.text.includes("contact?token"));
+});
+
+// ─── OPS-195: the window is read in 5 minute slices and a cut is never silent ───
+
+const bodyOf = (init) => JSON.parse(init.body);
+
+test("a 30 minute window is read as 6 queries of 5 minutes, in order, with the same filters", async () => {
+  const bodies = [];
+  const r = await run(ARGS, env, async (_url, init) => { bodies.push(bodyOf(init)); return answer([]); }, NOW);
+  assert.equal(bodies.length, 6);
+  const from = Date.parse(ARGS[0]);
+  bodies.forEach((b, i) => {
+    assert.deepEqual(b.timeframe, { from: from + i * SLICE_MS, to: from + (i + 1) * SLICE_MS });
+    assert.equal(b.view, "events");
+    assert.deepEqual(b.parameters.filters[0].filters.map((f) => f.value), ["jetnine-edge", "jetnine-web"]);
+  });
+  assert.match(r.text, /Slices of 5 minutes: 6, capped: 0, failed: 0\./);
+  assert.match(r.text, /- slice 07:10 to 07:15: 0 events\n/);
+  assert.match(r.text, /- slice 07:35 to 07:40: 0 events\n/);
+  assert.equal(r.exit, 0);
+});
+
+test("slicesOf: a window that is not a multiple of 5 minutes ends with a short slice; 2 hours is 24 slices", () => {
+  const a = Date.UTC(2026, 10, 18, 7, 0, 0);
+  assert.deepEqual(slicesOf(a, a + 12 * 60_000), [[a, a + 300_000], [a + 300_000, a + 600_000], [a + 600_000, a + 720_000]]);
+  assert.equal(slicesOf(a, a + 2 * 60 * 60_000).length, 24);
+});
+
+test("a slice that reached the limit, or whose total is larger than its list, is flagged CAPPED and counted in the header", async () => {
+  let n = 0;
+  const r = await run(ARGS, env, async () => {
+    n += 1;
+    if (n === 2) return answer([event()], 5000);
+    if (n === 4) return answer(Array.from({ length: EVENT_LIMIT }, () => event()), EVENT_LIMIT);
+    return answer([event()]);
+  }, NOW);
+  assert.match(r.text, /Slices of 5 minutes: 6, capped: 2, failed: 0\./);
+  assert.match(r.text, /- slice 07:15 to 07:20: 1 events CAPPED/);
+  assert.match(r.text, new RegExp(`- slice 07:25 to 07:30: ${EVENT_LIMIT} events CAPPED`));
+  assert.match(r.text, /- slice 07:10 to 07:15: 1 events\n/);
+  assert.match(r.text, /more exist: the query is capped/);
+});
+
+test("a failed slice is reported with its status and the others still run; a network fault in one slice does the same", async () => {
+  let n = 0;
+  const r = await run(ARGS, env, async () => {
+    n += 1;
+    if (n === 2) return { ok: false, status: 502, json: async () => ({ success: false, errors: [{ message: "bad gateway for 123456789" }] }) };
+    if (n === 3) throw new TypeError("fetch failed secret detail");
+    return answer([event()]);
+  }, NOW);
+  assert.equal(n, 6);
+  assert.equal(r.exit, 0);
+  assert.match(r.text, /Slices of 5 minutes: 6, capped: 0, failed: 2\./);
+  assert.match(r.text, /- slice 07:15 to 07:20: failed, HTTP 502, bad gateway for <n>/);
+  assert.match(r.text, /- slice 07:20 to 07:25: failed, no answer \(TypeError\)/);
+  assert.ok(!r.text.includes("secret"));
+  assert.match(r.text, /Events read: 4\./);
+});
+
+test("when every slice fails the run exits 1; a 401 in any slice keeps the one token line and exit 0", async () => {
+  const all = await run(ARGS, env, async () => ({ ok: false, status: 500, json: async () => ({ success: false, errors: [] }) }), NOW);
+  assert.equal(all.exit, 1);
+  assert.match(all.text, /^the query failed in every slice: HTTP 500/);
+  let n = 0;
+  const late = await run(ARGS, env, async () => { n += 1; return n === 3 ? { ok: false, status: 401, json: async () => ({}) } : answer([event()]); }, NOW);
+  assert.equal(late.exit, 0);
+  assert.equal(late.text, "the deploy token cannot read Workers Logs (needs Workers Observability read)");
+});
+
+test("an event that comes back in two slices (same id) is counted once", async () => {
+  const dup = event({ $metadata: { id: "evt-1", service: "jetnine-web", level: "error", message: "boom" } });
+  const r = await run(ARGS, env, async () => answer([dup]), NOW);
+  assert.match(r.text, /Events read: 1\./);
+  assert.match(r.text, /Slices of 5 minutes: 6, capped: 0, failed: 0\./);
+});
+
+test("the two lines the edge Worker writes survive redact() unchanged", () => {
+  const lines = [
+    "[edge] app 5xx where=pass status=500 code=1102 colo=LAX method=GET path=/contact",
+    "[edge] app fetch threw where=miss name=Error colo=SJC method=GET path=/cost-calculator msg=Network connection lost",
+  ];
+  for (const l of lines) assert.equal(redact(l), l);
 });

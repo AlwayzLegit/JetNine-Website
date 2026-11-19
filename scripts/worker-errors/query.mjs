@@ -15,6 +15,11 @@
  * string, a body, a cookie, the token or the account id. It also prints the NAMES (never the
  * values) of the fields of the first event, so a change in Cloudflare's event shape is visible.
  *
+ * The window is read in slices of 5 minutes, one query each (OPS-195). The first run for OPS-168
+ * asked for 30 minutes in one query and got 101 events with no sign that it was cut: an event of
+ * 07:15:16Z was missing. Each slice now prints its own count and says CAPPED when it reached the
+ * limit or the answer's total is larger than the list, so a cut is never silent.
+ *
  * A 401 or 403 prints one line saying the token cannot read Workers Logs and exits 0.
  */
 import { pathToFileURL } from "node:url";
@@ -24,6 +29,7 @@ export const MAX_WINDOW_MS = 2 * 60 * 60 * 1000;
 export const MAX_LINES = 50;
 export const MAX_MESSAGE = 160;
 export const EVENT_LIMIT = 1000;
+export const SLICE_MS = 5 * 60 * 1000;
 const ENDPOINT = (account) => `https://api.cloudflare.com/client/v4/accounts/${account}/workers/observability/telemetry/query`;
 
 export const SERVICES = {
@@ -66,6 +72,13 @@ export function parseArgs(argv, now = Date.now()) {
   if (from > now) throw new Error("from is in the future");
   if (!SERVICES[envName]) throw new Error("env must be production or staging");
   return { from, to, env: envName, services: SERVICES[envName] };
+}
+
+/** The window cut into slices of at most 5 minutes, in order: [[from, to], ...] in Unix ms. */
+export function slicesOf(from, to, size = SLICE_MS) {
+  const out = [];
+  for (let at = from; at < to; at += size) out.push([at, Math.min(at + size, to)]);
+  return out;
 }
 
 /** The request body. Unix ms timeframe; events of the two Workers of the environment. */
@@ -124,12 +137,20 @@ const count = (rows, pick) => {
   return Object.entries(out).sort((a, b) => b[1] - a[1]).map(([k, v]) => `${k} ${v}`).join(", ") || "none";
 };
 
+const hhmm = (ms) => new Date(ms).toISOString().slice(11, 16);
 const when = (ms) => (ms === null ? "??:??:??" : new Date(ms).toISOString().slice(11, 23) + "Z");
 
 /** The markdown report from the raw events. Pure: no network, no clock. */
-export function report(events, { from, to, env, truncated = false }) {
+export function report(events, { from, to, env, truncated = false, slices = [] }) {
   const rows = events.map(reduceEvent);
-  const lines = [`## Worker errors, ${env}`, "", `Window: ${new Date(from).toISOString()} to ${new Date(to).toISOString()}. Events read: ${rows.length}${truncated ? ` (more exist: the query is capped at ${EVENT_LIMIT})` : ""}.`, ""];
+  const lines = [`## Worker errors, ${env}`, "", `Window: ${new Date(from).toISOString()} to ${new Date(to).toISOString()}. Events read: ${rows.length}${truncated ? ` (more exist: the query is capped at ${EVENT_LIMIT} in at least one slice)` : ""}.`, ""];
+  if (slices.length > 0) {
+    const capped = slices.filter((x) => x.capped).length;
+    const failed = slices.filter((x) => x.failed).length;
+    lines.push(`Slices of 5 minutes: ${slices.length}, capped: ${capped}, failed: ${failed}.`, "");
+    for (const x of slices) lines.push(`- slice ${hhmm(x.from)} to ${hhmm(x.to)}: ${x.failed ? `failed, ${x.failed}` : `${x.count} events${x.capped ? " CAPPED" : ""}`}`);
+    lines.push("");
+  }
   for (const service of [...new Set(rows.map((r) => r.service))].sort()) {
     const mine = rows.filter((r) => r.service === service);
     const bad = mine.filter(isError);
@@ -179,33 +200,55 @@ export async function run(argv, env, fetchImpl = fetch, now = Date.now()) {
   const token = env.CLOUDFLARE_API_TOKEN;
   const account = env.CLOUDFLARE_ACCOUNT_ID;
   if (!token || !account || !/^[0-9a-f]{32}$/i.test(account)) return { text: "the deploy token or account id is not set for this run", exit: 2 };
-  let res;
-  try {
-    res = await fetchImpl(ENDPOINT(account), {
-      method: "POST",
-      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-      body: JSON.stringify(buildBody(args)),
-      signal: AbortSignal.timeout(60_000),
-    });
-  } catch (err) {
-    return { text: `the query did not get an answer (${String(err?.name ?? "Error")})`, exit: 1 };
+  const events = [];
+  const seen = new Set();
+  const done = [];
+  for (const [from, to] of slicesOf(args.from, args.to)) {
+    let res;
+    try {
+      res = await fetchImpl(ENDPOINT(account), {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify(buildBody({ ...args, from, to })),
+        signal: AbortSignal.timeout(60_000),
+      });
+    } catch (err) {
+      done.push({ from, to, failed: `no answer (${String(err?.name ?? "Error")})` });
+      continue;
+    }
+    if (res.status === 401 || res.status === 403) {
+      return { text: "the deploy token cannot read Workers Logs (needs Workers Observability read)", exit: 0 };
+    }
+    let json = null;
+    try {
+      json = await res.json();
+    } catch {
+      json = null;
+    }
+    if (!res.ok || json?.success === false) {
+      const msgs = Array.isArray(json?.errors) ? json.errors.map((e) => redact(e?.message, 120)).filter(Boolean).slice(0, 3).join(" | ") : "";
+      done.push({ from, to, failed: `HTTP ${res.status}${msgs ? `, ${msgs}` : ""}` });
+      continue;
+    }
+    const list = Array.isArray(json?.result?.events?.events) ? json.result.events.events : [];
+    const total = num(json?.result?.events?.count);
+    for (const e of list) {
+      // A boundary event can come back in two slices: keep it once.
+      const id = str(e?.$metadata?.id);
+      if (id) {
+        if (seen.has(id)) continue;
+        seen.add(id);
+      }
+      events.push(e);
+    }
+    done.push({ from, to, count: list.length, capped: list.length >= EVENT_LIMIT || (total !== null && total > list.length) });
   }
-  if (res.status === 401 || res.status === 403) {
-    return { text: "the deploy token cannot read Workers Logs (needs Workers Observability read)", exit: 0 };
+  const text = report(events, { ...args, truncated: done.some((x) => x.capped), slices: done });
+  if (done.every((x) => x.failed)) {
+    const first = done[0]?.failed ?? "";
+    return { text: `the query failed in every slice: ${first}\n\n${text}`, exit: 1 };
   }
-  let json = null;
-  try {
-    json = await res.json();
-  } catch {
-    json = null;
-  }
-  if (!res.ok || json?.success === false) {
-    const msgs = Array.isArray(json?.errors) ? json.errors.map((e) => redact(e?.message, 120)).filter(Boolean).slice(0, 3).join(" | ") : "";
-    return { text: `the query failed: HTTP ${res.status}${msgs ? `, ${msgs}` : ""}`, exit: 1 };
-  }
-  const list = Array.isArray(json?.result?.events?.events) ? json.result.events.events : [];
-  const total = num(json?.result?.events?.count);
-  return { text: report(list, { ...args, truncated: total !== null && total > list.length }), exit: 0 };
+  return { text, exit: 0 };
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {

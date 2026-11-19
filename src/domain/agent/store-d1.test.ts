@@ -1,6 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { freshD1 } from "@/db/d1/test-client";
+import { members } from "@/db/d1/schema/members";
+import { quotes } from "@/db/d1/schema/quotes";
+import { trips } from "@/db/d1/schema/trips";
 import { users } from "@/db/d1/schema/users";
 import { d1ApiKeyStore } from "@/lib/api-key-store/store-d1";
 import { d1AgentStore } from "./store-d1";
@@ -354,3 +357,43 @@ test("a playbook's jobs read back as an array of objects", async () => {
 });
 
 void DAY;
+
+test("subjectStatuses reads the status of quotes and trips, 120 ids across the chunks, and empty lists run no query", async () => {
+  const { client, store } = fresh();
+  // Empty lists give empty results.
+  assert.deepEqual(await store.subjectStatuses([], []), { quotes: [], trips: [] });
+
+  const quoteIds: string[] = [];
+  for (let i = 0; i < 60; i++) {
+    const [q] = await client
+      .insert(quotes)
+      .values({
+        quoteCode: `JN-2026-${String(1000 + i).padStart(4, "0")}`,
+        tripType: "one_way",
+        paxCount: 1,
+        status: i % 2 === 0 ? "submitted" : "triaged",
+        contactSnapshot: { firstName: "A", lastName: "B", email: "a@example.com" },
+      } as never)
+      .returning({ id: quotes.id });
+    quoteIds.push(q.id);
+  }
+  const [u] = await client.insert(users).values({ email: "m@example.com" } as never).returning({ id: users.id });
+  const [mem] = await client.insert(members).values({ userId: u.id, memberCode: "M-1" } as never).returning({ id: members.id });
+  const tripIds: string[] = [];
+  for (let i = 0; i < 60; i++) {
+    const [t] = await client
+      .insert(trips)
+      .values({ tripCode: `JN-2026-${String(2000 + i).padStart(4, "0")}`, memberId: mem.id, missionType: "one_way", paxCount: 1, status: "confirmed" } as never)
+      .returning({ id: trips.id });
+    tripIds.push(t.id);
+  }
+  const got = await store.subjectStatuses([...quoteIds, "no-such-quote"], [...tripIds, "no-such-trip"]);
+  assert.equal(got.quotes.length, 60);
+  assert.equal(got.trips.length, 60);
+  const byId = new Map(got.quotes.map((r) => [r.id, r.status]));
+  assert.equal(byId.get(quoteIds[0]), "submitted");
+  assert.equal(byId.get(quoteIds[1]), "triaged");
+  assert.ok(got.trips.every((r) => r.status === "confirmed"));
+  // One kind alone.
+  assert.equal((await store.subjectStatuses(quoteIds.slice(0, 3), [])).trips.length, 0);
+});

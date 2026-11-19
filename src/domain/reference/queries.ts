@@ -1,8 +1,6 @@
-import { and, asc, eq, gt, lt, sql } from "drizzle-orm";
-import { db } from "@/db";
 import { emptyLegStore } from "@/domain/empty-legs/store";
-import { aircraftScheduleBlocks } from "@/db/schema/schedule-blocks";
-import { trips } from "@/db/schema/trips";
+import { aiProviderStore } from "@/domain/settings/ai-store";
+import { tripStore, type WindowBlockRow } from "@/domain/trips/store";
 import { referenceStore, type AircraftListRow, type FleetBoardRow, type OperatorRow } from "./store";
 
 /**
@@ -110,18 +108,16 @@ export async function referenceCounts(): Promise<Partial<ReferenceCounts>> {
   // must fail loudly, not come back as an empty page (OPS-112, OPS-113).
   const store = referenceStore();
   const legs = emptyLegStore();
+  const providers = aiProviderStore();
   try {
-    // The four reference counts and the empty-legs count go through their
-    // stores (Postgres or D1); ai_providers stays on Postgres until its own row.
-    const [reference, [rest], emptyLegCount] = await Promise.all([
+    // The four reference counts, the empty-legs count and the enabled AI
+    // providers go through their stores (Postgres or D1; OPS-166 for providers).
+    const [reference, aiProviders, emptyLegCount] = await Promise.all([
       store.counts(),
-      db.execute<Pick<ReferenceCounts, "ai_providers">>(sql`
-        select
-          (select count(*)::int from public.ai_providers where enabled) as ai_providers
-      `),
+      providers.countEnabled(),
       legs.countActive(),
     ]);
-    return { ...reference, ...(rest ?? {}), empty_legs: emptyLegCount };
+    return { ...reference, ai_providers: aiProviders, empty_legs: emptyLegCount };
   } catch {
     // A missing table (e.g. ai_providers before migration 0047) must not
     // take the whole page down — the links still work.
@@ -142,27 +138,8 @@ export function addDays(d: Date, n: number): Date {
   return next;
 }
 
-async function loadBlocks(from: Date, to: Date) {
-  return db
-    .select({
-      id: aircraftScheduleBlocks.id,
-      aircraftId: aircraftScheduleBlocks.aircraftId,
-      kind: aircraftScheduleBlocks.kind,
-      startAt: aircraftScheduleBlocks.startAt,
-      endAt: aircraftScheduleBlocks.endAt,
-      relatedTripId: aircraftScheduleBlocks.relatedTripId,
-      relatedQuoteId: aircraftScheduleBlocks.relatedQuoteId,
-      notes: aircraftScheduleBlocks.notes,
-      tripCode: trips.tripCode,
-    })
-    .from(aircraftScheduleBlocks)
-    .leftJoin(trips, eq(trips.id, aircraftScheduleBlocks.relatedTripId))
-    .where(and(lt(aircraftScheduleBlocks.startAt, to), gt(aircraftScheduleBlocks.endAt, from)))
-    .orderBy(asc(aircraftScheduleBlocks.aircraftId), asc(aircraftScheduleBlocks.startAt));
-}
-
 export type FleetRowFacts = FleetBoardRow;
-export type ScheduleBlockFacts = Awaited<ReturnType<typeof loadBlocks>>[number];
+export type ScheduleBlockFacts = WindowBlockRow;
 
 export type ScheduleWindow = {
   /** Start of today (UTC). */
@@ -182,7 +159,7 @@ export async function listScheduleBlocks(now = new Date(), days = 14): Promise<S
   const span = Math.min(60, Math.max(1, Math.floor(days)));
   const from = startOfUtcDay(now);
   const to = addDays(from, span);
-  const [fleet, blocks] = await Promise.all([referenceStore().fleetBoard(), loadBlocks(from, to)]);
+  const [fleet, blocks] = await Promise.all([referenceStore().fleetBoard(), tripStore().blocksInWindow(from, to)]);
 
   const blocksByTail = new Map<string, ScheduleBlockFacts[]>();
   for (const b of blocks) blocksByTail.set(b.aircraftId, [...(blocksByTail.get(b.aircraftId) ?? []), b]);

@@ -1,6 +1,8 @@
-import { and, count, desc, eq, gte, isNull, lt, sql } from "drizzle-orm";
+import { and, count, desc, eq, gte, inArray, isNull, lt, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { agentMemory, agentPlaybooks, agentRunItems, agentRuns } from "@/db/schema/agent";
+import { quotes } from "@/db/schema/quotes";
+import { trips } from "@/db/schema/trips";
 import type { AgentStore } from "./store";
 
 // The Postgres side of the agent store (OPS-142): the queries that lived in commands.ts and
@@ -196,6 +198,14 @@ export function pgAgentStore(): AgentStore {
         .where(and(eq(agentRunItems.kind, "flag"), eq(agentRunItems.status, "open")))
         .orderBy(desc(agentRunItems.createdAt))
         .limit(100);
+    },
+
+    async subjectStatuses(quoteIds, tripIds) {
+      const [quoteRows, tripRows] = await Promise.all([
+        quoteIds.length ? db.select({ id: quotes.id, status: quotes.status }).from(quotes).where(inArray(quotes.id, quoteIds)) : [],
+        tripIds.length ? db.select({ id: trips.id, status: trips.status }).from(trips).where(inArray(trips.id, tripIds)) : [],
+      ]);
+      return { quotes: quoteRows, trips: tripRows };
     },
 
     async itemsForSubject(subjectType, subjectId, includeDismissed) {

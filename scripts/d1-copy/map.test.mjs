@@ -1,8 +1,14 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  CONFIRM_PRODUCTION,
+  PRODUCTION_DB,
+  REPLACE_PRODUCTION,
   STAGING_DB,
+  TARGETS,
+  assertProductionLoad,
   assertStaging,
+  assertTarget,
   STATEMENT_LIMIT,
   canonicalLine,
   checksumLines,
@@ -119,6 +125,51 @@ test("only staging's own database is accepted", () => {
   assert.throws(() => assertStaging({ target: "staging", database: STAGING_DB, env: "production" }), /refused/);
   assert.throws(() => assertStaging({ target: "staging", database: STAGING_DB, env: undefined }), /refused/);
   assert.throws(() => assertStaging({}), /refused/);
+});
+
+test("assertTarget accepts exactly the two pairs and refuses every mix (OPS-197)", () => {
+  assert.doesNotThrow(() => assertTarget({ target: "staging", database: STAGING_DB, env: "staging" }));
+  assert.doesNotThrow(() => assertTarget({ target: "production", database: PRODUCTION_DB, env: undefined }));
+  assert.equal(PRODUCTION_DB, "jetnine-production");
+  assert.deepEqual(Object.keys(TARGETS).sort(), ["production", "staging"]);
+  // production's database with staging's env, staging's database with no env, and the crossed pairs
+  assert.throws(() => assertTarget({ target: "production", database: PRODUCTION_DB, env: "staging" }), /refused/);
+  assert.throws(() => assertTarget({ target: "production", database: PRODUCTION_DB, env: "production" }), /refused/);
+  assert.throws(() => assertTarget({ target: "production", database: STAGING_DB, env: undefined }), /refused/);
+  assert.throws(() => assertTarget({ target: "staging", database: PRODUCTION_DB, env: "staging" }), /refused/);
+  assert.throws(() => assertTarget({ target: "staging", database: STAGING_DB, env: undefined }), /refused/);
+  // anything else, including a different database that looks alike
+  assert.throws(() => assertTarget({ target: "prod", database: PRODUCTION_DB, env: undefined }), /refused/);
+  assert.throws(() => assertTarget({ target: "production", database: "jetnine-production-2", env: undefined }), /refused/);
+  assert.throws(() => assertTarget({ target: "production", database: "jetnine-tag-cache", env: undefined }), /refused/);
+  assert.throws(() => assertTarget({}), /refused/);
+});
+
+test("assertStaging still refuses production, even with production's own pair", () => {
+  assert.throws(() => assertStaging({ target: "production", database: PRODUCTION_DB, env: undefined }), /refused/);
+});
+
+test("a production load needs the typed confirm, exactly (OPS-197)", () => {
+  assert.equal(CONFIRM_PRODUCTION, "copy-to-production");
+  const ok = { confirm: CONFIRM_PRODUCTION, replace: undefined, d1RowsBefore: 0 };
+  assert.doesNotThrow(() => assertProductionLoad(ok));
+  for (const confirm of [undefined, "", "yes", "true", "copy-to-production ", "COPY-TO-PRODUCTION", "replace-production-d1"]) {
+    assert.throws(() => assertProductionLoad({ ...ok, confirm }), /refused/, `confirm ${JSON.stringify(confirm)}`);
+  }
+});
+
+test("a production D1 that holds rows is wiped only with the second typed input (OPS-197)", () => {
+  assert.equal(REPLACE_PRODUCTION, "replace-production-d1");
+  const base = { confirm: CONFIRM_PRODUCTION, d1RowsBefore: 3 };
+  assert.throws(() => assertProductionLoad({ ...base, replace: undefined }), /holds 3 rows/);
+  assert.throws(() => assertProductionLoad({ ...base, replace: "" }), /refused/);
+  assert.throws(() => assertProductionLoad({ ...base, replace: "copy-to-production" }), /refused/);
+  assert.throws(() => assertProductionLoad({ ...base, replace: "replace-production-d1 " }), /refused/);
+  assert.doesNotThrow(() => assertProductionLoad({ ...base, replace: REPLACE_PRODUCTION }));
+  // the replace key alone never opens a load
+  assert.throws(() => assertProductionLoad({ confirm: undefined, replace: REPLACE_PRODUCTION, d1RowsBefore: 3 }), /refused/);
+  // an empty production D1 needs no replace
+  assert.doesNotThrow(() => assertProductionLoad({ confirm: CONFIRM_PRODUCTION, replace: undefined, d1RowsBefore: 0 }));
 });
 
 test("wrangler output: a banner before the JSON, rows of the first statement", () => {

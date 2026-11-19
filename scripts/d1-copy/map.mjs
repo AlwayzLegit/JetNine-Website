@@ -6,18 +6,60 @@
 // boolean as 0 or 1, jsonb and text[] as JSON text. The D1 column type decides:
 // it is read from the Drizzle D1 schema (`columnType`), not guessed from the value.
 
-/** The only database this tool may write to, and the only environment it may name. */
+/** The staging database and environment: the default target, and what the tool has always written to. */
 export const STAGING_DB = "jetnine-staging";
 export const STAGING_ENV = "staging";
 
 /**
- * Refuse everything but staging's own D1 database. Called with the values the
- * script is about to hand to wrangler, before any call.
+ * The production database (OPS-183): wrangler.jsonc's top-level DB binding, so wrangler
+ * gets no --env for it. Written only by a load with the typed confirm (OPS-197).
+ */
+export const PRODUCTION_DB = "jetnine-production";
+
+/** The two targets this tool may name, each with the database and wrangler env that belong to it. */
+export const TARGETS = {
+  staging: { database: STAGING_DB, env: STAGING_ENV },
+  production: { database: PRODUCTION_DB, env: undefined },
+};
+
+/** The word a production load needs in CONFIRM, and the word it needs in REPLACE to wipe a D1 that holds rows. */
+export const CONFIRM_PRODUCTION = "copy-to-production";
+export const REPLACE_PRODUCTION = "replace-production-d1";
+
+/**
+ * Refuse everything but the two known pairs: (staging, jetnine-staging, env staging) and
+ * (production, jetnine-production, no env). Called with the values the script is about to
+ * hand to wrangler, before any call.
+ */
+export function assertTarget({ target, database, env }) {
+  if (target !== "staging" && target !== "production") {
+    throw new Error(`refused: target must be "staging" or "production", got ${JSON.stringify(target)}`);
+  }
+  const want = TARGETS[target];
+  if (database !== want.database) throw new Error(`refused: database must be ${want.database}`);
+  if (env !== want.env) throw new Error(want.env ? `refused: wrangler env must be ${want.env}` : "refused: wrangler env must not be set for production");
+}
+
+/**
+ * Refuse everything but staging's own D1 database. Kept for callers that only ever mean staging.
  */
 export function assertStaging({ target, database, env }) {
   if (target !== "staging") throw new Error(`refused: target must be "staging", got ${JSON.stringify(target)}`);
-  if (database !== STAGING_DB) throw new Error(`refused: database must be ${STAGING_DB}`);
-  if (env !== STAGING_ENV) throw new Error(`refused: wrangler env must be ${STAGING_ENV}`);
+  assertTarget({ target, database, env });
+}
+
+/**
+ * The two keys of a production load (OPS-197): the typed confirm, and, when production D1 already
+ * holds rows, the typed replace as well. After the cutover production D1 holds the only new writes,
+ * so a load must never wipe it by accident. Pure; `d1RowsBefore` is the number of rows counted.
+ */
+export function assertProductionLoad({ confirm, replace, d1RowsBefore }) {
+  if (confirm !== CONFIRM_PRODUCTION) {
+    throw new Error(`refused: a load into production needs CONFIRM set to exactly ${CONFIRM_PRODUCTION}`);
+  }
+  if (d1RowsBefore > 0 && replace !== REPLACE_PRODUCTION) {
+    throw new Error(`refused: production D1 holds ${d1RowsBefore} rows; to wipe and replace them REPLACE must be exactly ${REPLACE_PRODUCTION}`);
+  }
 }
 
 const INT_RE = /^-?\d+$/;

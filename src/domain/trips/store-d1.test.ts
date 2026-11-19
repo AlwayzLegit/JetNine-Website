@@ -481,6 +481,46 @@ test("the status notice reads the client's contact points, text opt-in and quiet
   assert.equal(await store.noticeTarget("nope"), undefined);
 });
 
+test("blocksInWindow returns blocks that overlap the window, ordered by aircraft then start, with the trip code", async () => {
+  const { client, store } = fresh();
+  const m = await member(client);
+  const op = await operator(client, "Acme Air");
+  const a1 = await plane(client, op, "N111AA");
+  const a2 = await plane(client, op, "N222BB");
+  const t = await trip(client, m.id, { aircraftId: a1, tripCode: "JN-2026-8101" });
+  await leg(client, t, 1, { scheduledDepAt: at(2 * DAY), scheduledArrAt: at(2 * DAY + 3 * HOUR) });
+  await store.setStatus(t, { status: "confirmed" });
+
+  const mk = async (aircraftId: string, startAt: Date, endAt: Date) =>
+    (await store.insertBlock({ aircraftId, kind: "maintenance", startAt, endAt, notes: "n" } as never)).id;
+  const inside = await mk(a1, at(1 * DAY), at(1 * DAY + HOUR));
+  const edgeStart = await mk(a1, at(-2 * DAY), at(DAY / 2));
+  const edgeEnd = await mk(a2, at(13 * DAY), at(15 * DAY));
+  const outsideBefore = await mk(a1, at(-3 * DAY), at(-2 * DAY));
+  const outsideAfter = await mk(a2, at(20 * DAY), at(21 * DAY));
+  const touchingStart = await mk(a2, at(-1 * DAY), at(0));
+  const touchingEnd = await mk(a2, at(14 * DAY), at(15 * DAY));
+
+  const rows = await store.blocksInWindow(at(0), at(14 * DAY));
+  const ids = rows.map((r) => r.id);
+  for (const x of [inside, edgeStart, edgeEnd]) assert.ok(ids.includes(x), x);
+  for (const x of [outsideBefore, outsideAfter, touchingStart, touchingEnd]) assert.ok(!ids.includes(x), x);
+  // The trip's own block is there too: 3 manual blocks that overlap plus the trip block.
+  assert.equal(rows.length, 4);
+  // Ordered by aircraft, then by start.
+  const key = (r: (typeof rows)[number]) => `${r.aircraftId}|${String(r.startAt.getTime()).padStart(15, "0")}`;
+  assert.deepEqual(rows.map(key), [...rows.map(key)].sort());
+  assert.ok(rows.every((r) => r.startAt instanceof Date && r.endAt instanceof Date));
+  assert.equal(rows.find((r) => r.relatedTripId === t)?.tripCode, "JN-2026-8101");
+  assert.equal(rows.find((r) => r.id === inside)?.tripCode, null);
+  assert.equal(rows.find((r) => r.id === inside)?.notes, "n");
+});
+
+test("blocksInWindow of an empty window returns an empty list", async () => {
+  const { store } = fresh();
+  assert.deepEqual(await store.blocksInWindow(at(0), at(14 * DAY)), []);
+});
+
 // OPS-164: the operator page's recent trips and lifetime totals.
 
 test("operatorRecentTrips is newest first, honours the limit and leaves another operator's trips out", async () => {

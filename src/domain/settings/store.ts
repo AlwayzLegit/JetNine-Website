@@ -1,5 +1,7 @@
 import { d1Db, dbTarget } from "@/db";
 import { NOTIFICATION_DEFAULTS } from "@/db/schema/desk";
+import type { staff } from "@/db/schema/staff";
+import type { users } from "@/db/schema/users";
 import { d1SettingsStore } from "./store-d1";
 import { pgSettingsStore } from "./store-pg";
 
@@ -10,11 +12,30 @@ import { pgSettingsStore } from "./store-pg";
 // SettingsStore. There is one adapter per database, chosen per request by
 // dbTarget(): Postgres until the move, D1 where DB_TARGET is "d1" (staging
 // first; the code refuses "d1" in production, see src/db/target.mjs).
-// Left where they are on purpose: the team list and the emails-sent count
-// (users and messages move with their own rows) and the audit log (OPS-123).
+// Since OPS-165 the team list (teamRows) and the two one-person name reads
+// (userNameEmail) are here too. Left where they are on purpose: the emails-sent
+// count (messages move with their own rows) and the audit log (OPS-123).
 
 export type NotificationKind = keyof typeof NOTIFICATION_DEFAULTS;
 export type NotificationPrefsRow = Record<NotificationKind, boolean>;
+
+/** One person of the desk's team list: the user row and the staff display name. */
+export type TeamRow = {
+  id: string;
+  email: string;
+  role: (typeof users.$inferSelect)["role"];
+  firstName: (typeof users.$inferSelect)["firstName"];
+  lastName: (typeof users.$inferSelect)["lastName"];
+  /** Null when the person has no staff row (the join is a left join). */
+  displayName: (typeof staff.$inferSelect)["displayName"] | null;
+};
+
+/** One person's name and email, for the notification card and the test email. */
+export type UserNameEmail = {
+  email: string;
+  firstName: (typeof users.$inferSelect)["firstName"];
+  lastName: (typeof users.$inferSelect)["lastName"];
+};
 
 export interface SettingsStore {
   // ── desk_settings ──
@@ -39,6 +60,15 @@ export interface SettingsStore {
    * deduplicated: the caller does that.
    */
   recipientEmails(kind: NotificationKind): Promise<string[]>;
+
+  // ── the team list and one person's name (OPS-165) ──
+  /**
+   * Everyone who can open the desk (dispatcher, admin, superadmin): owners first, then by display
+   * name, last name and first name, ascending, with missing names last (as Postgres sorts them).
+   */
+  teamRows(): Promise<TeamRow[]>;
+  /** One user's email and names, or undefined when there is no such user. */
+  userNameEmail(userId: string): Promise<UserNameEmail | undefined>;
 }
 
 /** The store for this request. One call per request; nothing is cached across requests. */

@@ -5,8 +5,9 @@ import { parseDbTarget } from "./target.mjs";
 
 // The D1 side of the database move (OPS-99). Nothing reads it yet: `db` in
 // ./index.ts stays on Postgres until a domain's queries exist for D1 (later
-// rows). Production has no DB binding, and parseDbTarget refuses "d1" there
-// unless DB_CUTOVER is exactly "production-d1" as well (OPS-176).
+// rows). Production has had a DB binding (jetnine-production) since OPS-183, but
+// parseDbTarget still refuses "d1" there unless DB_CUTOVER is exactly "production-d1"
+// as well (OPS-176), so the binding changes no query.
 
 export type DbTarget = "postgres" | "d1";
 

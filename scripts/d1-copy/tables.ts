@@ -22,9 +22,42 @@ export const HELD_BACK: Record<string, string> = {
 };
 
 /**
+ * What a production load holds back (OPS-197): only the rate limiter's counters. The credential tables are
+ * copied as stored (hashed or sealed), because on cutover day every client must keep their password, every
+ * API client its key and the voice line its AI provider. A production load runs only with the typed confirm,
+ * on the owner's yes (map.mjs assertProductionLoad).
+ */
+export const HELD_BACK_PRODUCTION: Record<string, string> = {
+  request_rate_limits: "short-lived rate-limit counters, never copied",
+};
+
+export type CopyTarget = "staging" | "production";
+
+/** The held-back tables of a target. */
+export function heldBackFor(target: CopyTarget = "staging"): Record<string, string> {
+  return target === "production" ? HELD_BACK_PRODUCTION : HELD_BACK;
+}
+
+/**
+ * Where a production load reads a table when it is not `select * from public.X` (OPS-197). The password
+ * hash is what the site's sign-in reads today on Postgres (store-pg.ts): the site's own credential row,
+ * else Supabase's. A ban is auth.users.banned_until. Extra columns (`from_site`) are read for counts only
+ * and never written: the load writes the D1 columns of the plan. Staging never uses these.
+ */
+export const PRODUCTION_SELECT: Record<string, string> = {
+  users:
+    "select u.*, a.banned_until from public.users u left join auth.users a on a.id = u.id",
+  user_credentials:
+    "select u.id as user_id, coalesce(c.password_hash, a.encrypted_password) as password_hash, " +
+    "coalesce(c.updated_at, a.updated_at, a.created_at) as updated_at, (c.password_hash is not null) as from_site " +
+    "from public.users u left join public.user_credentials c on c.user_id = u.id " +
+    "left join auth.users a on a.id = u.id where coalesce(c.password_hash, a.encrypted_password, '') <> ''",
+};
+
+/**
  * Columns D1 has and Postgres does not, by table name. The copy neither reads nor writes them: they load
  * as NULL on staging. users.banned_until (OPS-174): on Postgres a ban is auth.users.banned_until, read in
- * place; D1 has no auth schema. Carrying real bans across is the cutover's job, with the password hashes.
+ * place; D1 has no auth schema. A production load carries real bans across (PRODUCTION_SELECT); staging never does.
  */
 export const D1_ONLY_COLUMNS: Record<string, string[]> = {
   users: ["banned_until"],
@@ -74,12 +107,13 @@ export function referentialOrder(tables: { name: string; parents: string[] }[]):
   return order;
 }
 
-export function copyPlan(): CopyTable[] {
+export function copyPlan(target: CopyTarget = "staging"): CopyTable[] {
+  const held = heldBackFor(target);
   const out: CopyTable[] = [];
   for (const [exportName, t] of Object.entries(schema)) {
     if (!is(t, SQLiteTable)) continue;
     const cfg = getTableConfig(t as SQLiteTable);
-    const skip = D1_ONLY_COLUMNS[cfg.name] ?? [];
+    const skip = target === "production" ? [] : (D1_ONLY_COLUMNS[cfg.name] ?? []);
     const columns = cfg.columns.filter((c) => !skip.includes(c.name)).map((c) => ({ name: c.name, columnType: c.columnType }));
     const pks = cfg.columns.filter((c) => c.primary).map((c) => c.name);
     if (pks.length !== 1 || cfg.primaryKeys.length !== 0) {
@@ -94,7 +128,7 @@ export function copyPlan(): CopyTable[] {
       const parent = getTableConfig(ref.foreignTable as SQLiteTable).name;
       if (parent !== cfg.name) parents.add(parent);
       // A held-back parent loads empty. A held-back child loads nothing, so it has no rows to break.
-      if (HELD_BACK[parent] && !HELD_BACK[cfg.name]) {
+      if (held[parent] && !held[cfg.name]) {
         for (const col of ref.columns) {
           if (col.notNull) {
             throw new Error(`${cfg.name}.${col.name} is NOT NULL and points to the held-back table ${parent}: hold ${cfg.name} back too (the owner's call)`);

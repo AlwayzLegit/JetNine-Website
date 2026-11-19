@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { D1_ONLY_COLUMNS, HELD_BACK, copyPlan, referentialOrder } from "./tables";
+import { D1_ONLY_COLUMNS, HELD_BACK, HELD_BACK_PRODUCTION, PRODUCTION_SELECT, copyPlan, heldBackFor, referentialOrder } from "./tables";
 import { applyMigrations, foreignKeyReport, openMemoryDb, readMigrations } from "./preflight.mjs";
 
 const KNOWN_TYPES = new Set(["SQLiteText", "SQLiteTimestamp", "SQLiteInteger", "SQLiteBoolean", "SQLiteTextJson"]);
@@ -44,9 +44,10 @@ test("the staging database the tool may write to is the one wrangler.jsonc names
   const text = readFileSync(new URL("../../wrangler.jsonc", import.meta.url), "utf8");
   const staging = text.slice(text.indexOf('"staging": {'));
   assert.match(staging, /"binding": "DB",\s*"database_name": "jetnine-staging"/);
-  // No other binding called DB anywhere before the staging block (production has none).
+  // Production's own DB binding (OPS-183) is a different database: the copy tool never names it.
   const before = text.slice(0, text.indexOf('"staging": {'));
-  assert.doesNotMatch(before, /"binding": "DB"/);
+  assert.match(before, /"binding": "DB",\s*"database_name": "jetnine-production"/);
+  assert.doesNotMatch(before, /"database_name": "jetnine-staging"/);
 });
 
 test("the credential tables and the rate-limit counters are held back, and each held name is a real table", () => {
@@ -133,4 +134,61 @@ test("D1-only columns are left out of the copy plan, and each one is a nullable 
     }
   }
   db.close();
+});
+
+// OPS-197: the production target. Staging stays exactly as it was.
+
+test("copyPlan('staging') is today's plan: same held-back tables, users without banned_until (OPS-197)", () => {
+  const staging = copyPlan("staging");
+  assert.deepEqual(staging.map((t) => t.name), copyPlan().map((t) => t.name));
+  assert.deepEqual(Object.keys(heldBackFor("staging")).sort(), ["ai_providers", "api_keys", "request_rate_limits", "user_credentials", "user_sessions"]);
+  assert.deepEqual(heldBackFor("staging"), HELD_BACK);
+  const users = staging.find((t) => t.name === "users")!;
+  assert.ok(!users.columns.some((c) => c.name === "banned_until"), "staging users carries banned_until");
+  assert.deepEqual(D1_ONLY_COLUMNS.users, ["banned_until"]);
+  // the credential tables stay referenced as NULL from the tables that point at them
+  assert.ok(staging.some((t) => t.nullRefs.length > 0));
+});
+
+test("copyPlan('production') holds back only request_rate_limits and carries bans (OPS-197)", () => {
+  const production = copyPlan("production");
+  assert.deepEqual(Object.keys(HELD_BACK_PRODUCTION), ["request_rate_limits"]);
+  assert.deepEqual(heldBackFor("production"), HELD_BACK_PRODUCTION);
+  assert.deepEqual(production.map((t) => t.name).sort(), copyPlan("staging").map((t) => t.name).sort());
+  const users = production.find((t) => t.name === "users")!;
+  const banned = users.columns.find((c) => c.name === "banned_until");
+  assert.equal(banned?.columnType, "SQLiteTimestamp");
+  // no reference is nulled: the credential, session, key and provider tables are all copied
+  for (const t of production) assert.deepEqual(t.nullRefs, [], `${t.name} nulls a reference`);
+  // parents still come before children
+  const at = (n: string) => production.findIndex((t) => t.name === n);
+  for (const t of production) for (const p of t.parents) assert.ok(at(p) < at(t.name), `${p} after ${t.name}`);
+  for (const n of ["user_credentials", "user_sessions", "api_keys", "ai_providers"]) assert.ok(at(n) >= 0, `${n} missing`);
+  assert.ok(at("users") < at("user_credentials"));
+});
+
+test("PRODUCTION_SELECT names users and user_credentials only, and reads hash and bans as the site does (OPS-197)", () => {
+  assert.deepEqual(Object.keys(PRODUCTION_SELECT).sort(), ["user_credentials", "users"]);
+  const creds = PRODUCTION_SELECT.user_credentials;
+  assert.match(creds, /coalesce\(c\.password_hash, a\.encrypted_password\) as password_hash/);
+  assert.match(creds, /from public\.users u left join public\.user_credentials c on c\.user_id = u\.id left join auth\.users a on a\.id = u\.id/);
+  assert.match(creds, /<> ''/);
+  assert.match(PRODUCTION_SELECT.users, /a\.banned_until/);
+  assert.match(PRODUCTION_SELECT.users, /left join auth\.users a on a\.id = u\.id/);
+  // every column of the D1 table is selected, under its D1 name
+  const plan = copyPlan("production");
+  for (const col of plan.find((t) => t.name === "user_credentials")!.columns) assert.ok(creds.includes(`as ${col.name}`), `${col.name} not selected`);
+});
+
+test("the production database named by the tool is the top-level DB binding of wrangler.jsonc (OPS-197)", () => {
+  const text = readFileSync(join(__dirname, "../../wrangler.jsonc"), "utf8");
+  const top = text.slice(0, text.indexOf('"env"'));
+  assert.match(top, /"binding": "DB",\s*"database_name": "jetnine-production"/);
+});
+
+test("the copy script never prints a row: no console call takes a row or a value of one (OPS-197)", () => {
+  const src = readFileSync(join(__dirname, "copy.mjs"), "utf8");
+  for (const m of src.matchAll(/console\.(log|error)\(([^;]*)\);/g)) {
+    assert.ok(!/\brow\b|\bres\b|\bpassword|\bhash/i.test(m[2]), `console call names a row or a hash: ${m[0].slice(0, 80)}`);
+  }
 });

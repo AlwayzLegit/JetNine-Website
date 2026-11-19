@@ -116,9 +116,13 @@ jobs:
           rm -f deployments.json deployments.err
 
           # When voice/ last changed on this commit, and whether the deployed version is newer.
-          CHANGED_SHA=$(git log -1 --format=%h -- voice/ || echo unknown)
-          CHANGED_AT=$(git log -1 --format=%cI -- voice/ || echo unknown)
-          echo "voice/ on main last changed $CHANGED_SHA at $CHANGED_AT"
+          # The step runs inside voice/, so the paths are given from the top of the work tree.
+          # Markdown files are left out: a change to a README does not change the Worker.
+          CHANGED_SHA=$(git log -1 --format=%h -- ':(top)voice/' ':(top,exclude,glob)voice/**/*.md' ':(top,exclude,glob)voice/*.md' 2>/dev/null || true)
+          CHANGED_AT=$(git log -1 --format=%cI -- ':(top)voice/' ':(top,exclude,glob)voice/**/*.md' ':(top,exclude,glob)voice/*.md' 2>/dev/null || true)
+          CHANGED_SHA=${CHANGED_SHA:-unknown}
+          CHANGED_AT=${CHANGED_AT:-unknown}
+          echo "voice/ (code, not markdown) last changed $CHANGED_SHA at $CHANGED_AT"
           if D=$(date -u -d "$DEPLOYED" +%s 2>/dev/null) && C=$(date -u -d "$CHANGED_AT" +%s 2>/dev/null); then
             if [ "$D" -ge "$C" ]; then
               echo "deployed after the last voice change: yes"

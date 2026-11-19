@@ -211,7 +211,7 @@ Inputs:
 What the log prints, and nothing else (no raw wrangler table, which carries the author's email address, and no secret):
 
 - `voice [target] deployed version: created [time] id [id]` (mode check): the newest deployment of the Worker.
-- `voice/ on main last changed [sha] at [time]` and `deployed after the last voice change: yes`, `no` or `unknown` (mode check): `no` means a deploy of this commit would also bring the voice code that changed since.
+- `voice/ (code, not markdown) last changed [sha] at [time]` and `deployed after the last voice change: yes`, `no` or `unknown` (mode check): `no` means a deploy of this commit would also bring the voice code that changed since.
 - `voice [target] health: http=[code] ok=[ok] db target=[target] ok=[db ok]`, one line per try, up to 6 tries 5 seconds apart. Mode check passes when the Worker answers at all. A production deploy passes only with http 200, ok true, db ok true and the database target equal to `expect_target`. A staging deploy passes with db target `d1` and db ok true (its status is 503 for the settings it does not have, as in the "Deploy (Cloudflare)" staging job).
 - On a failed read: `voice [target] did not answer as expected. Way back: see voice/README.md, Deploy from GitHub.`
 

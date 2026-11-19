@@ -533,6 +533,7 @@ Step 5 of the move to Cloudflare (OPS-93): fill staging's own D1 database from P
 - Staging D1 is a test copy, not a source of truth. Run the copy again whenever a fresh copy is needed; it starts by wiping.
 - The reverse copy (D1 back to Postgres, for a rollback) is not part of this row.
 - Tests (`scripts/d1-copy/*.test.*`) run in CI and need no secrets or network.
+- **Copy rehearsal (OPS-198).** The CI job `Copy rehearsal` replays all 58 Postgres migrations on a throwaway `postgres:15` (with small Supabase stand-ins), loads a made-up fixture and runs `copy.mjs --target staging --mode rehearse` from it into an in-memory D1, ending `0 with a difference`. It uses no secret and refuses any host but localhost, so it touches nothing live. The Postgres major is an assumption (15; JetNine's Supabase version is not readable from a run). The reverse copy (8b3b) is rehearsed on this bed before it ever runs on production. Details: `docs/d1-steps/OPS-198.md`.
 
 ### Load order, nulled references and the preflight (OPS-115)
 

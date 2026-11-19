@@ -157,6 +157,67 @@ jobs:
       - name: D1 store test runner tests
         run: node --test scripts/ci/store-tests.test.mjs
 
+  # The copy rehearsal (OPS-198): the repo's 58 Postgres migrations replayed on a throwaway Postgres
+  # (supabase-stubs.sql stands in for what Supabase gives a project), a made-up fixture loaded with
+  # every trigger on, then the copy (target staging, mode rehearse) from it into an in-memory D1 with
+  # the counts and checksums read back. It uses no secret and reaches nothing outside the runner:
+  # the scripts refuse any host but localhost. It is the test bed of the reverse copy (OPS-93, 8b3b).
+  # postgres:15 is an assumption about JetNine's Supabase major version (DEPLOY.md).
+  copy-rehearsal:
+    name: Copy rehearsal
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ci
+          POSTGRES_DB: ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ci -d ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+          run_install: false
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # The guards: no host but localhost, no target but staging, no password in a message.
+      - name: Rehearsal guard tests
+        run: node --test scripts/d1-copy/rehearsal/local.test.mjs
+
+      - name: Apply the migrations
+        run: node scripts/d1-copy/rehearsal/apply.mjs
+
+      - name: Load the fixture
+        run: psql "$DATABASE_URL" -v ON_ERROR_STOP=1 --single-transaction -q -f scripts/d1-copy/rehearsal/fixture.sql
+
+      - name: Copy into an in-memory D1 and compare
+        run: pnpm exec tsx scripts/d1-copy/copy.mjs --target staging --mode rehearse
+
   # The voice Worker (voice/, OPS-137): its own package, its own lockfile. Typecheck and
   # the Worker tests run inside workerd, among them the store tests on a real D1
   # (test/store-d1.test.ts, the site's D1 migrations applied). No secrets, no network.

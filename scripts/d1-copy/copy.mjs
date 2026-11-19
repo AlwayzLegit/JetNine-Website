@@ -3,11 +3,15 @@
 //   pnpm exec tsx scripts/d1-copy/copy.mjs --target staging            wipe, load, check
 //   pnpm exec tsx scripts/d1-copy/copy.mjs --target staging --check    check only
 //   pnpm exec tsx scripts/d1-copy/copy.mjs --list                      print the tables in load order, no network
+//   pnpm exec tsx scripts/d1-copy/copy.mjs --target staging --mode rehearse
+//                                                                      CI only: a throwaway local Postgres into an
+//                                                                      in-memory D1, no wrangler, no Cloudflare (OPS-198)
 //
 // Reads Postgres with DATABASE_URL in one read-only snapshot transaction. Writes only
 // to the D1 database jetnine-staging through `wrangler d1 execute --env staging
 // --remote`; every other target is refused before any call (map.mjs assertStaging).
 // Needs DATABASE_URL, CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID in the environment.
+// Mode rehearse needs only DATABASE_URL, and refuses any host but localhost or 127.0.0.1.
 //
 // Personal data: rows exist only in memory and in one SQL file in the runner's temp
 // folder, which is deleted at the end. Nothing from a row is printed: the output is
@@ -38,20 +42,25 @@ import {
 } from "./map.mjs";
 import { applyMigrations, failLine, fkLine, foreignKeyReport, loadTable, openMemoryDb, readMigrations } from "./preflight.mjs";
 import { HELD_BACK, copyPlan } from "./tables.ts";
+import { assertRehearse, missingFixtureTables } from "./rehearsal/local.mjs";
 
 const MIGRATIONS = join(dirname(fileURLToPath(import.meta.url)), "../../src/db/d1/migrations");
 
 const PAGE = 20000;
 
 function parseArgs(argv) {
-  const a = { target: undefined, check: false, list: false };
+  const a = { target: undefined, check: false, list: false, mode: undefined };
   for (let i = 0; i < argv.length; i++) {
     if (argv[i] === "--target") a.target = argv[++i];
     else if (argv[i].startsWith("--target=")) a.target = argv[i].slice("--target=".length);
+    else if (argv[i] === "--mode") a.mode = argv[++i];
+    else if (argv[i].startsWith("--mode=")) a.mode = argv[i].slice("--mode=".length);
     else if (argv[i] === "--check") a.check = true;
     else if (argv[i] === "--list") a.list = true;
     else throw new Error(`unknown argument ${argv[i]}`);
   }
+  if (a.mode !== undefined && a.mode !== "rehearse") throw new Error(`unknown mode ${JSON.stringify(a.mode)}`);
+  if (a.mode === "rehearse" && (a.check || a.list)) throw new Error("--mode rehearse does not combine with --check or --list");
   return a;
 }
 
@@ -88,11 +97,14 @@ function d1Query(command) {
 /**
  * The dry load. Returns the lines to print for every failure (empty when all is well):
  * a statement too long for D1, a rule a table's rows break, or a foreign key they break.
+ * With keep set (the rehearsal) the loaded in-memory database is handed back open when nothing
+ * failed, as `db`; the caller closes it. Otherwise it is closed here and `db` is null.
  */
-async function preflight(results, tableFile, tooLong) {
+async function preflight(results, tableFile, tooLong, { keep = false } = {}) {
   const out = [];
   for (const x of tooLong) out.push(failLine(x.table, `statement of ${x.bytes} bytes, D1 accepts ${STATEMENT_LIMIT}`));
   const db = await openMemoryDb();
+  let keepOpen = false;
   try {
     applyMigrations(db, readMigrations(MIGRATIONS));
     for (const r of results) {
@@ -101,10 +113,16 @@ async function preflight(results, tableFile, tooLong) {
       if (!res.ok) out.push(failLine(r.table.name, res.detail));
     }
     if (out.length === 0) for (const f of foreignKeyReport(db)) out.push(fkLine(f));
+    keepOpen = keep && out.length === 0;
   } finally {
-    db.close();
+    if (!keepOpen) db.close();
   }
-  return out;
+  return { out, db: keepOpen ? db : null };
+}
+
+/** The rehearsal's stand-in for d1Query: the same question, asked of the in-memory database. */
+function memoryQuery(db, command) {
+  return db.prepare(command).all();
 }
 
 /** What staging D1 holds after a failed remote load, as one line (counts only). */
@@ -133,8 +151,14 @@ async function main() {
   }
 
   assertStaging({ target: args.target, database: STAGING_DB, env: STAGING_ENV });
-  for (const v of ["DATABASE_URL", "CLOUDFLARE_API_TOKEN", "CLOUDFLARE_ACCOUNT_ID"]) {
-    if (!process.env[v]) throw new Error(`${v} is not set`);
+  const rehearse = args.mode === "rehearse";
+  if (rehearse) {
+    // A throwaway Postgres on this machine and nothing else: no Cloudflare variable is read.
+    assertRehearse({ target: args.target, databaseUrl: process.env.DATABASE_URL });
+  } else {
+    for (const v of ["DATABASE_URL", "CLOUDFLARE_API_TOKEN", "CLOUDFLARE_ACCOUNT_ID"]) {
+      if (!process.env[v]) throw new Error(`${v} is not set`);
+    }
   }
 
   // Keep dates exact: date stays "YYYY-MM-DD" text, timestamp without time zone is UTC.
@@ -156,6 +180,9 @@ async function main() {
   const tooLong = [];
   const nulled = [];
   let totalRows = 0;
+  // Where the read-back asks its questions: staging's D1 through wrangler, or (rehearsal) the in-memory database.
+  let query = d1Query;
+  let memDb = null;
 
   try {
     // One snapshot, read only: the counts and the keys all describe the same instant.
@@ -200,10 +227,11 @@ async function main() {
 
     if (!args.check) {
       // Preflight: the whole load against an in-memory copy of the D1 schema, before staging is touched.
-      const failures = await preflight(results, tableFile, tooLong);
+      const { out: failures, db } = await preflight(results, tableFile, tooLong, { keep: rehearse });
+      memDb = db;
       if (failures.length > 0) {
         for (const line of failures) console.log(line);
-        console.log("staging D1 not touched");
+        console.log(rehearse ? "rehearsal failed before the read-back" : "staging D1 not touched");
         process.exitCode = 1;
         return;
       }
@@ -212,18 +240,31 @@ async function main() {
         : "no row has a reference to a held-back table";
       console.log(`preflight ok: ${results.filter((r) => !r.held).length} tables, ${totalRows} rows; ${nulledText}`);
 
-      // The file: foreign keys deferred, children deleted first, then parents loaded first.
-      writeFileSync(file, "PRAGMA defer_foreign_keys = on;\n");
-      for (const t of [...plan].reverse()) appendFileSync(file, `${deleteStatement(t.name)}\n`);
-      for (const r of results) if (!r.held) appendFileSync(file, readFileSync(tableFile(r.fileIndex)));
+      if (rehearse) {
+        // The preflight already loaded every table into a fresh in-memory D1 (the repo's own D1
+        // migrations, the same INSERTs the remote load would run). That database is the target here.
+        const empty = missingFixtureTables(results);
+        if (empty.length > 0) {
+          console.log(`rehearsal fixture has no rows in: ${empty.join(", ")}`);
+          process.exitCode = 1;
+          return;
+        }
+        query = (command) => memoryQuery(memDb, command);
+        console.log(`Rehearsal: ${results.length} tables loaded into an in-memory D1 (no wrangler, no Cloudflare)`);
+      } else {
+        // The file: foreign keys deferred, children deleted first, then parents loaded first.
+        writeFileSync(file, "PRAGMA defer_foreign_keys = on;\n");
+        for (const t of [...plan].reverse()) appendFileSync(file, `${deleteStatement(t.name)}\n`);
+        for (const r of results) if (!r.held) appendFileSync(file, readFileSync(tableFile(r.fileIndex)));
 
-      console.log(`Loading ${results.length} tables into ${STAGING_DB} (wipes it first)`);
-      try {
-        wrangler(["d1", "execute", STAGING_DB, "--env", STAGING_ENV, "--remote", "--file", file, "--yes"]);
-      } catch (err) {
-        console.log(`remote load failed: ${err?.message ?? "unknown error"}`);
-        console.log(stagingState(plan));
-        throw err;
+        console.log(`Loading ${results.length} tables into ${STAGING_DB} (wipes it first)`);
+        try {
+          wrangler(["d1", "execute", STAGING_DB, "--env", STAGING_ENV, "--remote", "--file", file, "--yes"]);
+        } catch (err) {
+          console.log(`remote load failed: ${err?.message ?? "unknown error"}`);
+          console.log(stagingState(plan));
+          throw err;
+        }
       }
     }
 
@@ -231,7 +272,7 @@ async function main() {
     let failures = 0;
     for (const r of results) {
       const t = r.table;
-      const d1Count = Number(d1Query(`select count(*) as c from ${q(t.name)}`)[0]?.c ?? -1);
+      const d1Count = Number(query(`select count(*) as c from ${q(t.name)}`)[0]?.c ?? -1);
       if (r.held) {
         if (d1Count !== 0) failures++;
         console.log(heldLine({ table: t.name, reason: r.held, d1Count }));
@@ -240,7 +281,7 @@ async function main() {
       const keys = t.keyColumns.map(q).join(", ");
       const lines = [];
       for (let offset = 0; offset < Math.max(d1Count, 1); offset += PAGE) {
-        const rows = d1Query(`select ${keys} from ${q(t.name)} order by ${q(t.pk)} limit ${PAGE} offset ${offset}`);
+        const rows = query(`select ${keys} from ${q(t.name)} order by ${q(t.pk)} limit ${PAGE} offset ${offset}`);
         for (const row of rows) lines.push(canonicalLine(t.keyColumns.map((k) => row[k])));
       }
       const d1Checksum = await checksumLines(lines);
@@ -252,6 +293,7 @@ async function main() {
     console.log(`${results.length} tables (${results.length - held} copied, ${held} held back), ${failures} with a difference`);
     if (failures > 0) process.exitCode = 1;
   } finally {
+    if (memDb) memDb.close();
     rmSync(dir, { recursive: true, force: true });
     await sql.end({ timeout: 5 });
   }

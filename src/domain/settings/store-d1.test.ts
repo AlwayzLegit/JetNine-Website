@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { freshD1WithBatch } from "@/db/d1/test-batch-client";
 import { staffNotificationPrefs } from "@/db/d1/schema/desk";
+import { staff } from "@/db/d1/schema/staff";
 import { users } from "@/db/d1/schema/users";
 import { REPLY_PROMISE_KEY } from "@/db/schema/desk";
 import { d1SettingsStore } from "./store-d1";
@@ -126,4 +127,60 @@ test("prefs rows are removed with their user (cascade), as in Postgres", async (
   sqlite.prepare("delete from users where id = ?").run(id);
   const left = await client.select().from(staffNotificationPrefs);
   assert.equal(left.length, 0);
+});
+
+test("teamRows: owners first, then by display name, last name, first name; missing names last; members left out", async () => {
+  const { store, client } = fresh();
+  const mk = async (email: string, role: string, names: { first?: string | null; last?: string | null }, display?: string) => {
+    const [u] = await client
+      .insert(users)
+      .values({ email, role, firstName: names.first ?? null, lastName: names.last ?? null } as never)
+      .returning({ id: users.id });
+    if (display) await client.insert(staff).values({ userId: u.id, displayName: display } as never);
+    return u.id;
+  };
+  const owner = await mk("owner@example.com", "superadmin", { first: "Olive", last: "Owner" }, "Olive");
+  const admin = await mk("admin@example.com", "admin", { first: "Adam", last: "Zed" });
+  const bea = await mk("bea@example.com", "dispatcher", { first: "Bea", last: "Brown" }, "Bea");
+  const abe = await mk("abe@example.com", "dispatcher", { first: "Abe", last: "Adams" }, "Abe");
+  const noDisplay = await mk("nodisplay@example.com", "dispatcher", { first: "Zoe", last: "Young" });
+  await mk("client@example.com", "member", { first: "Cleo", last: "Client" });
+
+  const rows = await store.teamRows();
+  assert.equal(rows.length, 5, "a member is not on the team");
+  // Owners (admin and superadmin) first, ordered by display name with the missing one last.
+  assert.deepEqual(
+    rows.map((r) => r.id),
+    [owner, admin, abe, bea, noDisplay],
+  );
+  assert.equal(rows[0].displayName, "Olive");
+  assert.equal(rows[1].displayName, null);
+  assert.equal(rows[0].role, "superadmin");
+  assert.equal(rows[0].email, "owner@example.com");
+});
+
+test("teamRows: with no display names, last name then first name decide, and a missing last name goes last", async () => {
+  const { store, client } = fresh();
+  const mk = async (email: string, first: string | null, last: string | null) => {
+    const [u] = await client
+      .insert(users)
+      .values({ email, role: "dispatcher", firstName: first, lastName: last } as never)
+      .returning({ id: users.id });
+    return u.id;
+  };
+  const noLast = await mk("c@example.com", "Cy", null);
+  const smithB = await mk("b@example.com", "Bo", "Smith");
+  const smithA = await mk("a@example.com", "Al", "Smith");
+  const adams = await mk("d@example.com", "Di", "Adams");
+  assert.deepEqual((await store.teamRows()).map((r) => r.id), [adams, smithA, smithB, noLast]);
+});
+
+test("userNameEmail finds a user or says undefined", async () => {
+  const { store, client } = fresh();
+  const [u] = await client
+    .insert(users)
+    .values({ email: "ada@example.com", firstName: "Ada", lastName: null, role: "admin" } as never)
+    .returning({ id: users.id });
+  assert.deepEqual(await store.userNameEmail(u.id), { email: "ada@example.com", firstName: "Ada", lastName: null });
+  assert.equal(await store.userNameEmail("no-such-user"), undefined);
 });

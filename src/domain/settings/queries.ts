@@ -1,5 +1,3 @@
-import { asc, eq, inArray, sql } from "drizzle-orm";
-import { db } from "@/db";
 import { legacyKeyUsage, type LegacyKeyUsage } from "@/domain/api-keys/commands";
 import {
   NOTIFICATION_DEFAULTS,
@@ -7,8 +5,6 @@ import {
   REPLY_PROMISE_DEFAULT,
   REPLY_PROMISE_KEY,
 } from "@/db/schema/desk";
-import { staff } from "@/db/schema/staff";
-import { users } from "@/db/schema/users";
 import { deskRole, personName, type DeskRole } from "@/lib/desk-status";
 import { snapshot, type HealthSnapshot } from "@/lib/health";
 import { VOICE_ROUTING_KEY, parseVoiceRouting, type VoiceRouting } from "@/lib/voice-routing";
@@ -95,25 +91,7 @@ export type TeamMember = {
 
 /** Everyone who can open the desk, owners first then by name. Emails included: owners only at the API. */
 export async function listTeam(): Promise<TeamMember[]> {
-  const rows = await db
-    .select({
-      id: users.id,
-      email: users.email,
-      role: users.role,
-      firstName: users.firstName,
-      lastName: users.lastName,
-      displayName: staff.displayName,
-    })
-    .from(users)
-    .leftJoin(staff, eq(staff.userId, users.id))
-    .where(inArray(users.role, ["dispatcher", "admin", "superadmin"]))
-    .orderBy(
-      // Owners first, then by name.
-      sql`case when ${users.role} in ('admin','superadmin') then 0 else 1 end`,
-      asc(staff.displayName),
-      asc(users.lastName),
-      asc(users.firstName),
-    );
+  const rows = await settingsStore().teamRows();
 
   const out: TeamMember[] = [];
   for (const r of rows) {

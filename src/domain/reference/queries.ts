@@ -1,9 +1,6 @@
-import { and, asc, eq, gt, lt } from "drizzle-orm";
-import { db } from "@/db";
 import { emptyLegStore } from "@/domain/empty-legs/store";
 import { aiProviderStore } from "@/domain/settings/ai-store";
-import { aircraftScheduleBlocks } from "@/db/schema/schedule-blocks";
-import { trips } from "@/db/schema/trips";
+import { tripStore, type WindowBlockRow } from "@/domain/trips/store";
 import { referenceStore, type AircraftListRow, type FleetBoardRow, type OperatorRow } from "./store";
 
 /**
@@ -141,27 +138,8 @@ export function addDays(d: Date, n: number): Date {
   return next;
 }
 
-async function loadBlocks(from: Date, to: Date) {
-  return db
-    .select({
-      id: aircraftScheduleBlocks.id,
-      aircraftId: aircraftScheduleBlocks.aircraftId,
-      kind: aircraftScheduleBlocks.kind,
-      startAt: aircraftScheduleBlocks.startAt,
-      endAt: aircraftScheduleBlocks.endAt,
-      relatedTripId: aircraftScheduleBlocks.relatedTripId,
-      relatedQuoteId: aircraftScheduleBlocks.relatedQuoteId,
-      notes: aircraftScheduleBlocks.notes,
-      tripCode: trips.tripCode,
-    })
-    .from(aircraftScheduleBlocks)
-    .leftJoin(trips, eq(trips.id, aircraftScheduleBlocks.relatedTripId))
-    .where(and(lt(aircraftScheduleBlocks.startAt, to), gt(aircraftScheduleBlocks.endAt, from)))
-    .orderBy(asc(aircraftScheduleBlocks.aircraftId), asc(aircraftScheduleBlocks.startAt));
-}
-
 export type FleetRowFacts = FleetBoardRow;
-export type ScheduleBlockFacts = Awaited<ReturnType<typeof loadBlocks>>[number];
+export type ScheduleBlockFacts = WindowBlockRow;
 
 export type ScheduleWindow = {
   /** Start of today (UTC). */
@@ -181,7 +159,7 @@ export async function listScheduleBlocks(now = new Date(), days = 14): Promise<S
   const span = Math.min(60, Math.max(1, Math.floor(days)));
   const from = startOfUtcDay(now);
   const to = addDays(from, span);
-  const [fleet, blocks] = await Promise.all([referenceStore().fleetBoard(), loadBlocks(from, to)]);
+  const [fleet, blocks] = await Promise.all([referenceStore().fleetBoard(), tripStore().blocksInWindow(from, to)]);
 
   const blocksByTail = new Map<string, ScheduleBlockFacts[]>();
   for (const b of blocks) blocksByTail.set(b.aircraftId, [...(blocksByTail.get(b.aircraftId) ?? []), b]);

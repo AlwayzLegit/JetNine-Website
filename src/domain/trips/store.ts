@@ -193,6 +193,21 @@ export type TailTripRow = {
 
 export type TailTotals = { lifetimeTrips: number; lifetimeRevenue: number; totalPax: number };
 
+// ─── The ops board (OPS-165) ──────────────────────────────────────────────
+
+/** One schedule block overlapping the ops board's window, with the trip's code when it has a trip. */
+export type WindowBlockRow = {
+  id: string;
+  aircraftId: string;
+  kind: NewAircraftScheduleBlock["kind"];
+  startAt: Date;
+  endAt: Date;
+  relatedTripId: string | null;
+  relatedQuoteId: string | null;
+  notes: string | null;
+  tripCode: string | null;
+};
+
 /** One of an operator's newest trips, for the operator page (OPS-164). */
 export type OperatorTripRow = {
   id: string;
@@ -206,6 +221,11 @@ export type OperatorTripRow = {
 export type OperatorTotals = { lifetimeTrips: number; lifetimeRevenue: number };
 
 export interface TripStore {
+  /**
+   * Blocks that overlap the window (start_at before `to`, end_at after `from`), ordered by
+   * aircraft then start, with the trip's code (OPS-165). Behind the ops board.
+   */
+  blocksInWindow(from: Date, to: Date): Promise<WindowBlockRow[]>;
   /**
    * The newest trips (at most `limit`) with their client, aircraft, operator and the request's
    * ground option. `pattern` is a likePattern() search over the client's names and email, the

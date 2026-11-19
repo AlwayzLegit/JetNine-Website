@@ -1,6 +1,3 @@
-import { eq } from "drizzle-orm";
-import { db } from "@/db";
-import { users } from "@/db/schema/users";
 import { logAudit } from "@/lib/audit";
 import { sendEmail } from "@/lib/email";
 import { auditFields, type Actor } from "@/domain/actor";
@@ -173,11 +170,7 @@ export type NotificationPrefState = { name: string };
 
 /** The person whose toggle this is, for the approval card. */
 export async function loadNotificationPref(input: NotificationPrefInput): Promise<Result<NotificationPrefState>> {
-  const [row] = await db
-    .select({ email: users.email, firstName: users.firstName, lastName: users.lastName })
-    .from(users)
-    .where(eq(users.id, input.userId))
-    .limit(1);
+  const row = await settingsStore().userNameEmail(input.userId);
   if (!row) return err("not_found", "That person is not on the desk.");
   const name = [row.firstName, row.lastName].filter(Boolean).join(" ") || row.email.split("@")[0];
   return ok({ name });
@@ -223,11 +216,7 @@ export async function sendTestEmailTo(
 ): Promise<Result<{ ok: boolean; provider: "resend" | "postmark" | "logger" | null; to: string }>> {
   if (!actor.userId) return err("forbidden", "A test email goes to a person; this key does not act as one.");
 
-  const [user] = await db
-    .select({ email: users.email, firstName: users.firstName })
-    .from(users)
-    .where(eq(users.id, actor.userId))
-    .limit(1);
+  const user = await settingsStore().userNameEmail(actor.userId);
   if (!user) return err("not_found", "No account found for you.");
 
   const when = new Intl.DateTimeFormat("en-US", {

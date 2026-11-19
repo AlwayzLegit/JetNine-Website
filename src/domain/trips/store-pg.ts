@@ -21,6 +21,25 @@ import type { TripStore } from "./store";
 
 export function pgTripStore(): TripStore {
   return {
+    async blocksInWindow(from, to) {
+      return db
+        .select({
+          id: aircraftScheduleBlocks.id,
+          aircraftId: aircraftScheduleBlocks.aircraftId,
+          kind: aircraftScheduleBlocks.kind,
+          startAt: aircraftScheduleBlocks.startAt,
+          endAt: aircraftScheduleBlocks.endAt,
+          relatedTripId: aircraftScheduleBlocks.relatedTripId,
+          relatedQuoteId: aircraftScheduleBlocks.relatedQuoteId,
+          notes: aircraftScheduleBlocks.notes,
+          tripCode: trips.tripCode,
+        })
+        .from(aircraftScheduleBlocks)
+        .leftJoin(trips, eq(trips.id, aircraftScheduleBlocks.relatedTripId))
+        .where(and(lt(aircraftScheduleBlocks.startAt, to), gt(aircraftScheduleBlocks.endAt, from)))
+        .orderBy(asc(aircraftScheduleBlocks.aircraftId), asc(aircraftScheduleBlocks.startAt));
+    },
+
     async listRows({ pattern, limit }) {
       const where = pattern
         ? or(

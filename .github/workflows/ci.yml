@@ -148,7 +148,7 @@ jobs:
       # guard, the table plan and the held-back credential tables. Needs no database.
       - name: D1 copy tests
         run: |
-          node --test scripts/d1-copy/map.test.mjs
+          node --test scripts/d1-copy/map.test.mjs scripts/d1-copy/reverse-map.test.mjs
           pnpm exec tsx --test scripts/d1-copy/tables.test.ts
 
       # Every store test of the D1 move in one step (OPS-170): scripts/ci/store-tests.mjs finds the
@@ -222,6 +222,14 @@ jobs:
 
       - name: Copy into an in-memory D1 and compare
         run: pnpm exec tsx scripts/d1-copy/copy.mjs --target staging --mode rehearse
+
+      # The way back (OPS-200): the same data into a production-shaped in-memory D1, four writes made
+      # there as after the cutover, the preflight read, a failing load rolled back, then the load into
+      # this Postgres with triggers off, and the round trip checked. Ends with the line
+      # "reverse rehearsal: N tables, 0 with a difference, round trip equal". Last step: it changes
+      # this throwaway database. It reads no Cloudflare variable and refuses any host but localhost.
+      - name: Reverse copy, D1 back into Postgres (rehearsal)
+        run: pnpm exec tsx scripts/d1-copy/reverse.mjs --mode rehearse
 
   # The voice Worker (voice/, OPS-137): its own package, its own lockfile. Typecheck and
   # the Worker tests run inside workerd, among them the store tests on a real D1

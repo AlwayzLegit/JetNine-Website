@@ -199,6 +199,12 @@ jobs:
         working-directory: voice
         run: pnpm test --reporter=verbose
 
+      - name: Bundle dry run
+        # Builds the Worker with the config as it is, no credentials, nothing uploaded
+        # (OPS-196). The log lists the bindings, among them DB on jetnine-production.
+        working-directory: voice
+        run: pnpm exec wrangler deploy --dry-run --outdir .wrangler/dry-run
+
   e2e:
     name: playwright smoke
     runs-on: ubuntu-24.04

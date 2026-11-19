@@ -24,6 +24,19 @@
   // to a local Postgres URL (README › Local).
   "hyperdrive": [{ "binding": "HYPERDRIVE", "id": "05bdaa66695d43c08fc02b22e39bca77" }],
 
+  // Production's own D1 database, the same one the site binds (OPS-183); its
+  // migrations are applied by the site's deploy only, never by this Worker.
+  // Unused until the cutover sets DB_TARGET "d1" and DB_CUTOVER "production-d1";
+  // neither is set here, so production voice stays on Postgres (OPS-196).
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "jetnine-production",
+      "database_id": "1e1b0249-62b3-41c2-a971-4642a295b896",
+      "migrations_dir": "../src/db/d1/migrations"
+    }
+  ],
+
   // Non-secret settings (see .env.example). Secrets go in with
   // `wrangler secret put` (README › Deploy); for `wrangler dev`, in .dev.vars.
   "vars": {
@@ -43,8 +56,8 @@
     "STT_MODEL": "nova-3-general",
     "RECORDING_ENABLED": "true",
     // Which environment this is. With no DB_TARGET the Worker uses Postgres, and
-    // a production environment can never choose D1 from DB_TARGET alone (the
-    // cutover row lifts that on purpose); see src/db/target.ts.
+    // production needs DB_TARGET "d1" AND DB_CUTOVER "production-d1" (OPS-176) to
+    // choose D1; neither is set here. DEPLOY_ENV stays "production"; see src/db/target.ts.
     "DEPLOY_ENV": "production"
   },
 

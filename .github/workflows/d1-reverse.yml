@@ -1,0 +1,78 @@
+name: D1 reverse
+
+# The way back after the cutover (OPS-200, step 8b3b of the move to Cloudflare, OPS-93): copy production D1
+# back into Postgres, so DB_TARGET can go back to postgres without losing what was written on D1 meanwhile.
+# Run by hand only, from main only. No schedule, no push trigger, no new secret.
+#
+# mode preflight (the default): exports production D1 as one snapshot, reads Postgres in one read-only
+#   snapshot, prints per table the Postgres and D1 counts and the rows only in D1, only in Postgres or
+#   changed, the Postgres major, whether replica mode is allowed for this login, and whether a load would
+#   be refused. It writes NOTHING, on either side. Run it any time.
+# mode load: replaces the plan's Postgres tables with D1's rows in ONE transaction with triggers off, and
+#   rolls back on any difference. It needs the input "confirm" typed exactly: copy-d1-to-postgres. It is the
+#   way back's, on the owner's yes, inside the read-only window, never otherwise.
+#
+# The log prints names, counts and yes or no, never a row value. Uses the repo's own secrets DATABASE_URL,
+# CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID. Details: DEPLOY.md "Reverse copy, D1 to Postgres (OPS-200)".
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "preflight = read both sides, print the differences, write nothing; load = replace Postgres with D1's rows (owner's yes, needs confirm)"
+        type: choice
+        options: [preflight, load]
+        default: preflight
+      confirm:
+        description: "Load only: type copy-d1-to-postgres"
+        type: string
+        default: ""
+
+permissions:
+  contents: read
+
+# Never beside a forward copy: both use the same databases.
+concurrency:
+  group: d1-copy
+  cancel-in-progress: false
+
+jobs:
+  reverse:
+    name: D1 reverse (${{ github.event.inputs.mode }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Runs only from main
+        env:
+          REF: ${{ github.ref }}
+        run: |
+          if [ "$REF" != "refs/heads/main" ]; then
+            echo "refused: the reverse copy runs only from main"
+            exit 1
+          fi
+
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+          run_install: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Reverse copy
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          TZ: UTC
+          MODE: ${{ github.event.inputs.mode }}
+          # The typed input goes through the environment, never the command line (a process list shows argv).
+          CONFIRM: ${{ github.event.inputs.confirm }}
+        run: |
+          pnpm exec tsx scripts/d1-copy/reverse.mjs --mode "$MODE"

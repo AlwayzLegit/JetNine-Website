@@ -12,7 +12,7 @@ import { snapshot, type HealthSnapshot } from "@/lib/health";
 // Twilio, Sentry, PostHog) ships dark by design.
 //
 // Two views of the same snapshot:
-//   - anyone:              ok, status, env, the names of failing checks
+//   - anyone:              ok, status, env, db (postgres or d1), the names of failing checks
 //   - Bearer CRON_SECRET:  the full snapshot (commit, region, per-check
 //                          detail such as Stripe live/test mode)
 //
@@ -31,7 +31,19 @@ export const runtime = "nodejs";
 type PublicHealth = Pick<HealthSnapshot, "ok" | "status" | "env" | "timestamp"> & {
   /** Names of the checks reporting ok:false. Empty when healthy. */
   failing: string[];
+  /**
+   * Which database this deployment reads: "postgres" or "d1" (OPS-211). Only the name, no detail,
+   * so the database flip of the cutover (OPS-206) can be read from outside in seconds. null when
+   * the db check did not report a target.
+   */
+  db: "postgres" | "d1" | null;
 };
+
+/** Only the two known names pass through; anything else reads as null, never as free text. */
+function dbTargetName(full: HealthSnapshot): PublicHealth["db"] {
+  const target = full.checks.db?.target;
+  return target === "postgres" || target === "d1" ? target : null;
+}
 
 function fullViewAllowed(req: Request): boolean {
   const secret = process.env.CRON_SECRET;
@@ -49,6 +61,7 @@ function publicView(full: HealthSnapshot): PublicHealth {
     failing: Object.entries(full.checks)
       .filter(([, check]) => check.ok === false)
       .map(([name]) => name),
+    db: dbTargetName(full),
     timestamp: full.timestamp,
   };
 }

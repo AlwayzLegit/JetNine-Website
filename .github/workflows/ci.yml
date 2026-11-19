@@ -113,7 +113,7 @@ jobs:
       - name: Database target tests
         # The production cutover switch (OPS-176) and the list of Postgres call sites left.
         run: |
-          node --test src/db/target.test.mjs
+          node --test src/db/target.test.mjs src/db/wrangler-d1.test.mjs
           pnpm exec tsx --test src/db/postgres-left.test.ts
           pnpm exec tsx --test src/lib/health-db.test.ts
 

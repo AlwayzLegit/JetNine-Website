@@ -44,9 +44,10 @@ test("the staging database the tool may write to is the one wrangler.jsonc names
   const text = readFileSync(new URL("../../wrangler.jsonc", import.meta.url), "utf8");
   const staging = text.slice(text.indexOf('"staging": {'));
   assert.match(staging, /"binding": "DB",\s*"database_name": "jetnine-staging"/);
-  // No other binding called DB anywhere before the staging block (production has none).
+  // Production's own DB binding (OPS-183) is a different database: the copy tool never names it.
   const before = text.slice(0, text.indexOf('"staging": {'));
-  assert.doesNotMatch(before, /"binding": "DB"/);
+  assert.match(before, /"binding": "DB",\s*"database_name": "jetnine-production"/);
+  assert.doesNotMatch(before, /"database_name": "jetnine-staging"/);
 });
 
 test("the credential tables and the rate-limit counters are held back, and each held name is a real table", () => {

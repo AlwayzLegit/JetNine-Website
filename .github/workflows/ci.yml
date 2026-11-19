@@ -220,7 +220,16 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Install Playwright browsers
-        run: pnpm exec playwright install --with-deps chromium
+        # The runner already has Chromium's libraries, so install only the
+        # browser. "--with-deps" also pulled fonts from an apt mirror that ran
+        # at 65 kB/s and cancelled 3 smoke jobs on 2026-11-18 (OPS-199).
+        # Fall back to the system packages only if Chromium cannot start.
+        run: |
+          pnpm exec playwright install chromium
+          if ! node -e "require('@playwright/test').chromium.launch().then(b => b.close())"; then
+            echo "::warning::Chromium did not start without system packages; installing them"
+            pnpm exec playwright install-deps chromium
+          fi
 
       - name: Build app for smoke run
         run: pnpm build

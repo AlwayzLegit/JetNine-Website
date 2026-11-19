@@ -22,11 +22,13 @@
   // Worker (edge/wrangler.jsonc), which reaches this one through a service
   // binding. Putting them back would bypass that cache.
 
-  // WRITES_PAUSED: set to "cutover" only by the cutover row (OPS-206); the flip removes it.
+  // WRITES_PAUSED "cutover" (OPS-212): the write pause is on. This line and the one in
+  // env.staging are removed together by the flip (OPS-213, OPS-206 step 9c3).
   "vars": {
     "DEPLOY_ENV": "production",
     "DEPLOY_REGION": "cloudflare",
-    "NEXT_PUBLIC_SITE_URL": "https://jetnine.com"
+    "NEXT_PUBLIC_SITE_URL": "https://jetnine.com",
+    "WRITES_PAUSED": "cutover"
   },
 
   "triggers": {
@@ -80,7 +82,10 @@
         // Which database the data layer uses here: "postgres" or "d1". Staging
         // is "d1" since the blog store was converted (OPS-109); set it back to
         // "postgres" and redeploy staging to undo. Production never reads it as d1.
-        "DB_TARGET": "d1"
+        "DB_TARGET": "d1",
+        // Write pause (OPS-212): staging proves the pause before production sees it.
+        // Removed by the flip (OPS-213).
+        "WRITES_PAUSED": "cutover"
       },
       "triggers": { "crons": [] },
       "hyperdrive": [{ "binding": "HYPERDRIVE", "id": "05bdaa66695d43c08fc02b22e39bca77" }],

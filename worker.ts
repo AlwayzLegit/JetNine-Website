@@ -8,6 +8,7 @@
 // routes themselves are unchanged and still fail closed without the secret.
 
 import * as Sentry from "@sentry/cloudflare";
+import { PAUSE_HEADER, blocksRequest, isPaused, pausedResponse } from "./src/lib/writes-pause.mjs";
 // @ts-expect-error -- generated at build time
 import { default as handler } from "./.open-next/worker.js";
 
@@ -27,6 +28,8 @@ type Env = {
   SENTRY_TRACES_SAMPLE_RATE?: string;
   DEPLOY_ENV?: string;
   GIT_COMMIT_SHA?: string;
+  /** "cutover" (exactly) pauses every write for the database cutover (OPS-205). Unset means off. */
+  WRITES_PAUSED?: string;
 };
 
 // Minimal Workers runtime types; the root tsconfig targets Next (DOM lib),
@@ -55,14 +58,32 @@ async function withImageCaching(request: Request, response: Promise<Response>): 
   return cached;
 }
 
+// The write pause (OPS-205). While WRITES_PAUSED is exactly "cutover", a request that writes gets
+// a 503 with Retry-After and never reaches the app; everything else runs as usual and carries the
+// header x-jetnine-writes: paused. With the variable unset this adds nothing.
+async function fetchWithPause(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+  if (!isPaused(env.WRITES_PAUSED)) {
+    return withImageCaching(request, (handler as Handler).fetch(request, env, ctx));
+  }
+  const { pathname } = new URL(request.url);
+  if (blocksRequest(request.method, pathname)) return pausedResponse(pathname);
+  const res = await withImageCaching(request, (handler as Handler).fetch(request, env, ctx));
+  const marked = new Response(res.body, res);
+  marked.headers.set(PAUSE_HEADER, "paused");
+  return marked;
+}
+
 const app = {
-  fetch: (request: Request, env: Env, ctx: ExecutionContext) =>
-    withImageCaching(request, (handler as Handler).fetch(request, env, ctx)),
+  fetch: fetchWithPause,
 
   async scheduled(event: ScheduledController, env: Env, ctx: ExecutionContext) {
     const path = CRON_ROUTES[event.cron];
     if (!path) {
       console.error(`[cron] no route for schedule "${event.cron}"`);
+      return;
+    }
+    if (isPaused(env.WRITES_PAUSED)) {
+      console.log(`[cron] writes paused; skipping ${path}`);
       return;
     }
     if (!env.CRON_SECRET) {

@@ -595,3 +595,16 @@ Step 8c of the move to Cloudflare (OPS-93): the top level of `voice/wrangler.jso
 - **Not deployed by this change.** Deploy (Cloudflare) ignores `voice/**`. Production voice is deployed by hand by the owner; the binding takes effect at his next deploy and changes nothing while those two settings are unset. Then `https://voice.jetnine.com/health` shows `db: { target: "postgres", ok: true }`.
 - **Tests.** CI step "Database target tests" (`src/db/wrangler-d1.test.mjs`): the voice and site production bindings name the same database, voice staging keeps `jetnine-staging`, no voice block sets `DB_CUTOVER`. CI job `voice` has a step "Bundle dry run" (`wrangler deploy --dry-run`, no credentials).
 - **Way back.** Revert the merge commit. If the owner deployed voice in between, deploy it again from the reverted main; while the two settings are unset the binding is never read.
+
+## Write pause (OPS-205)
+
+Step 9b of the move to Cloudflare (OPS-93): one switch that stops every write while production moves from Postgres to D1, so nothing written between the copy and the flip is lost.
+
+- **What it does.** While the Worker variable `WRITES_PAUSED` is exactly `cutover` (no trim, no case folding), the app Worker (`worker.ts`, rules in `src/lib/writes-pause.mjs`) answers every request that writes with `503` and `Retry-After: 600`, and skips its six cron jobs (it logs `[cron] writes paused; skipping <path>`). Reads keep working, and every response carries the header `x-jetnine-writes: paused`.
+- **What it blocks.** Every method except GET, HEAD and OPTIONS (the quote and contact forms, Server Actions, the Stripe webhook, the Twilio and email inbound webhooks, the API and admin writes), plus GET and HEAD on `/auth/callback`, `/auth/link` and under `/api/v1/`, `/api/admin/` and `/api/cron/`, because those write on a GET. Page renders can touch a session row or a rate limit counter; a write of that kind lost around the flip is harmless, so pages stay up.
+- **What a sender sees.** An API path gets JSON `{"error":"paused","retryAfterSeconds":600}`; any other path gets a short page saying JetNine is moving to a new system. Both are `503` with `Retry-After: 600` and `Cache-Control: no-store`, so a browser or a webhook sender tries again later.
+- **Turn it on.** Add `"WRITES_PAUSED": "cutover"` to the top level `vars` of `wrangler.jsonc` in a merge; Deploy (Cloudflare) makes it live (about 10 minutes). Only the cutover row (OPS-206) does this.
+- **Turn it off.** Remove the variable in a merge. The flip to D1 (`DB_TARGET` `d1`, `DB_CUTOVER` `production-d1`, OPS-176) removes it in the same change. With the variable unset the code does nothing.
+- **Not covered.** The voice Worker (`voice/`, deployed by hand); the cutover row handles it.
+- **Test.** CI step "Write pause tests" (`node --test src/lib/writes-pause.test.mjs`).
+- **Way back.** Revert the merge commit. While `WRITES_PAUSED` is unset the revert changes nothing live.

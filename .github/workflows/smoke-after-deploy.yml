@@ -1,23 +1,18 @@
 name: Post-deploy smoke
 
-# Vercel posts deployment_status events to GitHub when a deploy moves
-# state (queued → in_progress → success / error). This workflow fires
-# on success and runs `pnpm smoke` against the unique deployment URL
-# Vercel returns — catches real production regressions that local
-# tests can't see (CDN, CSP, env vars, region routing).
+# Runs only when Deploy (Cloudflare) calls it (workflow_call), with the URL
+# that deploy just published. It runs `pnpm smoke` and a browser walk of the
+# quote and contact forms against that URL, which catches regressions that
+# local tests cannot see (CDN, CSP, env vars, routing).
 #
-# Runs for BOTH production and preview deploys:
-#   - production: smoke against the just-promoted main deploy
-#   - preview: smoke against PR preview URLs so review can see results
-#
-# Failure surfaces as a check on the deployment + an annotation on the
-# associated commit, so anyone looking at the PR sees red before merge.
+# It no longer listens to deployment_status events from Vercel (OPS-251).
+# After the cutover to D1 (OPS-206) the Vercel copy of the site is not the
+# site: it is built from vercel.json, never reads wrangler.jsonc, so neither
+# DB_TARGET nor the write pause reach it, and its smoke wrote [SMOKE] quotes
+# and a contact inquiry to Postgres on every deploy, Production and Preview.
+# To undo: put the `deployment_status:` trigger back (a revert).
 
 on:
-  deployment_status:
-  # Cloudflare deploys (deploy-cloudflare.yml) call this directly with the
-  # URL they just deployed to; Vercel still drives it via deployment_status
-  # until the Vercel project is retired.
   workflow_call:
     inputs:
       url:
@@ -36,46 +31,18 @@ permissions:
 
 jobs:
   smoke:
-    name: smoke ${{ inputs.environment || github.event.deployment_status.environment }}
-    if: inputs.url != '' || github.event.deployment_status.state == 'success'
+    name: smoke ${{ inputs.environment }}
+    if: inputs.url != ''
     runs-on: ubuntu-24.04
     timeout-minutes: 10
 
     steps:
-      - name: Dump deployment_status payload (debug)
-        # Always print key payload fields up-front so failures further
-        # down can be triaged without re-running locally. Smoke has
-        # been failing in <20s on every preview deploy even after the
-        # URL preference fix; the only way to know why without local
-        # repro is to see what the webhook actually contained.
-        run: |
-          echo "=== deployment_status webhook fields ==="
-          echo "state            = ${{ github.event.deployment_status.state }}"
-          echo "environment      = ${{ github.event.deployment_status.environment }}"
-          echo "environment_url  = ${{ github.event.deployment_status.environment_url }}"
-          echo "target_url       = ${{ github.event.deployment_status.target_url }}"
-          echo "log_url          = ${{ github.event.deployment_status.log_url }}"
-          echo "description      = ${{ github.event.deployment_status.description }}"
-          echo "creator.login    = ${{ github.event.deployment_status.creator.login }}"
-          echo "=== deployment fields ==="
-          echo "deployment.sha   = ${{ github.event.deployment.sha }}"
-          echo "deployment.ref   = ${{ github.event.deployment.ref }}"
-          echo "deployment.task  = ${{ github.event.deployment.task }}"
-
       - name: Resolve deployment URL
         id: resolve
         run: |
-          # IMPORTANT: prefer environment_url over target_url. For Vercel
-          # deployment_status events, target_url is the inspector URL
-          # (vercel.com/.../inspect — gated and unrelated to the deploy),
-          # while environment_url is the actual deploy URL (...vercel.app).
-          # Earlier the order was reversed and every smoke ran against
-          # the gated inspector, failing all marketing-page checks.
-          URL="${{ inputs.url || github.event.deployment_status.environment_url || github.event.deployment_status.target_url }}"
+          URL="${{ inputs.url }}"
           if [ -z "$URL" ]; then
-            echo "::warning::No deployment URL in event payload — nothing to smoke."
-            echo "::warning::environment_url was: '${{ github.event.deployment_status.environment_url }}'"
-            echo "::warning::target_url was: '${{ github.event.deployment_status.target_url }}'"
+            echo "::warning::No deployment URL passed in - nothing to smoke."
             exit 1
           fi
           # Strip trailing slash so the smoke runner's path concatenation
@@ -100,7 +67,7 @@ jobs:
             echo "::error::Preview returned $status — deployment protection still on, or wrong URL resolved. Bypass token (VERCEL_AUTOMATION_BYPASS_SECRET) is the standard fix."
             exit 1
           else
-            echo "::error::Unexpected HEAD response $status from $URL — see deployment_status payload echoed above."
+            echo "::error::Unexpected HEAD response $status from $URL - check the resolved URL above."
             exit 1
           fi
 
@@ -108,8 +75,8 @@ jobs:
         uses: actions/checkout@v4
         with:
           # The smoke script lives in the same commit that triggered the
-          # deploy. Vercel passes the sha in deployment.sha.
-          ref: ${{ inputs.sha || github.event.deployment.sha }}
+          # deploy. Deploy (Cloudflare) passes the sha in inputs.sha.
+          ref: ${{ inputs.sha }}
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
@@ -183,7 +150,7 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: prod-smoke-report-${{ inputs.environment || github.event.deployment_status.environment }}
+          name: prod-smoke-report-${{ inputs.environment }}
           path: playwright-report/
           retention-days: 7
 

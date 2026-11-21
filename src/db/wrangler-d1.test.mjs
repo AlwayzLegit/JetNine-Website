@@ -1,5 +1,6 @@
 // OPS-183: production binds its own D1 database (jetnine-production), staging keeps
-// jetnine-staging, and nothing in wrangler.jsonc turns D1 on for production.
+// jetnine-staging. OPS-213 (the cutover flip): wrangler.jsonc turns D1 on for production
+// with DB_TARGET "d1" and DB_CUTOVER "production-d1" and no write pause.
 // OPS-196: the voice Worker's production binding names the same database as the site's.
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -49,10 +50,17 @@ test("staging still binds jetnine-staging, a different database from production"
   assert.notEqual(staging[0].database_id, dbOf(config.d1_databases)[0].database_id);
 });
 
-test("production sets neither DB_TARGET nor DB_CUTOVER, and no block sets DB_CUTOVER", () => {
-  assert.equal(config.vars?.DB_TARGET, undefined);
-  assert.equal(config.vars?.DB_CUTOVER, undefined);
+test("production sets DB_TARGET d1 and DB_CUTOVER exactly production-d1, with no write pause (OPS-213)", () => {
+  assert.equal(config.vars?.DB_TARGET, "d1");
+  assert.equal(config.vars?.DB_CUTOVER, "production-d1");
+  assert.equal(config.vars?.DEPLOY_ENV, "production");
+  assert.equal(config.vars?.WRITES_PAUSED, undefined);
+});
+
+test("staging sets DB_TARGET d1, no DB_CUTOVER and no write pause (OPS-213)", () => {
+  assert.equal(config.env.staging.vars.DB_TARGET, "d1");
   assert.equal(config.env.staging.vars.DB_CUTOVER, undefined);
+  assert.equal(config.env.staging.vars.WRITES_PAUSED, undefined);
 });
 
 const voice = parseJsonc(readFileSync(new URL("../../voice/wrangler.jsonc", import.meta.url), "utf8"));
@@ -72,9 +80,9 @@ test("voice staging still binds jetnine-staging with the site's staging id, a di
   assert.notEqual(staging[0].database_id, dbOf(voice.d1_databases)[0].database_id);
 });
 
-test("voice production sets neither DB_TARGET nor DB_CUTOVER, stays production, and no voice block sets DB_CUTOVER", () => {
-  assert.equal(voice.vars?.DB_TARGET, undefined);
-  assert.equal(voice.vars?.DB_CUTOVER, undefined);
+test("voice production sets DB_TARGET d1 and DB_CUTOVER exactly production-d1 and stays production; voice staging sets no DB_CUTOVER (OPS-213)", () => {
+  assert.equal(voice.vars?.DB_TARGET, "d1");
+  assert.equal(voice.vars?.DB_CUTOVER, "production-d1");
   assert.equal(voice.vars?.DEPLOY_ENV, "production");
   assert.equal(voice.env.staging.vars.DB_CUTOVER, undefined);
 });

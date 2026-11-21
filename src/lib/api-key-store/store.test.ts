@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { apiKeyAdminStore, apiKeyRuntimeStore } from "./store";
 
 // OPS-138: when the target is d1 and the DB binding is missing, the store fails
@@ -32,4 +33,14 @@ test("production never gets the d1 store, whatever DB_TARGET says", () => {
     assert.equal(typeof apiKeyRuntimeStore().keyForAuth, "function");
     assert.equal(typeof apiKeyAdminStore().createIfUnderCap, "function");
   });
+});
+
+// OPS-213 (Codex security review): after the cutover the users domain is in D1, so the D1 key store must
+// take the key's authority from the D1 users row. Passing a Postgres role lookup would leave a person
+// removed or demoted in D1 with their old authority. The wiring is in apiKeyStore(); the behaviour is
+// tested in store-d1.test.ts ("no canonical role source").
+test("the d1 key store is built without a Postgres role source", () => {
+  const source = readFileSync(new URL("./store.ts", import.meta.url), "utf8");
+  assert.match(source, /return d1ApiKeyStore\(client\);/);
+  assert.doesNotMatch(source, /pgUserRole/);
 });

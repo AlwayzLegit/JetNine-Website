@@ -26,8 +26,9 @@
 
   // Production's own D1 database, the same one the site binds (OPS-183); its
   // migrations are applied by the site's deploy only, never by this Worker.
-  // Unused until the cutover sets DB_TARGET "d1" and DB_CUTOVER "production-d1";
-  // neither is set here, so production voice stays on Postgres (OPS-196).
+  // Used once the owner deploys this file after the cutover (OPS-213): DB_TARGET "d1" and
+  // DB_CUTOVER "production-d1" are set in vars below. Until that hand deploy, the voice
+  // Worker on Cloudflare still has the old settings and stays on Postgres (OPS-196).
   "d1_databases": [
     {
       "binding": "DB",
@@ -57,8 +58,11 @@
     "RECORDING_ENABLED": "true",
     // Which environment this is. With no DB_TARGET the Worker uses Postgres, and
     // production needs DB_TARGET "d1" AND DB_CUTOVER "production-d1" (OPS-176) to
-    // choose D1; neither is set here. DEPLOY_ENV stays "production"; see src/db/target.ts.
-    "DEPLOY_ENV": "production"
+    // choose D1; both are set since the cutover (OPS-213). DEPLOY_ENV stays "production";
+    // see src/db/target.ts. Way back: remove DB_CUTOVER and deploy by hand (OPS-206).
+    "DEPLOY_ENV": "production",
+    "DB_TARGET": "d1",
+    "DB_CUTOVER": "production-d1"
   },
 
   // Staging voice Worker (OPS-137): `wrangler deploy --env staging`, run by the

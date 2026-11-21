@@ -150,12 +150,3 @@ export function pgApiKeyStore(): ApiKeyStore {
     },
   };
 }
-
-/**
- * A person's role in Postgres, the source of truth until the users domain moves, or null when the
- * person no longer exists. The D1 key sign-in asks this instead of trusting its copy of `users`.
- */
-export async function pgUserRole(userId: string): Promise<string | null> {
-  const [row] = await db.select({ role: users.role }).from(users).where(eq(users.id, userId)).limit(1);
-  return row?.role ?? null;
-}

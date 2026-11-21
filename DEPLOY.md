@@ -392,7 +392,7 @@ No schema or env changes. The runbook, in order:
 
 JetNine's database is moving from Supabase Postgres to Cloudflare D1, one domain at a time.
 
-- **Binding.** The staging Worker has a D1 binding `DB` (database `jetnine-staging`, migrations in `src/db/d1/migrations`). Production has its own binding `DB` (database `jetnine-production`, OPS-183) and stays on Postgres until the cutover.
+- **Binding.** The staging Worker has a D1 binding `DB` (database `jetnine-staging`, migrations in `src/db/d1/migrations`). Production has its own binding `DB` (database `jetnine-production`, OPS-183). Production reads D1 since the cutover (OPS-213, "Cutover flip"); until that merge it stays on Postgres.
 - **Switch.** `DB_TARGET` (`postgres` or `d1`) names the database per environment. Staging sets `postgres` until the first converted domain row changes it. `src/db/target.mjs` reads it: anything but exactly `d1` means Postgres, and production refuses `d1` by code until the cutover row lifts that on purpose.
 - **Code.** `dbTarget()` and `d1Db()` in `src/db/d1.ts` (re-exported from `src/db`). `db` and `sql` still point at Postgres; a converted domain calls `d1Db()` when `dbTarget()` is `d1`.
 - **Health.** `checks.db` in `/api/health` (full view and `/admin/health`) shows `target`, `d1` (`absent`, `ok` or `error`) and `d1Tables`. D1 never changes `ok` or the status.
@@ -579,10 +579,10 @@ The first load failed with `SQLITE_CONSTRAINT` and the log did not say where. Wh
 
 Step 8b of the move to Cloudflare (OPS-93): production's Worker binds its own D1 database, `jetnine-production` (created empty by the owner, OPS-177), with the same migrations folder as staging.
 
-- **Binding.** `wrangler.jsonc`, top level: `DB` on `jetnine-production`, `migrations_dir` `src/db/d1/migrations`. Production sets neither `DB_TARGET` nor `DB_CUTOVER`, so `parseDbTarget` (OPS-176) still returns Postgres and no query reads it. The health probe shows `d1` and `d1Tables` as information only; a D1 error cannot change the status.
+- **Binding.** `wrangler.jsonc`, top level: `DB` on `jetnine-production`, `migrations_dir` `src/db/d1/migrations`. At the time of this step production set neither `DB_TARGET` nor `DB_CUTOVER`, so `parseDbTarget` (OPS-176) returned Postgres and no query read it; since the cutover flip (OPS-213) both are set and production reads D1. The health probe shows `d1` and `d1Tables` as information only; a D1 error cannot change the status.
 - **Step.** `Deploy (Cloudflare)`, job `deploy`, has a step `D1 migrations (production)` (production only, before the build and the app deploy): it applies the D1 migrations to `jetnine-production` and prints `D1 jetnine-production tables: N`. N equals the `D1 jetnine-staging tables: N` of a staging run on the same commit. Since OPS-211 it runs before the app deploy and a failure stops the production deploy (it was a separate job after the deploy until then; see "Cutover preparation").
 - **Key.** The repo's own `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` (the staging step already uses them). No new secret.
-- **Test.** `src/db/wrangler-d1.test.mjs` (CI step "Database target tests"): the production and staging bindings, and that no block sets `DB_CUTOVER`.
+- **Test.** `src/db/wrangler-d1.test.mjs` (CI step "Database target tests"): the production and staging bindings; since OPS-213 also that production sets `DB_TARGET` `d1` and `DB_CUTOVER` `production-d1` with no `WRITES_PAUSED`, and staging sets no `DB_CUTOVER`.
 - **No data is copied** here. The copy into production (with password hashes and bans) and the reverse copy are the next part (8b2), on the owner's yes.
 - **Way back.** Revert the merge commit. The Worker has no DB binding again; the tables in `jetnine-production` stay, unused (dropping the database is the owner's).
 
@@ -590,10 +590,10 @@ Step 8b of the move to Cloudflare (OPS-93): production's Worker binds its own D1
 
 Step 8c of the move to Cloudflare (OPS-93): the top level of `voice/wrangler.jsonc` binds `DB` to `jetnine-production`, the same database the site binds (OPS-183), so on cutover day the phone line already knows its D1 database.
 
-- **Binding.** `d1_databases` at the top level of `voice/wrangler.jsonc`: `DB`, `jetnine-production`, id `1e1b0249-62b3-41c2-a971-4642a295b896`. `DB_TARGET` and `DB_CUTOVER` are set nowhere in the production block, so production voice still reads Postgres (`voice/src/db/target.ts`). The Worker never applies D1 migrations; the site's deploy does.
+- **Binding.** `d1_databases` at the top level of `voice/wrangler.jsonc`: `DB`, `jetnine-production`, id `1e1b0249-62b3-41c2-a971-4642a295b896`. `DB_TARGET` `d1` and `DB_CUTOVER` `production-d1` are set in the production block since the cutover flip (OPS-213); until the owner's hand deploy of `voice/` production voice still reads Postgres (`voice/src/db/target.ts`). The Worker never applies D1 migrations; the site's deploy does.
 - **What the cutover sets.** `DB_TARGET` `d1` and `DB_CUTOVER` `production-d1` (OPS-176), `DEPLOY_ENV` stays `production`. `voice/README.md` says the same.
 - **Not deployed by this change.** Deploy (Cloudflare) ignores `voice/**`. Production voice is deployed by hand by the owner; the binding takes effect at his next deploy and changes nothing while those two settings are unset. Then `https://voice.jetnine.com/health` shows `db: { target: "postgres", ok: true }`.
-- **Tests.** CI step "Database target tests" (`src/db/wrangler-d1.test.mjs`): the voice and site production bindings name the same database, voice staging keeps `jetnine-staging`, no voice block sets `DB_CUTOVER`. CI job `voice` has a step "Bundle dry run" (`wrangler deploy --dry-run`, no credentials).
+- **Tests.** CI step "Database target tests" (`src/db/wrangler-d1.test.mjs`): the voice and site production bindings name the same database, voice staging keeps `jetnine-staging`, voice production sets both settings (OPS-213) and voice staging sets no `DB_CUTOVER`. CI job `voice` has a step "Bundle dry run" (`wrangler deploy --dry-run`, no credentials).
 - **Way back.** Revert the merge commit. If the owner deployed voice in between, deploy it again from the reverted main; while the two settings are unset the binding is never read.
 
 ## Write pause (OPS-205)
@@ -605,7 +605,7 @@ Step 9b of the move to Cloudflare (OPS-93): one switch that stops every write wh
 - **What a sender sees.** An API path gets JSON `{"error":"paused","retryAfterSeconds":600}`; any other path gets a short page saying JetNine is moving to a new system. Both are `503` with `Retry-After: 600` and `Cache-Control: no-store`, so a browser or a webhook sender tries again later.
 - **Turn it on.** Add `"WRITES_PAUSED": "cutover"` to the top level `vars` of `wrangler.jsonc` in a merge; Deploy (Cloudflare) makes it live (about 10 minutes). Only the cutover row (OPS-206) does this.
 - **The switch (OPS-212).** The pull request `crew/OPS-212-cutover-pause` is that merge: it adds `"WRITES_PAUSED": "cutover"` to the top level `vars` and to `env.staging.vars`. It merges only in the OPS-206 window, with "Create a merge commit", never squash, because the flip pull request (OPS-213) is built on its branch. Staging proves the pause before the window.
-- **Turn it off.** Remove the variable in a merge. The flip to D1 (`DB_TARGET` `d1`, `DB_CUTOVER` `production-d1`, OPS-176) removes it in the same change. With the variable unset the code does nothing.
+- **Turn it off.** Remove the variable in a merge. The flip to D1 (`DB_TARGET` `d1`, `DB_CUTOVER` `production-d1`, OPS-176; pull request OPS-213) removes it in the same change. With the variable unset the code does nothing.
 - **Not covered.** The voice Worker (`voice/`, deployed by hand); the cutover row handles it.
 - **Test.** CI step "Write pause tests" (`node --test src/lib/writes-pause.test.mjs`).
 - **Way back.** Revert the merge commit. While `WRITES_PAUSED` is unset the revert changes nothing live.
@@ -618,3 +618,11 @@ Part 1 of the cutover (OPS-206, part of OPS-93): three changes that sit on main 
 - **The smoke accepts the write pause.** When the home page carries `x-jetnine-writes: paused` (OPS-205), the post-deploy smoke prints `writes paused: quote walk skipped` and skips the Playwright quote walk (workflow step `Writes paused?`), and `scripts/smoke-prod.mts` prints `writes paused: POST checks expect 503` and expects the pause's `503` with the header on every check the pause blocks (the four POST checks, the cron checks and the two `/api/v1` key lookups) instead of their usual 4xx. A paused site that answers any of them another way, or a `503` without the header, still fails. Unpaused, nothing changes. Rule and test: `scripts/smoke-paused.mts`, CI step "Smoke write pause tests".
 - **D1 migrations run before the app deploy.** See "Production D1 database (OPS-183)": the step moved into job `deploy`, ahead of the build; the job `d1-production` is gone.
 - **Way back.** Revert the merge commit. Nothing stored changes.
+
+## Cutover flip (OPS-213)
+
+Step 9c3 of the move to Cloudflare (OPS-93, window plan on OPS-206): the pull request that moves production from Postgres to D1. It is stacked on the write pause pull request (OPS-212) and merges only in the OPS-206 window, after the production copy is checked equal (`D1 copy production` check, every table equal).
+
+- **What it sets.** `wrangler.jsonc`, top level `vars`: `DB_TARGET` `d1` and `DB_CUTOVER` `production-d1` (both are needed, `src/db/target.mjs`), and `WRITES_PAUSED` is removed there and in `env.staging.vars`, so the pause ends in the same deploy. `voice/wrangler.jsonc`, top level `vars`: the same two settings, for the owner's hand deploy (`cd voice && npx wrangler deploy`); Deploy (Cloudflare) ignores `voice/`.
+- **Read it from outside.** `https://jetnine.com/api/health` shows 200, healthy, `"db":"d1"`; `curl -sI https://jetnine.com/` has no `x-jetnine-writes` header.
+- **Way back.** Revert this merge commit: production returns to Postgres with the pause on (the OPS-212 merge is still on main), so nothing is written while the rows D1 took go back to Postgres with D1 reverse (mode load, confirm `copy-d1-to-postgres`) on the owner's yes; then revert the OPS-212 merge to lift the pause. Postgres stays untouched for 30 days.

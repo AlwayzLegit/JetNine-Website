@@ -174,9 +174,12 @@ curl https://voice.jetnine.com/health               # 200 once call-ready
 The Worker reads and writes Postgres through Hyperdrive, as always, unless
 `DB_TARGET` is `d1` and either `DEPLOY_ENV` is not `production` or, in
 production, `DB_CUTOVER` is exactly `production-d1` (`src/db/target.ts`, the
-site's rule, OPS-176). Production sets `DEPLOY_ENV` to `production` and neither
-`DB_TARGET` nor `DB_CUTOVER`, so **production voice stays on Postgres** and this
-change does not redeploy it. The D1 side (`src/db/store-d1.ts`) is used by the staging
+site's rule, OPS-176). Since the cutover flip (OPS-213) the production block of
+`wrangler.jsonc` sets `DEPLOY_ENV` `production`, `DB_TARGET` `d1` and `DB_CUTOVER`
+`production-d1`, so **production voice reads D1 from the owner's next hand deploy**
+(`cd voice && npx wrangler deploy`); until then the deployed Worker keeps its old
+settings and stays on Postgres. Way back: remove `DB_CUTOVER` and deploy by hand, after
+the reverse copy (OPS-206). The D1 side (`src/db/store-d1.ts`) is used by the staging
 Worker, `jetnine-voice-staging` (`env.staging` in `wrangler.jsonc`): it binds
 the staging D1 database `jetnine-staging` as `DB`, has no custom domain and no
 Twilio, LLM or encryption secret, so it takes no calls and `/health` answers
@@ -185,10 +188,10 @@ workflow deploys it on a staging run and prints
 `voice staging db: target=d1 ok=true`. To deploy it by hand:
 `npx wrangler deploy --env staging`. At the cutover, production needs
 `DB_TARGET` `d1` and `DB_CUTOVER` `production-d1` (`DEPLOY_ENV` stays
-`production`). Its `DB` binding to the production database `jetnine-production`
-is already in the top level of `wrangler.jsonc` (OPS-196, the same database the
-site binds); the owner's hand deploy carries it and changes nothing while those
-two settings are unset. The Worker never applies D1 migrations: the site's
+`production`); both are in the top level of `wrangler.jsonc` since OPS-213. Its `DB`
+binding to the production database `jetnine-production` is in the top level of
+`wrangler.jsonc` (OPS-196, the same database the site binds); the owner's hand deploy
+carries the binding and the two settings. The Worker never applies D1 migrations: the site's
 deploy does.
 
 If the Worker does not exist yet, the first `wrangler secret put` creates it

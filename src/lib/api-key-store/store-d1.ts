@@ -24,11 +24,12 @@ type D1Client = DrizzleD1Database;
 const DAY = 86_400_000;
 
 /**
- * @param canonicalRole where a person's role really lives. Until the users domain moves to D1 that
- *   is Postgres, and the D1 `users` table is only a periodic copy, so the sign-in must not take a
- *   key's authority from the copy: a person demoted or removed in Postgres would keep it (Codex
- *   review of OPS-138). Returns null for a user that no longer exists. When left out, the D1 role is used
- *   (tests, and the day users are in D1).
+ * @param canonicalRole where a person's role really lives, when that is not this D1 database. Before
+ *   the cutover the D1 `users` table was only a periodic copy of Postgres, so the sign-in could not
+ *   take a key's authority from the copy (Codex review of OPS-138). Since the cutover (OPS-213) users
+ *   are in D1 and store.ts leaves this out, so the D1 role is used: a person demoted or removed in
+ *   D1 loses the key's authority at once (Codex security review of OPS-213). Returns null for a user
+ *   that no longer exists.
  */
 export function d1ApiKeyStore(
   db: D1Client,

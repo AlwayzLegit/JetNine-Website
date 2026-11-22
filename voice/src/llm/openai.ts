@@ -12,6 +12,7 @@ import {
 } from "./history.js";
 import type { ProviderConfig } from "./providers.js";
 import type { TurnCallbacks, TurnResult } from "./agent.js";
+import { classifyProviderError } from "./errors.js";
 
 // OpenAI adapter over Chat Completions with streaming and function tools.
 // Same contract as the Anthropic adapter: speak deltas as they arrive, run
@@ -83,7 +84,7 @@ export async function runOpenAiTurn(
       if (err instanceof OpenAI.APIUserAbortError || signal.aborted) {
         return { spokenText, aborted: true };
       }
-      throw err;
+      throw classifyProviderError(err, "openai");
     }
 
     const toolCalls: ToolCall[] = [...pending.values()]

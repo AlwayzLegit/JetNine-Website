@@ -1,6 +1,7 @@
 import type { Logger } from "../log.js";
 import { config } from "../config.js";
 import { runTurn } from "../llm/agent.js";
+import { isMarkedUnrecoverable } from "../llm/errors.js";
 import type { HistoryItem } from "../llm/history.js";
 import { callContext } from "../llm/prompt.js";
 import type { ToolContext } from "../llm/tools.js";
@@ -298,9 +299,16 @@ export class CallSession {
       );
       this.log.info({ callSid: this.callSid, firstTokenMs, totalMs: Date.now() - t0, provider: result.provider }, "turn: timing");
     } catch (err) {
-      this.log.error({ err }, "turn: model call failed");
+      // A key, access or credit failure will not clear within the call (OPS-235):
+      // pass the call on at once instead of asking the caller to repeat themselves.
+      const unrecoverable = isMarkedUnrecoverable(err);
+      if (unrecoverable) {
+        this.log.warn({ provider: err.provider, status: err.providerStatus }, "turn: provider unavailable, passing the call on");
+      } else {
+        this.log.error({ err }, "turn: model call failed");
+      }
       this.confusedTurns += 1;
-      const giveUp = this.confusedTurns >= 2;
+      const giveUp = unrecoverable || this.confusedTurns >= 2;
       const line = !giveUp
         ? "Sorry, I missed that. Could you say it once more?"
         : !this.canTransfer("agent_failing")
@@ -311,11 +319,16 @@ export class CallSession {
       this.history.push({ role: "assistant", text: line });
       if (giveUp && !this.canTransfer("agent_failing")) {
         this.escalationReason = "agent_failing";
-        this.summary = "Two consecutive model failures; caller promised a broker callback.";
+        this.summary = unrecoverable
+          ? "The model provider was unavailable (key, access or credit); caller promised a broker callback."
+          : "Two consecutive model failures; caller promised a broker callback.";
         await this.finishSpeaking(line);
         await this.end("hangup", "escalated");
       } else if (giveUp) {
-        await this.escalate("agent_failing", "Two consecutive model failures");
+        await this.escalate(
+          "agent_failing",
+          unrecoverable ? "The model provider was unavailable (key, access or credit)" : "Two consecutive model failures",
+        );
       }
       return;
     } finally {

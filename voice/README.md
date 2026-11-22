@@ -131,6 +131,32 @@ turn (cached 60 s, last good answer kept through a database blip).
 - `/health` reports the resolved routing (`llm.primary`, `llm.fallback`,
   `llm.note`) with no key material, and is 503 until some provider resolves.
 
+### When the model is unavailable
+
+A key that is wrong or revoked (HTTP 401), a key that may not use the model
+(403), and an account with no credit left (Anthropic answers 400 "credit
+balance is too low", OpenAI answers 429 `insufficient_quota`) will not clear
+within a call. The adapters mark those errors in `src/llm/errors.ts` (status
+and provider name only, never a key), and the session passes the call on at
+the first such failure:
+
+- If the route has a fallback provider and nothing was spoken yet, the same
+  turn is retried there first (`src/llm/agent.ts`, unchanged).
+- Otherwise the caller hears "I am having trouble on my end. Let me connect
+  you with our on-call broker." and is transferred (escalation reason
+  `agent_failing`). On a no-transfer call they hear the callback line and the
+  call ends, with the desk alerted.
+- A rate limit (429) or a server error (5xx) is still treated as passing: the
+  caller hears "Sorry, I missed that" once, and the call passes on at the
+  second failure in a row.
+- The greeting is static TwiML, so it plays whatever the state of the key.
+
+The key lives at `/admin/settings/ai` (the site keeps one key per vendor).
+Give it its own workspace and monthly spend limit in the Anthropic Console,
+so the limit is reached before the credit is. The Deploy voice (production)
+run prints `voice production llm: provider=... source=... label=...` from
+`/health`, which shows which key is answering without showing the key.
+
 ## Changing the voice
 
 The env defaults below are `vars` in `wrangler.jsonc` (`.dev.vars` locally), read once in `src/config.ts`:

@@ -189,6 +189,10 @@ jobs:
             fi
             sleep 5
           done
+          # Which key answers the calls, from the same /health body. It names the provider,
+          # where the key comes from and the label the owner gave it, never the key (OPS-235).
+          LLM=$(jq -r '(.llm.primary // {}) as $p | "provider=\($p.provider // "none") source=\($p.source // "none") label=\($p.label // "none") note=\(.llm.note // "none")"' health.json 2>/dev/null | tr -d '\r\n' || true)
+          echo "voice $TARGET llm: ${LLM:-provider=none source=none label=none note=no-health-body}"
           rm -f health.json
 
           if [ "$PASSED" != "yes" ]; then

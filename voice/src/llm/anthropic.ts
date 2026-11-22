@@ -5,6 +5,7 @@ import { TOOLS, runTool, type ToolContext } from "./tools.js";
 import { toAnthropicMessages, type HistoryItem, type ToolCall, type ToolResult } from "./history.js";
 import type { ProviderConfig } from "./providers.js";
 import type { TurnCallbacks, TurnResult } from "./agent.js";
+import { classifyProviderError } from "./errors.js";
 
 // Anthropic adapter: stream Claude's reply token-by-token, run any tools it
 // asks for, loop until it stops. Manual streaming loop so an interrupt can
@@ -66,7 +67,7 @@ export async function runAnthropicTurn(
       if (err instanceof Anthropic.APIUserAbortError || signal.aborted) {
         return { spokenText, aborted: true };
       }
-      throw err;
+      throw classifyProviderError(err, "anthropic");
     }
 
     const toolCalls: ToolCall[] = message.content

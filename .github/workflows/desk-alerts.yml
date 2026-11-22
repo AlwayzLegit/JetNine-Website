@@ -1,0 +1,80 @@
+name: Desk alerts (read only)
+
+# OPS-279. Reads, never writes: one SELECT on the audit log of the chosen D1 database, grouped
+# by alert action and outcome, printed as "desk-alerts: <action> <status> <count>". It is the
+# proof that every desk alert records whether it was delivered (pricing_guide, voicemail,
+# quote and trip replies, unrouted texts and emails, and the contact and quote alerts).
+# Counts only: no visitor data, no addresses, no message text. Same two repository secrets
+# as the D1 steps of deploy-cloudflare.yml; no new key.
+
+on:
+  workflow_dispatch:
+    inputs:
+      env:
+        description: Which database to read
+        type: choice
+        options: [production, staging]
+        default: production
+      days:
+        description: How many days back (1 to 30)
+        type: string
+        default: "7"
+
+permissions:
+  contents: read
+
+jobs:
+  read:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Validate inputs
+        id: in
+        env:
+          DAYS: ${{ github.event.inputs.days }}
+          TARGET: ${{ github.event.inputs.env }}
+        run: |
+          case "$DAYS" in ''|*[!0-9]*) echo "days must be an integer from 1 to 30"; exit 1;; esac
+          if [ "$DAYS" -lt 1 ] || [ "$DAYS" -gt 30 ]; then echo "days must be from 1 to 30"; exit 1; fi
+          case "$TARGET" in
+            production) echo "db=jetnine-production" >> "$GITHUB_OUTPUT"; echo "env_flag=" >> "$GITHUB_OUTPUT";;
+            staging) echo "db=jetnine-staging" >> "$GITHUB_OUTPUT"; echo "env_flag=--env staging" >> "$GITHUB_OUTPUT";;
+            *) echo "env must be production or staging"; exit 1;;
+          esac
+          # occurred_at is integer milliseconds (timestamp_ms in the D1 schema).
+          echo "since=$(( ($(date +%s) - DAYS * 86400) * 1000 ))" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+          run_install: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Read the audit log (one SELECT)
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          DB: ${{ steps.in.outputs.db }}
+          ENV_FLAG: ${{ steps.in.outputs.env_flag }}
+          SINCE: ${{ steps.in.outputs.since }}
+        run: |
+          # shellcheck disable=SC2086
+          pnpm exec wrangler d1 execute "$DB" $ENV_FLAG --remote --json \
+            --command "select action, coalesce(json_extract(metadata, '\$.status'), 'none') as status, count(*) as n from audit_log where action like '%.notify.email' and occurred_at >= $SINCE group by 1, 2 order by 1, 2" \
+            > rows.json
+          jq -r '.[0].results[] | "desk-alerts: \(.action) \(.status) \(.n)"' rows.json | tee lines.txt
+          {
+            echo "### Desk alerts, $DB, since $SINCE (ms)"
+            echo
+            echo '```'
+            cat lines.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"

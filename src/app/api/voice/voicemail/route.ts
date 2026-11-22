@@ -1,7 +1,8 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { voiceRouting } from "@/domain/settings/queries";
-import { sendDispatchAlert } from "@/lib/email";
+import { sendDispatchAlert, type SendResult } from "@/lib/email";
 import { recipientsFor } from "@/lib/desk-settings";
+import { auditDeskAlert } from "@/lib/desk-alert-audit";
 import { DESK_ALERT_KIND } from "@/lib/desk-alert-recipients.mjs";
 import { sendSms } from "@/lib/twilio";
 import { readTwilioWebhook } from "@/lib/twilio-webhook";
@@ -58,6 +59,19 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   for (const r of results) {
     if (r.status === "rejected") console.error("[voice:voicemail] alert failed", r.reason);
   }
+
+  // OPS-279: record whether the desk alert went out. The email alert is the last result; the
+  // texts come first. Counts and the call sid only: no phone number.
+  const texts = results.slice(0, routing.numbers.length);
+  const smsSent = texts.filter((r) => r.status === "fulfilled" && (r.value as { ok: boolean }).ok).length;
+  const emailAlert = results[results.length - 1] as PromiseSettledResult<SendResult>;
+  await auditDeskAlert({
+    action: "voicemail.notify.email",
+    subjectType: "system",
+    result: emailAlert,
+    staffRecipients: staff.length,
+    extra: { callSid: p.CallSid ?? null, smsSent, smsFailed: texts.length - smsSent },
+  });
 
   return xml(voicemailThanksTwiml());
 }

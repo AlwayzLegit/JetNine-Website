@@ -5,6 +5,7 @@ import { isDuplicateMessage, messageStore } from "@/domain/messages/store";
 import { logAudit } from "@/lib/audit";
 import { sendDispatchAlert } from "@/lib/email";
 import { recipientsFor } from "@/lib/desk-settings";
+import { auditDeskAlert } from "@/lib/desk-alert-audit";
 import { DESK_ALERT_KIND } from "@/lib/desk-alert-recipients.mjs";
 
 // Inbound email webhook — Postmark's "Inbound Stream" calls this URL
@@ -198,7 +199,8 @@ export async function POST(
   // Wake the desk — before this, inbound replies landed unread in the
   // thread with nothing pointing at them.
   try {
-    await sendDispatchAlert({
+    const staff = await recipientsFor(DESK_ALERT_KIND);
+    const alert = await sendDispatchAlert({
       subject: `[${code}] Reply from ${fromEmail || "the client"}`,
       headline: "A client replied by email.",
       lines: [preview || "(empty message)", `Reference ${code}`],
@@ -206,7 +208,16 @@ export async function POST(
         label: "Open the thread",
         url: `https://jetnine.com/admin/${route.subjectType === "quote" ? "requests" : "trips"}/${route.subjectId}`,
       },
-      to: await recipientsFor(DESK_ALERT_KIND),
+      to: staff,
+    });
+    await auditDeskAlert({
+      action: `${route.subjectType}.reply.notify.email`,
+      subjectType: route.subjectType,
+      subjectId: route.subjectId,
+      subjectCode: code,
+      result: alert,
+      staffRecipients: staff.length,
+      extra: { channel: "email" },
     });
   } catch (err) {
     console.error("[email:inbound] desk alert failed (non-fatal)", err);
@@ -224,7 +235,8 @@ async function forwardUnroutedToDesk(
 ): Promise<void> {
   try {
     const body = (payload.StrippedTextReply ?? payload.TextBody ?? "").slice(0, 1200);
-    await sendDispatchAlert({
+    const staff = await recipientsFor(DESK_ALERT_KIND);
+    const alert = await sendDispatchAlert({
       subject: `[UNROUTED] An email we couldn't match — ${reason}`,
       headline: "An email came in that we couldn't match to a request or trip.",
       lines: [
@@ -234,7 +246,15 @@ async function forwardUnroutedToDesk(
         "Their message (unverified, first 1,200 characters):",
         body || "(empty)",
       ],
-      to: await recipientsFor(DESK_ALERT_KIND),
+      to: staff,
+    });
+    // The reason is not stored: two of its three texts carry a reference code taken from the
+    // sender's subject line, so only the outcome is recorded (OPS-279, step 5).
+    await auditDeskAlert({
+      action: "inbound_email.unrouted.notify.email",
+      subjectType: "system",
+      result: alert,
+      staffRecipients: staff.length,
     });
   } catch (err) {
     console.error("[email:inbound] unrouted forward failed (non-fatal)", err);

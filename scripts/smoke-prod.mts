@@ -20,6 +20,7 @@
  */
 import { setTimeout as sleep } from "node:timers/promises";
 import { createReader } from "./smoke-fetch.mjs";
+import { classifyHero, extractHeroPaths, heroReport, type HeroResult } from "./smoke-media.mjs";
 import { isPausedReply, pausedVerdict } from "./smoke-paused.mjs";
 
 const TARGET = (process.env.BASE_URL ?? "https://jet-nine-website.vercel.app").replace(/\/$/, "");
@@ -208,6 +209,36 @@ async function checkBlog(): Promise<void> {
     const post = await read(`${TARGET}${link.pathname}`);
     if (post.status !== 200) return { ok: false, detail: `first post ${link.pathname}: ${post.status}` };
     return { ok: true, detail: `first post ${link.pathname} 200` };
+  });
+}
+
+// Every blog hero the /blog page names must come out of R2 (OPS-289). The edge Worker answers a
+// hero that is not in the bucket with a library photo and X-Media-Stand-In, which looks like a
+// normal image, so each one is read here and counted. Prints exactly one summary line, then up to
+// 10 lines naming the paths that are not real. Advisory: the line is the proof, read from the run.
+async function checkMediaHeroes(): Promise<void> {
+  await check("blog hero images come from R2", "advisory", async () => {
+    const page = await read(`${TARGET}/blog`);
+    if (page.status !== 200) return { ok: false, detail: `/blog answered ${page.status}, no heroes read` };
+    const paths = extractHeroPaths(page.text);
+    const results: HeroResult[] = [];
+    let next = 0;
+    const worker = async () => {
+      while (next < paths.length) {
+        const path = paths[next++];
+        try {
+          const r = await read(`${TARGET}${path}`, { method: "HEAD" });
+          results.push({ path, verdict: classifyHero(r.status, r.headers), status: r.status });
+        } catch {
+          results.push({ path, verdict: "failed", status: 0 });
+        }
+      }
+    };
+    await Promise.all(Array.from({ length: 4 }, worker));
+    results.sort((a, b) => a.path.localeCompare(b.path));
+    const report = heroReport(results);
+    for (const line of report.lines) console.log(line);
+    return { ok: report.ok, detail: report.lines[0] };
   });
 }
 
@@ -554,6 +585,7 @@ async function main() {
   await checkSitemap();
   await checkRobots();
   await checkBlog();
+  await checkMediaHeroes();
   await checkOgImage();
   await checkEmptyLegsBoard();
   await checkWatchlistConfirmLookup();

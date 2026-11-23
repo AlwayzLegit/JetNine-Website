@@ -191,3 +191,90 @@ test("a very long path is cut, and every line shape passes through redact() unch
     t2.restore();
   }
 });
+
+// OPS-289: hero images come out of R2 and nowhere else. The Worker no longer has a Supabase
+// fallback: a key that is not in the bucket gets the stand-in photo and the stand-in header,
+// and no request leaves the Worker for a Supabase address.
+function mediaSetup(objects: Record<string, string>) {
+  const fetched: string[] = [];
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = (async (input: RequestInfo | URL) => {
+    fetched.push(String(input instanceof Request ? input.url : input));
+    return new Response("unexpected", { status: 500 });
+  }) as typeof fetch;
+  const g = globalThis as { caches?: unknown };
+  const hadCaches = "caches" in g;
+  const before = g.caches;
+  g.caches = undefined;
+  const appCalls: string[] = [];
+  const env = {
+    APP: {
+      fetch: async (r: Request) => {
+        appCalls.push(new URL(r.url).pathname);
+        return new Response("standin-bytes", { status: 200, headers: { "content-type": "image/webp" } });
+      },
+    } as Fetcher,
+    APP_VERSION: "",
+    MEDIA: {
+      get: async (key: string) =>
+        key in objects
+          ? { body: new Response(objects[key]).body as ReadableStream, httpEtag: '"etag1"', httpMetadata: { contentType: "image/webp" } }
+          : null,
+    },
+  };
+  const ctx = { waitUntil: (_p: Promise<unknown>) => {} };
+  return {
+    fetched,
+    appCalls,
+    env,
+    run: (request: Request) => worker.fetch(request, env as never, ctx),
+    restore: () => {
+      globalThis.fetch = realFetch;
+      if (hadCaches) g.caches = before;
+      else delete g.caches;
+    },
+  };
+}
+
+test("a hero that is in R2 answers 200, immutable, with no stand-in header", async () => {
+  const key = "blog/heroes/real-1.webp";
+  const t = mediaSetup({ [key]: "real-bytes" });
+  try {
+    const res = await t.run(new Request(`https://jetnine.com/media/${key}`));
+    assert.equal(res.status, 200);
+    assert.equal(res.headers.get("cache-control"), "public, max-age=31536000, immutable");
+    assert.equal(res.headers.get("x-media-stand-in"), null);
+    assert.equal(await res.text(), "real-bytes");
+    assert.deepEqual(t.fetched, []);
+    assert.deepEqual(t.appCalls, []);
+  } finally {
+    t.restore();
+  }
+});
+
+test("a hero that is not in R2 gets the stand-in, and nothing is fetched from Supabase or anywhere else", async () => {
+  const t = mediaSetup({});
+  try {
+    const res = await t.run(new Request("https://jetnine.com/media/blog/heroes/missing-2.webp"));
+    assert.equal(res.status, 200);
+    assert.ok(res.headers.get("x-media-stand-in"), "the stand-in header must be set");
+    assert.equal(res.headers.get("cache-control"), "public, max-age=300");
+    assert.equal(t.fetched.filter((u) => u.includes("supabase.co")).length, 0);
+    assert.equal(t.fetched.length, 0, "no outside fetch: nothing may call Supabase");
+    assert.equal(t.appCalls.length, 1);
+    assert.match(t.appCalls[0], /^\/images\/blog\/library\/[a-z-]+\.webp$/);
+  } finally {
+    t.restore();
+  }
+});
+
+test("the same missing key always gets the same stand-in photo", async () => {
+  const t = mediaSetup({});
+  try {
+    const a = await t.run(new Request("https://jetnine.com/media/blog/heroes/same-3.webp"));
+    const b = await t.run(new Request("https://jetnine.com/media/blog/heroes/same-3.webp"));
+    assert.equal(a.headers.get("x-media-stand-in"), b.headers.get("x-media-stand-in"));
+  } finally {
+    t.restore();
+  }
+});

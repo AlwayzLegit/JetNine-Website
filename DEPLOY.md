@@ -133,7 +133,7 @@ Why: the app is a ~34 MB script, and Cloudflare loads it into a fresh isolate fo
 
 Blog hero images live in the R2 bucket `jetnine-media` (created once with `wrangler r2 bucket create jetnine-media`) under `blog/heroes/`. The app writes uploads there through its `MEDIA` binding and the edge Worker serves them at `/media/blog/heroes/<file>.webp`, cached for a year (filenames are never reused).
 
-They used to be hot-linked from Supabase Storage, which ran the project past its egress quota (Supabase then answers every file with `402`). Posts written before the move still store the Supabase URL; `src/lib/media.ts` maps it to the `/media` path on read, and the edge Worker copies each old file out of Supabase the first time it is requested (`MEDIA_LEGACY_ORIGIN`). Once every old image has been viewed once, the Supabase `blog` bucket is no longer read.
+They used to be hot-linked from Supabase Storage, which ran the project past its egress quota (Supabase then answers every file with `402`). Posts written before the move still store the Supabase URL; `src/lib/media.ts` maps it to the `/media` path on read, and every hero lives only in the R2 bucket `jetnine-media`: the edge Worker no longer calls Supabase (OPS-289, `MEDIA_LEGACY_ORIGIN` is gone). A hero missing from R2 answers with the stand-in photo and header `X-Media-Stand-In`; the smoke test prints `media heroes: N named, R real, S stand-in, F failed` after every deploy.
 
 ## 3. Stripe (optional — payments + member purchase)
 

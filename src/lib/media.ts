@@ -6,9 +6,9 @@ import { getCloudflareContext } from "@opennextjs/cloudflare";
 // project through its egress quota and took the images down with a 402.
 //
 // Rows written before the move still hold the Supabase public URL. Reads map
-// those to the /media path (`siteMediaUrl`), and the edge Worker copies each
-// file out of Supabase once, the first time it is asked for, so nothing in
-// the database had to change.
+// those to the /media path (`siteMediaUrl`), so nothing in the database had to
+// change. Every hero now lives only in R2: the edge Worker no longer copies
+// from Supabase (OPS-289), and the deploy smoke test counts stand-ins.
 
 export const MEDIA_PATH_PREFIX = "/media/";
 

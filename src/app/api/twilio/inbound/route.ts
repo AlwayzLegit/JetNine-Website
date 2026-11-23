@@ -5,6 +5,7 @@ import { watchlistStore } from "@/domain/empty-legs/watchlist-store";
 import { logAudit } from "@/lib/audit";
 import { sendDispatchAlert } from "@/lib/email";
 import { recipientsFor } from "@/lib/desk-settings";
+import { auditDeskAlert } from "@/lib/desk-alert-audit";
 import { DESK_ALERT_KIND } from "@/lib/desk-alert-recipients.mjs";
 import { isTwilioConfigured, verifyTwilioSignatureAny } from "@/lib/twilio";
 import { optOutKeyword } from "@/lib/sms-optout";
@@ -146,7 +147,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     // ACK so Twilio doesn't retry — but forward to the desk instead of
     // losing it to a log line ("ops can grep" was the old story).
     try {
-      await sendDispatchAlert({
+      const staff = await recipientsFor(DESK_ALERT_KIND);
+      const alert = await sendDispatchAlert({
         subject: "[UNROUTED] A text came in that we couldn't match to a request",
         headline: "A text came in that we couldn't match to a request or trip.",
         lines: [
@@ -154,7 +156,13 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           "It has no reference in it, so it isn't on any thread. Their message (unverified, first 800 characters):",
           body.slice(0, 800) || "(empty)",
         ],
-        to: await recipientsFor(DESK_ALERT_KIND),
+        to: staff,
+      });
+      await auditDeskAlert({
+        action: "inbound_text.unrouted.notify.email",
+        subjectType: "system",
+        result: alert,
+        staffRecipients: staff.length,
       });
     } catch (err) {
       console.error("[twilio:inbound] unrouted forward failed (non-fatal)", err);
@@ -226,7 +234,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   // Wake the desk — a threaded reply previously landed unread with
   // nothing pointing at it.
   try {
-    await sendDispatchAlert({
+    const staff = await recipientsFor(DESK_ALERT_KIND);
+    const alert = await sendDispatchAlert({
       subject: `[${route.subjectCode}] ${isWhatsApp ? "WhatsApp" : "Text"} reply from ${fromE164}`,
       headline: `A client replied by ${isWhatsApp ? "WhatsApp" : "text"}.`,
       lines: [preview || "(empty message)", `Reference ${route.subjectCode}`],
@@ -234,7 +243,16 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         label: "Open the thread",
         url: `https://jetnine.com/admin/${route.subjectType === "quote" ? "requests" : "trips"}/${route.subjectId}`,
       },
-      to: await recipientsFor(DESK_ALERT_KIND),
+      to: staff,
+    });
+    await auditDeskAlert({
+      action: `${route.subjectType}.reply.notify.email`,
+      subjectType: route.subjectType,
+      subjectId: route.subjectId,
+      subjectCode: route.subjectCode,
+      result: alert,
+      staffRecipients: staff.length,
+      extra: { channel: isWhatsApp ? "whatsapp" : "sms" },
     });
   } catch (err) {
     console.error("[twilio:inbound] desk alert failed (non-fatal)", err);

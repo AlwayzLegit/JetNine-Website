@@ -5,6 +5,7 @@ import { inquiryStore } from "@/domain/contact/store";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { sendDispatchAlert, sendEmail } from "@/lib/email";
 import { recipientsFor } from "@/lib/desk-settings";
+import { auditDeskAlert } from "@/lib/desk-alert-audit";
 import { DESK_ALERT_KIND } from "@/lib/desk-alert-recipients.mjs";
 import { GUIDE_PDF_PATH, GUIDE_PDF_TITLE } from "@/lib/guide-download";
 import { SITE } from "@/lib/constants";
@@ -63,8 +64,9 @@ export async function requestPricingGuide(formData: FormData): Promise<GuideRequ
   const [firstName, ...rest] = name.split(/\s+/);
   const lastName = rest.join(" ") || "—";
 
+  let inquiryId: string | null = null;
   try {
-    await inquiryStore().insertInquiry({
+    const inserted = await inquiryStore().insertInquiry({
       reason: "other",
       firstName,
       lastName,
@@ -72,6 +74,7 @@ export async function requestPricingGuide(formData: FormData): Promise<GuideRequ
       notes: `Pricing guide download${frequency ? ` · flies privately: ${frequency}` : ""}`,
       status: "new",
     });
+    inquiryId = inserted.id;
   } catch (err) {
     // The lead is the point — if it can't land, fail loudly rather than
     // silently handing out the asset with nothing captured.
@@ -103,12 +106,20 @@ export async function requestPricingGuide(formData: FormData): Promise<GuideRequ
   // This lead type used to land on the inquiries board with no ping —
   // the only inbound that didn't notify the desk.
   try {
-    await sendDispatchAlert({
+    const staff = await recipientsFor(DESK_ALERT_KIND);
+    const alert = await sendDispatchAlert({
       subject: `[LEAD] Pricing-guide download — ${email}`,
       headline: "New pricing-guide lead.",
       lines: [`${name} <${email}>${frequency ? ` · flies privately: ${frequency}` : ""}`],
       link: { label: "Open Messages", url: `${base}/admin/messages?tab=form` },
-      to: await recipientsFor(DESK_ALERT_KIND),
+      to: staff,
+    });
+    await auditDeskAlert({
+      action: "pricing_guide.notify.email",
+      subjectType: "contact_inquiry",
+      subjectId: inquiryId,
+      result: alert,
+      staffRecipients: staff.length,
     });
   } catch (err) {
     console.error("requestPricingGuide dispatch ping failed (non-fatal)", err);

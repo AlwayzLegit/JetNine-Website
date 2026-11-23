@@ -35,15 +35,12 @@ type R2Object = {
 
 type R2Bucket = {
   get(key: string): Promise<R2Object | null>;
-  put(key: string, value: ArrayBuffer, options?: { httpMetadata?: { contentType?: string } }): Promise<unknown>;
 };
 
 type Env = {
   APP: Fetcher;
   APP_VERSION?: string;
   MEDIA?: R2Bucket;
-  /** Supabase project origin the media used to live on, for the one-time copy. */
-  MEDIA_LEGACY_ORIGIN?: string;
 };
 
 type ExecutionContext = { waitUntil(promise: Promise<unknown>): void };
@@ -217,17 +214,13 @@ async function fetchAndStore(
 
 // ─── Media ──────────────────────────────────────────────────────────────
 //
-// Blog hero images live in the MEDIA bucket under blog/heroes/. They used to
-// be hot-linked from Supabase Storage, which ran that project through its
-// egress quota. Files uploaded before the move are copied across lazily: the
-// first request for one that is not in the bucket fetches it from Supabase
-// once, stores it, and every later request is served from here. Filenames
-// carry a timestamp and are never overwritten, so responses are immutable.
+// Blog hero images live in the MEDIA bucket under blog/heroes/ and nowhere
+// else: this Worker no longer calls Supabase (OPS-289). Filenames carry a
+// timestamp and are never overwritten, so responses are immutable.
 
 /** Keep in sync with MEDIA_KEY in src/lib/media.ts. */
 const MEDIA_KEY = /^\/media\/(blog\/heroes\/[A-Za-z0-9._-]+\.webp)$/;
 const MEDIA_CACHE_CONTROL = "public, max-age=31536000, immutable";
-const MEDIA_MAX_BYTES = 8 * 1024 * 1024;
 
 function mediaResponse(body: ReadableStream | ArrayBuffer, contentType: string, etag?: string): Response {
   const headers = new Headers({
@@ -243,12 +236,11 @@ function mediaNotFound(): Response {
   return new Response("Not found", { status: 404, headers: { "Cache-Control": "no-store" } });
 }
 
-// Stand-ins for a hero that is neither in the bucket nor obtainable from
-// Supabase (its storage is restricted until the quota resets). Rather than a
-// broken image, the page gets one of the site's own library photos, picked by
-// the file name so each post keeps the same one. Served with a short browser
-// cache and not stored at the edge, so the real image takes over as soon as
-// the copy succeeds.
+// Stand-ins for a hero that is not in the bucket. Rather than a broken image,
+// the page gets one of the site's own library photos, picked by the file name
+// so each post keeps the same one. Served with a short browser cache and not
+// stored at the edge, so the real image takes over as soon as it is uploaded.
+// The deploy smoke test counts these (scripts/smoke-prod.mts, "media heroes").
 const MEDIA_STAND_INS = [
   "cabin-interior",
   "city-night-window",
@@ -290,28 +282,9 @@ async function serveMedia(request: Request, env: Env, ctx: ExecutionContext, key
   const cached = await store?.match(cacheUrl.href).catch(() => undefined);
   if (cached) return cached;
 
-  let res: Response | null = null;
   const object = await env.MEDIA.get(key);
-  if (object) {
-    res = mediaResponse(object.body, object.httpMetadata?.contentType || "image/webp", object.httpEtag);
-  } else if (env.MEDIA_LEGACY_ORIGIN) {
-    // One-time copy out of Supabase Storage. A failure is never cached, so
-    // the copy is retried on the next request.
-    const legacy = await fetch(`${env.MEDIA_LEGACY_ORIGIN}/storage/v1/object/public/${key}`).catch(() => null);
-    const type = legacy?.headers.get("content-type") ?? "";
-    if (legacy?.ok && type.startsWith("image/")) {
-      const bytes = await legacy.arrayBuffer();
-      if (bytes.byteLength > 0 && bytes.byteLength <= MEDIA_MAX_BYTES) {
-        ctx.waitUntil(
-          env.MEDIA.put(key, bytes, { httpMetadata: { contentType: type } }).catch((err) =>
-            console.error("[edge] media copy failed", key, err),
-          ),
-        );
-        res = mediaResponse(bytes, type);
-      }
-    }
-  }
-  if (!res) return mediaStandIn(request, env, ctx, key);
+  if (!object) return mediaStandIn(request, env, ctx, key);
+  const res = mediaResponse(object.body, object.httpMetadata?.contentType || "image/webp", object.httpEtag);
   if (store && request.method === "GET") {
     ctx.waitUntil(store.put(cacheUrl.href, res.clone()).catch(() => undefined));
   }

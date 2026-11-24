@@ -7,8 +7,8 @@ import { SQLiteTable, getTableConfig } from "drizzle-orm/sqlite-core";
 import * as ns from "../../src/db/d1/schema/index";
 
 /**
- * Tables the copy never reads from Postgres: credential material, and the rate limiter's
- * counters. The copy wipes them in staging's D1 and loads nothing into them. Moving password
+ * Tables the copy never reads from Postgres: credential material, the rate limiter's
+ * counters and the site chat's daily counters (D1 only, OPS-242). The copy wipes them in staging's D1 and loads nothing into them. Moving password
  * hashes is the owner's yes (OPS-93, "Rows still to file", item 3), and the same reasoning
  * holds for session, API key and AI provider key material. The counters (OPS-123) live for
  * minutes and their columns differ from the Postgres table, so there is nothing to carry over.
@@ -19,6 +19,7 @@ export const HELD_BACK: Record<string, string> = {
   api_keys: "API key hashes",
   ai_providers: "encrypted provider keys",
   request_rate_limits: "short-lived rate-limit counters, never copied",
+  chat_daily: "D1 only (OPS-242): the site chat's daily counters, no Postgres table to copy from",
 };
 
 /**
@@ -29,6 +30,7 @@ export const HELD_BACK: Record<string, string> = {
  */
 export const HELD_BACK_PRODUCTION: Record<string, string> = {
   request_rate_limits: "short-lived rate-limit counters, never copied",
+  chat_daily: "D1 only (OPS-242): the site chat's daily counters, no Postgres table to copy from",
 };
 
 export type CopyTarget = "staging" | "production";

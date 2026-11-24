@@ -13,6 +13,9 @@ import { d1Binding, dbTarget } from "@/db/d1";
 import { identityStore } from "@/lib/identity-store/store";
 import { commitSha, deployEnv, deployRegion, platformBaseUrl } from "@/lib/deploy-env";
 import { judgeD1 } from "@/lib/health-db";
+import { d1Db } from "@/db/d1";
+import { crewAiStatus } from "@/lib/chat/crew-ai";
+import { handoffs7d } from "@/lib/chat/stats";
 
 export type CheckResult = { ok: boolean } & Record<string, unknown>;
 
@@ -32,6 +35,8 @@ export type HealthSnapshot = {
     sentry: CheckResult;
     posthog: CheckResult;
     ai: CheckResult;
+    /** The site chat (OPS-242). Always ok: true, so chat off or crew-ai down never degrades the site or shows in `failing`. */
+    chat: CheckResult;
   };
   timestamp: string;
 };
@@ -225,12 +230,36 @@ export function checkPosthog(): CheckResult {
   };
 }
 
+/**
+ * The site chat (OPS-242): whether crew-ai says it is on, its budget and today's spend, and the
+ * hand-offs of the last 7 days. Informational only: it is always ok, so a chat that is off, over
+ * budget or unreachable never makes the status "degraded" (that would hide a real sign-in failure)
+ * and never appears in the public `failing` list. Counts only, no visitor text.
+ */
+export async function checkChat(): Promise<CheckResult> {
+  const status = await crewAiStatus();
+  let handoffs: number | null = null;
+  try {
+    const db = d1Db();
+    if (db) handoffs = await handoffs7d(db);
+  } catch {
+    handoffs = null; // table not there yet or D1 down: shown as null, never an error
+  }
+  return {
+    ok: true,
+    enabled: Boolean(status?.enabled),
+    budgetUsd: status?.budgetUsd ?? null,
+    spentTodayUsd: status?.spentTodayUsd ?? null,
+    handoffs7d: handoffs,
+  };
+}
+
 export async function snapshot(): Promise<HealthSnapshot> {
   const env = deployEnv();
   const region = deployRegion();
   const sha = commitSha().slice(0, 12) || "unknown";
 
-  const [db, signin, stripe, email, twilio, sentry, posthog] = await Promise.all([
+  const [db, signin, stripe, email, twilio, sentry, posthog, chat] = await Promise.all([
     checkDb(),
     checkSignin(),
     Promise.resolve(checkStripe()),
@@ -238,9 +267,10 @@ export async function snapshot(): Promise<HealthSnapshot> {
     Promise.resolve(checkTwilio()),
     Promise.resolve(checkSentry()),
     Promise.resolve(checkPosthog()),
+    checkChat(),
   ]);
 
-  const checks = { db, signin, site: checkSite(), stripe, email, twilio, sentry, posthog, ai: checkAi() };
+  const checks = { db, signin, site: checkSite(), stripe, email, twilio, sentry, posthog, ai: checkAi(), chat };
   const ok = db.ok;
   const allOptionalsConfigured =
     Boolean(stripe.configured) &&

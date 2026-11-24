@@ -53,7 +53,7 @@ test("the staging database the tool may write to is the one wrangler.jsonc names
 test("the credential tables and the rate-limit counters are held back, and each held name is a real table", () => {
   const names = new Set(copyPlan().map((t) => t.name));
   for (const held of Object.keys(HELD_BACK)) assert.ok(names.has(held), `${held} is not a D1 table`);
-  assert.deepEqual(Object.keys(HELD_BACK).sort(), ["ai_providers", "api_keys", "request_rate_limits", "user_credentials", "user_sessions"]);
+  assert.deepEqual(Object.keys(HELD_BACK).sort(), ["ai_providers", "api_keys", "chat_daily", "request_rate_limits", "user_credentials", "user_sessions"]);
 });
 
 // OPS-115: the load order, and the references into the held-back tables.
@@ -141,7 +141,7 @@ test("D1-only columns are left out of the copy plan, and each one is a nullable 
 test("copyPlan('staging') is today's plan: same held-back tables, users without banned_until (OPS-197)", () => {
   const staging = copyPlan("staging");
   assert.deepEqual(staging.map((t) => t.name), copyPlan().map((t) => t.name));
-  assert.deepEqual(Object.keys(heldBackFor("staging")).sort(), ["ai_providers", "api_keys", "request_rate_limits", "user_credentials", "user_sessions"]);
+  assert.deepEqual(Object.keys(heldBackFor("staging")).sort(), ["ai_providers", "api_keys", "chat_daily", "request_rate_limits", "user_credentials", "user_sessions"]);
   assert.deepEqual(heldBackFor("staging"), HELD_BACK);
   const users = staging.find((t) => t.name === "users")!;
   assert.ok(!users.columns.some((c) => c.name === "banned_until"), "staging users carries banned_until");
@@ -150,9 +150,9 @@ test("copyPlan('staging') is today's plan: same held-back tables, users without 
   assert.ok(staging.some((t) => t.nullRefs.length > 0));
 });
 
-test("copyPlan('production') holds back only request_rate_limits and carries bans (OPS-197)", () => {
+test("copyPlan('production') holds back only the two counter tables and carries bans (OPS-197, OPS-242)", () => {
   const production = copyPlan("production");
-  assert.deepEqual(Object.keys(HELD_BACK_PRODUCTION), ["request_rate_limits"]);
+  assert.deepEqual(Object.keys(HELD_BACK_PRODUCTION), ["request_rate_limits", "chat_daily"]);
   assert.deepEqual(heldBackFor("production"), HELD_BACK_PRODUCTION);
   assert.deepEqual(production.map((t) => t.name).sort(), copyPlan("staging").map((t) => t.name).sort());
   const users = production.find((t) => t.name === "users")!;

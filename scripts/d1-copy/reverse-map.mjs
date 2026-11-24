@@ -13,7 +13,10 @@ export const CONFIRM_REVERSE = "copy-d1-to-postgres";
  * Tables the reverse copy never deletes and never writes: short-lived counters with another shape in
  * Postgres (the forward copy holds them back too).
  */
-export const REVERSE_SKIP = { request_rate_limits: "short-lived rate-limit counters, never copied" };
+export const REVERSE_SKIP = {
+  request_rate_limits: "short-lived rate-limit counters, never copied",
+  chat_daily: "D1 only (OPS-242): the site chat's daily counters, no Postgres table",
+};
 
 /** Rows per statement: one jsonb parameter holds a batch. */
 export const BATCH_ROWS = 500;

@@ -45,6 +45,7 @@ test("reverseRefusals lists the same reasons for the preflight", () => {
 
 test("the rate limiter's counters are skipped", () => {
   assert.ok(REVERSE_SKIP.request_rate_limits);
+  assert.ok(REVERSE_SKIP.chat_daily); // OPS-242: D1 only, no Postgres table
   assert.equal(BATCH_ROWS, 500);
 });
 

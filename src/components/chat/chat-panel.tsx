@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { TurnstileField, getTurnstileToken, resetTurnstile } from "@/components/turnstile-field";
+import { ChatTurnstileField, type ChatTurnstile } from "./chat-turnstile";
 import { FIRST_LINE } from "@/lib/chat/copy";
 import { seedQuote, type QuoteStart } from "@/lib/start-quote";
 
@@ -13,6 +13,8 @@ import { seedQuote, type QuoteStart } from "@/lib/start-quote";
 
 type Msg = { role: "user" | "assistant"; content: string; quote?: QuoteStart };
 
+const REDACTED = "[personal details removed]";
+
 const MAX = 600;
 
 export default function ChatPanel({ onClose }: { onClose: () => void }) {
@@ -21,7 +23,9 @@ export default function ChatPanel({ onClose }: { onClose: () => void }) {
   const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState(false);
   const [fallback, setFallback] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
   const input = useRef<HTMLTextAreaElement>(null);
+  const turnstile = useRef<ChatTurnstile | null>(null);
   const log = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -45,15 +49,25 @@ export default function ChatPanel({ onClose }: { onClose: () => void }) {
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           messages: next.map(({ role, content }) => ({ role, content })),
-          token: getTurnstileToken() ?? undefined,
+          token: turnstile.current?.token() ?? undefined,
         }),
       });
-      if (res.status === 403) resetTurnstile();
-      const j = (await res.json().catch(() => null)) as { text?: string; quote?: QuoteStart; fallback?: boolean } | null;
+      if (res.status === 403) {
+        // The check had not finished (or the token was refused): give the visitor their text back to send again.
+        turnstile.current?.reset();
+        setMsgs(msgs);
+        setDraft(text);
+        setNotice("Please wait a moment for the security check to finish, then send again.");
+        return;
+      }
+      setNotice(null);
+      const j = (await res.json().catch(() => null)) as { text?: string; quote?: QuoteStart; fallback?: boolean; guard?: string } | null;
       if (!res.ok || !j || j.fallback || typeof j.text !== "string") {
         setFallback(true);
       } else {
-        setMsgs([...next, { role: "assistant", content: j.text, quote: j.quote }]);
+        // A message that held personal details is blanked here too; the server never sends it on.
+        const shown = j.guard === "personal" ? [...next.slice(0, -1), { role: "user" as const, content: REDACTED }] : next;
+        setMsgs([...shown, { role: "assistant", content: j.text, quote: j.quote }]);
       }
     } catch {
       setFallback(true);
@@ -111,6 +125,7 @@ export default function ChatPanel({ onClose }: { onClose: () => void }) {
           </div>
         ))}
         {busy && <p className="text-[13px] text-steel">Writing an answer…</p>}
+        {notice && <p className="text-[13px] text-steel">{notice}</p>}
         {fallback && (
           <p className="rounded-control bg-surface-2 px-3 py-2">
             The assistant is not available right now. You can <Link href="/contact" className="underline">contact dispatch</Link> or{" "}
@@ -138,7 +153,7 @@ export default function ChatPanel({ onClose }: { onClose: () => void }) {
             }
           }}
         />
-        <TurnstileField className="mt-2" />
+        <ChatTurnstileField handle={turnstile} className="mt-2" />
         <button
           type="submit"
           disabled={busy || fallback || !draft.trim()}

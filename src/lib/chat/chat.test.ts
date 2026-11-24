@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { freshD1 } from "@/db/d1/test-client";
 import { CHAT_LINKS, FACTS, FACTS_TEXT } from "./facts";
 import { PERSONAL_DETAILS_NOTICE, PRICE_REPLACEMENT, guardAnswer, hasMoney, hasPersonalDetails } from "./guard";
-import { HANDOFF_ONLY_TEXT, MAX_USER_MESSAGES, handleChat, parseMessages, type CallAi } from "./handle";
+import { HANDOFF_ONLY_TEXT, MAX_ASSISTANT, MAX_USER_MESSAGES, REDACTED, handleChat, parseMessages, redactHistory, type CallAi } from "./handle";
 import { buildSystemPrompt, FIRST_LINE } from "./prompt";
 import { cookieFromHeader, issueSession, verifySession } from "./session";
 import { addCounts, handoffs7d, pacificDay } from "./stats";
@@ -93,6 +93,16 @@ test("the message list is validated: roles, length, last from the visitor, at mo
   assert.equal(parseMessages(many(MAX_USER_MESSAGES + 1)), null);
 });
 
+test("an assistant message in the history may be as long as an answer plus the guard line; a visitor message may not pass 600 (Codex, OPS-242)", () => {
+  const long = (n: number) => "a".repeat(n);
+  const history = (assistant: number) => ({ messages: [{ role: "user", content: "hi" }, { role: "assistant", content: long(assistant) }, { role: "user", content: "and?" }] });
+  assert.ok(parseMessages(history(700)), "700 characters");
+  assert.ok(parseMessages(history(1200)), "1200 characters, the longest answer");
+  assert.ok(parseMessages(history(MAX_ASSISTANT)), "the longest answer with the guard line");
+  assert.equal(parseMessages(history(MAX_ASSISTANT + 1)), null);
+  assert.equal(parseMessages(user(long(601))), null);
+});
+
 // ─── handleChat ─────────────────────────────────────────────────────────
 
 test("a plain answer comes back as text, and the model is called with the system text and the one tool", async () => {
@@ -137,6 +147,32 @@ test("a visitor message with a phone number or email never reaches the model", a
   };
   const out = await handleChat(user("my number is 424 555 0199"), call);
   assert.deepEqual(out, { kind: "answer", text: PERSONAL_DETAILS_NOTICE, guard: "personal" });
+  assert.equal(called, 0);
+});
+
+test("personal details typed earlier never go to the model on a later turn (Codex, OPS-242)", async () => {
+  let seen: Parameters<CallAi>[0] | undefined;
+  const call: CallAi = async (input) => {
+    seen = input;
+    return { ok: true, stream: streamOf([{ t: "text", v: "Dispatch is open 24/7." }]) };
+  };
+  const body = {
+    messages: [
+      { role: "user", content: "call me on 424 555 0199" },
+      { role: "assistant", content: PERSONAL_DETAILS_NOTICE },
+      { role: "user", content: "when is dispatch open?" },
+    ],
+  };
+  const out = await handleChat(body, call);
+  assert.equal(out.kind, "answer");
+  assert.deepEqual(seen?.messages.map((m) => m.content), [REDACTED, PERSONAL_DETAILS_NOTICE, "when is dispatch open?"]);
+  assert.ok(!JSON.stringify(seen).includes("555"));
+  // an assistant message that echoed an email is redacted too
+  assert.deepEqual(redactHistory([{ role: "assistant", content: "I will write to a@b.co" }, { role: "user", content: "ok" }]).map((m) => m.content), [REDACTED, "ok"]);
+  // the last message with details is still stopped before the model
+  let called = 0;
+  const never: CallAi = async () => { called++; return { ok: false, reason: "upstream" }; };
+  assert.equal((await handleChat({ messages: [{ role: "user", content: "x@y.com" }] }, never)).kind, "answer");
   assert.equal(called, 0);
 });
 

@@ -90,7 +90,12 @@ export async function POST(req: Request): Promise<NextResponse> {
     fallbacks: outcome.kind === "fallback" ? 1 : 0,
   });
 
-  const res = outcome.kind === "fallback" ? json({ fallback: true }) : json({ text: outcome.text, ...(outcome.quote ? { quote: outcome.quote } : {}) });
+  const res = outcome.kind === "fallback" ? json({ fallback: true }) : json({
+          text: outcome.text,
+          ...(outcome.quote ? { quote: outcome.quote } : {}),
+          // The panel blanks the visitor's own message when it held personal details.
+          ...(outcome.guard === "personal" ? { guard: "personal" } : {}),
+        });
   if (newCookie) {
     res.cookies.set({ name: CHAT_COOKIE, value: newCookie, httpOnly: true, secure: true, sameSite: "lax", path: "/api/chat", maxAge: SESSION_SECONDS });
   }

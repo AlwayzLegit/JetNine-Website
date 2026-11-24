@@ -11,6 +11,9 @@ export const MAX_USER_MESSAGES = 12;
 export const MAX_MESSAGES = 24;
 export const MAX_CONTENT = 600;
 export const MAX_ANSWER = 1200;
+/** An assistant message in the history can be the answer (at most MAX_ANSWER) plus the guard's calculator line. */
+export const MAX_ASSISTANT = 1500;
+export const REDACTED = "[personal details removed]";
 export const TIMEOUT_MS = 15_000;
 export const HANDOFF_ONLY_TEXT = "Here is your trip, ready for the quote form.";
 
@@ -40,12 +43,22 @@ export function parseMessages(body: unknown): ChatMessage[] | null {
     if (role !== "user" && role !== "assistant") return null;
     if (typeof content !== "string") return null;
     const text = content.trim();
-    if (text.length < 1 || text.length > MAX_CONTENT) return null;
+    // The visitor's limit is 600; an assistant message is what this route sent back earlier, up to MAX_ASSISTANT.
+    if (text.length < 1 || text.length > (role === "user" ? MAX_CONTENT : MAX_ASSISTANT)) return null;
     out.push({ role, content: text });
   }
   if (out[out.length - 1].role !== "user") return null;
   if (out.filter((m) => m.role === "user").length > MAX_USER_MESSAGES) return null;
   return out;
+}
+
+/**
+ * What may go to the model: every earlier message that holds an email address or a phone number is
+ * replaced by a fixed placeholder, so personal details a visitor typed once never re-enter on a later
+ * turn (the panel resends the whole conversation). OWASP LLM02.
+ */
+export function redactHistory(messages: ChatMessage[]): ChatMessage[] {
+  return messages.map((m) => (hasPersonalDetails(m.content) ? { role: m.role, content: REDACTED } : m));
 }
 
 type Line = { t?: unknown; v?: unknown; name?: unknown; input?: unknown };
@@ -104,7 +117,7 @@ export async function handleChat(body: unknown, callAi: CallAi, timeoutMs = TIME
   try {
     const read = await withTimeout(
       (async () => {
-        const res = await callAi({ system: buildSystemPrompt(), messages, tools: [START_QUOTE_TOOL] });
+        const res = await callAi({ system: buildSystemPrompt(), messages: redactHistory(messages), tools: [START_QUOTE_TOOL] });
         if (!res.ok) return null;
         return readStream(res.stream);
       })(),

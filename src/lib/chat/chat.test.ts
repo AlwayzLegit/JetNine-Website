@@ -238,7 +238,7 @@ test("the day is the Pacific date: 05:00 UTC is still the evening before", () =>
 
 import { readFileSync } from "node:fs";
 import { PERSONAL_DETAILS_NOTICE as NOTICE } from "./guard";
-import { isStagingUrl, judge, type Case } from "./evals";
+import { isStagingUrl, judge, verificationRefused, type Case } from "./evals";
 
 const cases = (JSON.parse(readFileSync(new URL("../../../tests/chat-evals.json", import.meta.url), "utf8")) as { cases: Case[] }).cases;
 
@@ -279,4 +279,11 @@ test("the evals call staging hosts only", () => {
   assert.equal(isStagingUrl("https://staging.jetnine.com"), true);
   assert.equal(isStagingUrl("https://jetnine-web-staging.example-acct.workers.dev"), true);
   for (const u of ["https://jetnine.com", "https://www.jetnine.com", "http://staging.jetnine.com", "https://staging.jetnine.com.evil.test", "nonsense"]) assert.equal(isStagingUrl(u), false, u);
+});
+
+test("a Turnstile refusal on staging is told apart from a failed case", () => {
+  assert.equal(verificationRefused(403, { error: "verification" }), true);
+  assert.equal(verificationRefused(429, { fallback: true }), false);
+  assert.equal(verificationRefused(200, { text: "ok" }), false);
+  assert.equal(verificationRefused(403, {}), false);
 });

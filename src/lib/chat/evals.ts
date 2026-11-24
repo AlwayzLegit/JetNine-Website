@@ -27,6 +27,15 @@ export function isStagingUrl(u: string): boolean {
   }
 }
 
+/**
+ * True when the staging site refused the evals' Turnstile test token (the route answers 403 with
+ * error "verification"). Then no question reached the model and the run proves nothing: staging
+ * needs Turnstile off or Cloudflare's test keys (an owner step), and the script says so plainly.
+ */
+export function verificationRefused(status: number, a: Answer): boolean {
+  return status === 403 && a.error === "verification";
+}
+
 /** Why a case failed, or null when it passed. Pure: the tests call it with made-up answers. */
 export function judge(c: Case, a: Answer): string | null {
   if (a.fallback || a.error || typeof a.text !== "string") return `no answer (${a.fallback ? "fallback" : (a.error ?? "empty")})`;

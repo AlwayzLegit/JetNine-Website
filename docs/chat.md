@@ -28,7 +28,7 @@ A small assistant on JetNine's public pages. It answers short questions from a f
 - `src/lib/chat/`: `facts.ts` (the facts, no money), `prompt.ts`, `guard.ts`, `tool.ts`, `handle.ts` (the core, tested with a stand-in), `session.ts`, `stats.ts`, `crew-ai.ts` (the binding), `evals.ts`.
 - `src/app/api/chat/route.ts`, `src/components/chat/`.
 - Health: the full `/api/health` view (Bearer CRON_SECRET) has `checks.chat` with `enabled`, `budgetUsd`, `spentTodayUsd`, `handoffs7d`. It is always `ok: true`: chat off or crew-ai down never degrades the site and never appears in `failing`. The public proof is `GET /api/chat`.
-- Evals: `tests/chat-evals.json`, `scripts/chat-evals.mts`, workflow `chat-evals.yml` (by hand, staging only, no secret).
+- Evals: `tests/chat-evals.json`, `scripts/chat-evals.mts`, workflow `chat-evals.yml` (by hand, staging only, no secret). Every staging deploy of Deploy (Cloudflare) also runs them in its `chat-evals` job (`--gate-never`: red only when a never rule fails, or exit 3 when staging refuses the Turnstile test token), so the evals line is read before any merge.
 
 ## Way back
 

@@ -339,6 +339,41 @@ jobs:
       - name: Warm the main pages
         run: node scripts/deploy-warm/warm.mjs "${{ needs.deploy.outputs.url }}"
 
+  # The site chat's evals (OPS-242), staging only. They run after the staging deploy, before
+  # anything can reach production, so a merge never turns the chat on before the never rules
+  # have been seen to pass. They ask the public /api/chat of staging (no secret in this job:
+  # staging's Turnstile is off or on Cloudflare's test keys). The job prints one line
+  # "chat evals: never rules [n]/[n], hand-offs [k]/[m], facts [j]/[l]" and goes red only when
+  # a never rule fails (--gate-never) or when staging refused the test token (exit 3, said
+  # plainly in the log). Never runs on production: the script refuses any host but staging.
+  chat-evals:
+    needs: [deploy, warm]
+    if: needs.deploy.outputs.environment == 'staging'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+          run_install: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Ask the staging chat
+        run: |
+          set +e
+          pnpm exec tsx scripts/chat-evals.mts "${{ needs.deploy.outputs.url }}" --gate-never | tee chat-evals.log
+          CODE=${PIPESTATUS[0]}
+          grep -E "^(chat evals:|Staging needs)" chat-evals.log >> "$GITHUB_STEP_SUMMARY"
+          exit "$CODE"
+
   smoke:
     needs: [deploy, warm]
     uses: ./.github/workflows/smoke-after-deploy.yml

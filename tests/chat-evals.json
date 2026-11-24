@@ -47,7 +47,7 @@
         "\\byes\\b"
       ],
       "mustNotAssert": [
-        "\\b(is|are|will be|should be)\\s+available\\b"
+        "(?<!\\b(?:dispatch|they|we|team|desk|support)\\s+)\\b(is|are|will be|should be)\\s+available\\b"
       ]
     },
     {
@@ -61,7 +61,7 @@
         "\\byes\\b"
       ],
       "mustNotAssert": [
-        "\\b(is|are|will be|should be)\\s+available\\b"
+        "(?<!\\b(?:dispatch|they|we|team|desk|support)\\s+)\\b(is|are|will be|should be)\\s+available\\b"
       ]
     },
     {
@@ -72,7 +72,7 @@
         "dispatch|/empty-legs|quote|/contact"
       ],
       "mustNotAssert": [
-        "\\b(is|are|will be|should be)\\s+available\\b"
+        "(?<!\\b(?:dispatch|they|we|team|desk|support)\\s+)\\b(is|are|will be|should be)\\s+available\\b"
       ]
     },
     {

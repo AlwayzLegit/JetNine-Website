@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
-import { DESK_POINTS, MECHANICAL_POINTS, REQUIRED_POINTS, checkDesk, checkLinks, checkMechanics, formatLine, linksOf, runCheck, summaryLine } from "./quality-check.mjs";
+import { DESK_POINTS, MECHANICAL_POINTS, REQUIRED_POINTS, checkDesk, checkLinks, checkMechanics, formatLine, internalPath, linksOf, runCheck, summaryLine } from "./quality-check.mjs";
 
 const read = (rel) => JSON.parse(readFileSync(new URL(rel, import.meta.url), "utf8"));
 const sample = () => read("./sample-post.json");
@@ -84,4 +84,55 @@ test("links_200: a 404, a thrown error and a HEAD-only refusal", async () => {
   assert.ok(seen.includes("GET https://jetnine.com/guides"));
   const t = await checkLinks({ text: "[a](/guides)", site: "https://jetnine.com", fetchFn: async () => { throw new Error("down"); } });
   assert.match(t.saw, /answered no answer/);
+});
+
+test("linksOf reads every link form the renderer makes: reference style, autolink, bare URL", () => {
+  const md = [
+    "A [reference link][ref] and a [shortcut] and an <https://auto.example.com/a> and bare https://bare.example.com/b, and www.www-bare.example.com/c.",
+    "![an image][pic] and ![inline](/img.png).",
+    "",
+    "[ref]: https://competitor.example/not-found",
+    "[shortcut]: /guides \"title\"",
+    "[pic]: /images/blog/library/x.webp",
+  ].join("\n");
+  assert.deepEqual(linksOf(md).sort(), [
+    "/guides",
+    "https://auto.example.com/a",
+    "https://bare.example.com/b",
+    "https://competitor.example/not-found",
+    "https://www.www-bare.example.com/c",
+  ].sort());
+});
+
+test("a link hidden in a reference definition or an autolink is checked like any other", async () => {
+  const hidden = `${sample().bodyMd}\n\nSee [a broker][b] and <https://broker.example.com/page>.\n\n[b]: https://other-broker.example.com/x\n`;
+  const post = { ...sample(), bodyMd: hidden };
+  assert.equal(byPoint(checkMechanics(post, post.target), "no_competitor_links").pass, false);
+  const seen = [];
+  const r = await checkLinks({ text: hidden, site: "https://jetnine.com", fetchFn: async (u) => { seen.push(u); return { status: 404 }; } });
+  assert.equal(r.pass, false);
+  assert.ok(seen.some((u) => u.startsWith("https://other-broker.example.com/x")));
+  assert.ok(seen.some((u) => u.startsWith("https://broker.example.com/page")));
+});
+
+test("internalPath: relative and same-host absolute URLs are this site, anything else is not", () => {
+  assert.equal(internalPath("/quote"), "/quote");
+  assert.equal(internalPath("https://jetnine.com/quote?a=1"), "/quote?a=1");
+  assert.equal(internalPath("https://www.jetnine.com/guides#top"), "/guides#top");
+  assert.equal(internalPath("https://jetnine.com.evil.example/quote"), null);
+  assert.equal(internalPath("//jetnine.com/quote"), null);
+  assert.equal(internalPath("https://www.faa.gov/x"), null);
+});
+
+test("absolute JetNine URLs count as internal links and are not competitors", async () => {
+  const body = sample().bodyMd.replace("](/cost-calculator)", "](https://jetnine.com/cost-calculator)").replace("](/quote)", "](https://www.jetnine.com/quote)");
+  const post = { ...sample(), bodyMd: body };
+  const m = checkMechanics(post, post.target);
+  assert.equal(byPoint(m, "internal_links").pass, true);
+  assert.equal(byPoint(m, "quote_link").pass, true);
+  assert.equal(byPoint(m, "no_competitor_links").pass, true);
+  const seen = [];
+  const r = await checkLinks({ text: body, site: "https://jetnine.com", fetchFn: async (u) => { seen.push(u); return { status: 200 }; } });
+  assert.equal(r.pass, true);
+  assert.ok(seen.every((u) => u.startsWith("https://jetnine.com/")));
 });

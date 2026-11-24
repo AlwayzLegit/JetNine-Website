@@ -65,13 +65,46 @@ const verdict = (point, problems, sawOk) => (problems.length ? bad(point, proble
 
 const wordCount = (s) => String(s ?? "").split(/\s+/).filter(Boolean).length;
 
-// Links in Markdown, images left out. Pure.
+const escapeRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+const REF_DEF = /^ {0,3}\[([^\]]+)\]:[ \t]*<?([^\s>]+)>?.*$/gm;
+
+// Every link destination in a Markdown body, in the forms the blog renderer
+// (marked with GFM) turns into links: inline `[t](url)`, reference style
+// `[t][ref]` with its `[ref]: url` line, autolinks `<https://...>` and bare
+// `https://...` or `www....` text. Images are left out. Deduplicated. Pure.
 export function linksOf(md) {
-  const withoutImages = String(md ?? "").replace(/!\[[^\]]*\]\([^)]*\)/g, "");
-  return [...withoutImages.matchAll(/\[[^\]]*\]\(([^)\s]+)(?:\s+"[^"]*")?\)/g)].map((m) => m[1]);
+  const text = String(md ?? "");
+  const out = [];
+  const noImages = text.replace(/!\[[^\]]*\]\([^)]*\)/g, "");
+  for (const m of noImages.matchAll(/\[[^\]]*\]\(\s*<?([^)\s>]+)>?(?:\s+"[^"]*")?\s*\)/g)) out.push(m[1]);
+  for (const m of text.matchAll(REF_DEF)) {
+    const label = escapeRe(m[1]);
+    const byImage = new RegExp(`!\\[[^\\]]*\\]\\[${label}\\]`, "i").test(text);
+    const asLink = new RegExp(`(?<!!)\\[[^\\]]*\\]\\[${label}\\]|(?<![!\\]])\\[${label}\\](?![:(\\[])`, "i").test(text.replace(REF_DEF, ""));
+    if (!byImage || asLink) out.push(m[2]);
+  }
+  const rest = text.replace(REF_DEF, "");
+  for (const m of rest.matchAll(/<((?:https?:)\/\/[^>\s]+)>/gi)) out.push(m[1]);
+  for (const m of rest.matchAll(/(?<![(<\w\/\]"'=.@-])((?:https?:\/\/|www\.)[^\s<>)\]]+)/gi)) {
+    const url = m[1].replace(/[.,;:!?'"]+$/, "");
+    out.push(/^www\./i.test(url) ? `https://${url}` : url);
+  }
+  return [...new Set(out)];
 }
 
-const isInternal = (href) => /^\/(?!\/)/.test(href);
+// The path of a link that points at this site (a site-relative link, or an
+// absolute one on the site's own host), or null for any other address.
+export function internalPath(href, site = SITE_DEFAULT) {
+  if (/^\/(?!\/)/.test(href)) return href;
+  try {
+    const u = new URL(href);
+    const own = new URL(site).hostname.replace(/^www\./, "");
+    if ((u.protocol === "https:" || u.protocol === "http:") && u.hostname.replace(/^www\./, "") === own) return `${u.pathname}${u.search}${u.hash}`;
+  } catch {
+    // not a URL: handled by the callers as an invalid address
+  }
+  return null;
+}
 const pathOf = (href) => href.split(/[?#]/)[0].replace(/\/+$/, "") || "/";
 
 const norm = (s) => String(s ?? "").toLowerCase().replace(/[^a-z0-9\s]/g, " ").replace(/\s+/g, " ").trim();
@@ -90,7 +123,7 @@ export function checkDesk(desk) {
 }
 
 // The measured points, without the network. Pure.
-export function checkMechanics(post, target) {
+export function checkMechanics(post, target, site = SITE_DEFAULT) {
   const out = [];
   const title = String(post?.title ?? "").trim();
   const desc = String(post?.description ?? "").trim();
@@ -118,7 +151,8 @@ export function checkMechanics(post, target) {
   }
   out.push(verdict("target_in_title_and_first_100_words", p3, `"${target}" is in the title, the description and the first 100 words`));
 
-  const internal = [...new Set(linksOf(body).filter(isInternal).map(pathOf))];
+  const all = linksOf(body);
+  const internal = [...new Set(all.map((h) => internalPath(h, site)).filter((x) => x !== null).map(pathOf))];
   const p4 = [];
   if (internal.length < 3 || internal.length > 6) p4.push(`${internal.length} distinct internal links (need 3 to 6)`);
   out.push(verdict("internal_links", p4, `${internal.length} distinct internal links`));
@@ -131,7 +165,7 @@ export function checkMechanics(post, target) {
   const alt = String(post?.heroImageAlt ?? "").trim();
   out.push(alt.length >= 10 && alt.length <= 200 ? ok("image_alt", `heroImageAlt is ${alt.length} characters`) : bad("image_alt", `heroImageAlt is ${alt.length} characters (10 to 200)`));
 
-  const external = linksOf(body).filter((h) => !isInternal(h));
+  const external = all.filter((h) => internalPath(h, site) === null);
   const comp = [];
   for (const href of external) {
     try {
@@ -175,7 +209,8 @@ export async function checkLinks({ text, site, fetchFn = fetch }) {
   for (const href of hrefs) {
     let url;
     try {
-      url = isInternal(href) ? new URL(href, site).href : new URL(href).href;
+      const own = internalPath(href, site);
+      url = own !== null ? new URL(own, site).href : new URL(href).href;
     } catch {
       problems.push(`${href} is not a valid address`);
       continue;
@@ -206,7 +241,7 @@ export const bodyHash = (bodyMd) => createHash("sha256").update(String(bodyMd ??
 export async function runCheck(post, { site = SITE_DEFAULT, fetchFn = fetch } = {}) {
   const checks = [
     ...checkDesk(post?.desk),
-    ...checkMechanics(post ?? {}, post?.target),
+    ...checkMechanics(post ?? {}, post?.target, site),
     await checkLinks({ text: post?.bodyMd, site, fetchFn }),
   ];
   const list = ordered(checks);

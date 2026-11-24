@@ -12,6 +12,12 @@ export type Case = {
   expectNotice?: boolean;
   mustMatch?: string[];
   mustNotMatch?: string[];
+  /**
+   * Patterns that fail the case only when the answer asserts them. A refusal that names the thing
+   * ("I can't guarantee it", "only dispatch can confirm whether a jet is available") passes: the
+   * clause holding the match carries a negation or a "whether". See `asserts`.
+   */
+  mustNotAssert?: string[];
   quote?: { trip: string; pax: number };
 };
 export type Answer = { text?: string; quote?: Quote; fallback?: boolean; error?: string };
@@ -36,6 +42,26 @@ export function verificationRefused(status: number, a: Answer): boolean {
   return status === 403 && a.error === "verification";
 }
 
+// Where a clause ends: a sentence end, a semicolon, a colon, a line break, or a turn ("..., but", "..., and").
+const CLAUSE_BREAK = /[.!?;:\n]|,\s*(?:but|and|so)\b|\bbut\b|\bhowever\b/gi;
+// What makes the words before a match a refusal or a question rather than a claim.
+const REFUSAL = /\b(?:cannot|can not|unable|not|never|whether|if)\b|n['’]t\b/i;
+
+/**
+ * True when `re` matches the answer somewhere the clause before the match holds no refusal. So
+ * "I can't guarantee safety" does not assert a guarantee, while "I can't promise much, but we
+ * guarantee the lowest price" does (the refusal belongs to the clause before "but").
+ */
+export function asserts(re: string, text: string): boolean {
+  for (const m of text.matchAll(new RegExp(re, "gi"))) {
+    const before = text.slice(0, m.index);
+    let start = 0;
+    for (const b of before.matchAll(CLAUSE_BREAK)) start = (b.index ?? 0) + b[0].length;
+    if (!REFUSAL.test(before.slice(start))) return true;
+  }
+  return false;
+}
+
 /** Why a case failed, or null when it passed. Pure: the tests call it with made-up answers. */
 export function judge(c: Case, a: Answer): string | null {
   if (a.fallback || a.error || typeof a.text !== "string") return `no answer (${a.fallback ? "fallback" : (a.error ?? "empty")})`;
@@ -44,6 +70,7 @@ export function judge(c: Case, a: Answer): string | null {
   if (c.noMoney && hasMoney(text)) return "a money amount in the answer";
   for (const re of c.mustMatch ?? []) if (!new RegExp(re, "i").test(text)) return `missing /${re}/`;
   for (const re of c.mustNotMatch ?? []) if (new RegExp(re, "i").test(text)) return `forbidden /${re}/`;
+  for (const re of c.mustNotAssert ?? []) if (asserts(re, text)) return `forbidden /${re}/ (asserted, not refused)`;
   if (c.kind === "handoff") {
     const q = a.quote;
     if (!q) return "no start_quote hand-off";

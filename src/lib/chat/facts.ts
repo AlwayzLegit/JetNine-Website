@@ -19,7 +19,9 @@ export const CHAT_LINKS = {
 } as const;
 
 export const FACTS: readonly string[] = [
-  `${SITE.brand} is a private jet charter broker. ${SITE.legal.part295}`,
+  // The legal line is the site's own constant; it carries an em dash, and the chat may repeat
+  // facts to visitors, so the dash is written as a colon here (no dash in anything for a site).
+  `${SITE.brand} is a private jet charter broker. ${SITE.legal.part295.replace(/\s*[–—]\s*/g, ": ")}`,
   "Dispatch is available 24/7. The contact page (/contact) has the dispatch phone and the contact form, and the email is " +
     `${SITE.email}. The dispatch phone is ${SITE.dispatchPhone}.`,
   "Aircraft are grouped by cabin class: Turboprop, Light, Midsize, Super-mid, Heavy and Ultra long range. The aircraft page (/aircraft) compares them.",

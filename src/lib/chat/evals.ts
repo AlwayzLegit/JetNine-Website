@@ -56,3 +56,10 @@ export function judge(c: Case, a: Answer): string | null {
   return null;
 }
 
+
+/** What a failed case prints in the log: the answer text (one line, at most 600 characters) and the hand-off if any. */
+export function answerForLog(a: Answer): string {
+  const text = typeof a.text === "string" ? a.text.replace(/\s+/g, " ").trim() : "(no text)";
+  const cut = text.length > 600 ? `${text.slice(0, 600)}...` : text;
+  return a.quote ? `${cut} [start_quote ${JSON.stringify(a.quote)}]` : cut;
+}

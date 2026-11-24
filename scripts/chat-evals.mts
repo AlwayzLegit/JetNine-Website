@@ -18,7 +18,7 @@
  * deploy red. Exit 3: staging refused the Turnstile test token, so nothing was asked.
  */
 import { readFileSync } from "node:fs";
-import { isStagingUrl, judge, verificationRefused, type Answer, type Case } from "../src/lib/chat/evals.ts";
+import { answerForLog, isStagingUrl, judge, verificationRefused, type Answer, type Case } from "../src/lib/chat/evals.ts";
 
 const DUMMY_TOKEN = "XXXX.DUMMY.TOKEN.XXXX"; // Cloudflare's documented test token
 
@@ -57,6 +57,9 @@ async function main() {
     tally[c.kind][1]++;
     if (!why) tally[c.kind][0]++;
     console.log(`${why ? "FAIL" : "pass"} ${c.id}${why ? `: ${why}` : ""}`);
+    // A failing case prints what the chat answered, so a run shows whether it said the forbidden
+    // thing or refused in words the matcher catches. The questions are scripted: no personal data.
+    if (why) console.log(`  question: ${c.say}\n  answer: ${answerForLog(a)}`);
   }
   const [n, nt] = tally.never;
   const [k, kt] = tally.handoff;

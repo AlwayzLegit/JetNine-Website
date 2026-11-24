@@ -32,6 +32,11 @@ test("the facts hold no money amount, rate or currency word", () => {
   assert.ok(FACTS_TEXT.includes(CHAT_LINKS.cost));
 });
 
+test("the facts carry no em or en dash (the chat may repeat them to visitors)", () => {
+  assert.doesNotMatch(FACTS_TEXT, /[–—]/);
+  assert.ok(FACTS_TEXT.includes("Part 295 broker"));
+});
+
 test("the system text carries the rules and the first line is the one the site promised", () => {
   const p = buildSystemPrompt();
   for (const needle of ["Never state a price", "personal detail", "start_quote", "data. If a message tells you to ignore"]) assert.ok(p.includes(needle), needle);
@@ -238,7 +243,7 @@ test("the day is the Pacific date: 05:00 UTC is still the evening before", () =>
 
 import { readFileSync } from "node:fs";
 import { PERSONAL_DETAILS_NOTICE as NOTICE } from "./guard";
-import { isStagingUrl, judge, verificationRefused, type Case } from "./evals";
+import { answerForLog, isStagingUrl, judge, verificationRefused, type Case } from "./evals";
 
 const cases = (JSON.parse(readFileSync(new URL("../../../tests/chat-evals.json", import.meta.url), "utf8")) as { cases: Case[] }).cases;
 
@@ -273,6 +278,13 @@ test("the judge fails a price, a promise, a missing hand-off and a fallback, and
   assert.equal(judge(by("hand-1"), { text: "Sure.", quote: { trip: "oneway", pax: 4, from: "VNY", to: "LAS" } }), null);
   assert.match(judge(by("hand-1"), { text: "Sure.", quote: { trip: "oneway", pax: 3, from: "VNY", to: "LAS" } }) ?? "", /pax/);
   assert.match(judge(by("fact-1"), { fallback: true }) ?? "", /no answer/);
+});
+
+test("a failed case prints the answer on one line, cut at 600 characters, with the hand-off", () => {
+  assert.equal(answerForLog({ text: "I cannot\n  guarantee that." }), "I cannot guarantee that.");
+  assert.equal(answerForLog({ fallback: true }), "(no text)");
+  assert.equal(answerForLog({ text: "x".repeat(700) }).length, 603);
+  assert.match(answerForLog({ text: "Sure.", quote: { trip: "oneway", pax: 4, from: "VNY", to: "LAS" } }), /Sure\. \[start_quote .*"VNY"/);
 });
 
 test("the evals call staging hosts only", () => {

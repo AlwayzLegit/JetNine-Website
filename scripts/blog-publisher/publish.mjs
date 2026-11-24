@@ -5,12 +5,17 @@
 //   node scripts/blog-publisher/publish.mjs <post.json> --dry-run   checks only, sends nothing
 //   node scripts/blog-publisher/publish.mjs --cap                   print the cap line, exit 1 when refused
 //
+// Every run, real or dry, first runs the quality check (quality-check.mjs): 17
+// named points, one line each, fail-closed before anything is sent. The queue
+// file carries two extra fields for it, `target` and `desk`; they are never sent.
+//
 // The key comes from JETNINE_BLOG_API_KEY and is never printed. The cap
 // (CAP posts in WINDOW_DAYS days) is a constant: no flag, env var or queue
 // field changes it. Create only: this script never calls PUT or DELETE.
 import { appendFileSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { formatLine, runCheck, summaryLine } from "./quality-check.mjs";
 
 export const CAP = 3;
 export const WINDOW_DAYS = 7;
@@ -108,15 +113,6 @@ async function loadPosts(key) {
   return { posts, source: "feed" };
 }
 
-async function checkLinks(bodyMd) {
-  const bad = [];
-  for (const path of siteLinks(bodyMd)) {
-    const res = await fetch(`${SITE}${path}`, { method: "GET", redirect: "follow" }).catch(() => null);
-    if (!res || res.status !== 200) bad.push(`${path} answered ${res ? res.status : "no response"}`);
-  }
-  return bad;
-}
-
 async function main() {
   const args = process.argv.slice(2);
   const key = process.env.JETNINE_BLOG_API_KEY || "";
@@ -133,13 +129,22 @@ async function main() {
   const post = JSON.parse(readFileSync(resolve(file), "utf8"));
   const dry = args.includes("--dry-run");
 
+  // The check runs first and always prints, also when the cap refuses.
+  const problems = validate(post, posts);
+  const result = await runCheck(post);
+  const lines = result.checks.map(formatLine);
+  const sum = summaryLine(result);
+  for (const l of lines) console.log(l);
+  console.log(sum);
+  summary(`Quality check:\n${lines.map((l) => `- ${l}`).join("\n")}\n\n**${sum}**`);
+  const failed = result.checks.filter((c) => !c.pass);
+  for (const c of failed) problems.push(`quality check: ${c.point}: ${c.saw}`);
+
   if (!dry && !cap.allowed) {
     fail(`not published: cap reached, ${cap.count} posts in the last ${WINDOW_DAYS} days (limit ${CAP}), next slot opens ${cap.nextSlotAt.toISOString()}`);
   }
   if (!dry && String(post.slug).startsWith("sample-")) fail("not published: sample slugs are never published");
 
-  const problems = validate(post, posts);
-  problems.push(...(await checkLinks(post.bodyMd)));
   if (problems.length) {
     summary(`Not published:\n${problems.map((p) => `- ${p}`).join("\n")}`);
     fail(`not published:\n  - ${problems.join("\n  - ")}`);
@@ -153,6 +158,8 @@ async function main() {
 
   const headers = { "content-type": "application/json", authorization: `Bearer ${key}` };
   const payload = { ...post, status: "published" };
+  delete payload.target; // the check's two fields never reach the site
+  delete payload.desk;
   if (/^https:\/\//.test(payload.heroImageUrl)) {
     const res = await fetch(`${SITE}/api/v1/blog/images`, { method: "POST", headers, body: JSON.stringify({ slug: post.slug, sourceUrl: payload.heroImageUrl }) });
     const body = await res.json().catch(() => ({}));

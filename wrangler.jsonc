@@ -68,7 +68,11 @@
     "bindings": [{ "name": "NEXT_CACHE_DO_QUEUE", "class_name": "DOQueueHandler" }]
   },
   "migrations": [{ "tag": "v1", "new_sqlite_classes": ["DOQueueHandler"] }],
-  "services": [{ "binding": "WORKER_SELF_REFERENCE", "service": "jetnine-web" }],
+  "services": [
+    { "binding": "WORKER_SELF_REFERENCE", "service": "jetnine-web" },
+    // The Crew's shared AI Worker (OPS-242): the site chat calls it, the key and the daily budget live there.
+    { "binding": "CREW_AI", "service": "crew-ai", "entrypoint": "JetNineChat" }
+  ],
 
   "env": {
     // Same database and secrets as production, its own cache, no crons (the
@@ -110,7 +114,10 @@
       "durable_objects": {
         "bindings": [{ "name": "NEXT_CACHE_DO_QUEUE", "class_name": "DOQueueHandler" }]
       },
-      "services": [{ "binding": "WORKER_SELF_REFERENCE", "service": "jetnine-web-staging" }]
+      "services": [
+        { "binding": "WORKER_SELF_REFERENCE", "service": "jetnine-web-staging" },
+        { "binding": "CREW_AI", "service": "crew-ai", "entrypoint": "JetNineStagingChat" }
+      ]
     }
   }
 }

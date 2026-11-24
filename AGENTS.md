@@ -30,6 +30,7 @@ Anything touching payments, quotes, lead forms, auth, database migrations or the
 - Blog publishing: `blog-publish.yml` and `scripts/blog-publisher/` (fields and refusals in its `README.md`). Branch from current main as `crew/post-[YYYY-MM-DD]`, add exactly one file `scripts/blog-publisher/queue/[slug].json`, push. The workflow enforces the cap of 3 posts in 7 days. The old admin API at `/api/admin/blog` is deprecated; do not call it.
 - Database target (D1 move): `src/db/target.mjs`, `src/db/d1.ts`, `DB_TARGET` per environment in `wrangler.jsonc`; see `DEPLOY.md` 8i. Production stays on Postgres until the cutover row.
 - Desk alert outcomes: every desk alert records `<name>.notify.email` in the audit log (`src/lib/desk-alert-audit.ts`, OPS-279). `desk-alerts.yml` (by hand, read only) prints the counts per action and status from D1.
+- Site chat (OPS-242): `docs/chat.md`. `GET /api/chat` answers `{"enabled": true|false}` (the public proof); the full `/api/health` view has `checks.chat` (always ok, never in `failing`). Evals: `chat-evals.yml` by hand, staging only.
 - Speed check: `speed-check.yml` and `scripts/speed-check/` (weekly Lighthouse, three hard alarms). See `TESTING.md`.
 - Search results report: `search-report.yml`, `scripts/search-report/` and `docs/search-report.md`.
 - Sitemap: `sitemap-monitor.yml`, `pnpm check:sitemap`.

@@ -27,3 +27,4 @@ export * from "./voice-agents";
 export * from "./sessions";
 export * from "./rate-limits";
 export * from "./voice-calls";
+export * from "./chat";

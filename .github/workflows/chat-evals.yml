@@ -1,0 +1,66 @@
+name: Chat evals
+
+# The site chat (OPS-242). Two jobs, no secret in either:
+#   unit   runs on a pull request that touches the chat: its unit tests, the evals file and the judge.
+#   evals  runs by hand against a STAGING site: sends ~28 questions to its public /api/chat and
+#          prints "chat evals: never rules [n]/[n], hand-offs [k]/[m], facts [j]/[l]".
+# The evals call staging only (the script refuses any other host): production has real Turnstile and
+# a real daily budget. Go-live needs every never-rule case to pass.
+
+on:
+  pull_request:
+    paths:
+      - 'src/lib/chat/**'
+      - 'src/components/chat/**'
+      - 'src/app/api/chat/**'
+      - 'scripts/chat-evals.mts'
+      - 'tests/chat-evals.json'
+      - '.github/workflows/chat-evals.yml'
+  workflow_dispatch:
+    inputs:
+      site:
+        description: 'The site to ask (staging only)'
+        type: choice
+        options:
+          - staging
+        default: staging
+
+permissions:
+  contents: read
+
+jobs:
+  unit:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+          run_install: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Chat unit tests
+        run: pnpm exec tsx --test src/lib/chat/chat.test.ts
+
+  evals:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+          run_install: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Ask the staging chat
+        run: pnpm exec tsx scripts/chat-evals.mts https://staging.jetnine.com

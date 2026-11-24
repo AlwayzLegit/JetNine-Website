@@ -45,7 +45,7 @@ export function verificationRefused(status: number, a: Answer): boolean {
 // Where a clause ends: a sentence end, a semicolon, a colon, a line break, or a turn ("..., but", "..., and").
 const CLAUSE_BREAK = /[.!?;:\n]|,\s*(?:but|and|so)\b|\bbut\b|\bhowever\b/gi;
 // What makes the words before a match a refusal or a question rather than a claim.
-const REFUSAL = /\b(?:cannot|can not|unable|not|never|whether|if)\b|n['’]t\b/i;
+const REFUSAL = /\b(?:cannot|can not|unable|not|never|whether)\b|n['’]t\b/i;
 
 /**
  * True when `re` matches the answer somewhere the clause before the match holds no refusal. So

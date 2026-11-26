@@ -339,6 +339,30 @@ jobs:
       - name: Warm the main pages
         run: node scripts/deploy-warm/warm.mjs "${{ needs.deploy.outputs.url }}"
 
+  # The shared tier warm-up (OPS-332): after the deploy, read every page of the sitemap once so
+  # the edge Worker's shared tier (R2, edge-tier/) holds a copy of each page for this release,
+  # and a data centre that has never served a page answers it from the tier instead of waiting
+  # for the app to load. It informs and never gates: continue-on-error, the script exits 0, and
+  # no other job needs it, so smoke and the sitemap audit do not wait for it. Prints one line,
+  # "tier warm: colo XXX, N of M pages 200, MISS a, HIT b, TIER c, STALE d, slowest S s".
+  tier-warm:
+    needs: [deploy, warm]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+
+      - name: Warm the shared tier
+        run: |
+          LINE="$(node scripts/deploy-warm/tier.mjs "${{ needs.deploy.outputs.url }}")"
+          echo "$LINE"
+          echo "$LINE" >> "$GITHUB_STEP_SUMMARY"
+
   # The site chat's evals (OPS-242), staging only. They run after the staging deploy, before
   # anything can reach production, so a merge never turns the chat on before the never rules
   # have been seen to pass. They ask the public /api/chat of staging (no secret in this job:

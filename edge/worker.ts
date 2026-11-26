@@ -20,6 +20,15 @@
 // deployed (see DEPLOY.md). A release therefore starts from an empty cache
 // and never serves HTML that points at the previous build's files.
 //
+// Second tier (OPS-332). The data centre's cache is per data centre, so the
+// first visit to a page in a data centre that has not served it since the
+// last release waited 1.5 to 4.8 s for the app to load. With EDGE_TIER set to
+// "r2", a copy is also kept in one R2 object per page (edge-tier/<host><path>
+// in the MEDIA bucket, the version inside the object), and a data centre that
+// misses reads that object before it wakes the app. Answers from it carry
+// x-edge-cache: TIER. Every answer from a copy carries x-edge-age. Setting
+// EDGE_TIER to an empty string turns the tier off with a redeploy.
+//
 // It also serves site media (blog hero images) from R2 at /media/<key>; see
 // the "Media" section below.
 //
@@ -31,16 +40,20 @@ type R2Object = {
   body: ReadableStream;
   httpEtag: string;
   httpMetadata?: { contentType?: string };
+  arrayBuffer(): Promise<ArrayBuffer>;
 };
 
 type R2Bucket = {
   get(key: string): Promise<R2Object | null>;
+  put(key: string, value: ArrayBuffer, options?: { httpMetadata?: { contentType?: string } }): Promise<unknown>;
 };
 
 type Env = {
   APP: Fetcher;
   APP_VERSION?: string;
   MEDIA?: R2Bucket;
+  /** "r2" turns the shared second tier on; anything else leaves it off. */
+  EDGE_TIER?: string;
 };
 
 type ExecutionContext = { waitUntil(promise: Promise<unknown>): void };
@@ -55,6 +68,14 @@ const KEEP_S = 86_400;
 const STORED_AT = "x-edge-stored-at";
 const FRESH_FOR = "x-edge-fresh-for";
 const ORIGIN_CC = "x-edge-origin-cache-control";
+const AGE = "x-edge-age";
+
+/** Second tier (OPS-332): where objects live, and the limits that keep it small. */
+const TIER_PREFIX = "edge-tier/";
+/** A copy being refreshed is written to the tier only when it is older than this. */
+const TIER_WRITE_MIN_S = 300;
+const TIER_MAX_BYTES = 8 * 1024 * 1024;
+const TIER_MAX_KEY = 900;
 
 /** Paths that are personal, transactional or not pages at all. */
 const SKIP = /^\/(?:api|admin|account|quote|request|sign-in|auth|_next|cdn-cgi|images|media)(?:\/|$)/;
@@ -190,6 +211,121 @@ async function appFetch(request: Request, env: Env, ctx: ExecutionContext, where
   return res;
 }
 
+// ─── Second tier (OPS-332) ──────────────────────────────────────────────
+//
+// One R2 object per page and host, no version in the key: the version lives
+// inside the object, so storage stays at about one copy per page and needs no
+// clean-up. An object is one line of JSON {v, storedAt, freshFor, originCc,
+// headers}, a newline byte (0x0A), then the HTML bytes. JSON text never holds
+// a raw newline, so the first 0x0A ends the header line. A fault anywhere in
+// the tier is a miss for the visitor: the page still comes from the app.
+
+function tierOn(env: Env): boolean {
+  return env.EDGE_TIER === "r2" && !!env.MEDIA;
+}
+
+function tierKey(request: Request): string | null {
+  const url = new URL(request.url);
+  const key = `${TIER_PREFIX}${url.host}${url.pathname}`;
+  return key.length <= TIER_MAX_KEY ? key : null;
+}
+
+type TierCopy = { body: Uint8Array<ArrayBuffer>; headers: Headers; storedAt: number };
+
+function tierFault(what: string, err: unknown): void {
+  const name = logSafe(err instanceof Error ? err.name : typeof err, 40) || "none";
+  console.error(`[edge] tier ${what} failed name=${name}`);
+}
+
+async function putTier(env: Env, request: Request, res: Response, bytes: ArrayBuffer, storedAt: number, freshFor: number, originCc: string): Promise<void> {
+  const key = tierKey(request);
+  if (!key || !env.MEDIA || bytes.byteLength > TIER_MAX_BYTES) return;
+  try {
+    const headers: [string, string][] = [];
+    res.headers.forEach((value, name) => {
+      if (name.toLowerCase() !== "set-cookie") headers.push([name, value]);
+    });
+    const head = new TextEncoder().encode(JSON.stringify({ v: env.APP_VERSION, storedAt, freshFor, originCc, headers }));
+    const out = new Uint8Array(head.length + 1 + bytes.byteLength);
+    out.set(head, 0);
+    out[head.length] = 10;
+    out.set(new Uint8Array(bytes), head.length + 1);
+    await env.MEDIA.put(key, out.buffer, { httpMetadata: { contentType: "application/octet-stream" } });
+  } catch (err) {
+    tierFault("put", err);
+  }
+}
+
+/** The stored copy of this page when it is of this release and not older than KEEP_S; else undefined. */
+async function readTier(request: Request, env: Env): Promise<TierCopy | undefined> {
+  const key = tierKey(request);
+  if (!key || !env.MEDIA) return undefined;
+  try {
+    const object = await env.MEDIA.get(key);
+    if (!object) return undefined;
+    const bytes = new Uint8Array(await object.arrayBuffer());
+    const end = bytes.indexOf(10);
+    if (end < 1) return undefined;
+    const head = JSON.parse(new TextDecoder().decode(bytes.subarray(0, end))) as {
+      v?: unknown;
+      storedAt?: unknown;
+      freshFor?: unknown;
+      originCc?: unknown;
+      headers?: unknown;
+    };
+    if (head.v !== env.APP_VERSION) return undefined;
+    if (typeof head.storedAt !== "number" || typeof head.freshFor !== "number" || typeof head.originCc !== "string") return undefined;
+    if (!Array.isArray(head.headers)) return undefined;
+    const ageS = (Date.now() - head.storedAt) / 1000;
+    // Older than a day, or stamped in the future by more than a minute: not usable.
+    if (ageS > KEEP_S || ageS < -60) return undefined;
+    const headers = new Headers();
+    for (const pair of head.headers as unknown[]) {
+      if (Array.isArray(pair) && typeof pair[0] === "string" && typeof pair[1] === "string") headers.append(pair[0], pair[1]);
+    }
+    headers.set(ORIGIN_CC, head.originCc);
+    headers.set(STORED_AT, String(head.storedAt));
+    headers.set(FRESH_FOR, String(head.freshFor));
+    // The data centre keeps it only for what is left of its day.
+    headers.set("Cache-Control", `public, s-maxage=${Math.max(1, Math.floor(KEEP_S - Math.max(0, ageS)))}`);
+    return { body: bytes.subarray(end + 1), headers, storedAt: head.storedAt };
+  } catch (err) {
+    tierFault("get", err);
+    return undefined;
+  }
+}
+
+/** Puts the page into the data centre's cache and, when asked, into the shared tier. */
+async function storeCopy(
+  store: EdgeCache,
+  key: string,
+  env: Env,
+  request: Request,
+  res: Response,
+  copy: Response,
+  writeTier: boolean,
+  storedAt: number,
+  freshFor: number,
+  originCc: string,
+): Promise<void> {
+  if (!writeTier) {
+    await store.put(key, copy).catch((err) => console.error("[edge] put failed", err));
+    return;
+  }
+  let bytes: ArrayBuffer;
+  try {
+    bytes = await copy.arrayBuffer();
+  } catch (err) {
+    console.error("[edge] put failed", err);
+    return;
+  }
+  const colo = new Response(bytes, { status: copy.status, statusText: copy.statusText, headers: copy.headers });
+  await Promise.all([
+    store.put(key, colo).catch((err) => console.error("[edge] put failed", err)),
+    putTier(env, request, res, bytes, storedAt, freshFor, originCc),
+  ]);
+}
+
 /** Asks the app and, when the page is shareable, stores a copy. */
 async function fetchAndStore(
   request: Request,
@@ -198,17 +334,21 @@ async function fetchAndStore(
   key: string,
   store: EdgeCache,
   where: "miss" | "refresh",
+  writeTier = false,
 ): Promise<{ res: Response; stored: boolean }> {
   const res = await appFetch(request, env, ctx, where);
   const maxAge = sharedMaxAge(res);
   if (maxAge === 0 || !res.body) return { res, stored: false };
   const [forClient, forCache] = res.body.tee();
+  const storedAt = Date.now();
+  const freshFor = Math.max(1, Math.min(maxAge, FRESH_MAX_S));
+  const originCc = res.headers.get("cache-control") ?? "";
   const copy = new Response(forCache, res);
-  copy.headers.set(ORIGIN_CC, res.headers.get("cache-control") ?? "");
-  copy.headers.set(STORED_AT, String(Date.now()));
-  copy.headers.set(FRESH_FOR, String(Math.max(1, Math.min(maxAge, FRESH_MAX_S))));
+  copy.headers.set(ORIGIN_CC, originCc);
+  copy.headers.set(STORED_AT, String(storedAt));
+  copy.headers.set(FRESH_FOR, String(freshFor));
   copy.headers.set("Cache-Control", `public, s-maxage=${KEEP_S}`);
-  ctx.waitUntil(store.put(key, copy).catch((err) => console.error("[edge] put failed", err)));
+  ctx.waitUntil(storeCopy(store, key, env, request, res, copy, writeTier && tierOn(env), storedAt, freshFor, originCc));
   return { res: new Response(forClient, res), stored: true };
 }
 
@@ -322,10 +462,21 @@ async function serve(request: Request, env: Env, ctx: ExecutionContext): Promise
   if (!store || !key) return appFetch(request, env, ctx, "pass");
 
   // A cache fault must never take a page down: fall through to the app.
-  const hit = await store.match(key).catch(() => undefined);
+  let hit = await store.match(key).catch(() => undefined);
+  let fromTier = false;
+  if (!hit && tierOn(env)) {
+    // No copy in this data centre: the shared tier may hold one of this release.
+    const shared = await readTier(request, env);
+    if (shared) {
+      const make = () => new Response(shared.body, { status: 200, headers: shared.headers });
+      ctx.waitUntil(store.put(key, make()).catch((err) => console.error("[edge] put failed", err)));
+      hit = make();
+      fromTier = true;
+    }
+  }
   if (!hit) {
     // The original request is passed on untouched; a clone goes to the cache path.
-    const { res, stored } = await fetchAndStore(request, env, ctx, key, store, "miss");
+    const { res, stored } = await fetchAndStore(request, env, ctx, key, store, "miss", tierOn(env));
     if (stored) res.headers.set("x-edge-cache", "MISS");
     return res;
   }
@@ -333,8 +484,10 @@ async function serve(request: Request, env: Env, ctx: ExecutionContext): Promise
   const ageS = (Date.now() - Number(hit.headers.get(STORED_AT) ?? 0)) / 1000;
   const stale = ageS > Number(hit.headers.get(FRESH_FOR) ?? 0);
   if (stale) {
+    // A refresh rewrites the shared copy only when the one it replaces is old enough.
+    const writeTier = tierOn(env) && ageS > TIER_WRITE_MIN_S;
     ctx.waitUntil(
-      fetchAndStore(request, env, ctx, key, store, "refresh")
+      fetchAndStore(request, env, ctx, key, store, "refresh", writeTier)
         .then(({ res }) => res.body?.cancel())
         .catch((err) => console.error("[edge] refresh failed", err)),
     );
@@ -344,7 +497,8 @@ async function serve(request: Request, env: Env, ctx: ExecutionContext): Promise
   out.headers.delete(ORIGIN_CC);
   out.headers.delete(STORED_AT);
   out.headers.delete(FRESH_FOR);
-  out.headers.set("x-edge-cache", stale ? "STALE" : "HIT");
+  out.headers.set(AGE, String(Math.max(0, Math.floor(ageS))));
+  out.headers.set("x-edge-cache", fromTier ? "TIER" : stale ? "STALE" : "HIT");
   return out;
 }
 

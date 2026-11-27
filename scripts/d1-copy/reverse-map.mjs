@@ -170,6 +170,20 @@ export function reverseDiffLine({ table, pgCount, d1Count, onlyD1, onlyPg, chang
 }
 
 /**
+ * One line for a row that exists only in Postgres (OPS-257): the table, the key and the creation time.
+ * The key is printed only when it is an id (a UUID or whole number); anything else, an email for example, is
+ * never printed. No other column is read. `stamp` is epoch milliseconds, or null when the table has no time.
+ */
+export function pgOnlyLine({ table, key, stampName, stamp }) {
+  const k = typeof key === "string" || typeof key === "number" || typeof key === "bigint" ? String(key) : "";
+  const shown = /^[0-9a-fA-F]{8}(-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}$/.test(k) || /^[0-9]{1,20}$/.test(k) ? k : "[key not shown]";
+  let when = "no time column";
+  if (stampName && typeof stamp === "number" && Number.isFinite(stamp)) when = `${stampName}=${new Date(stamp).toISOString()}`;
+  else if (stampName) when = `${stampName}=unreadable`;
+  return `pg only: ${table} ${shown} ${when}`;
+}
+
+/**
  * Compare two sides by primary key: each is a Map from key to the canonical line of the key columns.
  * Returns the counts of keys only in the first, only in the second, and in both with another line.
  */

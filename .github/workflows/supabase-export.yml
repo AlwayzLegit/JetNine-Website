@@ -1,0 +1,99 @@
+name: Supabase final export
+
+# The last full copy of the Supabase Postgres database before the move off Supabase (OPS-257, part of OPS-93).
+# Run by hand only, from main only. No schedule, no push or pull_request trigger, so a pull request run holds no secret.
+#
+# mode preflight (the default): checks that the R2 bucket jetnine-media is not public, dumps public, auth and storage with
+#   pg_dump 17, lists storage.objects, checks the dump, prints the D1 reverse preflight with the creation time of each row
+#   only Postgres holds. It uploads NOTHING.
+# mode export: the same, then uploads three files to jetnine-media/backups/supabase-final-[UTC date]/ and reads each back.
+#   It needs the input "confirm" typed exactly: export-supabase-final. The last log line on success:
+#   "export verified: 3 files in backups/supabase-final-[date]/".
+#
+# The backup holds personal data and password hashes and stays private (the bucket is never served: the edge Worker serves
+# only blog hero keys). The log prints names, counts, sizes and yes or no, never a row value, host or key.
+# Uses the repo's own secrets DATABASE_URL, CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID. Details: DEPLOY.md
+# "Final Supabase export (OPS-257)".
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "preflight = dump, list and check, upload nothing; export = also upload to R2 and read back (needs confirm)"
+        type: choice
+        options: [preflight, export]
+        default: preflight
+      confirm:
+        description: "Export only: type export-supabase-final"
+        type: string
+        default: ""
+
+permissions:
+  contents: read
+
+# Never beside a forward copy or a reverse copy: all read the same databases.
+concurrency:
+  group: d1-copy
+  cancel-in-progress: false
+
+jobs:
+  export:
+    name: Supabase final export (${{ github.event.inputs.mode }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Runs only from main
+        env:
+          REF: ${{ github.ref }}
+        run: |
+          if [ "$REF" != "refs/heads/main" ]; then
+            echo "refused: the final export runs only from main"
+            exit 1
+          fi
+
+      - name: Export needs the typed word
+        env:
+          MODE: ${{ github.event.inputs.mode }}
+          CONFIRM: ${{ github.event.inputs.confirm }}
+        run: |
+          if [ "$MODE" = "export" ] && [ "$CONFIRM" != "export-supabase-final" ]; then
+            echo "refused: an export needs CONFIRM set to exactly export-supabase-final"
+            exit 1
+          fi
+
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+          run_install: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Export tests
+        run: node --test scripts/supabase-export/export.test.mjs
+
+      - name: Dump, list and check (upload in mode export)
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          MODE: ${{ github.event.inputs.mode }}
+          # The typed input goes through the environment, never the command line (a process list shows argv).
+          CONFIRM: ${{ github.event.inputs.confirm }}
+        run: node scripts/supabase-export/export.mjs
+
+      # Runs in both modes, and writes nothing on either side. Rows only Postgres holds are listed with key and time,
+      # so the owner can see whether any was written after the cutover (2026-11-21 03:21Z) before the code goes.
+      - name: D1 reverse preflight with the rows only Postgres holds
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          TZ: UTC
+        run: pnpm exec tsx scripts/d1-copy/reverse.mjs --mode preflight --pg-only-times

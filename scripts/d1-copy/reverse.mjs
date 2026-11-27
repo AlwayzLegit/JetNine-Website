@@ -1,6 +1,7 @@
 // The reverse copy: production D1 back into Postgres, for the way back after the cutover (OPS-200).
 //
 //   pnpm exec tsx scripts/d1-copy/reverse.mjs                     mode preflight: read both sides, print the differences, write nothing
+//   pnpm exec tsx scripts/d1-copy/reverse.mjs --pg-only-times     preflight, and one "pg only:" line (table, key, creation time) per row only Postgres holds (OPS-257)
 //   CONFIRM=copy-d1-to-postgres pnpm exec tsx scripts/d1-copy/reverse.mjs --mode load
 //                                                                 replace the plan's Postgres tables with D1's rows (owner's yes, way back only)
 //   pnpm exec tsx scripts/d1-copy/reverse.mjs --mode rehearse     CI only: a throwaway local Postgres, a round trip, no Cloudflare
@@ -49,6 +50,7 @@ import {
   insertSql,
   pgErrorCode,
   pgJsonValue,
+  pgOnlyLine,
   quoteIdent as q,
   reverseDeleteSql,
   reverseDiffLine,
@@ -60,13 +62,15 @@ import {
 const MIGRATIONS = join(fileURLToPath(new URL(".", import.meta.url)), "../../src/db/d1/migrations");
 
 function parseArgs(argv) {
-  const a = { mode: "preflight" };
+  const a = { mode: "preflight", pgOnlyTimes: false };
   for (let i = 0; i < argv.length; i++) {
-    if (argv[i] === "--mode") a.mode = argv[++i];
+    if (argv[i] === "--pg-only-times") a.pgOnlyTimes = true;
+    else if (argv[i] === "--mode") a.mode = argv[++i];
     else if (argv[i].startsWith("--mode=")) a.mode = argv[i].slice("--mode=".length);
     else throw new Error(`unknown argument ${argv[i]}`);
   }
   if (!["preflight", "load", "rehearse"].includes(a.mode)) throw new Error(`unknown mode ${JSON.stringify(a.mode)}`);
+  if (a.pgOnlyTimes && a.mode !== "preflight") throw new Error("unknown argument --pg-only-times (preflight only)");
   return a;
 }
 
@@ -222,8 +226,9 @@ async function replicaAllowed(sql) {
 }
 
 /** Compare both sides of every table. Returns lines and the number of tables that differ. Names and counts only. */
-async function compareSides(tx, db, plan) {
+async function compareSides(tx, db, plan, { pgOnlyTimes = false } = {}) {
   const lines = [];
+  const pgOnly = [];
   let differing = 0;
   for (const t of plan) {
     const d1 = d1KeyMap(db, t);
@@ -231,12 +236,38 @@ async function compareSides(tx, db, plan) {
     const c = compareKeyMaps(d1, pg);
     if (c.onlyD1 + c.onlyPg + c.changed > 0) differing++;
     lines.push(reverseDiffLine({ table: t.name, pgCount: pg.size, d1Count: d1.size, ...c }));
+    if (pgOnlyTimes && c.onlyPg > 0) pgOnly.push(...(await pgOnlyRows(tx, t, d1)));
   }
-  return { lines, differing };
+  return { lines, differing, pgOnly };
+}
+
+/**
+ * The rows only Postgres holds, as "pg only:" lines (OPS-257): table, key and creation time (updated_at where the
+ * table has no created_at). Only those two columns are read; the key is printed only when it is an id.
+ */
+async function pgOnlyRows(tx, t, d1Map) {
+  const stampName = t.columns.some((c) => c.name === "created_at") ? "created_at" : (t.keyColumns[1] ?? null);
+  const cols = [t.pk, ...(stampName ? [stampName] : [])];
+  const pkType = t.columns.find((c) => c.name === t.pk).columnType;
+  const stampType = stampName ? t.columns.find((c) => c.name === stampName).columnType : null;
+  const res = await tx.unsafe(`select ${cols.map(q).join(", ")} from public.${q(t.name)}`);
+  const lines = [];
+  for (const row of res) {
+    const key = mapValue(pkType, row[t.pk]);
+    if (d1Map.has(String(key))) continue;
+    let stamp = null;
+    try {
+      stamp = stampName ? mapValue(stampType, row[stampName]) : null;
+    } catch {
+      stamp = null;
+    }
+    lines.push({ ms: typeof stamp === "number" ? stamp : Infinity, line: pgOnlyLine({ table: t.name, key, stampName, stamp }) });
+  }
+  return lines.sort((a, b) => a.ms - b.ms).map((l) => l.line);
 }
 
 /** The lines of a preflight, in order. Writes nothing. */
-async function preflight({ sql, db, plan }) {
+async function preflight({ sql, db, plan, pgOnlyTimes = false }) {
   const out = [];
   const facts = d1Facts(db, plan);
   let ok = true;
@@ -253,9 +284,13 @@ async function preflight({ sql, db, plan }) {
       const w = wp.out.get(t.name);
       if (w && w.resetToDefault.length > 0) out.push(`reset to default: ${t.name}: ${w.resetToDefault.join(", ")}`);
     }
-    const cmp = await compareSides(tx, db, plan);
+    const cmp = await compareSides(tx, db, plan, { pgOnlyTimes });
     out.push(...cmp.lines);
     out.push(`${plan.length} tables, ${cmp.differing} with a difference`);
+    if (pgOnlyTimes) {
+      out.push(...cmp.pgOnly);
+      out.push(`pg only rows: ${cmp.pgOnly.length}`);
+    }
     // Bans: counts only, and the note that they are not written back.
     const bannedD1 = Number(db.prepare("select count(*) as c from users where banned_until > ?").get(Date.now()).c);
     const [{ c: bannedAuth }] = await tx.unsafe("select count(*)::int as c from auth.users where banned_until > now()");
@@ -399,6 +434,14 @@ async function rehearse({ sql }) {
     const pre = await preflight({ sql, db, plan });
     const diffOf = (table) => pre.out.find((l) => l.startsWith("DIFF") && l.split(/\s+/)[1] === table) ?? "";
     check(pre.ok, "preflight finds nothing to refuse");
+    // --pg-only-times (OPS-257): the deleted post is listed with its key and creation time, nothing else.
+    const timed = await preflight({ sql, db, plan, pgOnlyTimes: true });
+    const pgOnlyLines = timed.out.filter((l) => l.startsWith("pg only: "));
+    check(
+      pgOnlyLines.length === 1 && /^pg only: blog_posts 00000000-0000-4000-8000-000000000060 created_at=\d{4}-\d{2}-\d{2}T[\d:.]+Z$/.test(pgOnlyLines[0]),
+      "preflight --pg-only-times: one line for the deleted post, key and creation time only",
+    );
+    check(timed.out.includes("pg only rows: 1"), "preflight --pg-only-times: the count of such rows");
     check(/only in d1=1 /.test(diffOf("users")), "preflight: the new user is only in D1");
     check(/changed=1$/.test(diffOf("quotes")), "preflight: the changed quote is a change");
     check(/only in postgres=1 /.test(diffOf("blog_posts")), "preflight: the deleted post is only in Postgres");
@@ -499,7 +542,7 @@ async function main() {
     if (args.mode === "load") assertReverseLoad({ confirm: process.env.CONFIRM, ...facts });
     sql = connect(process.env.DATABASE_URL);
     if (args.mode === "preflight") {
-      const { out, ok } = await preflight({ sql, db, plan });
+      const { out, ok } = await preflight({ sql, db, plan, pgOnlyTimes: args.pgOnlyTimes });
       for (const l of out) console.log(l);
       console.log("preflight only: nothing written");
       if (!ok) process.exitCode = 1;

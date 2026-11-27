@@ -13,6 +13,7 @@ import {
   insertSql,
   pgErrorCode,
   pgJsonValue,
+  pgOnlyLine,
   quoteIdent,
   reverseDeleteSql,
   reverseDiffLine,
@@ -230,4 +231,25 @@ test("preflight without the Cloudflare variables stops before any call", () => {
   const r = runReverse([], { DATABASE_URL: "postgresql://x:y@db.invalid:5432/z" });
   assert.equal(r.status, 1);
   assert.match(r.stderr, /CLOUDFLARE_API_TOKEN is not set/);
+});
+
+test("pgOnlyLine prints the table, an id key and the time, and nothing else (OPS-257)", () => {
+  const uuid = "00000000-0000-4000-8000-000000000060";
+  assert.equal(
+    pgOnlyLine({ table: "quotes", key: uuid, stampName: "created_at", stamp: Date.UTC(2026, 10, 21, 3, 30, 0) }),
+    `pg only: quotes ${uuid} created_at=2026-11-21T03:30:00.000Z`,
+  );
+  assert.equal(pgOnlyLine({ table: "audit_log", key: 12, stampName: "created_at", stamp: 0 }), "pg only: audit_log 12 created_at=1970-01-01T00:00:00.000Z");
+  assert.equal(pgOnlyLine({ table: "audit_log", key: "9007199254740993", stampName: "updated_at", stamp: 1 }), "pg only: audit_log 9007199254740993 updated_at=1970-01-01T00:00:00.001Z");
+});
+
+test("pgOnlyLine hides a key that is not an id and says when a time is missing (OPS-257)", () => {
+  for (const key of ["someone@example.com", "Jane Doe", "", null, undefined, {}, "12 OR 1=1"]) {
+    const line = pgOnlyLine({ table: "t", key, stampName: "created_at", stamp: 5 });
+    assert.match(line, /^pg only: t \[key not shown\] created_at=/);
+    assert.doesNotMatch(line, /example|Jane|OR 1/);
+  }
+  assert.equal(pgOnlyLine({ table: "t", key: 1, stampName: null, stamp: null }), "pg only: t 1 no time column");
+  assert.equal(pgOnlyLine({ table: "t", key: 1, stampName: "created_at", stamp: null }), "pg only: t 1 created_at=unreadable");
+  assert.equal(pgOnlyLine({ table: "t", key: 1, stampName: "created_at", stamp: Number.NaN }), "pg only: t 1 created_at=unreadable");
 });

@@ -161,6 +161,11 @@ jobs:
           node --test scripts/d1-copy/map.test.mjs scripts/d1-copy/reverse-map.test.mjs
           pnpm exec tsx --test scripts/d1-copy/tables.test.ts
 
+      # The final Supabase export (OPS-257): the public-bucket guard, the session port swap, the three read-backs,
+      # run against fakes. Needs no network, no Docker and no secret.
+      - name: Supabase export tests
+        run: node --test scripts/supabase-export/export.test.mjs
+
       # Every store test of the D1 move in one step (OPS-170): scripts/ci/store-tests.mjs finds the
       # files by name (store.test.ts, store-d1.test.ts, *-store.test.ts, *-store-d1.test.ts, the
       # src/lib/*-d1.test.ts files and the reports period test), prints the list and the count, and fails

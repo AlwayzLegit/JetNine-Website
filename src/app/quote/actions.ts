@@ -23,6 +23,8 @@ import {
 } from "@/lib/email";
 import { getReplyPromiseMinutes, recipientsFor } from "@/lib/desk-settings";
 import { clientIpFrom } from "@/lib/client-ip";
+import { afterResponse, scoreFor, sendLeadPointer } from "@/lib/leads/pointer";
+import { reportNotStored } from "@/lib/leads/not-stored";
 
 export type SubmitResult =
   | { ok: true; ref: string; id: string; statusUrl: string; deduped?: true }
@@ -167,6 +169,8 @@ export async function submitQuote(draft: QuoteDraft, turnstileToken?: string | n
   // applies the moment an owner changes it.
   const replyPromiseMinutes = await getReplyPromiseMinutes();
   const receivedAt = new Date();
+  // OPS-373: set once the quote row is stored, so only a quote that was not stored is reported as such.
+  let stored = false;
 
   try {
     // The store makes the code, the quote, any airport the picker has and the
@@ -264,6 +268,7 @@ export async function submitQuote(draft: QuoteDraft, turnstileToken?: string | n
       airports: airportRows,
       year: codeYear(),
     });
+    stored = true;
 
     await logAudit({
       actorUserId: user?.id ?? null,
@@ -292,6 +297,21 @@ export async function submitQuote(draft: QuoteDraft, turnstileToken?: string | n
     if (isSmoke) {
       return { ok: true, ref: inserted.quoteCode, id: inserted.id, statusUrl: statusPath(statusToken) };
     }
+
+    // OPS-373: one pointer to the Crew's Leads board, after the row is stored. It carries no name,
+    // phone, email or message, never blocks the answer, and a failed send is counted in lead_desk.
+    await afterResponse(
+      sendLeadPointer({
+        subjectType: "quote",
+        subjectId: inserted.id,
+        source: "Quote",
+        kind: `quote ${draft.tripType}`,
+        receivedAt,
+        replyDue: values.slaDeadlineAt ?? null,
+        score: scoreFor(draft.legs[0]?.date, receivedAt),
+        adminPath: `/admin/requests/${inserted.id}`,
+      }),
+    );
 
     // Fire-and-forget delivery — never block the user's submit response on
     // SMTP being awake. The email layer no-ops gracefully without an API key.
@@ -393,6 +413,25 @@ export async function submitQuote(draft: QuoteDraft, turnstileToken?: string | n
       }
     }
     console.error("submitQuote failed", err);
+    // OPS-373: a quote that was not stored still reaches the desk, by email, and the board by pointer.
+    if (!stored && !isSmoke && !(err instanceof DuplicateIdempotencyKey)) {
+      await reportNotStored({
+        subjectType: "quote",
+        source: "Quote",
+        what: "a quote request",
+        kind: `quote ${draft.tripType}`,
+        fields: [
+          `Name: ${draft.firstName} ${draft.lastName}`,
+          `Email: ${draft.email}`,
+          `Phone: ${draft.phone}`,
+          `Passengers: ${draft.pax}`,
+          ...draft.legs.map((l, i) => `Leg ${i + 1}: ${l.fromIata ?? "?"} to ${l.toIata ?? "?"} on ${l.date ?? "no date"}`),
+          draft.notes ? `Notes: ${draft.notes}` : "",
+        ],
+        receivedAt,
+        replyDue: new Date(receivedAt.getTime() + replyPromiseMinutes * 60_000),
+      });
+    }
     return { ok: false, error: "DB_INSERT_FAILED" };
   }
 }

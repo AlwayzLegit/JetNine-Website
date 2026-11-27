@@ -30,6 +30,9 @@ const D1_AHEAD = new Set([
   // OPS-242: the site chat's daily counters. D1 only by design (production reads D1 since the
   // cutover, OPS-206), so there is no Postgres table to compare.
   "chatDaily",
+  // OPS-373: one pointer row per lead sent to the Crew's Leads board. D1 only by design (production reads D1
+  // since the cutover, OPS-206), so there is no Postgres table to compare.
+  "leadDesk",
   // OPS-129: the phone line's call log. On Postgres these four tables are created by raw SQL only
   // (migration 0038_voice_agent.sql) and written by the voice Worker; they are in no Drizzle
   // schema, so there is no twin to compare. This set is the only exception: every other D1 table

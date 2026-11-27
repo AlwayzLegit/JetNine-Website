@@ -16,6 +16,7 @@ import { judgeD1 } from "@/lib/health-db";
 import { d1Db } from "@/db/d1";
 import { crewAiStatus } from "@/lib/chat/crew-ai";
 import { handoffs7d } from "@/lib/chat/stats";
+import { leadHealth } from "@/lib/leads/pointer";
 
 export type CheckResult = { ok: boolean } & Record<string, unknown>;
 
@@ -37,6 +38,8 @@ export type HealthSnapshot = {
     ai: CheckResult;
     /** The site chat (OPS-242). Always ok: true, so chat off or crew-ai down never degrades the site or shows in `failing`. */
     chat: CheckResult;
+    /** Lead pointers (OPS-373). Counts only. Always ok: true, so it never degrades the site or shows in `failing`. */
+    leads: CheckResult;
   };
   timestamp: string;
 };
@@ -254,12 +257,27 @@ export async function checkChat(): Promise<CheckResult> {
   };
 }
 
+/**
+ * Lead pointers (OPS-373): when the last lead was stored and how many stores and pointers failed in
+ * the last 24 hours, from lead_desk. Counts only. Always ok, never in `failing`; null counts when
+ * the table is not there yet or D1 is down.
+ */
+export async function checkLeads(): Promise<CheckResult> {
+  const h = await leadHealth();
+  return {
+    ok: true,
+    lastStoredAt: h?.lastStoredAt ?? null,
+    failedStores24h: h?.failedStores24h ?? null,
+    failedPointers24h: h?.failedPointers24h ?? null,
+  };
+}
+
 export async function snapshot(): Promise<HealthSnapshot> {
   const env = deployEnv();
   const region = deployRegion();
   const sha = commitSha().slice(0, 12) || "unknown";
 
-  const [db, signin, stripe, email, twilio, sentry, posthog, chat] = await Promise.all([
+  const [db, signin, stripe, email, twilio, sentry, posthog, chat, leads] = await Promise.all([
     checkDb(),
     checkSignin(),
     Promise.resolve(checkStripe()),
@@ -268,9 +286,10 @@ export async function snapshot(): Promise<HealthSnapshot> {
     Promise.resolve(checkSentry()),
     Promise.resolve(checkPosthog()),
     checkChat(),
+    checkLeads(),
   ]);
 
-  const checks = { db, signin, site: checkSite(), stripe, email, twilio, sentry, posthog, ai: checkAi(), chat };
+  const checks = { db, signin, site: checkSite(), stripe, email, twilio, sentry, posthog, ai: checkAi(), chat, leads };
   const ok = db.ok;
   const allOptionalsConfigured =
     Boolean(stripe.configured) &&

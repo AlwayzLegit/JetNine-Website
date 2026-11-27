@@ -28,3 +28,4 @@ export * from "./sessions";
 export * from "./rate-limits";
 export * from "./voice-calls";
 export * from "./chat";
+export * from "./lead-desk";

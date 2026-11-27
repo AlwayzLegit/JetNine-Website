@@ -13,6 +13,7 @@ import type { ThreadChannel } from "@/lib/message-delivery";
 import { isSourcingEligible, normalizeCategory } from "@/lib/operator-eligibility";
 import { isE164, toE164 } from "@/lib/phone";
 import { statusUrl } from "@/lib/request-status";
+import { afterResponse, markLeadReplied } from "@/lib/leads/pointer";
 import { auditFields, type Actor } from "@/domain/actor";
 import { isUuid } from "@/domain/common";
 import { HoldTaken, requestStore, type ConvertResult, type RequestOperatorRow } from "./store";
@@ -114,7 +115,11 @@ export async function setRequestStatus(
 ): Promise<Result<{ id: string; status: RequestStatus }>> {
   const { quote } = state;
 
-  await requestStore().setStatus(quote.id, input.status, respondedAtPatch(input.status));
+  const respondedAt = respondedAtPatch(input.status);
+  await requestStore().setStatus(quote.id, input.status, respondedAt);
+  // OPS-373: the first reply of a quote (options sent, or an aircraft held) is told to the Leads board.
+  // It never fails the status change, and it is sent once per change of status.
+  if (respondedAt && quote.status !== input.status) await afterResponse(markLeadReplied(quote.id, respondedAt));
 
   const a = auditFields(actor);
   await logAudit({

@@ -5,6 +5,7 @@ import { passengersWords, replyDueLine, requestStage, tripState } from "@/lib/de
 import { sendDispatchAlert } from "@/lib/email";
 import { formatClock, relativeTime } from "@/lib/request-page";
 import { reportStore } from "@/domain/reports/store";
+import { contactSlaDb, waitingContactEnquiries } from "@/lib/leads/contact-sla";
 
 // Morning summary — one email at 7 AM Los Angeles (wrangler.jsonc cron "0 14,15 * * *"
 // UTC, the route keeps the 7 AM one) to the staff who turned on "Morning summary" in Settings ›
@@ -99,6 +100,22 @@ export async function GET(request: Request): Promise<NextResponse> {
         `${r.client_name ?? "A client"} · ${route} · ${passengersWords(r.pax_count)} · received ${relativeTime(new Date(r.received_at), now).toLowerCase()} · ${due ? due.text : requestStage(r.status).label}.`,
       );
     }
+  }
+
+  // OPS-373: contact enquiries had only new and handled; the ones still waiting are now listed too.
+  try {
+    const leadDb = contactSlaDb();
+    if (leadDb) {
+      const waiting = await waitingContactEnquiries(leadDb);
+      if (waiting.count > 0) {
+        lines.push("");
+        lines.push(
+          `Contact enquiries waiting: ${waiting.count}${waiting.oldestAt ? ` (oldest ${relativeTime(waiting.oldestAt, now).toLowerCase()})` : ""}.`,
+        );
+      }
+    }
+  } catch {
+    // The summary goes out without the line when the table is not there yet.
   }
 
   const result = await sendDispatchAlert({

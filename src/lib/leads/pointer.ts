@@ -7,7 +7,7 @@
 // Standard: transactional outbox with at-least-once delivery. The row is stored first, the pointer
 // is sent after, and every failed send is counted so health shows it.
 import { getCloudflareContext } from "@opennextjs/cloudflare";
-import { and, count, eq, gte, max } from "drizzle-orm";
+import { and, count, eq, gte, inArray, max } from "drizzle-orm";
 import type { DrizzleD1Database } from "drizzle-orm/d1";
 import { d1Db } from "@/db";
 import { leadDesk } from "@/db/d1/schema/lead-desk";
@@ -140,7 +140,7 @@ export type LeadHealth = { lastStoredAt: string | null; failedStores24h: number;
 /** Counts only, from lead_desk. Never a subject id, never a name. */
 export async function leadHealthWith(db: DrizzleD1Database, now: Date): Promise<LeadHealth> {
   const since = new Date(now.getTime() - 24 * 3_600_000);
-  const [last] = await db.select({ at: max(leadDesk.createdAt) }).from(leadDesk).where(eq(leadDesk.pointer, "sent"));
+  const [last] = await db.select({ at: max(leadDesk.createdAt) }).from(leadDesk).where(inArray(leadDesk.pointer, ["sent", "failed"]));
   const [stores] = await db
     .select({ n: count() })
     .from(leadDesk)

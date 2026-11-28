@@ -4,7 +4,8 @@
 //
 // If email runs in logger mode (no provider key) or fails, the alert did not reach anyone: that is
 // counted as a failed alert and the board row is marked Missed with the reason Alert failed.
-import { sendDispatchAlert } from "@/lib/email";
+import { auditDeskAlert } from "@/lib/desk-alert-audit";
+import { sendDispatchAlert, type SendResult } from "@/lib/email";
 import {
   afterResponse,
   markAlertFailedWith,
@@ -31,9 +32,11 @@ export async function reportNotStoredWith(
   deps: PointerDeps,
   alert: typeof sendDispatchAlert,
   args: NotStoredArgs,
+  audit: typeof auditDeskAlert = auditDeskAlert,
 ): Promise<{ alertOk: boolean; pageId: string | null }> {
   const subjectId = `ns-${crypto.randomUUID()}`;
   let alertOk = false;
+  let outcome: SendResult | PromiseRejectedResult;
   try {
     const r = await alert({
       subject: `Not stored: ${args.what}`,
@@ -44,9 +47,20 @@ export async function reportNotStoredWith(
       ],
     });
     alertOk = r.ok && r.provider !== "logger";
-  } catch {
+    outcome = r;
+  } catch (reason) {
     alertOk = false;
+    outcome = { status: "rejected", reason };
   }
+  // The delivery report (desk-alerts.yml) counts every "*.notify.email" row. No subject id: the
+  // not-stored id is not a uuid, and there is no stored row to point at. Metadata is status and counts only.
+  await audit({
+    action: "lead_not_stored.notify.email",
+    subjectType: "system",
+    result: outcome,
+    staffRecipients: 0,
+    extra: { leadType: args.subjectType, alertReached: alertOk },
+  });
   const pageId = await sendPointerWith(deps, {
     subjectType: args.subjectType,
     subjectId,

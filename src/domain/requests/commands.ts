@@ -460,11 +460,15 @@ export async function sendRequestOptions(
 
   // Flip the sent options and advance the request (never regress a later state: the move
   // to options_sent carries its status condition in the WHERE).
+  const sentAt = new Date();
   await requestStore().markOptionsSent(
     quote.id,
     sendable.map((o) => o.id),
-    new Date(),
+    sentAt,
   );
+  // OPS-373: the options reply is a first reply too. Only the first one is told to the Leads board
+  // (a quote already at options_sent or held has had its reply). Never fails the send.
+  if (quote.status !== "options_sent" && quote.status !== "held") await afterResponse(markLeadReplied(quote.id, sentAt));
 
   const a = auditFields(actor);
   await logAudit({

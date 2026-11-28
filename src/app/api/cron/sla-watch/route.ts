@@ -4,6 +4,7 @@ import { requestStore } from "@/domain/requests/store";
 import { logAudit } from "@/lib/audit";
 import { getReplyPromiseMinutes, recipientsFor } from "@/lib/desk-settings";
 import { minutesWords, replyPromiseWords, requestStage } from "@/lib/desk-status";
+import { auditDeskAlert } from "@/lib/desk-alert-audit";
 import { sendDispatchAlert } from "@/lib/email";
 import { claimContactOverdue, contactSlaDb } from "@/lib/leads/contact-sla";
 
@@ -173,6 +174,13 @@ export async function GET(request: Request): Promise<NextResponse> {
             `They were told they'd hear back ${replyPromiseWords(promiseMinutes)} — reply now, even with a short holding note.`,
           ],
           link: { label: "Open the messages", url: `${base}/admin/messages` },
+        });
+        await auditDeskAlert({
+          action: "contact_inquiry.sla.notify.email",
+          subjectType: "contact_inquiry",
+          subjectId: c.inquiryId,
+          result,
+          staffRecipients: 0,
         });
         if (result.ok) contactAlerted += 1;
         else contactFailed += 1;

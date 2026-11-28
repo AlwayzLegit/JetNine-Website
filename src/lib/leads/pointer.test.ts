@@ -139,7 +139,8 @@ test("a binding that throws, refuses or is missing does not throw and counts one
   const h = await leadHealthWith(client, new Date());
   assert.equal(h.failedPointers24h, 3);
   assert.equal(h.failedStores24h, 0);
-  assert.equal(h.lastStoredAt, null);
+  // The three leads were stored; only their pointers failed, so the last stored time is set (review finding).
+  assert.ok(h.lastStoredAt);
 });
 
 test("a pointer is sent and counted even when the lead_desk table cannot be written", async () => {
@@ -165,6 +166,17 @@ test("health counts: last stored, failed stores and failed pointers in 24 hours"
   assert.equal(h.failedPointers24h, 1);
   assert.equal(h.failedStores24h, 2);
   assert.equal(h.lastStoredAt, new Date(now.getTime() - 3_600_000).toISOString());
+});
+
+test("health lastStoredAt counts a stored lead whose pointer failed, and never a Not stored one", async () => {
+  const { client } = freshD1();
+  const now = new Date();
+  const mk = (pointer: "sent" | "failed" | "not_stored", createdAt: Date, id: string) =>
+    client.insert(leadDesk).values({ subjectType: "quote", subjectId: id, source: "Quote", receivedAt: createdAt, pointer, createdAt });
+  const failedAt = new Date(now.getTime() - 2 * 3_600_000);
+  await mk("failed", failedAt, "f-1");
+  await mk("not_stored", new Date(now.getTime() - 3_600_000), "n-1");
+  assert.equal((await leadHealthWith(client, now)).lastStoredAt, failedAt.toISOString());
 });
 
 test("the first reply is told to the board as Replied with a time, and a failure is swallowed", async () => {
@@ -196,8 +208,15 @@ test("not stored: the desk gets the alert with the visitor's fields, the board g
     alerts.push(a);
     return { ok: true, provider: "resend" };
   }) as never;
-  const r = await reportNotStoredWith(deps(b, client), alert, notStoredArgs);
+  const audits: Record<string, unknown>[] = [];
+  const audit = (async (a: Record<string, unknown>) => { audits.push(a); }) as never;
+  const r = await reportNotStoredWith(deps(b, client), alert, notStoredArgs, audit);
   assert.equal(r.alertOk, true);
+  // The delivery report sees it: one "*.notify.email" audit row, no subject id, no visitor text.
+  assert.equal(audits.length, 1);
+  assert.match(String(audits[0].action), /\.notify\.email$/);
+  assert.equal(audits[0].subjectId, undefined);
+  assert.ok(!JSON.stringify(audits[0]).includes("visitor@example.test"));
   assert.equal(alerts.length, 1);
   assert.ok(alerts[0].lines.some((l) => l.includes("visitor@example.test")));
   assert.equal(alerts[0].subject, "Not stored: a contact enquiry");
@@ -217,15 +236,22 @@ test("not stored: email in logger mode or a failed send counts as a failed alert
     const { client } = freshD1();
     const { b, updated } = binding();
     const alert = (async () => result) as never;
-    const r = await reportNotStoredWith(deps(b, client), alert, notStoredArgs);
+    const audits: Record<string, unknown>[] = [];
+    const audit = (async (a: Record<string, unknown>) => { audits.push(a); }) as never;
+    const r = await reportNotStoredWith(deps(b, client), alert, notStoredArgs, audit);
     assert.equal(r.alertOk, false);
+    assert.equal(audits.length, 1, "a failed or logger-only alert is still audited");
     assert.equal(updated.length, 1);
     assert.equal((updated[0] as Record<string, unknown>).missedReason, "Alert failed");
   }
   const { client } = freshD1();
   const { b, updated } = binding();
   const throwing = (async () => { throw new Error("smtp"); }) as never;
-  assert.equal((await reportNotStoredWith(deps(b, client), throwing, notStoredArgs)).alertOk, false);
+  const thrownAudits: Record<string, unknown>[] = [];
+  const thrownAudit = (async (a: Record<string, unknown>) => { thrownAudits.push(a); }) as never;
+  assert.equal((await reportNotStoredWith(deps(b, client), throwing, notStoredArgs, thrownAudit)).alertOk, false);
+  assert.equal(thrownAudits.length, 1);
+  assert.equal((thrownAudits[0].result as { status: string }).status, "rejected");
   assert.equal(updated.length, 1);
 });
 

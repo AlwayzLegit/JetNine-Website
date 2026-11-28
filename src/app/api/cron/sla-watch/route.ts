@@ -4,7 +4,9 @@ import { requestStore } from "@/domain/requests/store";
 import { logAudit } from "@/lib/audit";
 import { getReplyPromiseMinutes, recipientsFor } from "@/lib/desk-settings";
 import { minutesWords, replyPromiseWords, requestStage } from "@/lib/desk-status";
+import { auditDeskAlert } from "@/lib/desk-alert-audit";
 import { sendDispatchAlert } from "@/lib/email";
+import { claimContactOverdue, contactSlaDb } from "@/lib/leads/contact-sla";
 
 // SLA watch — the site promises options within the reply-time promise
 // (Settings › Notifications, default 30 minutes) and `sla_deadline_at` is
@@ -149,8 +151,50 @@ export async function GET(request: Request): Promise<NextResponse> {
     }
   }
 
+  // ── Pass 3: contact enquiries (OPS-373) ───────────────────────────────
+  // A contact enquiry has the same reply promise as a quote. Its deadline is the lead_desk row's
+  // reply_due_at; one page to the shared desk inbox when it has passed and the enquiry is still new.
+  // Claim first, send second, as in pass 1. No D1 binding, or no table yet: the pass does nothing.
+  let contactBreached = 0;
+  let contactAlerted = 0;
+  let contactFailed = 0;
+  try {
+    const leadDb = contactSlaDb();
+    if (leadDb) {
+      const overdue = await claimContactOverdue(leadDb, now, MAX_ALERTS_PER_RUN);
+      contactBreached = overdue.length;
+      for (const c of overdue) {
+        const overdueMin = Math.max(0, Math.round((now.getTime() - c.replyDueAt.getTime()) / 60_000));
+        const waitedMin = Math.round((now.getTime() - c.receivedAt.getTime()) / 60_000);
+        const result = await sendDispatchAlert({
+          subject: `[Contact] Reply overdue by ${minutesWords(overdueMin)}`,
+          headline: `A contact enquiry is past the reply promise — reply overdue by ${minutesWords(overdueMin)}.`,
+          lines: [
+            `The visitor has been waiting ${minutesWords(waitedMin)}.`,
+            `They were told they'd hear back ${replyPromiseWords(promiseMinutes)} — reply now, even with a short holding note.`,
+          ],
+          link: { label: "Open the messages", url: `${base}/admin/messages` },
+        });
+        await auditDeskAlert({
+          action: "contact_inquiry.sla.notify.email",
+          subjectType: "contact_inquiry",
+          subjectId: c.inquiryId,
+          result,
+          staffRecipients: 0,
+        });
+        if (result.ok) contactAlerted += 1;
+        else contactFailed += 1;
+      }
+    }
+  } catch (err) {
+    console.error("sla-watch contact pass failed", { name: err instanceof Error ? err.name : "unknown" });
+  }
+
   return NextResponse.json({
     ok: true,
+    contactBreached,
+    contactAlerted,
+    contactFailed,
     breached: claimed.length,
     alerted: sent,
     failed,

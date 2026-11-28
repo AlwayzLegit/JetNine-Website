@@ -398,6 +398,29 @@ jobs:
           grep -E "^(chat evals:|Staging needs)" chat-evals.log >> "$GITHUB_STEP_SUMMARY"
           exit "$CODE"
 
+  # The lead pointer self test (OPS-373), staging only: asks the app to send one rehearsal pointer
+  # to the Crew's Leads board through the LEADS binding and prints one line,
+  # "lead pointer selftest: ok page <id>" or "lead pointer selftest: failed <reason>".
+  # It informs and does not gate (continue-on-error) until the owner has given the Crew intake
+  # integration access to the Leads board (OPS-405); a follow-up removes that line then.
+  lead-pointer-selftest:
+    needs: [deploy, warm]
+    if: needs.deploy.outputs.environment == 'staging'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 3
+    continue-on-error: true
+    steps:
+      - name: Send one rehearsal pointer
+        run: |
+          res=$(curl -s -m 40 -X POST -w '\n%{http_code}' "${{ needs.deploy.outputs.url }}/api/cron/lead-pointer-selftest" || true)
+          status=$(echo "$res" | tail -1); body=$(echo "$res" | head -n -1)
+          if [ "$status" = 200 ] && [ "$(echo "$body" | jq -r '.ok' 2>/dev/null)" = true ]; then
+            echo "lead pointer selftest: ok page $(echo "$body" | jq -r '.pageId')"
+          else
+            echo "lead pointer selftest: failed $(echo "$body" | jq -r '.reason // "no answer"' 2>/dev/null) (status ${status:-none})"
+            exit 1
+          fi
+
   smoke:
     needs: [deploy, warm]
     uses: ./.github/workflows/smoke-after-deploy.yml

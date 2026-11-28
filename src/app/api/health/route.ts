@@ -37,12 +37,29 @@ type PublicHealth = Pick<HealthSnapshot, "ok" | "status" | "env" | "timestamp"> 
    * the db check did not report a target.
    */
   db: "postgres" | "d1" | null;
+  /** Lead pointers (OPS-373): counts only, never a name or an id. null counts when not readable. */
+  leads: {
+    lastStoredAt: string | null;
+    failedStores24h: number | null;
+    failedPointers24h: number | null;
+  };
 };
 
 /** Only the two known names pass through; anything else reads as null, never as free text. */
 function dbTargetName(full: HealthSnapshot): PublicHealth["db"] {
   const target = full.checks.db?.target;
   return target === "postgres" || target === "d1" ? target : null;
+}
+
+/** Only the three counts pass through, each a number or null, the time an ISO string or null. */
+function leadCounts(full: HealthSnapshot): PublicHealth["leads"] {
+  const c = full.checks.leads;
+  const num = (v: unknown) => (typeof v === "number" && Number.isFinite(v) ? v : null);
+  return {
+    lastStoredAt: typeof c?.lastStoredAt === "string" ? c.lastStoredAt : null,
+    failedStores24h: num(c?.failedStores24h),
+    failedPointers24h: num(c?.failedPointers24h),
+  };
 }
 
 function fullViewAllowed(req: Request): boolean {
@@ -62,6 +79,7 @@ function publicView(full: HealthSnapshot): PublicHealth {
       .filter(([, check]) => check.ok === false)
       .map(([name]) => name),
     db: dbTargetName(full),
+    leads: leadCounts(full),
     timestamp: full.timestamp,
   };
 }

@@ -97,7 +97,7 @@ jobs:
       # Business rules that Postgres triggers used to run, now in the app (OPS-102):
       # the aircraft schedule block, the member tier and the role lock.
       - name: Trigger-logic tests
-        run: pnpm exec tsx --test src/domain/trips/schedule-block.test.ts src/domain/memberships/tier.test.ts src/lib/role-lock.test.ts src/lib/desk-alert-audit.test.ts
+        run: pnpm exec tsx --test src/domain/trips/schedule-block.test.ts src/domain/memberships/tier.test.ts src/lib/role-lock.test.ts src/lib/desk-alert-audit.test.ts src/lib/leads/pointer.test.ts
 
       # The Supabase Auth probe behind /api/health's "auth" check (OPS-90).
       - name: Auth probe tests

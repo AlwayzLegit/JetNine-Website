@@ -71,7 +71,10 @@
   "services": [
     { "binding": "WORKER_SELF_REFERENCE", "service": "jetnine-web" },
     // The Crew's shared AI Worker (OPS-242): the site chat calls it, the key and the daily budget live there.
-    { "binding": "CREW_AI", "service": "crew-ai", "entrypoint": "JetNineChat" }
+    { "binding": "CREW_AI", "service": "crew-ai", "entrypoint": "JetNineChat" },
+    // The Crew's shared intake Worker (OPS-373): after a quote or a contact enquiry is stored the site
+    // sends one pointer (no name, phone, email or message) to the Leads board. No key is held here.
+    { "binding": "LEADS", "service": "crew-intake", "entrypoint": "JetNineIntake" }
   ],
 
   "env": {
@@ -87,7 +90,9 @@
         // Which database the data layer uses here: "postgres" or "d1". Staging
         // is "d1" since the blog store was converted (OPS-109); set it back to
         // "postgres" and redeploy staging to undo. Production never reads it as d1.
-        "DB_TARGET": "d1"
+        "DB_TARGET": "d1",
+        // OPS-373: every pointer sent from staging is marked as a rehearsal on the Leads board.
+        "LEADS_REHEARSAL": "1"
       },
       "triggers": { "crons": [] },
       "hyperdrive": [{ "binding": "HYPERDRIVE", "id": "05bdaa66695d43c08fc02b22e39bca77" }],
@@ -116,7 +121,8 @@
       },
       "services": [
         { "binding": "WORKER_SELF_REFERENCE", "service": "jetnine-web-staging" },
-        { "binding": "CREW_AI", "service": "crew-ai", "entrypoint": "JetNineStagingChat" }
+        { "binding": "CREW_AI", "service": "crew-ai", "entrypoint": "JetNineStagingChat" },
+        { "binding": "LEADS", "service": "crew-intake", "entrypoint": "JetNineIntake" }
       ]
     }
   }

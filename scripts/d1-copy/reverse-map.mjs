@@ -16,6 +16,7 @@ export const CONFIRM_REVERSE = "copy-d1-to-postgres";
 export const REVERSE_SKIP = {
   request_rate_limits: "short-lived rate-limit counters, never copied",
   chat_daily: "D1 only (OPS-242): the site chat's daily counters, no Postgres table",
+  lead_desk: "D1 only (OPS-373): one pointer row per lead sent to the Crew's Leads board, no Postgres table",
 };
 
 /** Rows per statement: one jsonb parameter holds a batch. */

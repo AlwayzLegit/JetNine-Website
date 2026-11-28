@@ -16,6 +16,8 @@ import { getReplyPromiseMinutes, recipientsFor } from "@/lib/desk-settings";
 import { DESK_ALERT_KIND } from "@/lib/desk-alert-recipients.mjs";
 import { replyPromiseWords } from "@/lib/desk-status";
 import { clientIpFrom } from "@/lib/client-ip";
+import { afterResponse, sendLeadPointer } from "@/lib/leads/pointer";
+import { reportNotStored } from "@/lib/leads/not-stored";
 import { passesTurnstile, TURNSTILE_FAILED, TURNSTILE_FIELD } from "@/lib/turnstile";
 
 export type ContactResult =
@@ -135,12 +137,34 @@ export async function submitContactInquiry(formData: FormData): Promise<ContactR
     status: isSmoke ? "handled" : "new",
   };
 
+  const receivedAt = new Date();
   let insertedId: string;
   try {
     const row = await inquiryStore().insertInquiry(values);
     insertedId = row.id;
   } catch (err) {
     console.error("submitContactInquiry failed", err);
+    // OPS-373: an enquiry that was not stored still reaches the desk, by email, and the board by pointer.
+    if (!isSmoke) {
+      await reportNotStored({
+        subjectType: "contact",
+        source: "Contact",
+        what: "a contact enquiry",
+        kind: `contact ${reason}`,
+        fields: [
+          `Name: ${firstName} ${lastName}`,
+          `Email: ${email}`,
+          `Phone: ${mobile || "none"}`,
+          `From: ${fromText || "none"}`,
+          `To: ${toText || "none"}`,
+          `Date: ${dateText || "none"}`,
+          `Passengers: ${paxText || "none"}`,
+          notes ? `Notes: ${notes}` : "",
+        ],
+        receivedAt,
+        replyDue: new Date(receivedAt.getTime() + (await getReplyPromiseMinutes()) * 60_000),
+      });
+    }
     return { ok: false, error: "DB_INSERT_FAILED" };
   }
 
@@ -160,6 +184,23 @@ export async function submitContactInquiry(formData: FormData): Promise<ContactR
   });
 
   revalidatePath("/admin/messages");
+
+  // OPS-373: one pointer to the Crew's Leads board, with the same reply promise as a quote. It carries
+  // no name, phone, email or message and never blocks the answer. Smoke traffic sends none.
+  if (!isSmoke) {
+    await afterResponse(
+      sendLeadPointer({
+        subjectType: "contact",
+        subjectId: insertedId,
+        source: "Contact",
+        kind: `contact ${reason}`,
+        receivedAt,
+        replyDue: new Date(receivedAt.getTime() + (await getReplyPromiseMinutes()) * 60_000),
+        score: "Warm",
+        adminPath: "/admin/messages",
+      }),
+    );
+  }
 
   if (isSmoke) {
     return { ok: true, message: `Sent. A dispatcher will reply ${replyPromiseWords(await getReplyPromiseMinutes())}.` };

@@ -20,6 +20,7 @@ export const HELD_BACK: Record<string, string> = {
   ai_providers: "encrypted provider keys",
   request_rate_limits: "short-lived rate-limit counters, never copied",
   chat_daily: "D1 only (OPS-242): the site chat's daily counters, no Postgres table to copy from",
+  lead_desk: "D1 only (OPS-373): one pointer row per lead sent to the Crew's Leads board, no Postgres table to copy from",
 };
 
 /**
@@ -31,6 +32,7 @@ export const HELD_BACK: Record<string, string> = {
 export const HELD_BACK_PRODUCTION: Record<string, string> = {
   request_rate_limits: "short-lived rate-limit counters, never copied",
   chat_daily: "D1 only (OPS-242): the site chat's daily counters, no Postgres table to copy from",
+  lead_desk: "D1 only (OPS-373): one pointer row per lead sent to the Crew's Leads board, no Postgres table to copy from",
 };
 
 export type CopyTarget = "staging" | "production";

@@ -9,6 +9,10 @@ name: Hydrate marketing images from HF
 # The runner downloads each URL, drops the binary at the destination
 # path, and pushes the resulting public/images/ changes back to the
 # triggering branch.
+#
+# On main the job fetches and reports only and never commits: main is
+# protected since 2026-11-28 (OPS-422), so changes reach it by pull
+# request. Images are hydrated on a crew/ branch and merged from there.
 
 on:
   push:
@@ -69,14 +73,28 @@ jobs:
           done
 
       - name: Commit fetched images
+        env:
+          IS_MAIN: ${{ github.ref == 'refs/heads/main' }}
         run: |
           set -euo pipefail
           git config user.name  "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add public/images/
+          if [ "$IS_MAIN" = "true" ]; then
+            echo "hydrate: on main, commit and push are off (main is protected)"
+            if git diff --cached --quiet; then
+              echo "No image changes to commit."
+            else
+              n=$(git diff --cached --name-only | wc -l | tr -d ' ')
+              names=$(git diff --cached --name-only | tr '\n' ' ')
+              echo "::warning::hydrate: $n image(s) were fetched but not committed: $names. Hydrate them on a crew/ branch and merge by pull request."
+            fi
+            exit 0
+          fi
           if git diff --cached --quiet; then
             echo "No image changes to commit."
             exit 0
           fi
           git commit -m "chore(assets): hydrate marketing images from HF manifest"
           git push
+          echo "::notice::The hydrate commit was pushed with GITHUB_TOKEN, so CI does not run on it. The required check lint · typecheck · build reports only after the next push to this branch."
